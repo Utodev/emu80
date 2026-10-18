@@ -1,0 +1,11 @@
+esxDOS 0.8.9 for the DivMMC, by Papaya Dezign (http://www.esxdos.org).
+
+These files come unchanged from http://www.esxdos.org/files/esxdos089.zip
+(the DivIDE and MB03+ versions and the .TAP installers are left out). They
+are the property of their authors and are included for convenience, as they
+are freely available from esxdos.org.
+
+  ESXMMC.BIN       the DivMMC firmware (8K EEPROM image) used by pzx
+  SYS/ BIN/ TMP/   the files that go on the SD card; pzx copies them onto
+                   a new card with Disk > SD card > New card with ESXDOS
+  README.TXT, ESX089.NFO, DOCS/   esxDOS documentation

@@ -77,3 +77,27 @@ __recovery/
 
 # Castalia statistics file (since XE7 Castalia is distributed with Delphi)
 *.stat
+
+# Lazarus / Free Pascal build output
+lib/
+backup/
+*.lps
+*.res
+*.ppu
+*.compiled
+pzx
+tests/build/
+build/
+
+# Settings written next to the executable
+pzx.ini
+
+#Other
+
+*.o
+*.ppu
+*.exe
+CLAUDE.md
+*.zip
+tools/*
+build/*

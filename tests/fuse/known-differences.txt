@@ -1,0 +1,8 @@
+# FUSE tests whose expected results predate the 2018 discovery of how
+# repeating (interruptible) block instructions set flags 3, 5, H, P and MEMPTR.
+# pzx follows real hardware here, as verified by raxoft z80test "->NOP'" tests.
+edb2_1
+edb3_1
+edb9_2
+edbb_1
+edba_1
