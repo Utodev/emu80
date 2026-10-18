@@ -2107,10 +2107,13 @@ var
 begin
   while FRenderLine < SCREEN_HEIGHT do
   begin
-    // T-state at which this 8-pixel cell is displayed
+    // T-state at which this 8-pixel cell is displayed. It takes its data
+    // (screen bytes, border colour) at the end of its 4 T-states, as Fuse
+    // does: a write or OUT up to then still changes it (multicolour and
+    // border effects that race the beam depend on it)
     CellT := FInfo.PaperTopT + (FRenderLine - BORDER_TOP) * FInfo.LineT - BORDER_LEFT div 2 +
       FRenderCell * 4;
-    if CellT > T then Exit;
+    if CellT + 4 > T then Exit;
     RenderCell(FRenderLine, FRenderCell);
     Inc(FRenderCell);
     if FRenderCell >= SCREEN_WIDTH div 8 then

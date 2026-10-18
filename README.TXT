@@ -3,7 +3,11 @@ pzx - ZX Spectrum emulator
 
 pzx emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, and the ZX-Uno
 (with its own BIOS and ROMs), with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
-per-T-state video, so games and demos run at their real speed.
+per-T-state video, so games and demos run at their real speed. The screen and
+the border are drawn as the beam reaches them, each 8-pixel cell taking its
+bytes and border colour at the end of its 4 T-states (as Fuse does), so
+multicolour and border effects that race the beam show as on the real
+machine.
 
 
 1. GETTING STARTED
