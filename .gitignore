@@ -99,5 +99,6 @@ pzx.ini
 *.exe
 CLAUDE.md
 *.zip
+*.ZIP
 tools/*
 build/*

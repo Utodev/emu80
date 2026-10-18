@@ -286,7 +286,8 @@ full from 2x (at 1x every other column) and in PNG screenshots at 2x.
 Tape > Tape browser (F7) lists the blocks of the tape: the current one is
 marked with * (> while playing). The toolbar buttons (hover for a hint)
 play, stop, rewind, play from the selected block (or double-click it), move
-the selected block up or down, delete it and save the tape as a new .tap.
+the selected block up or down, delete it (or press Del) and save the tape as
+a new .tap.
 At the bottom, choose fast loading or real-time loading: the
 same setting as Tape > Fast loading.
 
@@ -308,17 +309,25 @@ area). The status bar shows how much space is free.
 The toolbar buttons (hover for a hint):
   Refresh   read the directory again (it also refreshes by itself when the
             emulated +3 writes to the disk or the disk changes).
-  Import    copies a file from the PC onto the disk. A file that already
-            has a +3DOS header is copied as it is; for any other file you
-            choose its name and either a Bytes (CODE) header with its load
-            address (16384 is suggested for screens, 32768 otherwise) or no
-            header at all.
-  Export    saves the selected file to the PC (also with a double-click). If
-            it has a +3DOS header you can keep it or save only the data
-            (a .bin, a screen...).
-  Rename    gives the selected file a new name (8 characters and an
+  Import    copies files from the PC onto the disk (several can be chosen
+            at once). A file that already has a +3DOS header is copied as
+            it is; for any other file you choose its name and either a
+            Bytes (CODE) header with its load address (16384 is suggested
+            for screens, 32768 otherwise) or no header at all (the header
+            is ticked by default here). With several files, "The same for
+            the other files" applies those choices to the rest, with their
+            own names. If a file with that name is already on the disk, pzx
+            asks whether to overwrite it (Yes to all with several files).
+  Export    saves the selected files to the PC (also with a double-click):
+            one with a save dialog, several into a folder you choose, asking
+            before overwriting a file there. If they have a +3DOS header
+            you can keep it or save only the data (a .bin, a screen...).
+  Rename    (F2) gives the selected file a new name (8 characters and an
             optional extension of 3).
-  Delete    removes the selected file and frees its space.
+  Delete    (Del) removes the selected files and frees their space.
+Select several files with Ctrl or Shift + click. The import and export
+dialogs open in the folder the disk browser used last (the SD card browser
+remembers its own); it is kept in pzx.ini.
 
 Changes are made on the disk image in memory and mark it as modified; save
 it with Floppy > Save disk (into its file) or Save disk as, or answer yes
@@ -387,10 +396,13 @@ SD card browser
   address or autostart line and length, date, attributes and 8.3 name.
   Double-click a folder to enter it (".." or the Up button to go back) and
   a file to export it. The toolbar: Up, Refresh, New folder, Import (from
-  the PC, with an optional Bytes header as in the disk browser), Export
-  (with or without the +3DOS header), Rename and Delete (files, or empty
-  folders). New names are 8.3, as esxDOS uses them; renaming a file drops
-  its long name. esxDOS keeps some things in memory, so after changing the
+  the PC, several files at once, with an optional Bytes header as in the
+  disk browser, unticked by default here), Export (several files at once,
+  with or without the +3DOS header), Rename (F2) and Delete (Del; files, or
+  empty folders). Importing or exporting a file that already exists asks
+  whether to overwrite it. The import and export dialogs open in the folder
+  this browser used last. New names are 8.3, as esxDOS uses them; renaming
+  a file drops its long name. esxDOS keeps some things in memory, so after changing the
   card from the browser it may not notice the changes until it reads that
   folder again (or after a reset).
 

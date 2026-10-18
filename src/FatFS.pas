@@ -58,9 +58,10 @@ type
     function FindFreeEntry(DirCluster: LongWord): Int64;
     procedure WriteEntry(Pos: Int64; const Raw83: array of Byte; Attr: Byte; Cluster,
       Size: LongWord);
-    function Exists(DirCluster: LongWord; const Raw83: array of Byte): Boolean;
   public
     constructor Create(AStream: TStream);
+    { A file or folder with this 8.3 name (11 bytes, as MakeName83) in the folder }
+    function Exists(DirCluster: LongWord; const Raw83: array of Byte): Boolean;
     { Directory contents (DirCluster 0 = the root); not "." or ".." }
     function ListDir(DirCluster: LongWord): TFatEntries;
     function ReadFile(const E: TFatEntry): TBytes;

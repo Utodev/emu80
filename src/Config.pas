@@ -71,6 +71,8 @@ type
     RecentDisks: TStringList;     // disk images inserted, newest first
     RecentCards: TStringList;     // SD card images inserted, newest first
     LastDir: string;
+    DiskBrowserDir: string;       // last PC folder of the disk browser's import/export
+    SDBrowserDir: string;         // and of the SD card browser's
     constructor Create;
     destructor Destroy; override;
     { The setting behind an on/off option (BOOL_OPTIONS), nil if none }
@@ -482,6 +484,8 @@ begin
     end;
   end;
   LastDir := Ini.ReadString('Files', 'LastDir', LastDir);
+  DiskBrowserDir := Ini.ReadString('Files', 'DiskBrowserDir', DiskBrowserDir);
+  SDBrowserDir := Ini.ReadString('Files', 'SDBrowserDir', SDBrowserDir);
   ZXUnoBios := Ini.ReadString('ZXUno', 'BiosSettings', ZXUnoBios);
   ReadList(Ini, 'RecentDisks', RecentDisks, Overlay);
   ReadList(Ini, 'RecentCards', RecentCards, Overlay);
@@ -552,6 +556,8 @@ begin
   for I := 0 to PokeHistory.Count - 1 do
     Ini.WriteString('Pokes', 'Poke' + IntToStr(I), PokeHistory[I]);
   Ini.WriteString('Files', 'LastDir', LastDir);
+  Ini.WriteString('Files', 'DiskBrowserDir', DiskBrowserDir);
+  Ini.WriteString('Files', 'SDBrowserDir', SDBrowserDir);
   if ZXUnoBios <> '' then Ini.WriteString('ZXUno', 'BiosSettings', ZXUnoBios);
   WriteList(Ini, 'RecentDisks', RecentDisks);
   WriteList(Ini, 'RecentCards', RecentCards);

@@ -10,10 +10,12 @@ unit SDBrowser;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Graphics, Emulator, FatFS,
-  Plus3FS, Icons;
+  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Graphics, LCLType, Emulator,
+  FatFS, Plus3FS, Icons;
 
 type
+  TIndexArray = array of Integer;
+
   TSDBrowserWindow = class(TForm)
   private
     FEmu: TEmulator;
@@ -43,6 +45,11 @@ type
     procedure DoExport(Sender: TObject);
     procedure DoRename(Sender: TObject);
     procedure DoDelete(Sender: TObject);
+    function ImportExists(const AName: string): Boolean;
+    function ImportWrite(const AName: string; const Data: TBytes; Replace: Boolean): string;
+    { The selected entries (indexes in FEntries, without "..") }
+    function SelectedIndexes: TIndexArray;
+    procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
@@ -105,10 +112,10 @@ begin
   AddButton(ikRefresh, 'Read the card again', @DoRefresh);
   AddSeparator;
   AddButton(ikNewFolder, 'New folder...', @DoNewFolder);
-  AddButton(ikOpen, 'Import a file from the PC into this folder...', @DoImport);
-  AddButton(ikSave, 'Export the selected file to the PC...', @DoExport);
-  AddButton(ikRename, 'Rename the selected file or folder...', @DoRename);
-  AddButton(ikDelete, 'Delete the selected file (or empty folder)', @DoDelete);
+  AddButton(ikOpen, 'Import files from the PC into this folder...', @DoImport);
+  AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
+  AddButton(ikRename, 'Rename the selected file or folder... (F2)', @DoRename);
+  AddButton(ikDelete, 'Delete the selected files (or empty folders) (Del)', @DoDelete);
 
   PathPanel := TPanel.Create(Self);
   PathPanel.Parent := Self;
@@ -133,7 +140,9 @@ begin
   FList.ReadOnly := True;
   FList.RowSelect := True;
   FList.HideSelection := False;
+  FList.MultiSelect := True;
   FList.OnDblClick := @ListDblClick;
+  FList.OnKeyDown := @ListKeyDown;
   AddColumn('Name', 190);
   AddColumn('Size', 80, True);
   AddColumn('Type', 110);
@@ -390,94 +399,125 @@ end;
 
 procedure TSDBrowserWindow.DoImport(Sender: TObject);
 var
-  Dlg: TOpenDialog;
-  Data: TBytes;
-  S: TFileStream;
-  AName, Error: string;
-  Header: Boolean;
-  Addr: Word;
-  Vol: TFatVolume;
+  Status: string;
 begin
-  Dlg := TOpenDialog.Create(Self);
+  // Files on an SD card usually have no +3DOS header: unticked by default
+  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite);
+  Refresh;
+  if Status <> '' then FStatus.SimpleText := Status;
+end;
+
+function TSDBrowserWindow.ImportExists(const AName: string): Boolean;
+var
+  Vol: TFatVolume;
+  Raw: array[0..10] of Byte;
+  Error: string;
+begin
+  Result := False;
+  if not MakeName83(AName, Raw, Error) then Exit;
+  FEmu.Lock;
   try
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.Filter := 'All files|*.*';
-    Dlg.Options := Dlg.Options + [ofFileMustExist];
-    if not Dlg.Execute then Exit;
-    try
-      S := TFileStream.Create(Dlg.FileName, fmOpenRead or fmShareDenyWrite);
+    if OpenVolume(Vol) then
       try
-        SetLength(Data, S.Size);
-        if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
+        Result := Vol.Exists(DirCluster, Raw);
       finally
-        S.Free;
+        Vol.Free;
       end;
-    except
-      on E: Exception do
-      begin
-        ShowError('Could not read the file: ' + E.Message);
-        Exit;
-      end;
-    end;
-    AName := SuggestName(Dlg.FileName);
-    if HasPlus3Header(Data) or (Length(Data) > 65535) then
-    begin
-      // Copied as it is
-      if not InputQuery('Import', 'Name on the card (8.3):', AName) then Exit;
-    end
-    else
-    begin
-      if not AskImport(Dlg.FileName, Length(Data), AName, Header, Addr) then Exit;
-      if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
-    end;
-    Error := '';
-    FEmu.Lock;
-    try
-      if OpenVolume(Vol) then
-        try
-          try
-            Vol.WriteFile(DirCluster, AName, Data);
-          except
-            on E: Exception do Error := E.Message;
-          end;
-        finally
-          Vol.Free;
-        end;
-    finally
-      FEmu.Unlock;
-    end;
-    if Error <> '' then ShowError('Could not import: ' + Error);
-    Refresh;
   finally
-    Dlg.Free;
+    FEmu.Unlock;
   end;
 end;
 
-procedure TSDBrowserWindow.DoExport(Sender: TObject);
+function TSDBrowserWindow.ImportWrite(const AName: string; const Data: TBytes;
+  Replace: Boolean): string;
 var
-  I, Answer: Integer;
-  Data: TBytes;
   Vol: TFatVolume;
-  Dlg: TSaveDialog;
-  S: TFileStream;
-  Error: string;
 begin
-  I := SelectedIndex;
-  if (I < 0) or IsDirectory(FEntries[I]) then Exit;
-  Error := '';
-  Data := nil;
+  Result := 'there is no SD card';
   FEmu.Lock;
   try
     if OpenVolume(Vol) then
       try
         try
-          Data := Vol.ReadFile(FEntries[I]);
+          if Replace then Vol.PutFile(DirCluster, AName, Data)
+          else Vol.WriteFile(DirCluster, AName, Data);
+          Result := '';
+        except
+          on E: Exception do Result := E.Message;
+        end;
+      finally
+        Vol.Free;
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
+function TSDBrowserWindow.SelectedIndexes: TIndexArray;
+var
+  I: Integer;
+begin
+  Result := nil;
+  for I := 0 to FList.Items.Count - 1 do
+    if FList.Items[I].Selected and (PtrInt(FList.Items[I].Data) >= 0) then
+    begin
+      SetLength(Result, Length(Result) + 1);
+      Result[High(Result)] := PtrInt(FList.Items[I].Data);
+    end;
+end;
+
+procedure TSDBrowserWindow.ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if Shift <> [] then Exit;
+  case Key of
+    VK_DELETE: DoDelete(nil);
+    VK_F2: DoRename(nil);
+  else
+    Exit;
+  end;
+  Key := 0;
+end;
+
+procedure TSDBrowserWindow.DoExport(Sender: TObject);
+var
+  Sel: TIndexArray;
+  Names: array of string;
+  Datas: TBytesArray;
+  I, N: Integer;
+  Vol: TFatVolume;
+  Error, Status: string;
+begin
+  // Files only: folders are left out
+  Sel := SelectedIndexes;
+  N := 0;
+  for I := 0 to High(Sel) do
+    if not IsDirectory(FEntries[Sel[I]]) then
+    begin
+      Sel[N] := Sel[I];
+      Inc(N);
+    end;
+  if N = 0 then Exit;
+  SetLength(Names, N);
+  SetLength(Datas, N);
+  Error := '';
+  FEmu.Lock;
+  try
+    if OpenVolume(Vol) then
+      try
+        try
+          for I := 0 to N - 1 do
+          begin
+            Names[I] := DisplayName(FEntries[Sel[I]]);
+            Datas[I] := Vol.ReadFile(FEntries[Sel[I]]);
+          end;
         except
           on E: Exception do Error := E.Message;
         end;
       finally
         Vol.Free;
-      end;
+      end
+    else
+      Error := 'there is no SD card';
   finally
     FEmu.Unlock;
   end;
@@ -486,35 +526,8 @@ begin
     ShowError('Could not read the file: ' + Error);
     Exit;
   end;
-  if HasPlus3Header(Data) then
-  begin
-    Answer := MessageDlg('Export', 'The file has a +3DOS header. Keep it in the exported file?' +
-      LineEnding + LineEnding + 'No: just the data (' + IntToStr(Length(Data) - PLUS3_HEADER_SIZE) +
-      ' bytes).', mtConfirmation, [mbYes, mbNo, mbCancel], 0);
-    if Answer = mrCancel then Exit;
-    if Answer = mrNo then Data := Copy(Data, PLUS3_HEADER_SIZE, MaxInt);
-  end;
-  Dlg := TSaveDialog.Create(Self);
-  try
-    Dlg.FileName := DisplayName(FEntries[I]);
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.Filter := 'All files|*.*';
-    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not Dlg.Execute then Exit;
-    try
-      S := TFileStream.Create(Dlg.FileName, fmCreate);
-      try
-        if Length(Data) > 0 then S.WriteBuffer(Data[0], Length(Data));
-      finally
-        S.Free;
-      end;
-      FStatus.SimpleText := Format('Exported %s (%d bytes)', [ExtractFileName(Dlg.FileName), Length(Data)]);
-    except
-      on E: Exception do ShowError('Could not save: ' + E.Message);
-    end;
-  finally
-    Dlg.Free;
-  end;
+  Status := ExportToPC(Names, Datas, Settings.SDBrowserDir);
+  if Status <> '' then FStatus.SimpleText := Status;
 end;
 
 procedure TSDBrowserWindow.DoRename(Sender: TObject);
@@ -549,31 +562,37 @@ end;
 
 procedure TSDBrowserWindow.DoDelete(Sender: TObject);
 var
+  Sel: TIndexArray;
   I: Integer;
-  Error: string;
+  Question, Error: string;
   Vol: TFatVolume;
 begin
-  I := SelectedIndex;
-  if I < 0 then Exit;
-  if MessageDlg(Format('Delete %s from the card?', [DisplayName(FEntries[I])]), mtConfirmation,
-    [mbYes, mbNo], 0) <> mrYes then Exit;
+  Sel := SelectedIndexes;
+  if Length(Sel) = 0 then Exit;
+  if Length(Sel) = 1 then Question := Format('Delete %s from the card?', [DisplayName(FEntries[Sel[0]])])
+  else Question := Format('Delete the %d selected entries from the card?', [Length(Sel)]);
+  if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
   Error := '';
   FEmu.Lock;
   try
     if OpenVolume(Vol) then
       try
-        try
-          Vol.Delete(FEntries[I]);
-        except
-          on E: Exception do Error := E.Message;
-        end;
+        for I := 0 to High(Sel) do
+          try
+            Vol.Delete(FEntries[Sel[I]]);
+          except
+            on E: Exception do
+            begin
+              Error := Error + DisplayName(FEntries[Sel[I]]) + ': ' + E.Message + LineEnding;
+            end;
+          end;
       finally
         Vol.Free;
       end;
   finally
     FEmu.Unlock;
   end;
-  if Error <> '' then ShowError('Could not delete: ' + Error);
+  if Error <> '' then ShowError('Could not delete:' + LineEnding + Error);
   Refresh;
 end;
 

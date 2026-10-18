@@ -7,7 +7,7 @@ unit TapeBrowser;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Emulator, Tape,
+  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, Tape,
   Icons;
 
 type
@@ -37,6 +37,7 @@ type
     procedure DoMoveUp(Sender: TObject);
     procedure DoMoveDown(Sender: TObject);
     procedure DoDelete(Sender: TObject);
+    procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure DoSave(Sender: TObject);
     procedure MoveSelected(Delta: Integer);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -102,7 +103,7 @@ begin
   AddSeparator;
   AddButton(ikMoveUp, 'Move the selected block up', @DoMoveUp);
   AddButton(ikMoveDown, 'Move the selected block down', @DoMoveDown);
-  AddButton(ikDelete, 'Delete the selected block', @DoDelete);
+  AddButton(ikDelete, 'Delete the selected block (Del)', @DoDelete);
   AddSeparator;
   AddButton(ikSave, 'Save the tape as...', @DoSave);
 
@@ -132,6 +133,7 @@ begin
   FList.RowSelect := True;
   FList.HideSelection := False;
   FList.OnDblClick := @ListDblClick;
+  FList.OnKeyDown := @ListKeyDown;
   Col := FList.Columns.Add;
   Col.Caption := '';
   Col.Width := 24;
@@ -354,6 +356,15 @@ end;
 procedure TTapeBrowserWindow.DoMoveDown(Sender: TObject);
 begin
   MoveSelected(1);
+end;
+
+procedure TTapeBrowserWindow.ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = VK_DELETE) and (Shift = []) then
+  begin
+    DoDelete(nil);
+    Key := 0;
+  end;
 end;
 
 procedure TTapeBrowserWindow.DoDelete(Sender: TObject);

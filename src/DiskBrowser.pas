@@ -8,7 +8,7 @@ unit DiskBrowser;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Emulator, DSK,
+  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, DSK,
   Plus3FS, Icons, Spectrum;
 
 type
@@ -25,6 +25,8 @@ type
     FTimer: TTimer;
     FLastDisk: TDiskImage;
     FLastModified: Boolean;
+    FQuiet: Boolean;       // WithDisk: no error message, just FLastError
+    FLastError: string;
     function AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
     procedure AddSeparator;
     { Run Action on the file system of the disk in the drive, with the
@@ -42,6 +44,9 @@ type
     procedure DoDelete(Sender: TObject);
     procedure DoExport(Sender: TObject);
     procedure DoImport(Sender: TObject);
+    function ImportExists(const AName: string): Boolean;
+    function ImportWrite(const AName: string; const Data: TBytes; Replace: Boolean): string;
+    procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
@@ -61,11 +66,31 @@ function DriveAvailable(Spec: TSpectrum; Drive: Integer): Boolean;
 { The drive the browser opens on, -1 if neither has a disk (emulator locked) }
 function DefaultDrive(Spec: TSpectrum): Integer;
 
+type
+  TBytesArray = array of TBytes;
+  { For ImportFromPC: whether a file is already there, and writing one
+    (Replace: the one there goes first); '' or an error message }
+  TImportExists = function(const AName: string): Boolean of object;
+  TImportWrite = function(const AName: string; const Data: TBytes; Replace: Boolean): string of object;
+
 { Shared with the SD card browser: the name and header of a file imported
-  from the PC, and a name suggested from its PC file name }
+  from the PC (DefaultHeader: the header box ticked at first; Remaining:
+  files still to import after this one, ForAll: use the same choices for
+  them), and a name suggested from its PC file name }
 function AskImport(const FileName: string; Size: Integer; var AName: string; out Header: Boolean;
-  out Addr: Word): Boolean;
+  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean): Boolean;
 function SuggestName(const FileName: string): string;
+{ Import files chosen on the PC (several at a time) with Exists and Write.
+  Dir: the browser's last PC folder (updated). Returns a status text. }
+function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
+  Write: TImportWrite): string;
+{ Export files to the PC: one with a save dialog, several into a folder;
+  asks before overwriting, and once whether to keep +3DOS headers. Dir: the
+  browser's last PC folder (updated). Returns a status text. }
+function ExportToPC(const Names: array of string; Datas: TBytesArray; var Dir: string): string;
+{ Overwrite AName? Yes, No or Cancel; with Many also Yes to all, which sets
+  All (and then answers Yes) }
+function AskOverwrite(const AName: string; Many: Boolean; var All: Boolean): Integer;
 
 implementation
 
@@ -78,10 +103,221 @@ const
   ACT_WRITE = 2;
   ACT_RENAME = 3;
   ACT_DELETE = 4;
+  ACT_FIND = 5;      // FoundIndex := the file called Arg, -1 if none
+  ACT_REPLACE = 6;   // as ACT_WRITE, deleting the file with that name first
 
 var
-  // Result of the last ACT_READ
+  // Result of the last ACT_READ and ACT_FIND
   ReadData: TBytes;
+  FoundIndex: Integer;
+
+{ The folder to open a dialog in: the browser's last one, else the last one
+  used anywhere }
+function StartDir(const Dir: string): string;
+begin
+  if (Dir <> '') and DirectoryExists(Dir) then Result := Dir else Result := Settings.LastDir;
+end;
+
+function AskOverwrite(const AName: string; Many: Boolean; var All: Boolean): Integer;
+var
+  Buttons: TMsgDlgButtons;
+begin
+  if All then Exit(mrYes);
+  Buttons := [mbYes, mbNo, mbCancel];
+  if Many then Buttons := Buttons + [mbYesToAll];
+  Result := MessageDlg('Overwrite', Format('%s already exists. Overwrite it?', [AName]),
+    mtConfirmation, Buttons, 0);
+  if Result = mrYesToAll then
+  begin
+    All := True;
+    Result := mrYes;
+  end;
+end;
+
+function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
+  Write: TImportWrite): string;
+var
+  Dlg: TOpenDialog;
+  Files: TStringList;
+  Data: TBytes;
+  S: TFileStream;
+  I, Done, Answer: Integer;
+  AName, Error: string;
+  Header, ForAll, SameHeader, OverwriteAll: Boolean;
+  Addr: Word;
+begin
+  Result := '';
+  Files := TStringList.Create;
+  Dlg := TOpenDialog.Create(nil);
+  try
+    Dlg.InitialDir := StartDir(Dir);
+    Dlg.Filter := 'All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist, ofAllowMultiSelect];
+    if not Dlg.Execute then Exit;
+    Files.Assign(Dlg.Files);
+    if Files.Count > 0 then Dir := ExtractFileDir(Files[0]);
+  finally
+    Dlg.Free;
+  end;
+  try
+    Done := 0;
+    ForAll := False;
+    SameHeader := False;
+    OverwriteAll := False;
+    Addr := 32768;
+    for I := 0 to Files.Count - 1 do
+    begin
+      try
+        S := TFileStream.Create(Files[I], fmOpenRead or fmShareDenyWrite);
+        try
+          SetLength(Data, S.Size);
+          if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
+        finally
+          S.Free;
+        end;
+      except
+        on E: Exception do
+        begin
+          MessageDlg('Could not read ' + ExtractFileName(Files[I]) + ': ' + E.Message, mtError, [mbOK], 0);
+          Continue;
+        end;
+      end;
+      AName := SuggestName(Files[I]);
+      if HasPlus3Header(Data) or (Length(Data) > 65535) then
+      begin
+        // Copied as it is
+        if not ForAll then
+          if not InputQuery('Import ' + ExtractFileName(Files[I]), 'Name (8.3; the file is ' +
+            'copied as it is):', AName) then Break;
+      end
+      else if ForAll then
+      begin
+        if SameHeader then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
+      end
+      else
+      begin
+        if not AskImport(Files[I], Length(Data), AName, Header, Addr, DefaultHeader,
+          Files.Count - 1 - I, ForAll) then Break;
+        SameHeader := Header;
+        if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
+      end;
+      Answer := mrNo;
+      if Exists(AName) then
+      begin
+        Answer := AskOverwrite(UpperCase(AName), Files.Count > 1, OverwriteAll);
+        if Answer = mrCancel then Break;
+        if Answer = mrNo then Continue;
+      end;
+      Error := Write(AName, Data, Answer = mrYes);
+      if Error <> '' then
+      begin
+        MessageDlg('Could not import ' + ExtractFileName(Files[I]) + ': ' + Error, mtError, [mbOK], 0);
+        Break;
+      end;
+      Inc(Done);
+      if Files.Count = 1 then Result := 'imported ' + UpperCase(AName);
+    end;
+    if (Files.Count > 1) or (Done = 0) then Result := Format('imported %d of %d files', [Done, Files.Count]);
+  finally
+    Files.Free;
+  end;
+end;
+
+function ExportToPC(const Names: array of string; Datas: TBytesArray; var Dir: string): string;
+var
+  Dlg: TSaveDialog;
+  DirDlg: TSelectDirectoryDialog;
+  I, Answer, WithHeader, Done: Integer;
+  Target: string;
+  OverwriteAll: Boolean;
+  S: TFileStream;
+begin
+  Result := '';
+  if Length(Names) = 0 then Exit;
+  // Usually what is wanted is the data (a .bin, a screen...), without the
+  // 128-byte +3DOS header in front
+  WithHeader := 0;
+  for I := 0 to High(Datas) do
+    if HasPlus3Header(Datas[I]) then Inc(WithHeader);
+  if WithHeader > 0 then
+  begin
+    if Length(Names) = 1 then
+      Answer := MessageDlg('Export', 'The file has a +3DOS header. Keep it in the exported file?' +
+        LineEnding + LineEnding + 'No: just the data (' + IntToStr(Length(Datas[0]) - PLUS3_HEADER_SIZE) +
+        ' bytes).', mtConfirmation, [mbYes, mbNo, mbCancel], 0)
+    else
+      Answer := MessageDlg('Export', Format('%d of the files have a +3DOS header. Keep it in the ' +
+        'exported files?', [WithHeader]) + LineEnding + LineEnding + 'No: just their data.',
+        mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+    if Answer = mrCancel then Exit;
+    if Answer = mrNo then
+      for I := 0 to High(Datas) do
+        if HasPlus3Header(Datas[I]) then Datas[I] := Copy(Datas[I], PLUS3_HEADER_SIZE, MaxInt);
+  end;
+  if Length(Names) = 1 then
+  begin
+    Dlg := TSaveDialog.Create(nil);
+    try
+      Dlg.FileName := Names[0];
+      Dlg.InitialDir := StartDir(Dir);
+      Dlg.Filter := 'All files|*.*';
+      Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+      if not Dlg.Execute then Exit;
+      Target := Dlg.FileName;
+      Dir := ExtractFileDir(Target);
+    finally
+      Dlg.Free;
+    end;
+  end
+  else
+  begin
+    DirDlg := TSelectDirectoryDialog.Create(nil);
+    try
+      DirDlg.Title := Format('Export %d files to the folder', [Length(Names)]);
+      DirDlg.InitialDir := StartDir(Dir);
+      if not DirDlg.Execute then Exit;
+      Dir := DirDlg.FileName;
+    finally
+      DirDlg.Free;
+    end;
+  end;
+  Done := 0;
+  OverwriteAll := False;
+  for I := 0 to High(Names) do
+  begin
+    if Length(Names) > 1 then
+    begin
+      Target := IncludeTrailingPathDelimiter(Dir) + Names[I];
+      if FileExists(Target) then
+      begin
+        Answer := AskOverwrite(Target, True, OverwriteAll);
+        if Answer = mrCancel then Break;
+        if Answer = mrNo then Continue;
+      end;
+    end;
+    try
+      S := TFileStream.Create(Target, fmCreate);
+      try
+        if Length(Datas[I]) > 0 then S.WriteBuffer(Datas[I][0], Length(Datas[I]));
+      finally
+        S.Free;
+      end;
+      Inc(Done);
+    except
+      on E: Exception do
+      begin
+        MessageDlg('Could not save ' + Target + ': ' + E.Message, mtError, [mbOK], 0);
+        Break;
+      end;
+    end;
+  end;
+  if Length(Names) = 1 then
+  begin
+    if Done = 1 then Result := Format('Exported %s (%d bytes)', [ExtractFileName(Target), Length(Datas[0])]);
+  end
+  else
+    Result := Format('Exported %d of %d files to %s', [Done, Length(Names), Dir]);
+end;
 
 function DriveAvailable(Spec: TSpectrum; Drive: Integer): Boolean;
 begin
@@ -154,10 +390,10 @@ begin
   AddSeparator;
   AddButton(ikRefresh, 'Read the directory again', @DoRefresh);
   AddSeparator;
-  AddButton(ikOpen, 'Import a file from the PC onto the disk...', @DoImport);
-  AddButton(ikSave, 'Export the selected file to the PC...', @DoExport);
-  AddButton(ikRename, 'Rename the selected file...', @DoRename);
-  AddButton(ikDelete, 'Delete the selected file', @DoDelete);
+  AddButton(ikOpen, 'Import files from the PC onto the disk...', @DoImport);
+  AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
+  AddButton(ikRename, 'Rename the selected file... (F2)', @DoRename);
+  AddButton(ikDelete, 'Delete the selected files (Del)', @DoDelete);
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
@@ -170,7 +406,9 @@ begin
   FList.ReadOnly := True;
   FList.RowSelect := True;
   FList.HideSelection := False;
+  FList.MultiSelect := True;
   FList.OnDblClick := @DoExport;
+  FList.OnKeyDown := @ListKeyDown;
   AddColumn('Name', 110);
   AddColumn('Type', 110);
   AddColumn('Start / line', 90, True);
@@ -265,6 +503,7 @@ var
 begin
   Result := False;
   Error := '';
+  FLastError := '';
   FEmu.Lock;
   try
     Disk := FEmu.Spec.FDC.Disk(FDrive);
@@ -285,6 +524,13 @@ begin
           ACT_WRITE: FS.WriteFile(Arg, Data);
           ACT_RENAME: FS.RenameFile(Index, Arg);
           ACT_DELETE: FS.DeleteFile(Index);
+          ACT_FIND: FoundIndex := FS.FindFile(Arg);
+          ACT_REPLACE:
+            begin
+              I := FS.FindFile(Arg);
+              if I >= 0 then FS.DeleteFile(I);
+              FS.WriteFile(Arg, Data);
+            end;
         end;
         // Show the directory as it is now
         Selected := SelectedIndex;
@@ -335,8 +581,11 @@ begin
   finally
     FEmu.Unlock;
   end;
+  FLastError := Error;
   if (Error <> '') and (AAction <> ACT_LIST) then
-    MessageDlg(Error, mtError, [mbOK], 0)
+  begin
+    if not FQuiet then MessageDlg(Error, mtError, [mbOK], 0);
+  end
   else if Error <> '' then
     FStatus.SimpleText := 'Can''t read the disk: ' + Error;
 end;
@@ -384,68 +633,75 @@ end;
 
 procedure TDiskBrowserWindow.DoDelete(Sender: TObject);
 var
-  Index: Integer;
+  Indexes: array of Integer;
+  I: Integer;
+  Question: string;
 begin
-  Index := SelectedIndex;
-  if Index < 0 then Exit;
-  if MessageDlg(Format('Delete %s from the disk?', [FList.Selected.Caption]), mtConfirmation,
-    [mbYes, mbNo], 0) <> mrYes then Exit;
-  WithDisk(ACT_DELETE, Index);
+  // The selected files, from the last one (deleting doesn't move the others)
+  Indexes := nil;
+  for I := FList.Items.Count - 1 downto 0 do
+    if FList.Items[I].Selected then
+    begin
+      SetLength(Indexes, Length(Indexes) + 1);
+      Indexes[High(Indexes)] := PtrInt(FList.Items[I].Data);
+    end;
+  if Length(Indexes) = 0 then Exit;
+  if Length(Indexes) = 1 then Question := Format('Delete %s from the disk?', [FList.Selected.Caption])
+  else Question := Format('Delete the %d selected files from the disk?', [Length(Indexes)]);
+  if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+  for I := 0 to High(Indexes) do
+    if not WithDisk(ACT_DELETE, Indexes[I]) then Break;
+end;
+
+procedure TDiskBrowserWindow.ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if Shift <> [] then Exit;
+  case Key of
+    VK_DELETE: DoDelete(nil);
+    VK_F2: DoRename(nil);
+  else
+    Exit;
+  end;
+  Key := 0;
 end;
 
 procedure TDiskBrowserWindow.DoExport(Sender: TObject);
 var
-  Index: Integer;
-  Dlg: TSaveDialog;
-  Data: TBytes;
-  S: TFileStream;
-  Answer: Integer;
+  Names: array of string;
+  Datas: TBytesArray;
+  Items: array of TListItem;
+  I, N: Integer;
+  Status: string;
 begin
-  Index := SelectedIndex;
-  if Index < 0 then Exit;
-  if not WithDisk(ACT_READ, Index) then Exit;
-  Data := ReadData;
-  // Usually what is wanted is the data (a .bin, a screen...), without the
-  // 128-byte +3DOS header in front
-  if HasPlus3Header(Data) then
-  begin
-    Answer := MessageDlg('Export', 'The file has a +3DOS header. Keep it in the exported file?' +
-      LineEnding + LineEnding + 'No: just the data (' + IntToStr(Length(Data) - PLUS3_HEADER_SIZE) +
-      ' bytes).', mtConfirmation, [mbYes, mbNo, mbCancel], 0);
-    if Answer = mrCancel then Exit;
-    if Answer = mrNo then Data := Copy(Data, PLUS3_HEADER_SIZE, MaxInt);
-  end;
-  Dlg := TSaveDialog.Create(Self);
-  try
-    Dlg.FileName := FList.Selected.Caption;
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.Filter := 'All files|*.*';
-    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not Dlg.Execute then Exit;
-    try
-      S := TFileStream.Create(Dlg.FileName, fmCreate);
-      try
-        if Length(Data) > 0 then S.WriteBuffer(Data[0], Length(Data));
-      finally
-        S.Free;
-      end;
-      FStatus.SimpleText := Format('Exported %s (%d bytes)', [ExtractFileName(Dlg.FileName), Length(Data)]);
-    except
-      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+  Items := nil;
+  for I := 0 to FList.Items.Count - 1 do
+    if FList.Items[I].Selected then
+    begin
+      SetLength(Items, Length(Items) + 1);
+      Items[High(Items)] := FList.Items[I];
     end;
-  finally
-    Dlg.Free;
+  N := Length(Items);
+  if N = 0 then Exit;
+  SetLength(Names, N);
+  SetLength(Datas, N);
+  for I := 0 to N - 1 do
+  begin
+    Names[I] := Items[I].Caption;
+    if not WithDisk(ACT_READ, PtrInt(Items[I].Data)) then Exit;
+    Datas[I] := ReadData;
   end;
+  Status := ExportToPC(Names, Datas, Settings.DiskBrowserDir);
+  if Status <> '' then FStatus.SimpleText := Status;
 end;
 
 { Name and header for a file from the PC: a +3DOS name, and either a header
   for bytes (CODE) at an address or none at all }
 function AskImport(const FileName: string; Size: Integer; var AName: string; out Header: Boolean;
-  out Addr: Word): Boolean;
+  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean): Boolean;
 var
   Dlg: TForm;
   NameEdit, AddrEdit: TEdit;
-  HeaderCheck: TCheckBox;
+  HeaderCheck, AllCheck: TCheckBox;
   Lbl: TLabel;
   Btn: TButton;
   V: Integer;
@@ -454,6 +710,7 @@ var
 begin
   Result := False;
   Header := False;
+  ForAll := False;
   Addr := 32768;
   Dlg := TForm.CreateNew(nil, 0);
   try
@@ -474,7 +731,7 @@ begin
     HeaderCheck.Parent := Dlg;
     HeaderCheck.Caption := 'Bytes (CODE) with a +3DOS header, at address:';
     HeaderCheck.SetBounds(10, 50, 300, 24);
-    HeaderCheck.Checked := True;
+    HeaderCheck.Checked := DefaultHeader;
     AddrEdit := TEdit.Create(Dlg);
     AddrEdit.Parent := Dlg;
     AddrEdit.SetBounds(10, 80, 100, 24);
@@ -485,18 +742,24 @@ begin
     Lbl.Parent := Dlg;
     Lbl.Caption := '(decimal; $ for hex). Unticked: no header.';
     Lbl.SetBounds(120, 84, 250, 18);
+    AllCheck := TCheckBox.Create(Dlg);
+    AllCheck.Parent := Dlg;
+    AllCheck.Caption := Format('The same for the other %d files (their own names)', [Remaining]);
+    AllCheck.SetBounds(10, 108, 360, 24);
+    AllCheck.Visible := Remaining > 0;
+    if Remaining > 0 then Dlg.ClientHeight := Dlg.ClientHeight + 24;
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
     Btn.Caption := 'Import';
     Btn.Default := True;
     Btn.ModalResult := mrOK;
-    Btn.SetBounds(210, 130, 75, 28);
+    Btn.SetBounds(210, Dlg.ClientHeight - 40, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
     Btn.Caption := 'Cancel';
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
-    Btn.SetBounds(295, 130, 75, 28);
+    Btn.SetBounds(295, Dlg.ClientHeight - 40, 75, 28);
     repeat
       if Dlg.ShowModal <> mrOK then Exit;
       if not MakeRawName(NameEdit.Text, Raw, Error) then
@@ -519,6 +782,7 @@ begin
     until False;
     AName := NameEdit.Text;
     Header := HeaderCheck.Checked;
+    ForAll := AllCheck.Checked;
     if Header then Addr := V;
     Result := True;
   finally
@@ -546,50 +810,32 @@ end;
 
 procedure TDiskBrowserWindow.DoImport(Sender: TObject);
 var
-  Dlg: TOpenDialog;
-  Data: TBytes;
-  S: TFileStream;
-  AName: string;
-  Header: Boolean;
-  Addr: Word;
+  Status: string;
 begin
-  Dlg := TOpenDialog.Create(Self);
+  // +3DOS files usually have a header: ticked by default
+  Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite);
+  if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
+end;
+
+function TDiskBrowserWindow.ImportExists(const AName: string): Boolean;
+begin
+  FoundIndex := -1;
+  Result := WithDisk(ACT_FIND, -1, AName) and (FoundIndex >= 0);
+end;
+
+function TDiskBrowserWindow.ImportWrite(const AName: string; const Data: TBytes;
+  Replace: Boolean): string;
+var
+  Act: Integer;
+begin
+  if Replace then Act := ACT_REPLACE else Act := ACT_WRITE;
+  FQuiet := True;
   try
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.Filter := 'All files|*.*';
-    Dlg.Options := Dlg.Options + [ofFileMustExist];
-    if not Dlg.Execute then Exit;
-    try
-      S := TFileStream.Create(Dlg.FileName, fmOpenRead or fmShareDenyWrite);
-      try
-        SetLength(Data, S.Size);
-        if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
-      finally
-        S.Free;
-      end;
-    except
-      on E: Exception do
-      begin
-        MessageDlg('Could not read the file: ' + E.Message, mtError, [mbOK], 0);
-        Exit;
-      end;
-    end;
-    AName := SuggestName(Dlg.FileName);
-    if HasPlus3Header(Data) then
-    begin
-      // Already a +3DOS file: copy it as it is
-      if not InputQuery('Import', 'The file has a +3DOS header and is copied as it is.' +
-        LineEnding + 'Name on the disk:', AName) then Exit;
-    end
-    else
-    begin
-      if not AskImport(Dlg.FileName, Length(Data), AName, Header, Addr) then Exit;
-      if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
-    end;
-    if WithDisk(ACT_WRITE, -1, AName, Data) then
-      FStatus.SimpleText := FStatus.SimpleText + Format('   -  imported %s', [UpperCase(AName)]);
+    if WithDisk(Act, -1, AName, Data) then Result := ''
+    else if FLastError <> '' then Result := FLastError
+    else Result := 'there is no disk';
   finally
-    Dlg.Free;
+    FQuiet := False;
   end;
 end;
 
