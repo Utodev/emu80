@@ -122,7 +122,7 @@ type
     FMenuAddr: Word;
     FPopup: TPopupMenu;
     FTypeItems: array[0..3] of TMenuItem;   // execution, read, write, read/write
-    FEnabledItem, FRemoveItem, FConditionItem: TMenuItem;
+    FEnabledItem, FRemoveItem, FConditionItem, FLabelItem: TMenuItem;
     FBack: array of LongWord;   // where the view was before each jump: top shl 16 or selection
     FSearch: string;            // the text searched last
     FPlaced: Boolean;           // a first address has been shown
@@ -368,6 +368,7 @@ type
     procedure DoStepInto(Sender: TObject);
     procedure DoStepOver(Sender: TObject);
     procedure DoRunToCursor(Sender: TObject);
+    procedure DoStepBack(Sender: TObject);
     procedure DoCondition(Sender: TObject);
     procedure EnsurePaused;
   public
@@ -411,6 +412,9 @@ type
     procedure AppHint(Sender: TObject);
     function AskRange(const ACaption: string; var Addr: Word; var Len: Integer): Boolean;
     procedure GoToCode(Addr: Word);
+    { Name the address (a user symbol, kept when exporting as assembler);
+      an empty name removes it }
+    procedure EditLabel(Addr: Word);
     { Ask for the condition of the breakpoint at Addr (adding one if needed) }
     procedure EditCondition(Addr: Word);
     function PortLogCount: Integer;
@@ -508,6 +512,7 @@ const
   MENU_PORT = 104;
   MENU_EXPORTASM = 105;
   MENU_SEARCH = 106;
+  MENU_LABEL = 107;
 
   CLICKABLE = [skRegister, skMemWord, skMemByte, skMemXorByte, skAscii, skFlag, skIFF, skIM,
     skSlot3, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper];
@@ -943,7 +948,8 @@ begin
   FPopup := TPopupMenu.Create(Self);
   AddItem('Go to address...  (Ctrl+G)', MENU_GOTO);
   AddItem('Search...  (Ctrl+F, F3: next)', MENU_SEARCH);
-  AddItem('Export as assembler (.asm, sjasmplus)...', MENU_EXPORTASM);
+  AddItem('Export as assembler (.asm)...', MENU_EXPORTASM);
+  FLabelItem := AddItem('Add label...', MENU_LABEL);
   AddItem('-', -1);
   AddItem('Toggle breakpoint  (Space)', MENU_TOGGLE);
   FTypeItems[0] := AddItem('Execution breakpoint', BP_EXEC);
@@ -1382,6 +1388,10 @@ begin
     FEnabledItem.Enabled := Flags <> 0;
     FEnabledItem.Checked := (Flags <> 0) and ((Flags and BP_DISABLED) = 0);
     FRemoveItem.Enabled := Flags <> 0;
+    if UserSymbols.Lookup(FMenuAddr) <> '' then
+      FLabelItem.Caption := Format('Edit label at %.4X...', [FMenuAddr])
+    else
+      FLabelItem.Caption := Format('Add label at %.4X...', [FMenuAddr]);
     PrepareGoto(FPopup, X, Y);
     P := ClientToScreen(Point(X, Y));
     FPopup.PopUp(P.X, P.Y);
@@ -1402,6 +1412,7 @@ begin
       end;
     MENU_EXPORTASM: FOwnerWin.ExportAssembler(FTop);
     MENU_SEARCH: Search;
+    MENU_LABEL: FOwnerWin.EditLabel(FMenuAddr);
     MENU_TOGGLE:
       begin
         FSel := FMenuAddr;
@@ -3082,6 +3093,8 @@ begin
   AddButton(ikStepInto, 'Step into (F7)', @DoStepInto);
   AddButton(ikStepOver, 'Step over (F10)', @DoStepOver);
   AddButton(ikRunToCursor, 'Run to cursor (F9)', @DoRunToCursor);
+  AddButton(ikRewind, 'Step back (Shift+F7): to where it was before the last step, step ' +
+    'over, run to cursor or run (up to 10 times)', @DoStepBack);
   AddSeparator;
   AddButton(ikGoTo, 'Go to address (Ctrl+G)', @DoGoTo);
   AddButton(ikWatch, 'Add a watch', @DoAddWatch);
@@ -4200,8 +4213,46 @@ end;
 
 procedure TDebuggerWindow.DoRun(Sender: TObject);
 begin
+  if FEmu.Paused then FEmu.SaveBackPoint;   // Shift+F7 comes back here
   FEmu.Resume;
   FWasPaused := False;
+  Refresh(False);
+end;
+
+procedure TDebuggerWindow.DoStepBack(Sender: TObject);
+begin
+  EnsurePaused;
+  if not FEmu.StepBack then
+  begin
+    Beep;
+    ShowNotice('No earlier position to go back to (the last 10 are kept)');
+    Exit;
+  end;
+  FWasPaused := True;
+  Refresh(True);
+  ShowNotice(Format('Back one step (%d more kept)', [FEmu.BackCount]));
+end;
+
+procedure TDebuggerWindow.EditLabel(Addr: Word);
+var
+  LName: string;
+  I: Integer;
+  Ok: Boolean;
+begin
+  LName := UserSymbols.Lookup(Addr);
+  repeat
+    if not InputQuery('Label', Format('LName for %.4X (letters, digits and _; empty: no label). ' +
+      'It is kept when exporting as assembler:', [Addr]), LName) then Exit;
+    LName := Trim(LName);
+    Ok := True;
+    for I := 1 to Length(LName) do
+      if not (LName[I] in ['A'..'Z', 'a'..'z', '0'..'9', '_', '.', '?', '!', '@']) then Ok := False;
+    if (LName <> '') and (LName[1] in ['0'..'9']) then Ok := False;
+    if not Ok then
+      MessageDlg('A label has letters, digits, _ . ? ! and @, and doesn''t start with a digit.',
+        mtError, [mbOK], 0);
+  until Ok;
+  UserSymbols.SetName(Addr, LName);
   Refresh(False);
 end;
 
@@ -4475,7 +4526,7 @@ begin
   end;
   case Key of
     VK_F5: DoRun(Self);
-    VK_F7: DoStepInto(Self);
+    VK_F7: if ssShift in Shift then DoStepBack(Self) else DoStepInto(Self);
     VK_F9: DoRunToCursor(Self);
     VK_F10: DoStepOver(Self);
   else

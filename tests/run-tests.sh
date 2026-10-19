@@ -86,6 +86,11 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/helptest.lpr" > "$BU
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/helptest"
 
+# Step back (the machine put back) and labels kept in the exported source
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/stepbacktest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/stepbacktest" "$ROOT/roms"
+
 # Disassembly exported as sjasmplus source
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/asmexporttest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }

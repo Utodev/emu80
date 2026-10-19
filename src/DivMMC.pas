@@ -26,6 +26,13 @@ const
   DIVMMC_BANKS = 16;
 
 type
+  { Its memory and paging, for the debugger's step back }
+  TDivState = record
+    Ram: array[0..DIVMMC_BANKS - 1, 0..$1FFF] of Byte;
+    Control: Byte;
+    Mapped: Boolean;
+  end;
+
   TDivMMC = class
   private
     FRom: array[0..$1FFF] of Byte;
@@ -77,6 +84,10 @@ type
     procedure SetControl(Value: Byte);
     property Mapped: Boolean read FMapped write FMapped;
     property RomLoaded: Boolean read FRomLoaded;
+    { Debugger: its state, saved and put back (its RAM only when it has its
+      own: the ZX-Uno's is in the machine's SRAM) }
+    procedure SaveState(var S: TDivState);
+    procedure LoadState(const S: TDivState);
   end;
 
 implementation
@@ -201,6 +212,20 @@ begin
     $0000, $0008, $0038, $0066, $04C6, $0562: FMapped := True;
     $1FF8..$1FFF: FMapped := False;
   end;
+end;
+
+procedure TDivMMC.SaveState(var S: TDivState);
+begin
+  if FExtRam = nil then Move(FRam, S.Ram, SizeOf(FRam));
+  S.Control := FControl;
+  S.Mapped := FMapped;
+end;
+
+procedure TDivMMC.LoadState(const S: TDivState);
+begin
+  if FExtRam = nil then Move(S.Ram, FRam, SizeOf(FRam));
+  FControl := S.Control;
+  FMapped := S.Mapped;
 end;
 
 procedure TDivMMC.SetControl(Value: Byte);

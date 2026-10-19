@@ -188,7 +188,8 @@ Miscellaneous Graphics: ULAplus, scanlines, Timex screen modes and Radastan
               debugger and with POKE; off by default).
 
 Settings are kept in pzx.ini in the same folder as the program (next to
-pzx.app on macOS). See --config and --config-add below to use other files.
+pzx.app on macOS); on Linux, if that folder can't be written (pzx installed
+from a .deb or .rpm package), in ~/.config/pzx/pzx.ini. See --config and --config-add below to use other files.
 pzx.ini is an ini file whose keys are named exactly as the command line
 options (see 12), with 1/0 for on/off options and the option's value for
 the others:
@@ -462,7 +463,7 @@ disassembly and registers on top, memory, breakpoints and watches in the
 bottom third. The window is made to fit the screen: on a small one the
 disassembly and the bottom zones show fewer lines, while the registers zone
 keeps all of its lines. The toolbar has run, break, step into, step over, run to
-cursor, go to address and add watch; run is greyed out while running and
+cursor, step back, go to address and add watch; run is greyed out while running and
 break while stopped. After a separator, the Z80 button opens a window with
 the Z80's instruction set as tables, one per tab: Main (no prefix), CB,
 ED, DD and FD. Each is 16x16, the opcode's high digit on the left and the
@@ -506,7 +507,7 @@ Disassembly
   there, a green tick or red cross says whether it will be taken.
   Double-click a line (or press Space) to set or remove an execution
   breakpoint. Click an instruction byte to change it. Right-click for: go to
-  address, export as assembler, toggle breakpoint, breakpoint type
+  address, search, export as assembler, add (or edit) label, toggle breakpoint, breakpoint type
   (execution, read, write, read/write), port breakpoint, breakpoint with
   condition (opens the same window as adding or editing one in the
   breakpoints zone, for that line), enabled, remove.
@@ -515,6 +516,10 @@ Disassembly
   before the last jump: Go to, Home, End...; up to 50 places), Ctrl+G (go
   to). The disassembly doesn't go round past FFFF: an instruction at FFFE or
   FFFF takes its operands from 0000-0001, and nothing follows it.
+  Add label names the line's address: the name is a user symbol, shown in
+  the disassembly like those of a .sym file and kept when the code is
+  exported as assembler; an empty name removes it (Debug > Clear symbols
+  removes them all).
   Export as assembler asks for an address and a length and saves that
   range as a .asm source for sjasmplus that assembles back to the same
   bytes: ORG, an instruction per line (its address in a comment), labels
@@ -741,9 +746,13 @@ Breakpoint conditions
   instruction runs, with the registers as they are then.
 
 Keys
-  F5 run, F7 step into, F10 step over (CALL, RST, DJNZ, HALT and repeating
+  F5 run, F7 step into, Shift+F7 step back, F10 step over (CALL, RST, DJNZ, HALT and repeating
   block instructions; with the DivMMC connected, RST 8 is followed by an
-  esxDOS function byte, so it returns to the instruction after that byte), F9 run to the selected line. Ctrl+PgDn / Ctrl+PgUp
+  esxDOS function byte, so it returns to the instruction after that byte), F9 run to the selected line.
+  Step back (Shift+F7, or its toolbar button) puts the machine back where
+  it was before the last step into, step over, run to cursor or run: the
+  CPU, all the memory, the paging and the DivMMC (not the sound, the tape
+  or the disks). It goes back up to 10 times. Ctrl+PgDn / Ctrl+PgUp
   move the disassembly and the memory zone 1024 bytes on or back,
   Shift+PgDn / Shift+PgUp 512. Escape closes the debugger (after ending an
   edit, or the typing or selection in the memory zone), and the keys go
@@ -1068,7 +1077,7 @@ A settings file for --config-add only needs the values to change, e.g.:
 
   pzx / pzx.exe        the program (its icon is drawn by tools/make-icon.py)
   pzx.ini              settings, next to the program (created when pzx
-                       closes)
+                       closes; ~/.config/pzx/ when installed from a package)
   roms/                Spectrum ROMs and their .sym label files
   zxuno/               the ZX-Uno's BIOS (FIRMWARE.ZX1) and ROMs (ROMS.ZX1)
   esxdos/              esxDOS 0.8.9: ESXMMC.BIN (the DivMMC firmware) and
@@ -1079,5 +1088,11 @@ A settings file for --config-add only needs the values to change, e.g.:
 roms, README.TXT and LICENSE are looked for next to the program and, if not
 there, in the folder above it (as when pzx is built inside the src folder of
 the sources).
+
+Linux packages: after build.sh, package.sh makes a .deb (with dpkg-deb)
+and a .rpm (with rpmbuild: on Debian or Ubuntu, sudo apt install rpm)
+in build/packages. Both install the program and its folders in
+/usr/lib/pzx, a pzx command, a desktop entry and the icon; they need GTK 2
+and recommend SDL2 (for sound). The version is the release number.
 
 The Spectrum ROMs are copyright Amstrad, who allow their distribution.

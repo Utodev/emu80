@@ -44,9 +44,11 @@ type
     FFps: Integer;
     FFrameCounter: Integer;
     FFpsStart: Int64;
+    FBack: array of TMachineState;   // before the last steps, oldest first
     procedure NotifyBreak;
     procedure FrameDone;
     procedure NotifyFrame;
+    procedure StepOne;
   public
     constructor Create(AModel: TSpectrumModel; const RomDir: string);
     destructor Destroy; override;
@@ -70,9 +72,18 @@ type
     procedure StepInto;
     procedure StepOver;
     procedure RunTo(Addr: Word);
+    { Step back: StepInto, StepOver and RunTo (and the debugger's Run, with
+      SaveBackPoint) keep the machine as it was, up to MAX_BACK times;
+      StepBack puts the last one back. False if there is none. }
+    procedure SaveBackPoint;
+    function StepBack: Boolean;
+    function BackCount: Integer;
     { Refresh the display buffer from the machine (after stepping). }
     procedure UpdateDisplay;
   end;
+
+const
+  MAX_BACK = 10;
 
 function MicroTime: Int64;
 
@@ -201,6 +212,8 @@ begin
 end;
 
 destructor TEmulator.Destroy;
+var
+  I: Integer;
 begin
   if FThread <> nil then
   begin
@@ -210,6 +223,7 @@ begin
     FThread.Free;
   end;
   FAudio.Free;
+  for I := 0 to High(FBack) do FBack[I].Free;
   FSpec.Free;
   FDisplayLock.Free;
   FLock.Free;
@@ -292,7 +306,52 @@ begin
   FPaused := False;
 end;
 
-procedure TEmulator.StepInto;
+procedure TEmulator.SaveBackPoint;
+var
+  I: Integer;
+begin
+  FLock.Enter;
+  try
+    if Length(FBack) >= MAX_BACK then
+    begin
+      FBack[0].Free;
+      for I := 0 to High(FBack) - 1 do FBack[I] := FBack[I + 1];
+      SetLength(FBack, Length(FBack) - 1);
+    end;
+    SetLength(FBack, Length(FBack) + 1);
+    FBack[High(FBack)] := FSpec.SaveState;
+  finally
+    FLock.Leave;
+  end;
+end;
+
+function TEmulator.StepBack: Boolean;
+var
+  S: TMachineState;
+begin
+  Result := False;
+  FLock.Enter;
+  try
+    while (Length(FBack) > 0) and not Result do
+    begin
+      S := FBack[High(FBack)];
+      SetLength(FBack, Length(FBack) - 1);
+      // A state of another model (changed since) is dropped
+      Result := FSpec.LoadState(S);
+      S.Free;
+    end;
+  finally
+    FLock.Leave;
+  end;
+  if Result then UpdateDisplay;
+end;
+
+function TEmulator.BackCount: Integer;
+begin
+  Result := Length(FBack);
+end;
+
+procedure TEmulator.StepOne;
 begin
   FLock.Enter;
   try
@@ -303,11 +362,18 @@ begin
   UpdateDisplay;
 end;
 
+procedure TEmulator.StepInto;
+begin
+  SaveBackPoint;
+  StepOne;
+end;
+
 procedure TEmulator.StepOver;
 var
   Len: Integer;
   Over: Boolean;
 begin
+  SaveBackPoint;
   FLock.Enter;
   try
     Over := IsStepOver(FSpec.Cpu.PC.W, @FSpec.Peek);
@@ -322,11 +388,12 @@ begin
   finally
     FLock.Leave;
   end;
-  if Over then Resume else StepInto;
+  if Over then Resume else StepOne;
 end;
 
 procedure TEmulator.RunTo(Addr: Word);
 begin
+  SaveBackPoint;
   FLock.Enter;
   try
     FSpec.TempBreak := Addr;

@@ -1,0 +1,143 @@
+#!/bin/sh
+# Makes .deb and .rpm packages of the Linux build (run build.sh first).
+#
+#   ./package.sh            both packages, into build/packages/
+#
+# The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
+# (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
+# RPMBUILD=command uses another rpmbuild.
+#
+# Installed layout: the program, roms, esxdos, zxuno, README.TXT and LICENSE
+# in /usr/lib/pzx (pzx finds them next to itself), /usr/bin/pzx to start it,
+# a desktop entry and the icon. The settings go to ~/.config/pzx/pzx.ini,
+# as /usr/lib/pzx can't be written. The version is the release number
+# (src/Release.inc). Sound needs SDL2, recommended by both packages.
+set -e
+cd "$(dirname "$0")"
+ROOT=$(pwd)
+
+[ -x build/linux/pzx ] || { echo "build/linux/pzx not found: run build.sh first" >&2; exit 1; }
+VERSION=$(sed -n "s/.*PZX_RELEASE = '\([0-9]*\)'.*/\1/p" src/Release.inc)
+[ -n "$VERSION" ] || { echo "No release number in src/Release.inc" >&2; exit 1; }
+MAINTAINER="Uto <csanchez@kioskoymas.com>"
+SUMMARY="ZX Spectrum emulator (48K, 128K, +2, +2B, +3, ZX-Uno)"
+OUT="$ROOT/build/packages"
+mkdir -p "$OUT"
+
+# The files, staged on a Linux file system (the permissions must be real)
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+STAGE="$WORK/root"
+LIB="$STAGE/usr/lib/pzx"
+mkdir -p "$LIB" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
+  "$STAGE/usr/share/icons/hicolor/256x256/apps" "$STAGE/usr/share/doc/pzx"
+cp build/linux/pzx "$LIB/pzx"
+cp -R roms esxdos zxuno "$LIB/"
+cp README.TXT LICENSE "$LIB/"
+cp README.TXT "$STAGE/usr/share/doc/pzx/"
+cp LICENSE "$STAGE/usr/share/doc/pzx/copyright"
+cat > "$STAGE/usr/bin/pzx" <<'EOF'
+#!/bin/sh
+exec /usr/lib/pzx/pzx "$@"
+EOF
+cat > "$STAGE/usr/share/applications/pzx.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=pzx
+GenericName=ZX Spectrum emulator
+Comment=$SUMMARY
+Exec=pzx %f
+Icon=pzx
+Terminal=false
+Categories=Game;Emulator;
+MimeType=application/x-spectrum-tap;application/x-spectrum-tzx;application/x-spectrum-z80;application/x-spectrum-sna;
+EOF
+# The icon: the biggest PNG inside src/pzx.ico
+python3 - src/pzx.ico "$STAGE/usr/share/icons/hicolor/256x256/apps/pzx.png" <<'EOF'
+import struct, sys
+data = open(sys.argv[1], 'rb').read()
+count = struct.unpack_from('<H', data, 4)[0]
+best = None
+for i in range(count):
+    w, h, _, _, _, _, size, offset = struct.unpack_from('<BBBBHHII', data, 6 + i * 16)
+    w = w or 256
+    if best is None or w > best[0]:
+        best = (w, size, offset)
+open(sys.argv[2], 'wb').write(data[best[2]:best[2] + best[1]])
+EOF
+find "$STAGE" -type d -exec chmod 755 {} +
+find "$STAGE" -type f -exec chmod 644 {} +
+chmod 755 "$LIB/pzx" "$STAGE/usr/bin/pzx"
+SIZE=$(du -sk "$STAGE" | cut -f1)
+
+# .deb
+if command -v dpkg-deb >/dev/null; then
+  mkdir -p "$STAGE/DEBIAN"
+  cat > "$STAGE/DEBIAN/control" <<EOF
+Package: pzx
+Version: $VERSION
+Section: otherosfs
+Priority: optional
+Architecture: amd64
+Installed-Size: $SIZE
+Depends: libc6, libgtk2.0-0
+Recommends: libsdl2-2.0-0
+Maintainer: $MAINTAINER
+Homepage: https://github.com/Utodev/pzx
+Description: $SUMMARY
+ pzx (Pascal ZX) emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3
+ and the ZX-Uno with exact timing, loads TAP, TZX, SNA, Z80 and DSK files,
+ and has a tape browser, disk and SD card browsers (DivMMC with esxDOS), a
+ Z80 debugger and an adventure debugger for DAAD, PAW and The Quill games.
+ Sound needs SDL2.
+EOF
+  dpkg-deb --root-owner-group --build "$STAGE" "$OUT/pzx_${VERSION}_amd64.deb" >/dev/null
+  rm -rf "$STAGE/DEBIAN"
+  echo "Built build/packages/pzx_${VERSION}_amd64.deb"
+else
+  echo "dpkg-deb not found: no .deb" >&2
+fi
+
+# .rpm
+RPMBUILD=${RPMBUILD:-rpmbuild}
+if command -v "$(echo "$RPMBUILD" | cut -d' ' -f1)" >/dev/null; then
+  mkdir -p "$WORK/rpm/SPECS" "$WORK/rpm/RPMS" "$WORK/rpm/BUILD"
+  cat > "$WORK/rpm/SPECS/pzx.spec" <<EOF
+Name: pzx
+Version: $VERSION
+Release: 1
+Summary: $SUMMARY
+License: GPLv3
+URL: https://github.com/Utodev/pzx
+BuildArch: x86_64
+AutoReqProv: no
+Requires: gtk2
+Recommends: SDL2
+%global debug_package %{nil}
+%global __os_install_post %{nil}
+%global _build_id_links none
+
+%description
+pzx (Pascal ZX) emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3
+and the ZX-Uno with exact timing, loads TAP, TZX, SNA, Z80 and DSK files,
+and has a tape browser, disk and SD card browsers (DivMMC with esxDOS), a
+Z80 debugger and an adventure debugger for DAAD, PAW and The Quill games.
+Sound needs SDL2.
+
+%install
+mkdir -p %{buildroot}
+cp -a $STAGE/. %{buildroot}/
+
+%files
+%attr(755,root,root) /usr/bin/pzx
+/usr/lib/pzx
+/usr/share/applications/pzx.desktop
+/usr/share/icons/hicolor/256x256/apps/pzx.png
+%doc /usr/share/doc/pzx
+EOF
+  $RPMBUILD --quiet -bb --define "_topdir $WORK/rpm" "$WORK/rpm/SPECS/pzx.spec"
+  cp "$WORK/rpm/RPMS/x86_64/pzx-$VERSION-1.x86_64.rpm" "$OUT/"
+  echo "Built build/packages/pzx-$VERSION-1.x86_64.rpm"
+else
+  echo "rpmbuild not found (sudo apt install rpm, or dnf install rpm-build): no .rpm" >&2
+fi

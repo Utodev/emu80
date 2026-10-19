@@ -8,7 +8,7 @@ unit Config;
 interface
 
 uses
-  SysUtils, Classes, IniFiles, Models;
+  SysUtils, Classes, IniFiles, Models{$IFDEF UNIX}, BaseUnix{$ENDIF};
 
 type
   { What the cursor keys + Ctrl (fire) emulate }
@@ -210,6 +210,12 @@ begin
   if Pos('.app/Contents/MacOS/', FFileName) > 0 then
     FFileName := ExtractFilePath(Copy(FFileName, 1, Pos('.app/Contents/MacOS/', FFileName) + 3)) +
       'pzx.ini';
+  {$ENDIF}
+  {$IFDEF UNIX}
+  // Installed where users can't write (a .deb or .rpm: /usr/lib/pzx): the
+  // settings go to the user's own folder (~/.config/pzx/pzx.ini)
+  if FpAccess(ExtractFilePath(FFileName), W_OK) <> 0 then
+    FFileName := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'pzx.ini';
   {$ENDIF}
   Model := sm48K;
   RomDir := DefaultRomDir;

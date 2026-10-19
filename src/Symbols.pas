@@ -26,6 +26,8 @@ type
     { Address of a symbol (case-insensitive); False if not found. }
     function Find(const Name: string; out Addr: Word): Boolean;
     procedure Add(Addr: Word; const Name: string);
+    { The name at Addr, replacing any; '' removes it }
+    procedure SetName(Addr: Word; const Name: string);
     function Lookup(Addr: Word): string;
     property Count: Integer read FCount;
     property FileName: string read FFileName;
@@ -145,6 +147,13 @@ begin
     FNames[Addr] := Name;
     Inc(FCount);
   end;
+end;
+
+procedure TSymbolTable.SetName(Addr: Word; const Name: string);
+begin
+  if (FNames[Addr] = '') and (Name <> '') then Inc(FCount)
+  else if (FNames[Addr] <> '') and (Name = '') then Dec(FCount);
+  FNames[Addr] := Name;
 end;
 
 function TSymbolTable.Lookup(Addr: Word): string;

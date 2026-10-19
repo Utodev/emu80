@@ -106,6 +106,29 @@ type
     Port: Boolean;
   end;
 
+  { The whole machine as it was (CPU, all the RAM, paging, the DivMMC...),
+    for the debugger's step back. Sound and the tape are not kept. }
+  TMachineState = class
+  public
+    Model: TSpectrumModel;
+    Cpu: TZ80;
+    Ram: array[0..ZXUNO_PAGES - 1] of TBank;
+    DivState: TDivState;
+    Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
+    ULAPlusPal: array[0..63] of Byte;
+    ZXReg: array[0..255] of Byte;
+    ScreenBank: Integer;
+    FrameCount, CpuTBase: Int64;
+    RenderLine, RenderCell, EventCount, AYTickT: Integer;
+    SamplePos: Double;
+    PrevRegs: TZ80Regs;
+    PrevPaging: TPagingState;
+    StepCount: LongWord;
+    PortLog: array[0..PORT_LOG_SIZE - 1] of TPortAccess;
+    PortLogPos, PortLogCount: Integer;
+    destructor Destroy; override;
+  end;
+
   TSpectrum = class(TZ80Bus)
   private
     FModel: TSpectrumModel;
@@ -437,6 +460,10 @@ type
     { What is paged in a 16K slot: RAM bank (0-7), -1 - ROM number, or NO_MEMORY }
     function SlotBank(Slot: Integer): Integer;
     function PagingState: TPagingState;
+    { Debugger: the machine now, and back to a saved state (False if the
+      model has changed since) }
+    function SaveState: TMachineState;
+    function LoadState(S: TMachineState): Boolean;
     { Debugger: page RAM bank 0-7 in at C000 (128K/+2/+3 normal paging).
       Ignores the paging lock. False if this machine can't. }
     function SetSlot3Bank(Bank: Integer): Boolean;
@@ -921,6 +948,85 @@ end;
 function TSpectrum.SlotBank(Slot: Integer): Integer;
 begin
   Result := FSlotBank[Slot and 3];
+end;
+
+destructor TMachineState.Destroy;
+begin
+  Cpu.Free;
+  inherited Destroy;
+end;
+
+function TSpectrum.SaveState: TMachineState;
+begin
+  Result := TMachineState.Create;
+  Result.Model := FModel;
+  Result.Cpu := TZ80.Create(FProbeBus);
+  Result.Cpu.CopyStateFrom(FCpu);
+  Move(FRam, Result.Ram, SizeOf(FRam));
+  FDiv.SaveState(Result.DivState);
+  Result.Port7FFD := FPort7FFD;
+  Result.Port1FFD := FPort1FFD;
+  Result.Border := FBorder;
+  Result.UlaOut := FUlaOut;
+  Result.TimexPort := FTimexPort;
+  Result.ULAPlusReg := FULAPlusReg;
+  Result.ULAPlusMode := FULAPlusMode;
+  Result.ZXUnoReg := FZXUnoReg;
+  Move(FULAPlusPal, Result.ULAPlusPal, SizeOf(FULAPlusPal));
+  Move(FZXReg, Result.ZXReg, SizeOf(FZXReg));
+  Result.ScreenBank := FScreenBank;
+  Result.FrameCount := FFrameCount;
+  Result.CpuTBase := FCpuTBase;
+  Result.RenderLine := FRenderLine;
+  Result.RenderCell := FRenderCell;
+  Result.EventCount := FEventCount;
+  Result.AYTickT := FAYTickT;
+  Result.SamplePos := FSamplePos;
+  Result.PrevRegs := FPrevRegs;
+  Result.PrevPaging := FPrevPaging;
+  Result.StepCount := FStepCount;
+  Move(FPortLog, Result.PortLog, SizeOf(FPortLog));
+  Result.PortLogPos := FPortLogPos;
+  Result.PortLogCount := FPortLogCount;
+end;
+
+function TSpectrum.LoadState(S: TMachineState): Boolean;
+var
+  I: Integer;
+begin
+  Result := S.Model = FModel;
+  if not Result then Exit;
+  FCpu.CopyStateFrom(S.Cpu);
+  Move(S.Ram, FRam, SizeOf(FRam));
+  FDiv.LoadState(S.DivState);
+  FPort7FFD := S.Port7FFD;
+  FPort1FFD := S.Port1FFD;
+  FBorder := S.Border;
+  FUlaOut := S.UlaOut;
+  FTimexPort := S.TimexPort;
+  FULAPlusReg := S.ULAPlusReg;
+  FULAPlusMode := S.ULAPlusMode;
+  FZXUnoReg := S.ZXUnoReg;
+  for I := 0 to 63 do SetULAPlusEntry(I, S.ULAPlusPal[I]);
+  Move(S.ZXReg, FZXReg, SizeOf(FZXReg));
+  FScreenBank := S.ScreenBank;
+  FFrameCount := S.FrameCount;
+  FCpuTBase := S.CpuTBase;
+  FRenderLine := S.RenderLine;
+  FRenderCell := S.RenderCell;
+  FEventCount := Min(S.EventCount, FEventCount);
+  FAYTickT := S.AYTickT;
+  FSamplePos := S.SamplePos;
+  FPrevRegs := S.PrevRegs;
+  FPrevPaging := S.PrevPaging;
+  FStepCount := S.StepCount;
+  Move(S.PortLog, FPortLog, SizeOf(FPortLog));
+  FPortLogPos := S.PortLogPos;
+  FPortLogCount := S.PortLogCount;
+  UpdatePaging;
+  FBreakHit := False;
+  FBreakKind := bkNone;
+  FBreakReason := '';
 end;
 
 function TSpectrum.PagingState: TPagingState;
