@@ -21,7 +21,7 @@ const
   BORDER_TOP = 48;
   SAMPLE_RATE = 44100;
 
-  PORT_LOG_SIZE = 10;  // port accesses remembered for the debugger
+  PORT_LOG_SIZE = 50;  // port accesses remembered for the debugger
 
 type
   TBank = array[0..$3FFF] of Byte;
@@ -40,6 +40,15 @@ type
     Port: Word;
     Value: Byte;
     Write: Boolean;
+    Step: LongWord;  // StepCount when it happened
+  end;
+
+  { Memory paging, for the debugger to show what an instruction changed }
+  TPagingState = record
+    Slots: array[0..3] of Integer;   // as SlotBank
+    DivActive, DivMapped: Boolean;   // the DivMMC paged in; by automap
+    DivControl: Byte;                // its port E3
+    UnoConf, UnoMapper: Byte;        // ZX-Uno MASTERCONF and MASTERMAPPER
   end;
 
   { What stopped the emulation }
@@ -217,6 +226,8 @@ type
     FSpeed: Integer;                        // CPU clock multiplier (1 = real)
     FPendingSpeed: Integer;
     FPrevRegs: TZ80Regs;                    // registers before the last instruction
+    FPrevPaging: TPagingState;              // paging before the last instruction
+    FStepCount: LongWord;                   // steps run (instructions, interrupts, NMIs)
     FAutoKeys: array of TAutoKeyStep;
     FAutoKeyPos: Integer;
     FAutoKeyFrames: Integer;
@@ -264,6 +275,8 @@ type
     procedure GenerateAudio;
     procedure TapeTrap;
     procedure CheckTraps;
+    { RST 8 with the DivMMC: remember the game files esxDOS opens }
+    procedure NoteEsxdosCall;
     procedure ExecuteOne;
     function U(T: Integer): Integer; inline;
     function FrameLength: Integer; inline;
@@ -423,6 +436,7 @@ type
     function PagedRom: Integer;
     { What is paged in a 16K slot: RAM bank (0-7), -1 - ROM number, or NO_MEMORY }
     function SlotBank(Slot: Integer): Integer;
+    function PagingState: TPagingState;
     { Debugger: page RAM bank 0-7 in at C000 (128K/+2/+3 normal paging).
       Ignores the paging lock. False if this machine can't. }
     function SetSlot3Bank(Bank: Integer): Boolean;
@@ -433,6 +447,13 @@ type
     procedure Poke(Addr: Word; Value: Byte);
     property TrackPrevRegs: Boolean read FTrackPrev write SetTrackPrev;
     property PrevRegs: TZ80Regs read FPrevRegs write FPrevRegs;
+    property PrevPaging: TPagingState read FPrevPaging write FPrevPaging;
+  public
+    { Name (no folder) of the last game file loaded: a tape, disk or
+      snapshot opened in pzx, or a .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened
+      from the SD card. A short string: the emulation thread writes it. }
+    LastMediaFile: ShortString;
+    property StepCount: LongWord read FStepCount;
     procedure RenderUpTo(T: Integer);
     { Draw the frame again from its first line (tests) }
     procedure RestartRender;
@@ -902,10 +923,26 @@ begin
   Result := FSlotBank[Slot and 3];
 end;
 
+function TSpectrum.PagingState: TPagingState;
+var
+  I: Integer;
+begin
+  for I := 0 to 3 do Result.Slots[I] := FSlotBank[I];
+  Result.DivActive := FDivOn and FDiv.Active;
+  Result.DivMapped := FDiv.Mapped;
+  Result.DivControl := FDiv.Control;
+  Result.UnoConf := FZXReg[0];
+  Result.UnoMapper := FZXReg[1];
+end;
+
 procedure TSpectrum.SetTrackPrev(Value: Boolean);
 begin
   // Until an instruction runs, "before the last instruction" is "now"
-  if Value and not FTrackPrev then FPrevRegs := FCpu.GetRegs;
+  if Value and not FTrackPrev then
+  begin
+    FPrevRegs := FCpu.GetRegs;
+    FPrevPaging := PagingState;
+  end;
   FTrackPrev := Value;
 end;
 
@@ -2442,6 +2479,45 @@ begin
   FCpu.PC.W := $053F;
 end;
 
+procedure TSpectrum.NoteEsxdosCall;
+const
+  F_OPEN = $9A;
+
+  { The ASCIIZ name at Addr if it looks like a game file's, else '' }
+  function NameAt(Addr: Word): string;
+  var
+    I: Integer;
+    C: Byte;
+    Ext: string;
+  begin
+    Result := '';
+    for I := 0 to 63 do
+    begin
+      C := Peek(Word(Addr + I));
+      if C = 0 then Break;
+      if (C < 32) or (C > 126) then Exit('');
+      Result := Result + Chr(C);
+    end;
+    Ext := UpperCase(ExtractFileExt(Result));
+    if (Ext <> '.TAP') and (Ext <> '.TZX') and (Ext <> '.Z80') and (Ext <> '.SNA') and
+       (Ext <> '.DSK') then Exit('');
+    // Without the folder ("/GAMES/COZUMEL.TAP")
+    Result := ExtractFileName(StringReplace(Result, '/', PathDelim, [rfReplaceAll]));
+  end;
+
+var
+  Ret: Word;
+  Name: string;
+begin
+  // The function number is the byte after the RST 8
+  Ret := Peek(FCpu.SP.W) or (Peek(Word(FCpu.SP.W + 1)) shl 8);
+  if Peek(Ret) <> F_OPEN then Exit;
+  // The name is at IX (programs) or HL (dot commands)
+  Name := NameAt(FCpu.IX.W);
+  if Name = '' then Name := NameAt(FCpu.HL.W);
+  if Name <> '' then LastMediaFile := Name;
+end;
+
 procedure TSpectrum.CheckTraps;
 begin
   if not BasicRomPaged then Exit;
@@ -2924,6 +3000,7 @@ begin
   FPortLog[FPortLogPos].Port := Port;
   FPortLog[FPortLogPos].Value := Value;
   FPortLog[FPortLogPos].Write := Write;
+  FPortLog[FPortLogPos].Step := FStepCount;
   FPortLogPos := (FPortLogPos + 1) mod PORT_LOG_SIZE;
   if FPortLogCount < PORT_LOG_SIZE then Inc(FPortLogCount);
 end;
@@ -2949,7 +3026,12 @@ end;
 { One step of the frame loop: an NMI, an accepted interrupt, or one instruction. }
 procedure TSpectrum.ExecuteOne;
 begin
-  if FTrackPrev then FPrevRegs := FCpu.GetRegs;
+  if FTrackPrev then
+  begin
+    FPrevRegs := FCpu.GetRegs;
+    FPrevPaging := PagingState;
+  end;
+  Inc(FStepCount);
   if FNMIRequest then
   begin
     FNMIRequest := False;
@@ -2957,7 +3039,11 @@ begin
     Exit;
   end;
   if IntActive and FCpu.IFF1 and FCpu.Interrupt then Exit;
-  if FCpu.PC.W < $4000 then CheckTraps;
+  if FCpu.PC.W < $4000 then
+  begin
+    CheckTraps;
+    if (FCpu.PC.W = $0008) and (FDivOn or (FModel = smZXUno)) then NoteEsxdosCall;
+  end;
   FInstrPC := FCpu.PC.W;
   FSuppressBreaks := FProbeCovered;
   FCpu.Step;

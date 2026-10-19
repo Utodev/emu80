@@ -17,8 +17,8 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, Menus,
-  LCLType, Dialogs, ComCtrls, Emulator, Spectrum, Disasm, Z80Core, Symbols, Icons, Models,
-  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr;
+  LCLType, Dialogs, ComCtrls, Clipbrd, Emulator, Spectrum, Disasm, Z80Core, Symbols, Icons, Models,
+  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr, DelayHint, Z80Help;
 
 type
   TDebuggerWindow = class;
@@ -27,6 +27,7 @@ type
     skInfo,       // read-only hex value
     skLabel,      // a label: Value is its address, the hint its full name
     skHint,       // text shown as a hint (not an address)
+    skDoc,        // longer help, shown after the mouse rests on it a second
     skRegister,   // click to edit; Target = TRegId
     skMemWord,    // click to edit the 16-bit word at Target
     skMemByte,    // click to edit the byte at Target
@@ -122,9 +123,18 @@ type
     FPopup: TPopupMenu;
     FTypeItems: array[0..3] of TMenuItem;   // execution, read, write, read/write
     FEnabledItem, FRemoveItem, FConditionItem: TMenuItem;
+    FBack: array of LongWord;   // where the view was before each jump: top shl 16 or selection
+    FPlaced: Boolean;           // a first address has been shown
     procedure Layout;
     function LineAt(Y: Integer): Integer;
     function PrevAddr(Addr: Word): Word;
+    { The top that shows FFFF on the last line }
+    function EndTop: Word;
+    { The view doesn't go past FFFF: no top beyond EndTop }
+    procedure ClampTop;
+    { Remember the view before a jump, for Backspace }
+    procedure PushBack;
+    procedure JumpTo(ATop, ASel: Word);
     procedure MenuClick(Sender: TObject);
     procedure DrawCheck(X, Y: Integer; Ok: Boolean);
     procedure DrawArrow(X, Y: Integer);
@@ -154,7 +164,24 @@ type
     FMenuAddr: Integer;     // byte under the mouse on right-click, -1 if none
     FSprites: Boolean;      // show the bytes as 8x8 sprites
     FSpriteRowBytes, FSpriteRows: Integer;   // sprite layout of the last paint
+    FSelA, FSelB: Integer;  // text column selection: anchor and end (-1 = none)
+    FDragging: Boolean;
+    FReadItem, FWriteItem, FCopyTextItem, FCopyItem, FPasteItem: TMenuItem;
     procedure SetXor(Value: Byte);
+    function HasSel: Boolean;
+    function SelFirst: Word;
+    function SelLast: Word;
+    { The range a data breakpoint from the menu covers: the selection if the
+      byte is in it, else the byte }
+    procedure BreakRange(out First, Last: Word);
+    procedure MenuReadBreak(Sender: TObject);
+    procedure MenuWriteBreak(Sender: TObject);
+    procedure MenuCopy(Sender: TObject);
+    procedure MenuCopyText(Sender: TObject);
+    { The selection, else the byte right-clicked; False if neither }
+    function CopyRange(out First, Last: Integer): Boolean;
+    procedure MenuPaste(Sender: TObject);
+    procedure PasteAt(Addr: Word);
     procedure MenuGoTo(Sender: TObject);
     procedure MenuWatch(Sender: TObject);
     procedure MenuSprites(Sender: TObject);
@@ -170,6 +197,8 @@ type
     procedure Paint; override;
     function ClickSpot(Index: Integer): Boolean; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
     procedure KeyPress(var Key: Char); override;
     procedure DoExit; override;
@@ -177,6 +206,9 @@ type
   public
     constructor CreateView(AOwner: TDebuggerWindow);
     procedure GoToAddr(Addr: Word);
+    { Escape: drop the typing position or the selection; False if there
+      was neither (Escape then closes the window) }
+    function CancelTyping: Boolean;
     { Bytes on screen, from TopAddr }
     function VisibleBytes: Integer;
     property TopAddr: Word read FTop;
@@ -229,8 +261,13 @@ type
 
   { Registers, flags, interrupt state and stack }
   TRegView = class(TDebugView)
+  private
+    FStackOfs, FPortOfs: Integer;   // entries scrolled with the wheel
+    FStackBox, FPortBox: TRect;
+    FStep: LongWord;                // step shown: a new one scrolls back to the top
   protected
     procedure Paint; override;
+    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   end;
 
   TRegSnapshot = record
@@ -247,6 +284,10 @@ type
     FRegs: TRegSnapshot;
     FPrev: TRegSnapshot;      // registers before the last instruction
     FHavePrev: Boolean;
+    FPrevPaging: TPagingState;  // paging before the last instruction
+    FStep: LongWord;            // the emulator's step count
+    FWatchSplit: TSplitter;
+    FWatchShare: Double;        // the watches' part of what memory leaves (splitter)
     FRomIndex: Integer;       // ROM paged at 0000-3FFF (-1 = RAM)
     FWasPaused: Boolean;
     FHistory: TStringList;
@@ -280,12 +321,14 @@ type
     FDisasm: TDisasmView;
     FRegView: TRegView;
     FDataPanel: TPanel;
-    FMemZone, FWatchZone, FRegZone: TPanel;
+    FMemZone, FBreakZone, FWatchZone, FRegZone: TPanel;
     FLaidOut: Boolean;
     FRegMinH: Integer;      // height the registers zone needs (it can't shrink)
     FXorEdit: TEdit;
     FHex: THexView;
     FTimer: TTimer;
+    procedure WatchSplitMoved(Sender: TObject);
+    function DataRest: Integer;
     function AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
     procedure AddSeparator;
     procedure SetStatus(const AText: string);
@@ -306,6 +349,7 @@ type
     procedure XorChange(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FocusMainWindow(Data: PtrInt);
     procedure DoRun(Sender: TObject);
     procedure DoBreak(Sender: TObject);
     procedure DoStepInto(Sender: TObject);
@@ -401,6 +445,15 @@ type
     property Regs: TRegSnapshot read FRegs;
     property Prev: TRegSnapshot read FPrev;
     property HavePrev: Boolean read FHavePrev;
+    property PrevPaging: TPagingState read FPrevPaging;
+    property Step: LongWord read FStep;
+    { A paging change made by hand is not shown as changed by an instruction }
+    procedure PagingChangedByHand;
+    { Toggle Bit (BP_READ or BP_WRITE) of the memory breakpoint at Addr, or
+      add one over First-Last }
+    procedure ToggleDataBreak(Addr, First, Last: Word; Bit: Byte);
+    { Write bytes from Addr (up to FFFF), skipping ROM unless writable }
+    procedure WriteBytes(Addr: Word; const Values: TBytes);
     property Hex: THexView read FHex;
   end;
 
@@ -429,6 +482,7 @@ const
   MAX_LABEL = 20;     // longer labels are cut, with the full name as a hint
   HEX_BYTES = 16;     // bytes per row in the data view
   STACK_ENTRIES = 8;   // also the port accesses shown
+  STACK_HISTORY = 50;  // stack entries the wheel reaches (the port log keeps as many)
 
   REGISTER_NAMES: array[0..21] of string = (
     'A', 'B', 'C', 'D', 'E', 'H', 'L', 'I', 'R', 'F', 'AF', 'AF''', 'BC', 'DE', 'HL', 'SP',
@@ -771,6 +825,7 @@ var
   P: TPoint;
 begin
   inherited MouseDown(Button, Shift, X, Y);
+  DelayedHint.Cancel;
   if TabStop and CanFocus then SetFocus;
   if (Button = mbRight) and not HasOwnMenu then
   begin
@@ -803,8 +858,16 @@ begin
   if Spot < 0 then
   begin
     Hint := '';
+    DelayedHint.Cancel;
     Exit;
   end;
+  if FSpots[Spot].Kind = skDoc then
+  begin
+    Hint := '';
+    DelayedHint.Request(Self, FSpots[Spot].R, FSpots[Spot].Text);
+    Exit;
+  end;
+  DelayedHint.Cancel;
   // Full label name, or the decimal value of the hex number under the mouse
   if FSpots[Spot].Kind in [skLabel, skHint] then
     Hint := FSpots[Spot].Text
@@ -816,6 +879,7 @@ end;
 procedure TDebugView.MouseLeave;
 begin
   inherited MouseLeave;
+  DelayedHint.Cancel;
   FHintSpot := -1;
   Hint := '';
   Application.CancelHint;
@@ -880,19 +944,23 @@ end;
 
 procedure TDisasmView.Layout;
 var
-  I, N, Len: Integer;
-  A: Word;
+  I, N, Len, A: Integer;
 begin
   N := VisibleLines;
   SetLength(FLines, N);
   A := FTop;
-  for I := 0 to N - 1 do
+  I := 0;
+  // Up to the instruction that holds FFFF (it may take its operands from
+  // 0000), never round to 0000
+  while (I < N) and (A <= $FFFF) do
   begin
     Disassemble(A, @FOwnerWin.Peek, Len);
     FLines[I].Addr := A;
     FLines[I].Len := Len;
-    A := Word(A + Len);
+    Inc(A, Len);
+    Inc(I);
   end;
+  SetLength(FLines, I);
 end;
 
 function TDisasmView.LineAt(Y: Integer): Integer;
@@ -908,7 +976,8 @@ function TDisasmView.PrevAddr(Addr: Word): Word;
 var
   Back, Len: Integer;
 begin
-  for Back := 4 downto 1 do
+  if Addr = 0 then Exit(0);   // nothing before 0000
+  for Back := Min(4, Addr) downto 1 do
   begin
     Disassemble(Word(Addr - Back), @FOwnerWin.Peek, Len);
     if Len = Back then Exit(Word(Addr - Back));
@@ -916,12 +985,59 @@ begin
   Result := Word(Addr - 1);
 end;
 
+function TDisasmView.EndTop: Word;
+var
+  Back, Len, I: Integer;
+begin
+  // The instruction that ends at FFFF (or, failing that, FFFF itself)
+  Result := $FFFF;
+  for Back := 4 downto 1 do
+  begin
+    Disassemble(Word($10000 - Back), @FOwnerWin.Peek, Len);
+    if Len = Back then
+    begin
+      Result := Word($10000 - Back);
+      Break;
+    end;
+  end;
+  for I := 2 to VisibleLines do Result := PrevAddr(Result);
+end;
+
+procedure TDisasmView.ClampTop;
+var
+  Last: Word;
+begin
+  Last := EndTop;
+  if FTop > Last then FTop := Last;
+  Layout;
+end;
+
+procedure TDisasmView.PushBack;
+const
+  MAX_BACK = 50;
+var
+  V: LongWord;
+begin
+  V := (LongWord(FTop) shl 16) or FSel;
+  if (Length(FBack) > 0) and (FBack[High(FBack)] = V) then Exit;
+  if Length(FBack) >= MAX_BACK then Delete(FBack, 0, 1);
+  SetLength(FBack, Length(FBack) + 1);
+  FBack[High(FBack)] := V;
+end;
+
+procedure TDisasmView.JumpTo(ATop, ASel: Word);
+begin
+  if FPlaced then PushBack;
+  FPlaced := True;
+  FTop := ATop;
+  FSel := ASel;
+  ClampTop;
+  Invalidate;
+end;
+
 procedure TDisasmView.GoToAddr(Addr: Word);
 begin
-  FTop := Addr;
-  FSel := Addr;
-  Layout;
-  Invalidate;
+  JumpTo(Addr, Addr);
 end;
 
 procedure TDisasmView.EnsureVisible(Addr: Word);
@@ -938,7 +1054,7 @@ begin
     end;
   // Show a couple of lines of context above
   FTop := PrevAddr(PrevAddr(Addr));
-  Layout;
+  ClampTop;
   Invalidate;
 end;
 
@@ -980,7 +1096,7 @@ end;
   its value in brackets in grey. Returns the X after the text. }
 function TDisasmView.DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean): Integer;
 var
-  Instr, Mnem, Tok, Lbl: string;
+  Instr, Mnem, Tok, Lbl, Help: string;
   Len, Operand, P, Start, V: Integer;
   Kind: TOperandKind;
   TextColor: TColor;
@@ -988,6 +1104,8 @@ var
 begin
   if OnBreak then TextColor := clWhite else TextColor := clBlack;
   Instr := DisassembleEx(Addr, @FOwnerWin.Peek, Len, Operand, Kind);
+  Help := InstructionHelp(Instr);
+  if Help <> '' then Help := Help + LineEnding + 'T-States: ' + InstructionTStates(Addr, @FOwnerWin.Peek);
   Lbl := '';
   if Operand >= 0 then
   begin
@@ -1004,6 +1122,8 @@ begin
   P := Pos(' ', Instr);
   if P = 0 then P := Length(Instr) + 1;
   Mnem := Copy(Instr, 1, P - 1);
+  // Over the mnemonic: what the instruction does
+  if Help <> '' then AddSpot(X, Y - 1, Length(Mnem), skDoc, 0, 0, 0, Help);
   X := DrawText(X, Y, Mnem, MnemonicColor(OnBreak), False);
   IsFlow := (Mnem = 'JP') or (Mnem = 'JR') or (Mnem = 'CALL') or (Mnem = 'RET');
   FirstOperand := True;
@@ -1253,8 +1373,12 @@ begin
     VK_DOWN:
       begin
         Disassemble(FSel, @FOwnerWin.Peek, Len);
-        FSel := Word(FSel + Len);
-        if FSel = FLines[High(FLines)].Addr then FTop := FLines[1].Addr;
+        if FSel + Len <= $FFFF then
+        begin
+          FSel := FSel + Len;
+          if (Length(FLines) > 1) and (FSel = FLines[High(FLines)].Addr) then FTop := FLines[1].Addr;
+          ClampTop;
+        end;
         Key := 0;
       end;
     VK_UP:
@@ -1265,14 +1389,45 @@ begin
       end;
     VK_NEXT:
       begin
-        FTop := FLines[High(FLines)].Addr;
+        // Ctrl: 1024 bytes on, Shift: 512; else a page
+        if ssCtrl in Shift then FTop := Min($FFFF, FTop + 1024)
+        else if ssShift in Shift then FTop := Min($FFFF, FTop + 512)
+        else if Length(FLines) > 0 then FTop := FLines[High(FLines)].Addr;
         FSel := FTop;
+        ClampTop;
         Key := 0;
       end;
     VK_PRIOR:
       begin
-        for I := 1 to High(FLines) do FTop := PrevAddr(FTop);
+        if ssCtrl in Shift then FTop := Max(0, FTop - 1024)
+        else if ssShift in Shift then FTop := Max(0, FTop - 512)
+        else
+          for I := 1 to VisibleLines - 1 do FTop := PrevAddr(FTop);
         FSel := FTop;
+        Key := 0;
+      end;
+    VK_HOME:
+      begin
+        JumpTo(0, 0);
+        Key := 0;
+      end;
+    VK_END:
+      begin
+        A := EndTop;
+        JumpTo(A, A);
+        if Length(FLines) > 0 then FSel := FLines[High(FLines)].Addr;   // the line with FFFF
+        Key := 0;
+      end;
+    VK_BACK:
+      begin
+        // Back to where the view was before the last jump
+        if Length(FBack) > 0 then
+        begin
+          FTop := FBack[High(FBack)] shr 16;
+          FSel := FBack[High(FBack)] and $FFFF;
+          SetLength(FBack, Length(FBack) - 1);
+          ClampTop;
+        end;
         Key := 0;
       end;
     VK_SPACE, VK_RETURN:
@@ -1292,10 +1447,11 @@ begin
     if WheelDelta < 0 then
     begin
       Disassemble(FTop, @FOwnerWin.Peek, Len);
-      FTop := Word(FTop + Len);
+      if FTop + Len <= $FFFF then FTop := FTop + Len;
     end
     else
       FTop := PrevAddr(FTop);
+  ClampTop;
   Invalidate;
   Result := True;
 end;
@@ -1314,6 +1470,8 @@ begin
   inherited CreateView(AOwner);
   FTextCursor := -1;
   FMenuAddr := -1;
+  FSelA := -1;
+  FSelB := -1;
   FMenu := TPopupMenu.Create(Self);
   Item := TMenuItem.Create(FMenu);
   Item.Caption := 'Go to address...  (Ctrl+G)';
@@ -1323,10 +1481,37 @@ begin
   FWatchItem.Caption := 'Add a watch here';
   FWatchItem.OnClick := @MenuWatch;
   FMenu.Items.Add(FWatchItem);
+  FReadItem := TMenuItem.Create(FMenu);
+  FReadItem.OnClick := @MenuReadBreak;
+  FReadItem.Hint := 'Stop before an instruction reads this byte (the selection, if the byte is in it)';
+  FMenu.Items.Add(FReadItem);
+  FWriteItem := TMenuItem.Create(FMenu);
+  FWriteItem.OnClick := @MenuWriteBreak;
+  FWriteItem.Hint := 'Stop before an instruction writes this byte (the selection, if the byte is in it)';
+  FMenu.Items.Add(FWriteItem);
   FSpriteItem := TMenuItem.Create(FMenu);
   FSpriteItem.Caption := 'Sprite mode  (Space)';
   FSpriteItem.OnClick := @MenuSprites;
   FMenu.Items.Add(FSpriteItem);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := '-';
+  FMenu.Items.Add(Item);
+  FCopyTextItem := TMenuItem.Create(FMenu);
+  FCopyTextItem.Caption := 'Copy';
+  FCopyTextItem.Hint := 'Copy the selected bytes as the text column shows them';
+  FCopyTextItem.OnClick := @MenuCopyText;
+  FMenu.Items.Add(FCopyTextItem);
+  FCopyItem := TMenuItem.Create(FMenu);
+  FCopyItem.Caption := 'Copy values  (Ctrl+C)';
+  FCopyItem.Hint := 'Copy the selected bytes as hex values with a $ in front, separated by commas';
+  FCopyItem.OnClick := @MenuCopy;
+  FMenu.Items.Add(FCopyItem);
+  FPasteItem := TMenuItem.Create(FMenu);
+  FPasteItem.Caption := 'Paste  (Ctrl+V)';
+  FPasteItem.Hint := 'Write the clipboard from this byte: values separated by commas (decimal, ' +
+    'or $ for hex), or else its text';
+  FPasteItem.OnClick := @MenuPaste;
+  FMenu.Items.Add(FPasteItem);
   Item := TMenuItem.Create(FMenu);
   Item.Caption := '-';
   FMenu.Items.Add(Item);
@@ -1352,6 +1537,168 @@ begin
   FMenu.Items.Add(Item);
   FSpriteRowBytes := 8;
   FSpriteRows := 1;
+end;
+
+function THexView.CancelTyping: Boolean;
+begin
+  Result := (FTextCursor >= 0) or HasSel;
+  FTextCursor := -1;
+  FSelA := -1;
+  FSelB := -1;
+  if Result then Invalidate;
+end;
+
+function THexView.HasSel: Boolean;
+begin
+  Result := (FSelA >= 0) and (FSelB >= 0);
+end;
+
+function THexView.SelFirst: Word;
+begin
+  Result := Min(FSelA, FSelB);
+end;
+
+function THexView.SelLast: Word;
+begin
+  Result := Max(FSelA, FSelB);
+end;
+
+procedure THexView.BreakRange(out First, Last: Word);
+var
+  I: Integer;
+  E: TBreakEntry;
+begin
+  First := FMenuAddr;
+  Last := FMenuAddr;
+  // A breakpoint already there: its range
+  for I := 0 to FOwnerWin.BreakCount - 1 do
+  begin
+    E := FOwnerWin.BreakAt(I);
+    if not E.Port and (FMenuAddr >= E.Addr) and (FMenuAddr <= E.Last) then
+    begin
+      First := E.Addr;
+      Last := E.Last;
+      Exit;
+    end;
+  end;
+  if HasSel and (FMenuAddr >= SelFirst) and (FMenuAddr <= SelLast) then
+  begin
+    First := SelFirst;
+    Last := SelLast;
+  end;
+end;
+
+procedure THexView.MenuReadBreak(Sender: TObject);
+var
+  First, Last: Word;
+begin
+  if FMenuAddr < 0 then Exit;
+  BreakRange(First, Last);
+  FOwnerWin.ToggleDataBreak(FMenuAddr, First, Last, BP_READ);
+end;
+
+procedure THexView.MenuWriteBreak(Sender: TObject);
+var
+  First, Last: Word;
+begin
+  if FMenuAddr < 0 then Exit;
+  BreakRange(First, Last);
+  FOwnerWin.ToggleDataBreak(FMenuAddr, First, Last, BP_WRITE);
+end;
+
+function THexView.CopyRange(out First, Last: Integer): Boolean;
+begin
+  Result := True;
+  if HasSel then
+  begin
+    First := SelFirst;
+    Last := SelLast;
+  end
+  else if FMenuAddr >= 0 then
+  begin
+    First := FMenuAddr;
+    Last := FMenuAddr;
+  end
+  else Result := False;
+end;
+
+{ The selection as the text column shows it (XOR applied, "." for the
+  bytes that aren't printable) }
+procedure THexView.MenuCopyText(Sender: TObject);
+var
+  First, Last, A: Integer;
+  V: Byte;
+  S: string;
+begin
+  if not CopyRange(First, Last) then Exit;
+  S := '';
+  for A := First to Last do
+  begin
+    V := FOwnerWin.Peek(A) xor FXor;
+    if (V >= 32) and (V < 127) then S := S + Chr(V) else S := S + '.';
+  end;
+  Clipboard.AsText := S;
+  FOwnerWin.ShowNotice(Format('Copied %d characters', [Last - First + 1]));
+end;
+
+{ The selection (or the byte right-clicked) as "$3E,$01,..." }
+procedure THexView.MenuCopy(Sender: TObject);
+var
+  First, Last: Integer;
+  A: Integer;
+  S: string;
+begin
+  if not CopyRange(First, Last) then Exit;
+  S := '';
+  for A := First to Last do
+  begin
+    if A > First then S := S + ',';
+    S := S + '$' + IntToHex(FOwnerWin.Peek(A), 2);
+  end;
+  Clipboard.AsText := S;
+  FOwnerWin.ShowNotice(Format('Copied %d values', [Last - First + 1]));
+end;
+
+procedure THexView.MenuPaste(Sender: TObject);
+begin
+  if FMenuAddr >= 0 then PasteAt(FMenuAddr);
+end;
+
+{ Values separated by commas (or one $ value) are written as they are; any
+  other text as typed in the text column (XORed with the key) }
+procedure THexView.PasteAt(Addr: Word);
+var
+  Clip, Error: string;
+  Values: TBytes;
+  I, N: Integer;
+begin
+  Clip := Clipboard.AsText;
+  if Trim(Clip) = '' then
+  begin
+    Beep;
+    Exit;
+  end;
+  if (Pos(',', Clip) > 0) or (Trim(Clip)[1] = '$') then
+  begin
+    if not ParseValues(Clip, Values, Error) then
+    begin
+      MessageDlg('Paste failed: ' + Error + '.', mtError, [mbOK], 0);
+      Exit;
+    end;
+  end
+  else
+  begin
+    SetLength(Values, Length(Clip));
+    N := 0;
+    for I := 1 to Length(Clip) do
+      if Clip[I] in [#32..#126] then
+      begin
+        Values[N] := Ord(Clip[I]) xor FXor;
+        Inc(N);
+      end;
+    SetLength(Values, N);
+  end;
+  FOwnerWin.WriteBytes(Addr, Values);
 end;
 
 procedure THexView.MenuSprites(Sender: TObject);
@@ -1470,7 +1817,8 @@ procedure THexView.Paint;
 var
   Row, Col, Y, X, AsciiX: Integer;
   A: Word;
-  V: Byte;
+  V, BP: Byte;
+  Back: TColor;
 begin
   MeasureFont;
   ClearSpots;
@@ -1492,16 +1840,33 @@ begin
     for Col := 0 to HEX_BYTES - 1 do
     begin
       V := FOwnerWin.Peek(Word(A + Col)) xor FXor;
+      // A read or write breakpoint on the byte: pink, pale when switched off
+      BP := FOwnerWin.BreakFlags(Word(A + Col));
+      if (BP and (BP_READ or BP_WRITE)) <> 0 then
+      begin
+        if (BP and BP_DISABLED) <> 0 then Back := RGBToColor(250, 230, 230)
+        else Back := RGBToColor(255, 185, 185);
+      end
+      else Back := clWhite;
       X := 4 + FCharW * (6 + Col * 3);
+      if Back <> clWhite then
+      begin
+        Canvas.Brush.Style := bsSolid;
+        Canvas.Brush.Color := Back;
+        Canvas.FillRect(X - FCharW div 2, Y, X + FCharW * 2 + FCharW div 2, Y + FLineH);
+      end;
       AddSpot(X, Y, 2, skMemXorByte, V, 2, Word(A + Col));
       DrawText(X, Y + 1, IntToHex(V, 2), clBlack, False);
       X := AsciiX + Col * FCharW;
       AddSpot(X, Y, 1, skAscii, V, 2, Word(A + Col));
+      if HasSel and (Word(A + Col) >= SelFirst) and (Word(A + Col) <= SelLast) then
+        Back := RGBToColor(190, 215, 255);    // selected
       if Word(A + Col) = FTextCursor then
+        Back := RGBToColor(120, 170, 255);    // typing position in the text column
+      if Back <> clWhite then
       begin
-        // Typing position in the text column
         Canvas.Brush.Style := bsSolid;
-        Canvas.Brush.Color := RGBToColor(120, 170, 255);
+        Canvas.Brush.Color := Back;
         Canvas.FillRect(X, Y, X + FCharW, Y + FLineH);
       end;
       // Not printable: a grey dot
@@ -1531,11 +1896,30 @@ procedure THexView.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Int
 var
   Spot: Integer;
   P: TPoint;
+  First, Last: Word;
+  Flags: Byte;
+  Where: string;
 begin
   Spot := SpotAt(X, Y);
   if (Spot < 0) and (FTextCursor >= 0) then
   begin
     FTextCursor := -1;
+    Invalidate;
+  end;
+  // Text column: click or drag to select (Shift+click extends)
+  if Button = mbLeft then
+  begin
+    if (Spot >= 0) and (FSpots[Spot].Kind = skAscii) then
+    begin
+      if not ((ssShift in Shift) and HasSel) then FSelA := FSpots[Spot].Target;
+      FSelB := FSpots[Spot].Target;
+      FDragging := True;
+    end
+    else
+    begin
+      FSelA := -1;
+      FSelB := -1;
+    end;
     Invalidate;
   end;
   inherited MouseDown(Button, Shift, X, Y);
@@ -1550,10 +1934,63 @@ begin
       FWatchItem.Caption := 'Add a watch at ' + IntToHex(FMenuAddr, 4)
     else
       FWatchItem.Caption := 'Add a watch here';
+    // Read and write breakpoints: on/off for the byte (or the selection)
+    FReadItem.Enabled := FMenuAddr >= 0;
+    FWriteItem.Enabled := FMenuAddr >= 0;
+    Where := 'here';
+    Flags := 0;
+    if FMenuAddr >= 0 then
+    begin
+      BreakRange(First, Last);
+      if Last <> First then Where := Format('at %.4X-%.4X', [First, Last])
+      else Where := 'at ' + IntToHex(First, 4);
+      Flags := FOwnerWin.BreakFlags(FMenuAddr);
+      if (Flags and BP_EXEC) <> 0 then Flags := 0;
+    end;
+    FReadItem.Caption := 'Read breakpoint ' + Where;
+    FReadItem.Checked := (Flags and BP_READ) <> 0;
+    FWriteItem.Caption := 'Write breakpoint ' + Where;
+    FWriteItem.Checked := (Flags and BP_WRITE) <> 0;
+    FCopyItem.Enabled := HasSel or (FMenuAddr >= 0);
+    FCopyTextItem.Enabled := FCopyItem.Enabled;
+    FPasteItem.Enabled := FMenuAddr >= 0;
     PrepareGoto(FMenu, X, Y);
     P := ClientToScreen(Point(X, Y));
     FMenu.PopUp(P.X, P.Y);
   end;
+end;
+
+procedure THexView.MouseMove(Shift: TShiftState; X, Y: Integer);
+var
+  Spot: Integer;
+begin
+  inherited MouseMove(Shift, X, Y);
+  if not FDragging or not (ssLeft in Shift) then Exit;
+  // Past the top or bottom: scroll a row
+  if Y < 0 then
+  begin
+    FTop := Word(FTop - HEX_BYTES);
+    FSelB := Max(0, FSelB - HEX_BYTES);
+  end
+  else if Y >= ClientHeight then
+  begin
+    FTop := Word(FTop + HEX_BYTES);
+    FSelB := Min($FFFF, FSelB + HEX_BYTES);
+  end
+  else
+  begin
+    Spot := SpotAt(X, Y);
+    if (Spot < 0) or (FSpots[Spot].Kind <> skAscii) then Exit;
+    if FSpots[Spot].Target = FSelB then Exit;
+    FSelB := FSpots[Spot].Target;
+  end;
+  Invalidate;
+end;
+
+procedure THexView.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+begin
+  inherited MouseUp(Button, Shift, X, Y);
+  FDragging := False;
 end;
 
 procedure THexView.KeyDown(var Key: Word; Shift: TShiftState);
@@ -1561,6 +1998,28 @@ var
   A: Word;
 begin
   inherited KeyDown(Key, Shift);
+  if ssCtrl in Shift then
+    case Key of
+      VK_C:
+        begin
+          FMenuAddr := FTextCursor;
+          MenuCopy(nil);
+          Key := 0;
+        end;
+      VK_V:
+        begin
+          // At the typing position, else the selection, else the first byte shown
+          if FTextCursor >= 0 then PasteAt(FTextCursor)
+          else if HasSel then PasteAt(SelFirst)
+          else PasteAt(FTop);
+          Key := 0;
+        end;
+    end;
+  if Key = VK_ESCAPE then
+  begin
+    FSelA := -1;
+    FSelB := -1;
+  end;
   if FTextCursor >= 0 then
     case Key of
       VK_ESCAPE, VK_RETURN: begin FTextCursor := -1; Key := 0; end;
@@ -1583,8 +2042,21 @@ begin
       end;
     VK_DOWN: begin FTop := Word(FTop + RowBytes); Key := 0; end;
     VK_UP: begin FTop := Word(FTop - RowBytes); Key := 0; end;
-    VK_NEXT: begin FTop := Word(FTop + VisibleBytes); Key := 0; end;
-    VK_PRIOR: begin FTop := Word(FTop - VisibleBytes); Key := 0; end;
+    // Ctrl: 1024 bytes, Shift: 512, else a page
+    VK_NEXT:
+      begin
+        if ssCtrl in Shift then FTop := Word(FTop + 1024)
+        else if ssShift in Shift then FTop := Word(FTop + 512)
+        else FTop := Word(FTop + VisibleBytes);
+        Key := 0;
+      end;
+    VK_PRIOR:
+      begin
+        if ssCtrl in Shift then FTop := Word(FTop - 1024)
+        else if ssShift in Shift then FTop := Word(FTop - 512)
+        else FTop := Word(FTop - VisibleBytes);
+        Key := 0;
+      end;
   end;
   Invalidate;
 end;
@@ -1705,6 +2177,10 @@ begin
     begin
       AddSpot(4 + FCharW * 13, Y, Length(Lbl), skLabel, A, 0, 0, Lbl);
       DrawText(4 + FCharW * 13, Y + 1, Lbl, RGBToColor(0, 110, 110), False);
+      // Cut at the right: the free parts of the line show it whole as a hint
+      if 4 + FCharW * (13 + Length(Lbl)) > ClientWidth - 4 then
+        AddSpot(0, Y, ClientWidth div FCharW + 1, skHint, 0, 0, 0,
+          Format('%.4X  %.2X %.2X  %s', [A, FOwnerWin.Peek(A), FOwnerWin.Peek(Word(A + 1)), Lbl]));
     end;
   end;
   DrawFocus;
@@ -1860,7 +2336,7 @@ var
   I, Y, X, Box: Integer;
   E: TBreakEntry;
   Flags: Byte;
-  Lbl, Cond: string;
+  Lbl, Cond, Full: string;
   IsOn: Boolean;
   TextColor: TColor;
 begin
@@ -1898,25 +2374,29 @@ begin
     end;
     if IsOn then TextColor := clBlack else TextColor := clGray;
     DrawText(8 + Box, Y + 1, BreakTypeName(Flags, E.Port), TextColor, True);
+    Full := BreakTypeName(Flags, E.Port) + '  ';
     X := 8 + Box + FCharW * 8;
     AddSpot(X, Y, 4, skInfo, E.Addr);
     if E.Port and (E.Addr <= $FF) then
-      X := DrawText(X, Y + 1, 'xx' + IntToHex(E.Addr, 2), TextColor, False)  // low byte only
+      Lbl := 'xx' + IntToHex(E.Addr, 2)   // low byte only
     else
-      X := DrawText(X, Y + 1, IntToHex(E.Addr, 4), TextColor, False);
+      Lbl := IntToHex(E.Addr, 4);
     // A range: up to its last address or port
     if E.Last <> E.Addr then
     begin
       if E.Port and (E.Last <= $FF) then
-        X := DrawText(X, Y + 1, '-xx' + IntToHex(E.Last, 2), TextColor, False)
+        Lbl := Lbl + '-xx' + IntToHex(E.Last, 2)
       else
-        X := DrawText(X, Y + 1, '-' + IntToHex(E.Last, 4), TextColor, False);
+        Lbl := Lbl + '-' + IntToHex(E.Last, 4);
     end;
+    X := DrawText(X, Y + 1, Lbl, TextColor, False);
+    Full := Full + Lbl;
     if not E.Port then
     begin
       Lbl := FOwnerWin.SymbolFor(E.Addr);
       if Lbl <> '' then
       begin
+        Full := Full + ' ' + Lbl;
         AddSpot(X + FCharW, Y, Min(Length(Lbl), 14), skLabel, E.Addr, 0, 0, Lbl);
         if Length(Lbl) > 14 then Lbl := Copy(Lbl, 1, 13) + '~';
         X := DrawText(X + FCharW, Y + 1, Lbl, RGBToColor(0, 110, 110), False);
@@ -1924,7 +2404,18 @@ begin
     end;
     Cond := FOwnerWin.EntryCondition(E);
     if E.Hits >= 0 then Cond := Cond + Format('  (T=%d)', [E.Hits]);   // times reached so far
-    if Cond <> '' then DrawText(X + FCharW, Y + 1, 'if ' + Cond, RGBToColor(140, 90, 0), False);
+    if Cond <> '' then
+    begin
+      X := DrawText(X + FCharW, Y + 1, 'if ' + Cond, RGBToColor(140, 90, 0), False);
+      Full := Full + ' if ' + Cond;
+    end;
+    // Cut at the right: the box and the type (and any free part of the
+    // line) show it whole as a hint
+    if X > ClientWidth - 4 then
+    begin
+      AddSpot(0, Y, (8 + Box) div FCharW + 8, skHint, 0, 0, 0, Full);
+      AddSpot(0, Y, ClientWidth div FCharW + 1, skHint, 0, 0, 0, Full);
+    end;
   end;
   DrawFocus;
 end;
@@ -1990,8 +2481,9 @@ var
   Access: TPortAccess;
   Bank: Integer;
   Text_: string;
-  Rows: Integer;
-  Ctl: Byte;
+  Rows, K: Integer;
+  Ctl, OldCtl: Byte;
+  PP: TPagingState;
 
   function Word16(Addr: Word): Word;
   begin
@@ -2058,7 +2550,15 @@ begin
   Canvas.FillRect(ClientRect);
   R := FOwnerWin.Regs;
   P := FOwnerWin.Prev;
+  PP := FOwnerWin.PrevPaging;
   Have := FOwnerWin.HavePrev;
+  // After a step the stack and the ports show their top again
+  if FOwnerWin.Step <> FStep then
+  begin
+    FStep := FOwnerWin.Step;
+    FStackOfs := 0;
+    FPortOfs := 0;
+  end;
   Y := 6;
 
   Pair(0, 'AF', rAF, (R.A shl 8) or R.F, (P.A shl 8) or P.F);
@@ -2087,7 +2587,11 @@ begin
   // Flags: names above, X (set) or . (clear) below; click to toggle
   Name(0, 'Flags');
   for I := 0 to 7 do
+  begin
+    // Over a flag's name: what it means
+    AddSpot(Col(7 + I * 2), Y, 1, skDoc, 0, 0, 0, FlagHelp(I));
     DrawText(Col(7 + I * 2), Y, FLAG_NAMES[I + 1], clBlack, True);
+  end;
   Inc(Y, FLineH);
   for I := 0 to 7 do
   begin
@@ -2128,25 +2632,33 @@ begin
   Canvas.Brush.Style := bsSolid;
   Canvas.Brush.Color := clWhite;
   Canvas.Pen.Color := clGray;
-  Canvas.Rectangle(8, BoxTop, Col(15), BoxTop + FLineH * Rows + 6);
-  Canvas.Rectangle(Col(17), BoxTop, Col(36), BoxTop + FLineH * Rows + 6);
+  FStackBox := Rect(8, BoxTop, Col(15), BoxTop + FLineH * Rows + 6);
+  FPortBox := Rect(Col(17), BoxTop, Col(36), BoxTop + FLineH * Rows + 6);
+  Canvas.Rectangle(FStackBox);
+  Canvas.Rectangle(FPortBox);
+  // The wheel scrolls both lists (STACK_HISTORY entries at most)
+  FStackOfs := Max(0, Min(FStackOfs, STACK_HISTORY - Rows));
+  FPortOfs := Max(0, Min(FPortOfs, FOwnerWin.PortLogCount - Rows));
   Y := BoxTop + 3;
   for I := 0 to Rows - 1 do
   begin
-    if I = 0 then DrawText(Col(1), Y, '>', clBlack, True);
-    AddSpot(Col(3), Y, 4, skInfo, Word(R.SP + I * 2));
-    DrawText(Col(3), Y, IntToHex(Word(R.SP + I * 2), 4), clGray, False);
-    AddSpot(Col(9), Y, 4, skMemWord, Word16(Word(R.SP + I * 2)), 4, Word(R.SP + I * 2));
-    DrawText(Col(9), Y, IntToHex(Word16(Word(R.SP + I * 2)), 4), clBlack, False);
+    K := FStackOfs + I;
+    if K = 0 then DrawText(Col(1), Y, '>', clBlack, True);
+    AddSpot(Col(3), Y, 4, skInfo, Word(R.SP + K * 2));
+    DrawText(Col(3), Y, IntToHex(Word(R.SP + K * 2), 4), clGray, False);
+    AddSpot(Col(9), Y, 4, skMemWord, Word16(Word(R.SP + K * 2)), 4, Word(R.SP + K * 2));
+    DrawText(Col(9), Y, IntToHex(Word16(Word(R.SP + K * 2)), 4), clBlack, False);
     Inc(Y, FLineH);
   end;
   // Ports: address of the instruction, port, W (write) or R (read), value
+  // (dark red if the last instruction made the access)
   Y := BoxTop + 3;
-  for I := 0 to Min(FOwnerWin.PortLogCount, Rows) - 1 do
+  for I := 0 to Min(FOwnerWin.PortLogCount - FPortOfs, Rows) - 1 do
   begin
-    Access := FOwnerWin.PortLogEntry(I);
+    K := FPortOfs + I;
+    Access := FOwnerWin.PortLogEntry(K);
     // > marks the latest access (the list is newest first)
-    if I = 0 then DrawText(Col(17) + 3, Y, '>', clBlack, True);
+    if K = 0 then DrawText(Col(17) + 3, Y, '>', clBlack, True);
     AddSpot(Col(18) + FCharW div 2, Y, 4, skInfo, Access.PC);
     DrawText(Col(18) + FCharW div 2, Y, IntToHex(Access.PC, 4), clGray, False);
     AddSpot(Col(24), Y, 4, skInfo, Access.Port);
@@ -2156,7 +2668,7 @@ begin
     else
       DrawText(Col(29), Y, 'R', RGBToColor(0, 130, 0), True);
     AddSpot(Col(32), Y, 2, skInfo, Access.Value);
-    DrawText(Col(32), Y, IntToHex(Access.Value, 2), clBlack, False);
+    DrawText(Col(32), Y, IntToHex(Access.Value, 2), ChangedOrBlack(Access.Step = FOwnerWin.Step), False);
     Inc(Y, FLineH);
   end;
 
@@ -2172,18 +2684,22 @@ begin
     else if Bank < 0 then Text_ := 'ROM' + IntToStr(-1 - Bank)
     else Text_ := 'RAM' + IntToStr(Bank);
     DrawText(Col(7 + I * 7), Y, IntToStr(I) + ':', clGray, False);
+    // Dark red if the last instruction paged something else in
+    ValueColor := ChangedOrBlack((Bank <> PP.Slots[I]) or
+      ((I = 0) and (FOwnerWin.DivActive <> PP.DivActive)));
     if (I = 3) and FOwnerWin.Slot3Changeable then
     begin
       // A drop-down: underlined, click to choose the bank
       AddSpot(Col(9 + I * 7), Y, 6, skSlot3, Bank);   // the arrow too
       Canvas.Font := Font;
       Canvas.Font.Style := [fsUnderline];
+      Canvas.Font.Color := ValueColor;
       Canvas.Brush.Style := bsClear;
       Canvas.TextOut(Col(9 + I * 7), Y, Text_ + ' ' + #$E2#$96#$BE);
       Canvas.Font := Font;
     end
     else
-      DrawText(Col(9 + I * 7), Y, Text_, clBlack, False);
+      DrawText(Col(9 + I * 7), Y, Text_, ValueColor, False);
   end;
 
   // DivMMC paging: what it maps at 0000 and 2000 (bank: a drop-down), and
@@ -2191,30 +2707,43 @@ begin
   if FOwnerWin.DivOn then
   begin
     Ctl := FOwnerWin.DivControl;
+    OldCtl := PP.DivControl;
     Inc(Y, FLineH);
     Name(0, 'DivMMC');
     if ((Ctl and $80) = 0) and ((Ctl and $40) <> 0) then Text_ := 'RAM3' else Text_ := 'EEPROM';
     DrawText(Col(7), Y, '0000:', clGray, False);
-    DrawText(Col(12), Y, Text_, clBlack, False);
+    DrawText(Col(12), Y, Text_, ChangedOrBlack((((Ctl and $C0) = $40) <> ((OldCtl and $C0) = $40))), False);
     DrawText(Col(19), Y, '2000:', clGray, False);
     AddSpot(Col(24), Y, 7, skDivBank, Ctl and $0F);
     Canvas.Font := Font;
     Canvas.Font.Style := [fsUnderline];
+    Canvas.Font.Color := ChangedOrBlack(((Ctl xor OldCtl) and $0F) <> 0);
     Canvas.Brush.Style := bsClear;
     Canvas.TextOut(Col(24), Y, 'RAM' + IntToStr(Ctl and $0F) + ' ' + #$E2#$96#$BE);
     Canvas.Font := Font;
     // Paged in now (by automap or CONMEM) or not
-    if FOwnerWin.DivActive then DrawText(Col(32), Y, 'in', RGBToColor(0, 130, 0), True)
-    else DrawText(Col(32), Y, 'out', clGray, True);
+    if FOwnerWin.DivActive <> PP.DivActive then ValueColor := ChangedOrBlack(True)
+    else ValueColor := clNone;
+    if FOwnerWin.DivActive then
+    begin
+      if ValueColor = clNone then ValueColor := RGBToColor(0, 130, 0);
+      DrawText(Col(32), Y, 'in', ValueColor, True);
+    end
+    else
+    begin
+      if ValueColor = clNone then ValueColor := clGray;
+      DrawText(Col(32), Y, 'out', ValueColor, True);
+    end;
     Inc(Y, FLineH);
     DrawText(Col(7), Y, 'CONMEM', clGray, False);
     AddSpot(Col(14), Y, 1, skDivConmem, Ord((Ctl and $80) <> 0));
-    ClickValue(14, IntToStr(Ord((Ctl and $80) <> 0)), clBlack);
+    ClickValue(14, IntToStr(Ord((Ctl and $80) <> 0)), ChangedOrBlack(((Ctl xor OldCtl) and $80) <> 0));
     DrawText(Col(16), Y, 'MAPRAM', clGray, False);
-    DrawText(Col(23), Y, IntToStr(Ord((Ctl and $40) <> 0)), clBlack, False);
+    DrawText(Col(23), Y, IntToStr(Ord((Ctl and $40) <> 0)), ChangedOrBlack(((Ctl xor OldCtl) and $40) <> 0), False);
     DrawText(Col(25), Y, 'automap', clGray, False);
     AddSpot(Col(33), Y, 3, skDivMapped, 0);
-    if FOwnerWin.DivMappedNow then ClickValue(33, 'on', clBlack) else ClickValue(33, 'off', clBlack);
+    ValueColor := ChangedOrBlack(FOwnerWin.DivMappedNow <> PP.DivMapped);
+    if FOwnerWin.DivMappedNow then ClickValue(33, 'on', ValueColor) else ClickValue(33, 'off', ValueColor);
   end;
 
   // ZX-Uno: boot mode (the boot ROM at 0000) and MASTERMAPPER, the SRAM
@@ -2225,19 +2754,32 @@ begin
     Name(0, 'ZX-Uno');
     DrawText(Col(7), Y, 'BOOTM', clGray, False);
     AddSpot(Col(13), Y, 1, skUnoBoot, FOwnerWin.UnoConf and 1);
-    ClickValue(13, IntToStr(FOwnerWin.UnoConf and 1), clBlack);
+    ClickValue(13, IntToStr(FOwnerWin.UnoConf and 1), ChangedOrBlack(((FOwnerWin.UnoConf xor PP.UnoConf) and 1) <> 0));
     DrawText(Col(15), Y, 'MAPPER', clGray, False);
-    // A drop-down; grey when not in boot mode
+    // A drop-down; grey when not in boot mode (dark red if just changed)
     AddSpot(Col(22), Y, 7, skUnoMapper, FOwnerWin.UnoMapper);
     Canvas.Font := Font;
     Canvas.Font.Style := [fsUnderline];
-    if (FOwnerWin.UnoConf and 1) = 0 then Canvas.Font.Color := clGray;
+    if Have and (FOwnerWin.UnoMapper <> PP.UnoMapper) then Canvas.Font.Color := ChangedColor
+    else if (FOwnerWin.UnoConf and 1) = 0 then Canvas.Font.Color := clGray;
     Canvas.Brush.Style := bsClear;
     Canvas.TextOut(Col(22), Y, 'RAM' + IntToStr(FOwnerWin.UnoMapper) + ' ' + #$E2#$96#$BE);
     Canvas.Font := Font;
     DrawText(Col(30), Y, 'LOCK', clGray, False);
-    DrawText(Col(35), Y, IntToStr(FOwnerWin.UnoConf shr 7), clBlack, False);
+    DrawText(Col(35), Y, IntToStr(FOwnerWin.UnoConf shr 7), ChangedOrBlack(((FOwnerWin.UnoConf xor PP.UnoConf) and $80) <> 0), False);
   end;
+end;
+
+function TRegView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+var
+  D: Integer;
+begin
+  Result := True;
+  if WheelDelta < 0 then D := 1 else D := -1;
+  if PtInRect(FStackBox, MousePos) then Inc(FStackOfs, D)
+  else if PtInRect(FPortBox, MousePos) then Inc(FPortOfs, D)
+  else Exit(inherited DoMouseWheel(Shift, WheelDelta, MousePos));
+  Invalidate;   // Paint keeps the offsets in range
 end;
 
 { Hint over a zone's title }
@@ -2306,16 +2848,26 @@ begin
   FDataPanel.Align := alBottom;
   FDataPanel.Height := 220;
   FDataPanel.BevelOuter := bvNone;
-  FMemZone := MakeColumn(FDataPanel, 'Memory (Ctrl+G: go to; Space: sprites)   XOR:', 600, alLeft);
+  FMemZone := MakeColumn(FDataPanel, 'Memory (Ctrl+G: go to; Space: sprites)', 600, alLeft);
   Header := TPanel(FMemZone.Controls[0]);
-  Lbl := TLabel(Header.Controls[0]);
+  // XOR: its box at the right end of the header, the label before it
   FXorEdit := TEdit.Create(Self);
   FXorEdit.Parent := Header;
-  FXorEdit.AnchorSideLeft.Control := Lbl;
-  FXorEdit.AnchorSideLeft.Side := asrRight;
-  FXorEdit.BorderSpacing.Left := 8;
+  FXorEdit.AnchorSideRight.Control := Header;
+  FXorEdit.AnchorSideRight.Side := asrRight;
+  FXorEdit.BorderSpacing.Right := 4;
+  FXorEdit.Anchors := [akTop, akRight];
   FXorEdit.Top := 1;
   FXorEdit.Width := 44;
+  Lbl := TLabel.Create(Self);
+  Lbl.Parent := Header;
+  Lbl.Caption := 'XOR:';
+  Lbl.Font.Style := [fsBold];
+  Lbl.AnchorSideRight.Control := FXorEdit;
+  Lbl.AnchorSideRight.Side := asrLeft;
+  Lbl.BorderSpacing.Right := 6;
+  Lbl.Anchors := [akTop, akRight];
+  Lbl.Top := 4;
   FXorEdit.Text := '00';
   FXorEdit.MaxLength := 2;
   FXorEdit.Hint := 'Each byte is XORed with this hex value for display and when edited';
@@ -2328,21 +2880,30 @@ begin
   Split.Parent := FDataPanel;
   Split.Align := alLeft;
   Split.Left := 2000;
-  FWatchZone := MakeColumn(FDataPanel, 'Watches', 200, alRight);
+  // Left-aligned controls are ordered by Left: breakpoints after memory
+  FBreakZone := MakeColumn(FDataPanel, 'Breakpoints', 200, alLeft);
+  FBreakZone.Left := 3000;
+  SetZoneHint(FBreakZone, 'Insert: add, Delete: remove, Space or the box: on/off, ' +
+    'Enter or double-click: edit, right-click: menu');
+  FBreakView := TBreakView.CreateView(Self);
+  FBreakView.Parent := FBreakZone;
+  FBreakView.Align := alClient;
+  // Breakpoints | watches: drag the bevel between them to share the width
+  FWatchSplit := TSplitter.Create(Self);
+  FWatchSplit.Parent := FDataPanel;
+  FWatchSplit.Align := alLeft;
+  FWatchSplit.Left := 4000;
+  FWatchSplit.Width := 6;
+  FWatchSplit.Beveled := True;
+  FWatchSplit.MinSize := 80;
+  FWatchSplit.ResizeStyle := rsUpdate;
+  FWatchSplit.OnMoved := @WatchSplitMoved;
+  FWatchShare := 0.5;
+  FWatchZone := MakeColumn(FDataPanel, 'Watches', 0, alClient);
   SetZoneHint(FWatchZone, 'Insert: add a watch, Delete: remove it, right-click: menu');
   FWatchView := TWatchView.CreateView(Self);
   FWatchView.Parent := FWatchZone;
   FWatchView.Align := alClient;
-  Split := TSplitter.Create(Self);
-  Split.Parent := FDataPanel;
-  Split.Align := alRight;
-  Split.Left := 1000;
-  Column := MakeColumn(FDataPanel, 'Breakpoints', 0, alClient);
-  SetZoneHint(Column, 'Insert: add, Delete: remove, Space or the box: on/off, ' +
-    'Enter or double-click: edit, right-click: menu');
-  FBreakView := TBreakView.CreateView(Self);
-  FBreakView.Parent := Column;
-  FBreakView.Align := alClient;
 
   Split := TSplitter.Create(Self);
   Split.Parent := Self;
@@ -2453,8 +3014,20 @@ begin
   Data := Avail div 3;
   if Avail - Data < FRegMinH then Data := Avail - FRegMinH;
   FDataPanel.Height := Max(MIN_DATA, Data);
-  // Breakpoints and watches share what the memory view leaves
-  FWatchZone.Width := Max(120, (FDataPanel.ClientWidth - FMemZone.Width - 20) div 2);
+  // Breakpoints and watches share what the memory view leaves (half each
+  // until the splitter between them is moved)
+  FBreakZone.Width := Max(80, DataRest - Round(DataRest * FWatchShare));
+end;
+
+{ Width for breakpoints and watches }
+function TDebuggerWindow.DataRest: Integer;
+begin
+  Result := Max(1, FDataPanel.ClientWidth - FMemZone.Width - 26);
+end;
+
+procedure TDebuggerWindow.WatchSplitMoved(Sender: TObject);
+begin
+  FWatchShare := Max(0.1, 1 - FBreakZone.Width / DataRest);
 end;
 
 procedure TDebuggerWindow.FormShow(Sender: TObject);
@@ -2652,6 +3225,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
 end;
 
@@ -2663,6 +3237,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
 end;
 
@@ -2674,6 +3249,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
 end;
 
@@ -2690,6 +3266,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
 end;
 
@@ -2731,6 +3308,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
 end;
 
@@ -2766,7 +3344,82 @@ begin
   finally
     FEmu.Unlock;
   end;
+  PagingChangedByHand;
   Refresh(False);
+end;
+
+procedure TDebuggerWindow.PagingChangedByHand;
+begin
+  FEmu.Lock;
+  try
+    FEmu.Spec.PrevPaging := FEmu.Spec.PagingState;
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
+procedure TDebuggerWindow.ToggleDataBreak(Addr, First, Last: Word; Bit: Byte);
+var
+  Flags, NewFlags: Byte;
+begin
+  FEmu.Lock;
+  try
+    Flags := FEmu.Spec.Breakpoint[Addr];
+    if Flags <> 0 then
+    begin
+      // One already there (for the whole of its range): an execution one
+      // becomes this type, a data one gets the type switched on or off
+      if (Flags and BP_EXEC) <> 0 then
+        NewFlags := Bit or (Flags and BP_DISABLED)
+      else
+      begin
+        NewFlags := Flags xor Bit;
+        if (NewFlags and (BP_READ or BP_WRITE)) = 0 then NewFlags := 0;
+      end;
+      FEmu.Spec.Breakpoint[Addr] := NewFlags;
+    end
+    else
+    begin
+      if Last > First then FEmu.Spec.SetBreakRange(First, Last, False);
+      FEmu.Spec.Breakpoint[First] := Bit;
+    end;
+  finally
+    FEmu.Unlock;
+  end;
+  Refresh(False);
+end;
+
+procedure TDebuggerWindow.WriteBytes(Addr: Word; const Values: TBytes);
+var
+  I, Count, Skipped: Integer;
+begin
+  // Up to FFFF: it doesn't go round to 0000
+  Count := Min(Length(Values), $10000 - Addr);
+  Skipped := 0;
+  FEmu.Lock;
+  try
+    for I := 0 to Count - 1 do
+      case FEmu.Spec.MemoryAt(Addr + I) of
+        maRam: FEmu.Spec.Poke(Addr + I, Values[I]);
+        maRom:
+          if FEmu.Spec.RomWritable then FEmu.Spec.Poke(Addr + I, Values[I])
+          else Inc(Skipped);
+      else
+        Inc(Skipped);
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+  Refresh(False);
+  if Count < Length(Values) then Beep;
+  if Skipped > 0 then
+    ShowNotice(Format('Pasted %d bytes at %.4X; %d fell on ROM (or no memory) and were not written',
+      [Count, Addr, Skipped]))
+  else if Count < Length(Values) then
+    ShowNotice(Format('Pasted %d bytes at %.4X; %d more would go past FFFF and were not written',
+      [Count, Addr, Length(Values) - Count]))
+  else
+    ShowNotice(Format('Pasted %d bytes at %.4X', [Count, Addr]));
 end;
 
 procedure TDebuggerWindow.AddWatch;
@@ -2982,6 +3635,9 @@ begin
       end
     else
       FPrev := FRegs;
+    FStep := FEmu.Spec.StepCount;
+    if FHavePrev then FPrevPaging := FEmu.Spec.PrevPaging
+    else FPrevPaging := FEmu.Spec.PagingState;
     if FEmu.Paused then
     begin
       if FEmu.Spec.BreakReason <> '' then
@@ -3546,6 +4202,16 @@ end;
 
 procedure TDebuggerWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  // Escape closes the window, unless it ends an edit or the typing in the
+  // memory zone first
+  if Key = VK_ESCAPE then
+  begin
+    if FDisasm.Editing or FHex.Editing or FRegView.Editing or FWatchView.Editing or
+       FBreakView.Editing then Exit;
+    if not FHex.CancelTyping then Close;
+    Key := 0;
+    Exit;
+  end;
   case Key of
     VK_F5: DoRun(Self);
     VK_F7: DoStepInto(Self);
@@ -3585,7 +4251,7 @@ var
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
     Lbl.Caption := ACaption;
-    Lbl.SetBounds(ALeft, ATop, 500 - ALeft, 18);
+    Lbl.SetBounds(ALeft, ATop, 560 - ALeft, 18);
   end;
 
 begin
@@ -3600,21 +4266,22 @@ begin
     if OldAddr >= 0 then Dlg.Caption := 'Edit breakpoint' else Dlg.Caption := 'Add breakpoint';
     Dlg.BorderStyle := bsDialog;
     Dlg.Position := poOwnerFormCenter;
-    Dlg.ClientWidth := 520;
+    Dlg.ClientWidth := 580;
     Dlg.ClientHeight := 560;
     AddLabel('Address or port:', 10);
-    AddLabel('End address (range):', 10, 140);
-    AddLabel('Type:', 10, 270);
+    // Columns wide enough for their titles: the end's doesn't reach Type
+    AddLabel('End address or port:', 10, 150);
+    AddLabel('Type:', 10, 320);
     AddrEdit := TEdit.Create(Dlg);
     AddrEdit.Parent := Dlg;
-    AddrEdit.SetBounds(10, 30, 120, 24);
+    AddrEdit.SetBounds(10, 30, 130, 24);
     if OldAddr >= 0 then AddrEdit.Text := IntToHex(OldAddr, 4)
     else if OldAddr = -2 then AddrEdit.Text := 'FE'       // new port breakpoint
     else AddrEdit.Text := IntToHex(FDisasm.SelAddr, 4);
     // The end: the same as the start (one address) until it is changed
     EndEdit := TEdit.Create(Dlg);
     EndEdit.Parent := Dlg;
-    EndEdit.SetBounds(140, 30, 120, 24);
+    EndEdit.SetBounds(150, 30, 130, 24);
     EndEdit.Text := AddrEdit.Text;
     if OldAddr >= 0 then
     begin
@@ -3629,7 +4296,7 @@ begin
     TypeCombo := TComboBox.Create(Dlg);
     TypeCombo.Parent := Dlg;
     TypeCombo.Style := csDropDownList;
-    TypeCombo.SetBounds(270, 30, 240, 24);
+    TypeCombo.SetBounds(320, 30, 250, 24);
     TypeCombo.Items.Add('Execution');
     TypeCombo.Items.Add('Memory read');
     TypeCombo.Items.Add('Memory write');
@@ -3648,7 +4315,7 @@ begin
     AddLabel('Condition (empty = always stop; see below):', 102);
     CondEdit := TEdit.Create(Dlg);
     CondEdit.Parent := Dlg;
-    CondEdit.SetBounds(10, 122, 500, 24);
+    CondEdit.SetBounds(10, 122, 560, 24);
     if OldAddr >= 0 then
     begin
       if OldPort then CondEdit.Text := FPortCondText[OldAddr]
@@ -3662,7 +4329,7 @@ begin
     // A short manual of the condition language
     Help := TMemo.Create(Dlg);
     Help.Parent := Dlg;
-    Help.SetBounds(10, 184, 500, 324);
+    Help.SetBounds(10, 184, 560, 324);
     Help.ReadOnly := True;
     Help.ScrollBars := ssAutoVertical;
     Help.Font.Name := MONO_FONT;
@@ -3731,13 +4398,13 @@ begin
     Btn.Caption := 'OK';
     Btn.Default := True;
     Btn.ModalResult := mrOK;
-    Btn.SetBounds(350, 520, 75, 28);
+    Btn.SetBounds(410, 520, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
     Btn.Caption := 'Cancel';
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
-    Btn.SetBounds(435, 520, 75, 28);
+    Btn.SetBounds(495, 520, 75, 28);
     Dlg.ActiveControl := AddrEdit;
     repeat
       if Dlg.ShowModal <> mrOK then Exit;
@@ -4161,6 +4828,17 @@ begin
   end;
   // Closing the debugger carries on running, like Run (F5)
   if FEmu.Paused then FEmu.Resume;
+  // The keys go to the main window again
+  Application.QueueAsyncCall(@FocusMainWindow, 0);
+end;
+
+procedure TDebuggerWindow.FocusMainWindow(Data: PtrInt);
+begin
+  if (Application.MainForm <> nil) and Application.MainForm.CanFocus then
+  begin
+    Application.MainForm.BringToFront;
+    Application.MainForm.SetFocus;
+  end;
 end;
 
 end.

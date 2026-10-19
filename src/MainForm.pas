@@ -117,6 +117,8 @@ type
     procedure DoDiskInsert(Sender: TObject);
     function InsertDiskFile(Drive: Integer; const FileName: string): Boolean;
     procedure UpdateRecentDisksMenu;
+    { The game file just loaded, for default names (DAAD/PAW source export) }
+    procedure NoteMediaFile(const FileName: string);
     procedure AddDriveBItem(Item: TMenuItem);
     procedure DoInsertRecentDisk(Sender: TObject);
     procedure DoInsertRecentCard(Sender: TObject);
@@ -447,9 +449,9 @@ begin
   AddItem(TopItem, '&Hard reset', @DoHardReset, ShortCut(VK_F6, []));
   AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssShift]));
   AddItem(TopItem, '-', nil);
-  FPauseItem := AddItem(TopItem, '&Pause', @DoPause, ShortCut(VK_F9, []));
+  FPauseItem := AddItem(TopItem, '&Pause', @DoPause, ShortCut(VK_F4, []));
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_F4, []));
+  AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_P, [ssCtrl]));
 
   TopItem := AddItem(FMenu.Items, '&Tape', nil);
   AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, []));
@@ -521,12 +523,13 @@ begin
 
   TopItem := AddItem(FMenu.Items, '&Debug', nil);
   AddItem(TopItem, '&Debugger...', @DoDebugger, ShortCut(VK_F12, []));
-  AddItem(TopItem, 'D&AAD/PAW debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
   AddItem(TopItem, '&Clear all breakpoints', @DoClearBreakpoints);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&Load symbols...', @DoLoadSymbols);
   FRecentSymbolsMenu := AddItem(TopItem, 'Load &recent symbols', nil);
   AddItem(TopItem, 'C&lear symbols', @DoClearSymbols);
+  AddItem(TopItem, '-', nil);
+  AddItem(TopItem, 'D&AAD/PAW debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
 
   TopItem := AddItem(FMenu.Items, '&Options', nil);
   FMonoItem := AddItem(TopItem, '&Black and white display', @DoMonochrome);
@@ -608,7 +611,7 @@ begin
 
   AddButton(ikReset, 'Hard reset: switch the machine off and on (F6)', @DoHardReset);
   AddButton(ikNMI, 'Non-maskable interrupt (F5)', @DoNMI);
-  FPauseButton := AddButton(ikPause, 'Pause emulation (F9)', @DoPause);
+  FPauseButton := AddButton(ikPause, 'Pause emulation (F4)', @DoPause);
   FPauseButton.Style := tbsCheck;
   FTurboButton := AddButton(ikTurbo, 'Run as fast as possible (Shift+F11)', @DoTurbo);
   FTurboButton.Style := tbsCheck;
@@ -1468,6 +1471,7 @@ begin
   end;
   Settings.AddRecent(FileName);
   FLastFile := FileName;
+  NoteMediaFile(FileName);
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   UpdateChecks;
@@ -1794,6 +1798,7 @@ begin
   end;
   Settings.AddRecent(FileName);
   Settings.AddRecentDisk(FileName);
+  NoteMediaFile(FileName);
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   if not FEmu.Spec.Info.HasFDC then
@@ -1804,6 +1809,16 @@ begin
 end;
 
 { The Disk and SD menus' lists of recent images }
+procedure TMainWindow.NoteMediaFile(const FileName: string);
+begin
+  FEmu.Lock;
+  try
+    FEmu.Spec.LastMediaFile := ExtractFileName(FileName);
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
 procedure TMainWindow.AddDriveBItem(Item: TMenuItem);
 begin
   SetLength(FDriveBItems, Length(FDriveBItems) + 1);
@@ -2708,6 +2723,7 @@ var
       FEmu.Unlock;
     end;
     Settings.AddRecentDisk(ExpandFileName(FileName));
+    NoteMediaFile(FileName);
   end;
 
 begin
@@ -3287,9 +3303,10 @@ begin
   end;
   if (Kind = bkDaad) and (DaadWindow <> nil) then
   begin
-    // The DAAD/PAW debugger stopped at a condact: the Z80 one only follows
-    DaadWindow.BreakHit;
+    // The DAAD/PAW debugger stopped at a condact: the Z80 one only follows,
+    // and the DAAD/PAW one gets the focus (last)
     if (DebuggerWindow <> nil) and DebuggerWindow.Visible then DebuggerWindow.BreakHit;
+    DaadWindow.BreakHit;
     UpdateChecks;
     Exit;
   end;

@@ -23,7 +23,8 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
-  LCLType, Dialogs, Menus, StrUtils, Emulator, Spectrum, Daad, Icons, DaadExport, DebugFiles;
+  LCLType, Dialogs, Menus, StrUtils, Emulator, Spectrum, Daad, Icons, DaadExport, DebugFiles,
+  DelayHint, DaadHelp;
 
 type
   TDaadWindow = class;
@@ -72,6 +73,7 @@ type
     FSel: Integer;              // selected line, -1 if none
     FMenu: TPopupMenu;
     FEnabledItem, FRemoveItem: TMenuItem;
+    FDefaultHint: string;
     function SelCondact: Integer;
     procedure MenuClick(Sender: TObject);
     { The state of a condition (CondactState) as a tick, cross or "?" }
@@ -80,6 +82,8 @@ type
     function LineCount: Integer; override;
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseMove(Shift: TShiftState; X, Y: Integer); override;
+    procedure MouseLeave; override;
     procedure DblClick; override;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
   public
@@ -193,6 +197,7 @@ type
     procedure AfterInputClick(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FocusMainWindow(Data: PtrInt);
     { Give the emulation the enabled breakpoints }
     function AnyEditing: Boolean;
   public
@@ -587,6 +592,7 @@ var
   C, B: Integer;
   P: TPoint;
 begin
+  DelayedHint.Cancel;
   inherited MouseDown(Button, Shift, X, Y);
   if FLineH = 0 then MeasureFont;
   if FTop + Y div FLineH <= High(FLines) then FSel := FTop + Y div FLineH;
@@ -601,6 +607,51 @@ begin
     P := ClientToScreen(Point(X, Y));
     FMenu.PopUp(P.X, P.Y);
   end;
+end;
+
+{ Over a condact's name: what it does, after a second (the view's own hint
+  is left out there) }
+procedure TDaadCodeView.MouseMove(Shift: TShiftState; X, Y: Integer);
+var
+  L, X0: Integer;
+  CName, Help: string;
+  G: TDaadGame;
+begin
+  inherited MouseMove(Shift, X, Y);
+  if FDefaultHint = '' then FDefaultHint := Hint;
+  Help := '';
+  G := FOwnerWin.Game;
+  if FLineH = 0 then MeasureFont;
+  L := FTop + Y div FLineH;
+  // The name comes after the address and four spaces
+  X0 := 2 + (GUTTER + 8) * FCharW;
+  if G.Valid and (Y >= 0) and (L <= High(FLines)) and (FLines[L] >= 0) and (X >= X0) then
+  begin
+    CName := Trim(Copy(G.CondactText(G.Condacts[FLines[L]]), 1, 8));
+    if X < X0 + Length(CName) * FCharW then
+    begin
+      Help := CondactHelp(CName, G.IsPAW);
+      if Help <> '' then
+        DelayedHint.Request(Self, Rect(X0, (L - FTop) * FLineH, X0 + Length(CName) * FCharW,
+          (L - FTop + 1) * FLineH), Help);
+    end;
+  end;
+  if Help = '' then
+  begin
+    DelayedHint.Cancel;
+    if Hint <> FDefaultHint then Hint := FDefaultHint;
+  end
+  else if Hint <> '' then
+  begin
+    Hint := '';
+    Application.CancelHint;
+  end;
+end;
+
+procedure TDaadCodeView.MouseLeave;
+begin
+  inherited MouseLeave;
+  DelayedHint.Cancel;
 end;
 
 procedure TDaadCodeView.DblClick;
@@ -1056,7 +1107,7 @@ begin
         X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
         X := DrawText(X, Y, ' @ ', clGray, False);
         X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), clBlack, False);
-        S := FlagName(N);
+        S := FlagName(N, FOwnerWin.Game.IsPAW);
         if S <> '' then DrawText(X + FCharW, Y, Copy(S, 1, ColChars - 15), clGray, False);
       end
       else
@@ -1110,9 +1161,9 @@ begin
     begin
       V := FOwnerWin.FFlags[N];
       S := FOwnerWin.WordText(V, Kind);
-      if V = 255 then S := Format('%s = 255: no word (_)', [FlagName(N)])
-      else if S = '' then S := Format('%s = %d: not a word of the vocabulary', [FlagName(N), V])
-      else S := Format('%s = %d: %s', [FlagName(N), V, S]);
+      if V = 255 then S := Format('%s = 255: no word (_)', [FlagName(N, FOwnerWin.Game.IsPAW)])
+      else if S = '' then S := Format('%s = %d: not a word of the vocabulary', [FlagName(N, FOwnerWin.Game.IsPAW), V])
+      else S := Format('%s = %d: %s', [FlagName(N, FOwnerWin.Game.IsPAW), V, S]);
     end;
   end;
   if S <> Hint then
@@ -1438,7 +1489,8 @@ begin
   FCode.Invalidate;
   UpdateStatus;
   UpdateRunButtons;
-  if Reopened then FocusCode;
+  // F7, F10... go to the process zone at once
+  FocusCode;
 end;
 
 { Focus on the window and the process zone: F7 / F10 step at once }
@@ -1546,11 +1598,17 @@ begin
   try
     Dlg.Filter := 'DAAD Ready / DRC source (*.dsf)|*.dsf|Original DAAD source (*.sce)|*.sce|' +
       'All files|*.*';
-    Dlg.DefaultExt := 'dsf';
     Dlg.FileName := ADefault;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if not Dlg.Execute then Exit;
     FileName := Dlg.FileName;
+    // No extension typed: the one of the type chosen in the dialog
+    if ExtractFileExt(FileName) = '' then
+    begin
+      if Dlg.FilterIndex = 2 then FileName := FileName + '.sce' else FileName := FileName + '.dsf';
+      if FileExists(FileName) and (MessageDlg(ExtractFileName(FileName) +
+        ' already exists. Replace it?', mtConfirmation, [mbYes, mbNo], 0) <> mrYes) then Exit;
+    end;
     // The format is the file's: .sce, else DSF
     Sce := SameText(ExtractFileExt(FileName), '.sce');
     Result := True;
@@ -1590,7 +1648,7 @@ var
   Lines: TStringList;
 begin
   if not FGame.Valid or (FProcess < 0) or (FProcess >= Length(FGame.Processes)) then Exit;
-  if not AskSourceFile(Format('pro%d.dsf', [FProcess]), FileName, Sce) then Exit;
+  if not AskSourceFile(Format('pro%d', [FProcess]), FileName, Sce) then Exit;
   if not AskPawMode(Sce, ToDaad) then Exit;
   Lines := ExportDaadProcess(FGame, FProcess, Sce, ToDaad);
   try
@@ -1608,12 +1666,20 @@ end;
 
 procedure TDaadWindow.DoExportSource(Sender: TObject);
 var
-  FileName: string;
+  FileName, Base: string;
   Sce, ToDaad: Boolean;
   Lines: TStringList;
 begin
   if not FGame.Valid then Exit;
-  if not AskSourceFile('game.dsf', FileName, Sce) then Exit;
+  // Named after the game file loaded last (COZUMEL.TAP: COZUMEL.dsf or .sce)
+  FEmu.Lock;
+  try
+    Base := ChangeFileExt(FEmu.Spec.LastMediaFile, '');
+  finally
+    FEmu.Unlock;
+  end;
+  if Base = '' then Base := 'game';
+  if not AskSourceFile(Base, FileName, Sce) then Exit;
   if not AskPawMode(Sce, ToDaad) then Exit;
   Lines := ExportDaadSource(FGame, Sce, ToDaad);
   try
@@ -2082,6 +2148,7 @@ procedure TDaadWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftS
 begin
   if AnyEditing then Exit;
   case Key of
+    VK_ESCAPE: Close;
     VK_F5: DoRun(Self);
     VK_F7: DoStep(Self);
     VK_F10: DoStepOver(Self);
@@ -2106,6 +2173,17 @@ begin
   end;
   // Closing the debugger carries on running, like Run (F5)
   if FEmu.Paused then FEmu.Resume;
+  // The keys go to the main window again
+  Application.QueueAsyncCall(@FocusMainWindow, 0);
+end;
+
+procedure TDaadWindow.FocusMainWindow(Data: PtrInt);
+begin
+  if (Application.MainForm <> nil) and Application.MainForm.CanFocus then
+  begin
+    Application.MainForm.BringToFront;
+    Application.MainForm.SetFocus;
+  end;
 end;
 
 end.

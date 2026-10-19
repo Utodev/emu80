@@ -196,7 +196,7 @@ const
   OP_MES = 77; OP_XMES = 120; OP_INDIR = 122; OP_SETAT = 124;
 
   { Names of the system flags (as in the DAAD Ready templates) }
-  function FlagName(N: Integer): string;
+  function FlagName(N: Integer; PAW: Boolean = False): string;
   { Meaning of an object location: 'carried', 'worn', 'not created' or '' }
   function LocationName(Loc: Integer): string;
   { The kind of vocabulary word a flag holds (0 verb, 1 adverb, 2 noun, 3
@@ -217,12 +217,13 @@ const
   MAX_ENTRIES = 2000;
   MAX_CONDACTS = 1000;
 
-function FlagName(N: Integer): string;
+function FlagName(N: Integer; PAW: Boolean): string;
 begin
   case N of
     0: Result := 'fDark';
     1: Result := 'fObjectsCarried';
-    28: Result := 'fDarkF';
+    // PAW's flag 28 is free for the game
+    28: if PAW then Result := '' else Result := 'fDarkF';
     29: Result := 'fGFlags';
     30: Result := 'fScore';
     31: Result := 'fTurns';

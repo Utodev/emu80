@@ -64,8 +64,8 @@ pointer leaves the picture.
 Function keys:
   F1  documentation (this text)    F7  tape browser
   F2  open                         F8  play tape (Shift+F8 stop)
-  F3  save snapshot                F9  pause
-  F4  POKE                         F11 DAAD/PAW debugger
+  F3  save snapshot                F11 DAAD/PAW debugger
+  F4  pause                        Ctrl+P POKE
   F5  NMI                          F12 debugger
   Shift+F11 turbo (as fast as possible)
   F6  hard reset (Shift+F6 reset)
@@ -118,8 +118,9 @@ SD
   (see DIVMMC AND SD CARDS).
 
 Debug
-  Debugger (F12), DAAD/PAW debugger (F11, see DAAD/PAW DEBUGGER), Clear all breakpoints, Load symbols, Load recent symbols
-  (the last 8 symbol files), Clear symbols.
+  Debugger (F12), Clear all breakpoints, Load symbols, Load recent symbols
+  (the last 8 symbol files), Clear symbols and, at the bottom, DAAD/PAW
+  debugger (F11, see DAAD/PAW DEBUGGER).
 
 Options
   Black and white display, Window size, Mute sound, Turbo speed (Shift+F11:
@@ -300,7 +301,10 @@ full from 2x (at 1x every other column) and in PNG screenshots at 2x.
 ---------------
 
 Tape > Tape browser (F7) lists the blocks of the tape: the current one is
-marked with * (> while playing). The toolbar buttons (hover for a hint)
+marked with * (> while playing) and highlighted (green while playing,
+yellow when stopped), and the status bar says where the tape is ("Playing
+block 3 of 10", "At the end of the tape"). Play at the end of the tape
+starts it again from the first block. The toolbar buttons (hover for a hint)
 play, stop, rewind, play from the selected block (or double-click it), move
 the selected block up or down, delete it (or press Del) and save the tape as
 a new .tap.
@@ -426,7 +430,7 @@ SD card browser
 8. POKES
 --------
 
-Machine > POKE (F4) takes "address,value" pairs separated by ":", in
+Machine > POKE (Ctrl+P) takes "address,value" pairs separated by ":", in
 decimal or in hex with $, e.g.  35899,0 : 36000,201
 The last 20 POKEs are listed with the name of the file they were used with
 (click one to use it, double-click to apply it). POKEs to ROM have no effect
@@ -458,9 +462,15 @@ break while stopped. On the ZX-Uno it also has ZXUno Regs (the chip
 button): a window, which can stay open, with the ZX-Uno's registers
 (number, name, hex value and the names of the bits set), updated while
 the machine runs. Select a value, type a new one and press Enter to write
-it (as an OUT to FD3B with the register selected at FC3B).
+it (as an OUT to FD3B with the register selected at FC3B). Escape
+closes it.
 
 Disassembly
+  Resting the mouse on a mnemonic for a second shows what the instruction
+  does: a description with its operands, what it changes (registers or
+  memory), how it affects the flags and its T-states without contention
+  ("T-States: 7 or 12" when it takes longer if a condition holds or a block
+  instruction repeats).
   Labels on the left (20 characters), mnemonics in blue, registers in bold. Jumps and
   memory references show the label, with the value in grey brackets. The
   arrow marks the execution point; on a conditional jump, call or return
@@ -471,6 +481,11 @@ Disassembly
   (execution, read, write, read/write), port breakpoint, breakpoint with
   condition (opens the same window as adding or editing one in the
   breakpoints zone, for that line), enabled, remove.
+  Keys: cursor keys, Page Up/Down, Home (go to 0000), End (the end of
+  memory: FFFF on the last line), Backspace (back to where the view was
+  before the last jump: Go to, Home, End...; up to 50 places), Ctrl+G (go
+  to). The disassembly doesn't go round past FFFF: an instruction at FFFE or
+  FFFF takes its operands from 0000-0001, and nothing follows it.
   Export as assembler asks for an address and a length and saves that
   range as a .asm source for sjasmplus that assembles back to the same
   bytes: ORG, an instruction per line (its address in a comment), labels
@@ -487,15 +502,21 @@ Disassembly
 
 Registers
   AF, HL, DE, BC, IX and IY with the 16-bit word they point to, the
-  alternate set, I, R, SP, PC, the flags (X = set), IM, IFF1, IFF2, DI/EI and
+  alternate set, I, R, SP, PC, the flags (X = set; resting the mouse on a
+  flag's name for a second explains it), IM, IFF1, IFF2, DI/EI and
   HALT. Values changed by the last instruction are dark red (in AF, HL, DE,
   BC, IX, IY and the alternate set, only the half that changed: LD D,0 marks
   D, not E). Click a value
   to edit it; click a flag, IFF1 or IFF2 to toggle it and IM to cycle 0-1-2.
   Below: the top 8 stack entries (> marks the top), the last 8 port
   accesses (instruction address, port, R for a read or W for a write, value;
-  > marks the latest) and what each 16K slot holds. On the 128K models,
-  click slot 3 (or its arrow) to page another RAM bank in.
+  > marks the latest; the value is dark red if the last instruction made
+  the access) and what each 16K slot holds. The mouse wheel over the stack
+  or the ports scrolls them (up to 50 entries: the last 50 port accesses
+  are kept); after a step they show the top again. On the 128K models,
+  click slot 3 (or its arrow) to page another RAM bank in. A slot, or any
+  of the DivMMC and ZX-Uno values below, that the last instruction changed
+  is dark red (128K/+3 paging, the DivMMC's MMU and automap, MASTERMAPPER).
   With the DivMMC connected, two more lines (the stack and port lists show
   6 entries instead of 8) show its paging: what is at 0000 (EEPROM, or
   RAM3 with MAPRAM) and the RAM bank at 2000-3FFF, and whether it is paged
@@ -513,11 +534,25 @@ Registers
 
 Memory
   Hex and text; bytes outside 32-126 show as a grey ".". The XOR value
-  is applied to every byte shown; what you type is what you see (memory gets
+  (the box at the right end of the zone's title) is applied to every byte shown; what you type is what you see (memory gets
   it XORed with the key). Click a hex value to edit it, or a character to
   type text from there. Right-click: go to address, add a watch at that
-  byte, sprite mode, Export text, Import text, Export binary, Import
-  binary.
+  byte, read breakpoint, write breakpoint, sprite mode, Copy, Copy values, Paste,
+  Export text, Import text, Export binary, Import binary.
+  Read breakpoint and Write breakpoint (on the hex values or the text)
+  switch that type on or off for the byte; if the byte is in the
+  selection, for the whole selection (one breakpoint with a range); if a
+  breakpoint already covers the byte, for that breakpoint. Bytes with a read
+  or write breakpoint have a pink background.
+  In the text column, click and drag (or Shift+click) to select bytes. Copy
+  puts the selection on the clipboard as text, as the text column shows it
+  (with the XOR, "." for what isn't printable). Copy values (Ctrl+C) puts
+  the selection on the clipboard as hex values with a
+  $ in front, separated by commas:  $3E,$01,$CD  Paste (Ctrl+V) writes the
+  clipboard from the byte right-clicked (Ctrl+V: from the typing position,
+  or the selection): values separated by commas (decimal, or $ for hex) are
+  written as they are; any other text as if typed (with the XOR key). It
+  stops at FFFF, and skips ROM as Import does. Escape clears the selection.
   Sprite mode (Space, or the context menu) shows the bytes as 8x8 sprites:
   each box is 8 bytes, one byte per row of pixels, with the address of each
   row on the left; hovering over a box shows its addresses. Space again goes
@@ -549,9 +584,12 @@ Breakpoints
   high byte (shown as xxFE: every ULA port); a longer one, such as 7FFD,
   must match exactly. Port breakpoints stop before the IN or OUT (or INI,
   OUTI...) instruction, with the execution point on it.
+  A line that doesn't fit shows whole as a hint over its box and type (and
+  in the watches, over the free part of the line). The bevel between the
+  breakpoints and the watches can be dragged to share the width.
   Insert adds one, Delete removes the selected one, Space or a click on the
-  box switches it on or off, Enter or a double-click edits it (address,
-  end address, type, condition, enabled). The editing window includes a
+  box switches it on or off, Enter or a double-click edits it (address or
+  port, end address or port, type, condition, enabled). The editing window includes a
   short manual of the conditions.
   End address makes the breakpoint cover a range of addresses or ports
   (shown as 8000-80FF). It follows the start address while it hasn't been
@@ -671,7 +709,11 @@ Breakpoint conditions
 Keys
   F5 run, F7 step into, F10 step over (CALL, RST, DJNZ, HALT and repeating
   block instructions; with the DivMMC connected, RST 8 is followed by an
-  esxDOS function byte, so it returns to the instruction after that byte), F9 run to the selected line. Ctrl+G (or the context
+  esxDOS function byte, so it returns to the instruction after that byte), F9 run to the selected line. Ctrl+PgDn / Ctrl+PgUp
+  move the disassembly and the memory zone 1024 bytes on or back,
+  Shift+PgDn / Shift+PgUp 512. Escape closes the debugger (after ending an
+  edit, or the typing or selection in the memory zone), and the keys go
+  to the main window again, as when it is closed in any other way. Ctrl+G (or the context
   menu) goes to an address: hex, a register name such as PC or HL, or a
   label; the last 10 addresses are listed. Its "Go to PC" button goes to
   the execution point without adding it to the list.
@@ -734,6 +776,8 @@ Process
   with the flags and objects as they are: a green tick or a red cross (as
   in the Z80 debugger). Conditions that depend on something else (CHANCE,
   PICTURE, ISDONE, ISNDONE, INKEY, QUIT, PARSE) show an orange "?".
+  Resting the mouse on a condact's name for a second shows what it does
+  (in a PAW game, what it does in PAW).
 
 Breakpoints
   Under the process: every breakpoint with its on/off box, the condact's
@@ -762,7 +806,8 @@ Breakpoint conditions
 Flags
   The 256 flags: number, value and, after @, the value of the flag it points
   at ("001 007 @ 090": flag 1 is 7 and flag 7 is 90), with the names of the
-  system flags. Click a value to change it (0-255, decimal; Enter changes
+  system flags (DAAD's, also for PAW games, but for fDarkF: PAW's flag 28
+  is free for the game). Click a value to change it (0-255, decimal; Enter changes
   it, Escape or clicking elsewhere leaves it); the one after @ changes the
   flag pointed at.
   Flags holding a word of the vocabulary (fVerb 33, fNoun 34, fAdject1 35,
@@ -784,7 +829,10 @@ Objects
 Keys and toolbar
   F5 run, Break (stop at the next condact), F7 step (run one condact), F10
   step over: on a PROCESS, run until it returns (the next condact of this
-  process); on any other condact, the same as a step. The Z80 debugger can
+  process); on any other condact, the same as a step. When it stops (a
+  breakpoint, a step...) the process zone gets the focus, so F7 and F10
+  act at once. Escape closes the window, and the keys go to the main
+  window again. The Z80 debugger can
   be open at the same time and shows where the interpreter is.
   "Stop after player input" (on the toolbar): while on, the game stops at
   the condact after each PARSE that reads an order, typed by the player or
@@ -795,7 +843,10 @@ Keys and toolbar
   Export process (the floppy button) saves the process shown, and Export
   game (the disk button) the whole game, as source code: DSF (DAAD Ready's
   DRC) or SCE (the original DAAD compiler), as the file's extension says
-  (.sce, else DSF). The source has the vocabulary, the system and user
+  (.sce, else DSF; with no extension, the type chosen in the dialog). The
+  game is named after the last game file loaded: the tape, disk or
+  snapshot opened, or the .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened from
+  the SD card (COZUMEL.TAP: COZUMEL.dsf). The source has the vocabulary, the system and user
   messages, the object and location texts, the connections, the objects
   and every process, as unDRC and unDAAD write them; compiled again it gives
   the same database, with these exceptions: XMES texts are in the XMB file,

@@ -23,6 +23,7 @@ type
     procedure GridSelectEditor(Sender: TObject; ACol, ARow: Integer; var Editor: TWinControl);
     procedure GridEditingDone(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
     procedure UpdateValues;
@@ -98,6 +99,8 @@ begin
   Height := 520;
   Position := poMainFormCenter;
   OnClose := @FormClose;
+  KeyPreview := True;
+  OnKeyDown := @FormKeyDown;
 
   FNote := TLabel.Create(Self);
   FNote.Parent := Self;
@@ -198,6 +201,16 @@ end;
 procedure TZXUnoRegsWindow.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   CloseAction := caHide;
+end;
+
+{ Escape closes the window (while editing a value it only cancels the edit) }
+procedure TZXUnoRegsWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = VK_ESCAPE) and not FGrid.EditorMode then
+  begin
+    Key := 0;
+    Close;
+  end;
 end;
 
 end.

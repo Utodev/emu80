@@ -308,7 +308,13 @@ end;
 
 procedure TTape.Play(T: Integer);
 begin
-  if Playing or (FCurrent >= FBlocks.Count) then Exit;
+  if Playing or (FBlocks.Count = 0) then Exit;
+  // At the end of the tape: from the start again
+  if FCurrent >= FBlocks.Count then
+  begin
+    FCurrent := 0;
+    FLevel := False;
+  end;
   StartBlock(T);
   Changed;
 end;

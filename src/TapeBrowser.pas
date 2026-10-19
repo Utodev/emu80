@@ -7,8 +7,8 @@ unit TapeBrowser;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, Tape,
-  Icons;
+  Classes, SysUtils, Forms, Controls, Graphics, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType,
+  Emulator, Tape, Icons;
 
 type
   TTapeBrowserWindow = class(TForm)
@@ -23,6 +23,11 @@ type
     FTimer: TTimer;
     FLastChange: Integer;
     FLastCount: Integer;
+    FStatus: TStatusBar;
+    FCurrent: Integer;          // block the tape is at (Count: at the end)
+    FPlaying: Boolean;
+    procedure ListCustomDrawItem(Sender: TCustomListView; Item: TListItem;
+      State: TCustomDrawState; var DefaultDraw: Boolean);
     function AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
     procedure AddSeparator;
     procedure Tick(Sender: TObject);
@@ -125,9 +130,16 @@ begin
   FRealRadio.OnClick := @DoLoadMode;
   SyncLoadMode;
 
+  // Where the tape is
+  FStatus := TStatusBar.Create(Self);
+  FStatus.Parent := Self;
+  FStatus.SimplePanel := True;
+  FCurrent := -1;
+
   FList := TListView.Create(Self);
   FList.Parent := Self;
   FList.Align := alClient;
+  FList.OnCustomDrawItem := @ListCustomDrawItem;
   FList.ViewStyle := vsReport;
   FList.ReadOnly := True;
   FList.RowSelect := True;
@@ -177,6 +189,15 @@ begin
   Sep.Left := FToolBar.Width + 1000;
 end;
 
+procedure TTapeBrowserWindow.ListCustomDrawItem(Sender: TCustomListView; Item: TListItem;
+  State: TCustomDrawState; var DefaultDraw: Boolean);
+begin
+  DefaultDraw := True;
+  if Item.Index <> FCurrent then Exit;
+  if FPlaying then Sender.Canvas.Brush.Color := RGBToColor(200, 240, 200)
+  else Sender.Canvas.Brush.Color := RGBToColor(255, 245, 190);
+end;
+
 procedure TTapeBrowserWindow.Refresh(Force: Boolean);
 var
   Tp: TTape;
@@ -211,6 +232,19 @@ begin
         end;
         FLastCount := Tp.Count;
       end;
+      // The tape's position: its block in green while playing, yellow when
+      // stopped; the status bar says it in words
+      if (Tp.Current <> FCurrent) and (Tp.Current < Tp.Count) and (Tp.Current < FList.Items.Count) then
+        FList.Items[Tp.Current].MakeVisible(False);
+      FCurrent := Tp.Current;
+      FPlaying := Tp.Playing;
+      if Tp.Count = 0 then FStatus.SimpleText := 'No blocks'
+      else if Tp.Current >= Tp.Count then
+        FStatus.SimpleText := 'At the end of the tape (Play starts it again from the first block)'
+      else if Tp.Playing then
+        FStatus.SimpleText := Format('Playing block %d of %d', [Tp.Current + 1, Tp.Count])
+      else
+        FStatus.SimpleText := Format('Stopped at block %d of %d', [Tp.Current + 1, Tp.Count]);
       for I := 0 to Tp.Count - 1 do
       begin
         Block := Tp[I];
@@ -229,6 +263,7 @@ begin
     finally
       FList.Items.EndUpdate;
     end;
+    FList.Invalidate;   // the highlighted block may have changed
     if (Selected >= 0) and (Selected < FList.Items.Count) then
       FList.Selected := FList.Items[Selected];
   finally

@@ -102,3 +102,4 @@ CLAUDE.md
 *.ZIP
 tools/*
 build/*
+to_be_ignored/*
