@@ -23,7 +23,7 @@ interface
 
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
-  LCLType, Dialogs, Menus, StrUtils, Emulator, Spectrum, Daad, Icons;
+  LCLType, Dialogs, Menus, StrUtils, Emulator, Spectrum, Daad, Icons, DaadExport, DebugFiles;
 
 type
   TDaadWindow = class;
@@ -74,6 +74,8 @@ type
     FEnabledItem, FRemoveItem: TMenuItem;
     function SelCondact: Integer;
     procedure MenuClick(Sender: TObject);
+    { The state of a condition (CondactState) as a tick, cross or "?" }
+    procedure DrawState(X, Y, State: Integer);
   protected
     function LineCount: Integer; override;
     procedure Paint; override;
@@ -109,6 +111,15 @@ type
   private
     FObjects: Boolean;
     FDefaultHint: string;
+    { Flags or objects shown, in as many columns as fit (each ColChars wide):
+      down the first column, then the next }
+    function ItemCount: Integer;
+    function ColChars: Integer;
+    function Columns: Integer;
+    { The item under (X, Y), -1 if none; Col: the character within it }
+    function ItemAt(X, Y: Integer; out Row, Col, Base: Integer): Integer;
+    { Changed by the last condact run (with Step) }
+    function Changed(N: Integer): Boolean;
   protected
     function LineCount: Integer; override;
     procedure Paint; override;
@@ -132,6 +143,9 @@ type
     FMem: TDaadMemory;
     FMap: array[0..$FFFF] of Byte;
     FFlags: array[0..511] of Byte;   // the flags, then the objects' locations
+    FPrevFlags: array[0..511] of Byte;   // as they were before the last step
+    FShowChanges: Boolean;           // stopped by Step: changes are shown in red
+    FStepping: Boolean;              // Step pressed: the next stop shows changes
     FUser: Integer;                  // address of the flags (IX), -1 until known
     FCurrent: Integer;               // condact about to run, -1 if none
     FAtBreak: Boolean;               // stopped by a breakpoint
@@ -149,6 +163,10 @@ type
     FFlagView, FObjView: TDaadDataView;
     FStatusBar: TStatusBar;
     FTimer: TTimer;
+    FDataPanel, FObjZone: TPanel;
+    FSplitMoved: Boolean;            // the user placed the splitter: keep it
+    procedure FormResize(Sender: TObject);
+    procedure SplitMoved(Sender: TObject);
     function AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
     function MakeZone(AParent: TWinControl; const ACaption: string; AWidth: Integer;
       AAlign: TAlign): TPanel;
@@ -161,6 +179,14 @@ type
     procedure UpdateRunButtons;
     procedure Tick(Sender: TObject);
     procedure DoRun(Sender: TObject);
+    procedure DoExportProcess(Sender: TObject);
+    procedure DoExportSource(Sender: TObject);
+    { Ask for a .dsf or .sce file; Sce: which one it is }
+    function AskSourceFile(const ADefault: string; out FileName: string; out Sce: Boolean): Boolean;
+    { PAW game to DSF: as a PAW game, or converted to DAAD (ToDaad); False if
+      cancelled }
+    function AskPawMode(Sce: Boolean; out ToDaad: Boolean): Boolean;
+    procedure ConvertedNotice;
     procedure DoBreak(Sender: TObject);
     procedure DoStep(Sender: TObject);
     procedure DoStepOver(Sender: TObject);
@@ -183,6 +209,10 @@ type
     procedure SetBreakEnabled(Index: Integer; Value: Boolean);
     procedure RemoveBreak(Index: Integer);
     procedure RemoveAllBreaks;
+    { Breakpoints to and from a JSON file (DebugFiles); Load replaces them }
+    procedure SaveBreaksAs;
+    procedure LoadBreaksAsk;
+    function LoadBreaksFile(const FileName: string; out Error: string): Boolean;
     { Ask for the condition of the breakpoint at Addr (adding it if needed) }
     procedure EditCondition(Addr: Word);
     function BreakCount: Integer;
@@ -197,6 +227,9 @@ type
     procedure BreakHit;
     { Change flag N (0-255) or, from 256, the location of object N-256 }
     procedure SetValue(N, Value: Integer);
+    { Whether condact C (the current one) holds with the flags as they are:
+      1 yes, 0 no, -1 can't tell (CHANCE, PICTURE...), -2 not a condition }
+    function CondactState(const C: TDaadCondact): Integer;
     property Game: TDaadGame read FGame;
     property User: Integer read FUser;
     property Current: Integer read FCurrent;
@@ -510,6 +543,8 @@ const
   MENU_REMOVE = 4;
   MENU_SHOW = 5;
   MENU_REMOVE_ALL = 6;
+  MENU_SAVE = 7;
+  MENU_LOAD = 8;
 
 function AddMenuItem(Menu: TPopupMenu; const ACaption: string; ATag: Integer;
   AHandler: TNotifyEvent): TMenuItem;
@@ -651,6 +686,39 @@ begin
   Result := -1;
 end;
 
+procedure TDaadCodeView.DrawState(X, Y, State: Integer);
+var
+  S: Integer;
+begin
+  if State = -2 then Exit;
+  S := FLineH - 6;
+  Inc(Y, 3);
+  // A white box behind, so it shows on any line colour
+  Canvas.Brush.Style := bsSolid;
+  Canvas.Brush.Color := clWhite;
+  Canvas.Pen.Color := clWhite;
+  Canvas.Rectangle(X - 2, Y - 2, X + S + 3, Y + S + 3);
+  if State = -1 then
+  begin
+    DrawText(X + (S - FCharW) div 2, Y - 3, '?', RGBToColor(235, 130, 0), True);
+    Exit;
+  end;
+  Canvas.Pen.Width := 2;
+  if State = 1 then
+  begin
+    Canvas.Pen.Color := RGBToColor(0, 150, 0);
+    Canvas.Line(X, Y + S div 2, X + S div 3, Y + S);
+    Canvas.Line(X + S div 3, Y + S, X + S, Y);
+  end
+  else
+  begin
+    Canvas.Pen.Color := RGBToColor(220, 0, 0);
+    Canvas.Line(X, Y, X + S, Y + S);
+    Canvas.Line(X + S, Y, X, Y + S);
+  end;
+  Canvas.Pen.Width := 1;
+end;
+
 procedure TDaadCodeView.Paint;
 var
   G: TDaadGame;
@@ -730,6 +798,10 @@ begin
     if Msg <> '' then
       DrawText(Max(X + 2 * FCharW, 2 + (GUTTER + 26) * FCharW), Y, '"' + Msg + '"',
         Pick(OnBreak, RGBToColor(255, 205, 205), clGray), False);
+    // At the current condact, a condition: holds (tick), fails (cross) or
+    // depends on something else (an orange question mark)
+    if FLines[L] = FOwnerWin.Current then
+      DrawState(ClientWidth - FScroll.Width - 3 * FCharW, Y, FOwnerWin.CondactState(Cond));
   end;
   // The selected line
   if (FSel >= FTop) and (FSel <= High(FLines)) and (FSel < FTop + VisibleLines + 1) then
@@ -757,6 +829,9 @@ begin
   AddMenuItem(FMenu, 'Remove  (Delete)', MENU_REMOVE, @MenuClick);
   AddMenuItem(FMenu, '-', 0, nil);
   AddMenuItem(FMenu, 'Remove all', MENU_REMOVE_ALL, @MenuClick);
+  AddMenuItem(FMenu, '-', 0, nil);
+  AddMenuItem(FMenu, 'Save breakpoints (JSON)...', MENU_SAVE, @MenuClick);
+  AddMenuItem(FMenu, 'Load breakpoints (JSON)...', MENU_LOAD, @MenuClick);
 end;
 
 function TDaadBreakView.LineCount: Integer;
@@ -873,6 +948,18 @@ end;
 
 procedure TDaadBreakView.MenuClick(Sender: TObject);
 begin
+  case (Sender as TMenuItem).Tag of
+    MENU_SAVE:
+      begin
+        FOwnerWin.SaveBreaksAs;
+        Exit;
+      end;
+    MENU_LOAD:
+      begin
+        FOwnerWin.LoadBreaksAsk;
+        Exit;
+      end;
+  end;
   if (FSel < 0) or (FSel >= LineCount) then Exit;
   case (Sender as TMenuItem).Tag of
     MENU_CONDITION: FOwnerWin.EditCondition(FOwnerWin.BreakEntry(FSel).Addr);
@@ -885,93 +972,138 @@ end;
 
 { TDaadDataView }
 
-function TDaadDataView.LineCount: Integer;
+function TDaadDataView.ItemCount: Integer;
 begin
   if not FObjects then Result := 256
   else if FOwnerWin.Game.Valid then Result := FOwnerWin.Game.NumObjects
   else Result := 0;
 end;
 
+function TDaadDataView.ColChars: Integer;
+begin
+  if FObjects then Result := 40 else Result := 31;
+end;
+
+function TDaadDataView.Columns: Integer;
+begin
+  // Measuring needs the window: while it is being built, one column
+  if not HandleAllocated then Exit(1);
+  if FLineH = 0 then MeasureFont;
+  Result := Max(1, (ClientWidth - FScroll.Width - 4) div (ColChars * FCharW));
+end;
+
+function TDaadDataView.LineCount: Integer;
+var
+  C: Integer;
+begin
+  C := Columns;
+  Result := (ItemCount + C - 1) div C;
+end;
+
+function TDaadDataView.ItemAt(X, Y: Integer; out Row, Col, Base: Integer): Integer;
+var
+  C: Integer;
+begin
+  Result := -1;
+  if FLineH = 0 then MeasureFont;
+  Row := FTop + Y div FLineH;
+  C := (X - 2) div (ColChars * FCharW);
+  if (X < 2) or (C >= Columns) then Exit;
+  Base := C * ColChars;
+  Col := (X - 2) div FCharW - Base;
+  Result := C * LineCount + Row;
+  if (Row >= LineCount) or (Result >= ItemCount) then Result := -1;
+end;
+
+function TDaadDataView.Changed(N: Integer): Boolean;
+begin
+  if FObjects then Inc(N, 256);
+  Result := FOwnerWin.FShowChanges and (FOwnerWin.FFlags[N] <> FOwnerWin.FPrevFlags[N]);
+end;
+
 procedure TDaadDataView.Paint;
 var
-  I, N, Y, X, V: Integer;
+  I, C, N, Y, X, X0, V, Rows: Integer;
   Known: Boolean;
   S: string;
+  ValueColor: TColor;
 begin
   if FLineH = 0 then MeasureFont;
   Canvas.Brush.Color := Color;
   Canvas.FillRect(ClientRect);
   Known := FOwnerWin.User >= 0;
-  for I := 0 to VisibleLines do
-  begin
-    N := FTop + I;
-    if N >= LineCount then Break;
-    Y := I * FLineH;
-    X := DrawText(2, Y, Format('%.3d ', [N]), clGray, False);
-    if not Known then
+  Rows := LineCount;
+  for C := 0 to Columns - 1 do
+    for I := 0 to VisibleLines do
     begin
-      DrawText(X, Y, '---', clGray, False);
-      Continue;
+      if FTop + I >= Rows then Break;
+      N := C * Rows + FTop + I;
+      if N >= ItemCount then Break;
+      Y := I * FLineH;
+      X0 := 2 + C * ColChars * FCharW;
+      X := DrawText(X0, Y, Format('%.3d ', [N]), clGray, False);
+      if not Known then
+      begin
+        DrawText(X, Y, '---', clGray, False);
+        Continue;
+      end;
+      // Changed by the last condact: red
+      if Changed(N) then ValueColor := RGBToColor(210, 0, 0) else ValueColor := clBlack;
+      if not FObjects then
+      begin
+        // "000 007 @ 090": the flag, its value and the value of flag 7
+        V := FOwnerWin.FFlags[N];
+        X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
+        X := DrawText(X, Y, ' @ ', clGray, False);
+        X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), clBlack, False);
+        S := FlagName(N);
+        if S <> '' then DrawText(X + FCharW, Y, Copy(S, 1, ColChars - 15), clGray, False);
+      end
+      else
+      begin
+        // "000 254 carried  lamp"
+        V := FOwnerWin.FFlags[256 + N];
+        X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
+        S := LocationName(V);
+        X := DrawText(X + FCharW, Y, Format('%-11s', [S]), RGBToColor(0, 110, 0), False);
+        DrawText(X + FCharW, Y, Copy(FOwnerWin.Game.ObjectText(N), 1, ColChars - 21), clGray, False);
+      end;
     end;
-    if not FObjects then
-    begin
-      // "000 007 @ 090": the flag, its value and the value of flag 7
-      V := FOwnerWin.FFlags[N];
-      X := DrawText(X, Y, Format('%.3d', [V]), clBlack, True);
-      X := DrawText(X, Y, ' @ ', clGray, False);
-      X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), clBlack, False);
-      S := FlagName(N);
-      if S <> '' then DrawText(X + 2 * FCharW, Y, S, clGray, False);
-    end
-    else
-    begin
-      // "000 254 carried  lamp"
-      V := FOwnerWin.FFlags[256 + N];
-      X := DrawText(X, Y, Format('%.3d', [V]), clBlack, True);
-      S := LocationName(V);
-      X := DrawText(X + FCharW, Y, Format('%-11s', [S]), RGBToColor(0, 110, 0), False);
-      DrawText(X + FCharW, Y, FOwnerWin.Game.ObjectText(N), clGray, False);
-    end;
-  end;
 end;
 
 procedure TDaadDataView.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var
-  N, Col: Integer;
+  N, Row, Col, Base: Integer;
 begin
   inherited MouseDown(Button, Shift, X, Y);
   if (Button <> mbLeft) or (FOwnerWin.User < 0) then Exit;
-  if FLineH = 0 then MeasureFont;
-  N := FTop + Y div FLineH;
-  if N >= LineCount then Exit;
-  Col := (X - 2) div FCharW;
+  N := ItemAt(X, Y, Row, Col, Base);
+  if N < 0 then Exit;
   if FObjects then
   begin
-    if (Col >= 4) and (Col < 7) then BeginEdit(N, 4, 3, FOwnerWin.FFlags[256 + N], 256 + N);
+    if (Col >= 4) and (Col < 7) then BeginEdit(Row, Base + 4, 3, FOwnerWin.FFlags[256 + N], 256 + N);
   end
   else if (Col >= 4) and (Col < 7) and (FlagWordKind(N) >= 0) then
     // A vocabulary word: pick it from the list, or type its number
-    BeginComboEdit(N, 4, FOwnerWin.FFlags[N], N, FOwnerWin.WordList(FlagWordKind(N)))
+    BeginComboEdit(Row, Base + 4, FOwnerWin.FFlags[N], N, FOwnerWin.WordList(FlagWordKind(N)))
   else if (Col >= 4) and (Col < 7) then
-    BeginEdit(N, 4, 3, FOwnerWin.FFlags[N], N)
+    BeginEdit(Row, Base + 4, 3, FOwnerWin.FFlags[N], N)
   else if (Col >= 10) and (Col < 13) then
     // The flag it points at
-    BeginEdit(N, 10, 3, FOwnerWin.FFlags[FOwnerWin.FFlags[N]], FOwnerWin.FFlags[N]);
+    BeginEdit(Row, Base + 10, 3, FOwnerWin.FFlags[FOwnerWin.FFlags[N]], FOwnerWin.FFlags[N]);
 end;
 
 { Over the value of a flag holding a vocabulary word: the word }
 procedure TDaadDataView.MouseMove(Shift: TShiftState; X, Y: Integer);
 var
-  N, Col, Kind, V: Integer;
+  N, Row, Col, Base, Kind, V: Integer;
   S: string;
 begin
   inherited MouseMove(Shift, X, Y);
   if FDefaultHint = '' then FDefaultHint := Hint;
   S := FDefaultHint;
-  if FLineH = 0 then MeasureFont;
-  N := FTop + Y div FLineH;
-  Col := (X - 2) div FCharW;
-  if not FObjects and (FOwnerWin.User >= 0) and (N < 256) and (Col >= 4) and (Col < 7) then
+  N := ItemAt(X, Y, Row, Col, Base);
+  if not FObjects and (FOwnerWin.User >= 0) and (N >= 0) and (Col >= 4) and (Col < 7) then
   begin
     Kind := FlagWordKind(N);
     if Kind >= 0 then
@@ -1034,6 +1166,14 @@ begin
   Sep.Parent := FToolbar;
   Sep.Style := tbsDivider;
   Sep.Left := FToolbar.Width + 1000;
+  AddButton(ikSave, 'Export this process as source (.dsf or .sce, by the file''s extension)...',
+    @DoExportProcess);
+  AddButton(ikDisk, 'Export the whole game as source: DSF (DAAD Ready, DRC) or SCE (original ' +
+    'DAAD compiler), by the file''s extension...', @DoExportSource);
+  Sep := TToolButton.Create(FToolbar);
+  Sep.Parent := FToolbar;
+  Sep.Style := tbsDivider;
+  Sep.Left := FToolbar.Width + 1000;
   FAfterInput := TCheckBox.Create(Self);
   FAfterInput.Parent := FToolbar;
   FAfterInput.Caption := 'Stop after player input';
@@ -1058,7 +1198,9 @@ begin
   Data.Align := alRight;
   Data.Width := 520;
   Data.BevelOuter := bvNone;
+  FDataPanel := Data;
   Zone := MakeZone(Data, 'Objects (location)', 270, alRight);
+  FObjZone := Zone;
   FObjView := TDaadDataView.CreateView(Self);
   FObjView.FObjects := True;
   FObjView.Parent := Zone;
@@ -1075,6 +1217,8 @@ begin
   Split := TSplitter.Create(Self);
   Split.Parent := Self;
   Split.Align := alRight;
+  Split.OnMoved := @SplitMoved;
+  OnResize := @FormResize;
 
   // Code (rest): the process, chosen in the header
   Zone := MakeZone(Self, 'Process', 0, alClient);
@@ -1280,6 +1424,10 @@ begin
   if FGame.Valid and (Fetch >= 0) then FCurrent := FGame.CondactIn(Fetch, Recent);
   // While a condact runs, IX points at the flags
   if FCurrent >= 0 then FUser := IX;
+  // After a step, what the condact changed is shown in red
+  FShowChanges := FStepping and (FUser >= 0);
+  FStepping := False;
+  if FShowChanges then Move(FFlags, FPrevFlags, SizeOf(FFlags));
   ReadFlags;
   if FCurrent >= 0 then
   begin
@@ -1304,6 +1452,7 @@ end;
 procedure TDaadWindow.SetValue(N, Value: Integer);
 begin
   if FUser < 0 then Exit;
+  FPrevFlags[N] := Value;   // a change made here is not the condact's
   FEmu.Lock;
   try
     FEmu.Spec.Poke(Word(FUser + N), Value);
@@ -1386,8 +1535,103 @@ begin
   FWasPaused := Paused;
 end;
 
+function TDaadWindow.AskSourceFile(const ADefault: string; out FileName: string;
+  out Sce: Boolean): Boolean;
+var
+  Dlg: TSaveDialog;
+begin
+  Result := False;
+  Sce := False;
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'DAAD Ready / DRC source (*.dsf)|*.dsf|Original DAAD source (*.sce)|*.sce|' +
+      'All files|*.*';
+    Dlg.DefaultExt := 'dsf';
+    Dlg.FileName := ADefault;
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    FileName := Dlg.FileName;
+    // The format is the file's: .sce, else DSF
+    Sce := SameText(ExtractFileExt(FileName), '.sce');
+    Result := True;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+function TDaadWindow.AskPawMode(Sce: Boolean; out ToDaad: Boolean): Boolean;
+begin
+  ToDaad := False;
+  Result := True;
+  // An SCE is written as the PAW game is
+  if not FGame.IsPAW or Sce then Exit;
+  case QuestionDlg('Export a PAW game',
+    'This is a PAW game. Export it as it is (PAW condacts and processes), or try to convert ' +
+    'it to DAAD (as PAWS2DAAD does, with the processes of DAAD''s empty database)?',
+    mtConfirmation, [mrYes, 'As a PAW game', mrNo, 'Convert to DAAD', mrCancel, 'Cancel'], 0) of
+    mrYes: ToDaad := False;
+    mrNo: ToDaad := True;
+  else
+    Result := False;
+  end;
+end;
+
+procedure TDaadWindow.ConvertedNotice;
+begin
+  MessageDlg('The PAW game has been converted to DAAD, but the conversion can''t be complete: ' +
+    'check the source by hand for possible issues (start with the "PAWS2DAAD note" comments), ' +
+    'then compile it and test the game.', mtWarning, [mbOK], 0);
+end;
+
+procedure TDaadWindow.DoExportProcess(Sender: TObject);
+var
+  FileName: string;
+  Sce, ToDaad: Boolean;
+  Lines: TStringList;
+begin
+  if not FGame.Valid or (FProcess < 0) or (FProcess >= Length(FGame.Processes)) then Exit;
+  if not AskSourceFile(Format('pro%d.dsf', [FProcess]), FileName, Sce) then Exit;
+  if not AskPawMode(Sce, ToDaad) then Exit;
+  Lines := ExportDaadProcess(FGame, FProcess, Sce, ToDaad);
+  try
+    try
+      SaveDaadSource(Lines, FileName, Sce);
+      FStatusBar.SimpleText := Format('Process %d exported to %s', [FProcess, ExtractFileName(FileName)]);
+      if ToDaad then ConvertedNotice;
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
+procedure TDaadWindow.DoExportSource(Sender: TObject);
+var
+  FileName: string;
+  Sce, ToDaad: Boolean;
+  Lines: TStringList;
+begin
+  if not FGame.Valid then Exit;
+  if not AskSourceFile('game.dsf', FileName, Sce) then Exit;
+  if not AskPawMode(Sce, ToDaad) then Exit;
+  Lines := ExportDaadSource(FGame, Sce, ToDaad);
+  try
+    try
+      SaveDaadSource(Lines, FileName, Sce);
+      FStatusBar.SimpleText := 'Game exported to ' + ExtractFileName(FileName);
+      if ToDaad then ConvertedNotice;
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Lines.Free;
+  end;
+end;
+
 procedure TDaadWindow.DoRun(Sender: TObject);
 begin
+  FStepping := False;
   if not FEmu.Paused then Exit;
   FEmu.Lock;
   try
@@ -1421,6 +1665,7 @@ begin
     DoBreak(Sender);   // first press stops; further presses step
     Exit;
   end;
+  FStepping := True;
   FEmu.Lock;
   try
     FEmu.Spec.DaadStop := dsNext;
@@ -1434,6 +1679,7 @@ end;
 
 procedure TDaadWindow.DoStepOver(Sender: TObject);
 begin
+  FStepping := False;
   if not FEmu.Paused then
   begin
     DoBreak(Sender);
@@ -1595,6 +1841,112 @@ begin
   for I := 0 to High(Old) do Old[I].Cond.Free;
 end;
 
+{ The flags and objects take 60% of the width (so they show
+  in several columns on a wide window), until the splitter is moved }
+procedure TDaadWindow.FormResize(Sender: TObject);
+begin
+  if FSplitMoved or (FDataPanel = nil) then Exit;
+  FDataPanel.Width := Max(520, ClientWidth * 3 div 5);
+  FObjZone.Width := Max(270, FDataPanel.Width * 7 div 20);
+end;
+
+procedure TDaadWindow.SplitMoved(Sender: TObject);
+begin
+  FSplitMoved := True;
+end;
+
+procedure TDaadWindow.SaveBreaksAs;
+var
+  Dlg: TSaveDialog;
+  Data: TDaadBreakDataArray;
+  I: Integer;
+begin
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'DAAD breakpoints (*.json)|*.json|All files|*.*';
+    Dlg.DefaultExt := 'json';
+    Dlg.FileName := 'daad-breakpoints.json';
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    SetLength(Data, Length(FBreaks));
+    for I := 0 to High(FBreaks) do
+    begin
+      Data[I].Addr := FBreaks[I].Addr;
+      Data[I].Enabled := FBreaks[I].Enabled;
+      Data[I].Condition := FBreaks[I].CondText;
+      Data[I].Condact := CondactLabel(FBreaks[I].Addr);
+    end;
+    try
+      SaveDaadBreaks(Data, Dlg.FileName);
+      FStatusBar.SimpleText := Format('%d breakpoints saved to %s',
+        [Length(Data), ExtractFileName(Dlg.FileName)]);
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDaadWindow.LoadBreaksAsk;
+var
+  Dlg: TOpenDialog;
+  Error: string;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter := 'DAAD breakpoints (*.json)|*.json|All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if not Dlg.Execute then Exit;
+    if LoadBreaksFile(Dlg.FileName, Error) then
+      FStatusBar.SimpleText := Format('%d breakpoints loaded from %s',
+        [Length(FBreaks), ExtractFileName(Dlg.FileName)])
+    else
+      MessageDlg('Could not load the breakpoints: ' + Error, mtError, [mbOK], 0);
+  finally
+    Dlg.Free;
+  end;
+end;
+
+function TDaadWindow.LoadBreaksFile(const FileName: string; out Error: string): Boolean;
+var
+  Data: TDaadBreakDataArray;
+  I: Integer;
+  Cond: TDaadCondition;
+  CondError: string;
+begin
+  Result := LoadDaadBreaks(FileName, Data, Error);
+  if not Result then Exit;
+  // Check the conditions first: a bad file changes nothing
+  for I := 0 to High(Data) do
+    if Trim(Data[I].Condition) <> '' then
+    begin
+      Cond := TDaadCondition.Parse(Data[I].Condition, CondError);
+      if Cond = nil then
+      begin
+        Error := Format('%.4X: %s', [Data[I].Addr, CondError]);
+        Exit(False);
+      end;
+      Cond.Free;
+    end;
+  RemoveAllBreaks;
+  SetLength(FBreaks, Length(Data));
+  for I := 0 to High(Data) do
+  begin
+    FBreaks[I].Addr := Data[I].Addr;
+    FBreaks[I].Enabled := Data[I].Enabled;
+    FBreaks[I].CondText := Trim(Data[I].Condition);
+    if FBreaks[I].CondText <> '' then
+      FBreaks[I].Cond := TDaadCondition.Parse(FBreaks[I].CondText, CondError)
+    else
+      FBreaks[I].Cond := nil;
+  end;
+  PushBreaks;
+  FBreakView.UpdateScroll;
+  FBreakView.Invalidate;
+  FCode.Invalidate;
+end;
+
 procedure TDaadWindow.EditCondition(Addr: Word);
 var
   CondStr, Error: string;
@@ -1629,6 +1981,80 @@ begin
   FBreaks[I].Enabled := True;
   PushBreaks;
   Old.Free;
+end;
+
+function TDaadWindow.CondactState(const C: TDaadCondact): Integer;
+var
+  CName: string;
+  P0, P1, Here, Prev: Integer;
+
+  function Obj(N: Integer): Integer;
+  begin
+    if N < FGame.NumObjects then Result := FFlags[256 + N] else Result := -1;
+  end;
+
+  function Res(Value: Boolean): Integer;
+  begin
+    if Value then Result := 1 else Result := 0;
+  end;
+
+begin
+  Result := -2;
+  if FGame.IsPAW then CName := PAW_CONDACT_NAMES[C.Opcode] else CName := CONDACT_NAMES[C.Opcode];
+  // Conditions that depend on what is outside the flags
+  if (CName = 'CHANCE') or (CName = 'ISDONE') or (CName = 'ISNDONE') or (CName = 'PICTURE') or
+     (CName = 'INKEY') or (CName = 'QUIT') or (CName = 'PARSE') or (FGame.IsPAW and (CName = 'TIMEOUT')) then
+    Exit(-1);
+  if Pos(',' + CName + ',', ',AT,NOTAT,ATGT,ATLT,PRESENT,ABSENT,WORN,NOTWORN,CARRIED,NOTCARR,ZERO,' +
+    'NOTZERO,EQ,NOTEQ,GT,LT,SAME,NOTSAME,BIGGER,SMALLER,ADJECT1,ADVERB,PREP,NOUN2,ADJECT2,ISAT,' +
+    'ISNOTAT,HASAT,HASNAT,') = 0 then Exit;
+  if FUser < 0 then Exit(-1);   // flags not known yet
+  P0 := C.Params[0];
+  if C.Indirect then P0 := FFlags[P0];
+  P1 := C.Params[1];
+  // v3: an INDIR before it makes the second parameter a flag's value
+  if not FGame.IsPAW and (FGame.Version >= 3) then
+  begin
+    Prev := FGame.CondactAt(C.Addr) - 1;
+    if (Prev >= 0) and (FGame.Condacts[Prev].Entry = C.Entry) and
+       (FGame.Condacts[Prev].Opcode = OP_INDIR) then P1 := FFlags[FGame.Condacts[Prev].Params[0]];
+  end;
+  Here := FFlags[38];
+  if CName = 'AT' then Result := Res(Here = P0)
+  else if CName = 'NOTAT' then Result := Res(Here <> P0)
+  else if CName = 'ATGT' then Result := Res(Here > P0)
+  else if CName = 'ATLT' then Result := Res(Here < P0)
+  else if CName = 'PRESENT' then
+    Result := Res((Obj(P0) = LOC_WORN) or (Obj(P0) = LOC_CARRIED) or (Obj(P0) = Here))
+  else if CName = 'ABSENT' then
+    Result := Res(not ((Obj(P0) = LOC_WORN) or (Obj(P0) = LOC_CARRIED) or (Obj(P0) = Here)))
+  else if CName = 'WORN' then Result := Res(Obj(P0) = LOC_WORN)
+  else if CName = 'NOTWORN' then Result := Res(Obj(P0) <> LOC_WORN)
+  else if CName = 'CARRIED' then Result := Res(Obj(P0) = LOC_CARRIED)
+  else if CName = 'NOTCARR' then Result := Res(Obj(P0) <> LOC_CARRIED)
+  else if CName = 'ZERO' then Result := Res(FFlags[P0] = 0)
+  else if CName = 'NOTZERO' then Result := Res(FFlags[P0] <> 0)
+  else if CName = 'EQ' then Result := Res(FFlags[P0] = P1)
+  else if CName = 'NOTEQ' then Result := Res(FFlags[P0] <> P1)
+  else if CName = 'GT' then Result := Res(FFlags[P0] > P1)
+  else if CName = 'LT' then Result := Res(FFlags[P0] < P1)
+  else if CName = 'SAME' then Result := Res(FFlags[P0] = FFlags[P1])
+  else if CName = 'NOTSAME' then Result := Res(FFlags[P0] <> FFlags[P1])
+  else if CName = 'BIGGER' then Result := Res(FFlags[P0] > FFlags[P1])
+  else if CName = 'SMALLER' then Result := Res(FFlags[P0] < FFlags[P1])
+  else if CName = 'ADJECT1' then Result := Res(FFlags[35] = P0)
+  else if CName = 'ADVERB' then Result := Res(FFlags[36] = P0)
+  else if CName = 'PREP' then Result := Res(FFlags[43] = P0)
+  else if CName = 'NOUN2' then Result := Res(FFlags[44] = P0)
+  else if CName = 'ADJECT2' then Result := Res(FFlags[45] = P0)
+  else if (CName = 'ISAT') or (CName = 'ISNOTAT') then
+  begin
+    if P1 = 255 then P1 := Here;   // HERE
+    Result := Res((Obj(P0) = P1) = (CName = 'ISAT'));
+  end
+  else if (CName = 'HASAT') or (CName = 'HASNAT') then
+    // Bit (value mod 8) of flag 59 - value div 8
+    Result := Res((((FFlags[59 - P0 div 8] shr (P0 and 7)) and 1) <> 0) = (CName = 'HASAT'));
 end;
 
 function TDaadWindow.CondactLabel(Addr: Word): string;

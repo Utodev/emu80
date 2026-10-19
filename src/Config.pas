@@ -223,7 +223,7 @@ begin
   ShiftSides := False;
   CpuSpeed := 1;
   FastDisk := False;
-  DriveB := True;
+  DriveB := False;
   FloppyNoise := True;
   SaveOnExit := True;
   SaveToTape := True;

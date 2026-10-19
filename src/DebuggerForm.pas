@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, Menus,
   LCLType, Dialogs, ComCtrls, Emulator, Spectrum, Disasm, Z80Core, Symbols, Icons, Models,
-  MemText, DivMMC, ZXUnoRegsForm;
+  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr;
 
 type
   TDebuggerWindow = class;
@@ -103,6 +103,7 @@ type
   { A breakpoint in the list: on a memory address or on a port }
   TBreakEntry = record
     Addr: Word;
+    Last: Word;       // end of its range (Addr if it is a single address)
     Port: Boolean;
     Hits: Integer;    // times reached, if the condition uses T (else -1)
   end;
@@ -159,6 +160,8 @@ type
     procedure MenuSprites(Sender: TObject);
     procedure MenuExport(Sender: TObject);
     procedure MenuImport(Sender: TObject);
+    procedure MenuImportBinary(Sender: TObject);
+    procedure MenuExportBinary(Sender: TObject);
     procedure PaintSprites;
     function RowBytes: Integer;
     function Rows: Integer;
@@ -187,6 +190,8 @@ type
     FMenu: TPopupMenu;
     procedure MenuAdd(Sender: TObject);
     procedure MenuRemove(Sender: TObject);
+    procedure MenuSave(Sender: TObject);
+    procedure MenuLoad(Sender: TObject);
   protected
     function HasOwnMenu: Boolean; override;
     procedure Paint; override;
@@ -210,6 +215,8 @@ type
     procedure MenuRemove(Sender: TObject);
     procedure MenuShow(Sender: TObject);
     procedure MenuRemoveAll(Sender: TObject);
+    procedure MenuSave(Sender: TObject);
+    procedure MenuLoad(Sender: TObject);
   protected
     function HasOwnMenu: Boolean; override;
     procedure Paint; override;
@@ -324,10 +331,27 @@ type
     procedure EditBreakpoint(OldAddr: Integer; OldPort: Boolean = False);
     procedure ToggleBreakEnabled(Addr: Word; Port: Boolean = False);
     procedure ClearBreakpoints;
+    { Breakpoints and watches to and from JSON files (DebugFiles); loading
+      replaces them }
+    procedure SaveBreaksAs;
+    procedure LoadBreaksAsk;
+    procedure SaveWatchesAs;
+    procedure LoadWatchesAsk;
+    procedure SetWatches(const Watches: TWordArray);
     procedure ShowNotice(const AText: string);
     { Memory to and from a text file of "$XX" values (16 per line) }
     procedure ExportMemory;
+    { The disassembly of a range as a .asm file for sjasmplus }
+    procedure ExportAssembler(Start: Word);
+    function AsmLabel(Addr: Word; Kind: TOperandKind): string;
     procedure ImportMemory;
+    { A file loaded as it is at an address (asked; the memory zone's by
+      default) }
+    procedure ImportBinary;
+    { A range (asked; what the memory zone shows by default) saved as it is }
+    procedure ExportBinary;
+    { A menu item's hint in the status bar while the mouse is over it }
+    procedure AppHint(Sender: TObject);
     function AskRange(const ACaption: string; var Addr: Word; var Len: Integer): Boolean;
     procedure GoToCode(Addr: Word);
     { Ask for the condition of the breakpoint at Addr (adding one if needed) }
@@ -382,6 +406,8 @@ type
 
 var
   DebuggerWindow: TDebuggerWindow;
+  { Watches from the command line, for when the debugger is opened }
+  PendingWatches: TWordArray;
 
 { Open (or bring to front) the debugger, stopping at the current address. }
 procedure ShowDebugger(Emu: TEmulator);
@@ -413,9 +439,34 @@ const
   MENU_TOGGLE = 102;
   MENU_ENABLE = 103;
   MENU_PORT = 104;
+  MENU_EXPORTASM = 105;
 
   CLICKABLE = [skRegister, skMemWord, skMemByte, skMemXorByte, skAscii, skFlag, skIFF, skIM,
     skSlot3, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper];
+
+type
+  { Breakpoint window: the end address follows the start until it is
+    changed by hand }
+  TEndFollower = class
+    StartEdit, EndEdit: TEdit;
+    Own: Boolean;        // the end was typed: it no longer follows
+    Updating: Boolean;
+    procedure StartChange(Sender: TObject);
+    procedure EndChange(Sender: TObject);
+  end;
+
+procedure TEndFollower.StartChange(Sender: TObject);
+begin
+  if Own then Exit;
+  Updating := True;
+  EndEdit.Text := StartEdit.Text;
+  Updating := False;
+end;
+
+procedure TEndFollower.EndChange(Sender: TObject);
+begin
+  if not Updating then Own := not SameText(Trim(EndEdit.Text), Trim(StartEdit.Text));
+end;
 
 function BreakColor: TColor;
 begin
@@ -813,6 +864,7 @@ begin
   inherited CreateView(AOwner);
   FPopup := TPopupMenu.Create(Self);
   AddItem('Go to address...  (Ctrl+G)', MENU_GOTO);
+  AddItem('Export as assembler (.asm, sjasmplus)...', MENU_EXPORTASM);
   AddItem('-', -1);
   AddItem('Toggle breakpoint  (Space)', MENU_TOGGLE);
   FTypeItems[0] := AddItem('Execution breakpoint', BP_EXEC);
@@ -1143,6 +1195,7 @@ begin
         A := FTop;
         if FOwnerWin.AskAddress(A) then GoToAddr(A);
       end;
+    MENU_EXPORTASM: FOwnerWin.ExportAssembler(FTop);
     MENU_TOGGLE:
       begin
         FSel := FMenuAddr;
@@ -1278,12 +1331,24 @@ begin
   Item.Caption := '-';
   FMenu.Items.Add(Item);
   Item := TMenuItem.Create(FMenu);
-  Item.Caption := 'Export...';
+  Item.Caption := 'Export text...';
+  Item.Hint := 'Export to a comma separated text file, values in hex with a $ in front';
   Item.OnClick := @MenuExport;
   FMenu.Items.Add(Item);
   Item := TMenuItem.Create(FMenu);
-  Item.Caption := 'Import...';
+  Item.Caption := 'Import text...';
+  Item.Hint := 'Import from a comma separated text file, decimal values, or prepend $ for hex';
   Item.OnClick := @MenuImport;
+  FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := 'Export binary...';
+  Item.Hint := 'Save a range of memory to a file, byte by byte';
+  Item.OnClick := @MenuExportBinary;
+  FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := 'Import binary...';
+  Item.Hint := 'Load a file into memory, byte by byte, at an address';
+  Item.OnClick := @MenuImportBinary;
   FMenu.Items.Add(Item);
   FSpriteRowBytes := 8;
   FSpriteRows := 1;
@@ -1304,6 +1369,16 @@ end;
 procedure THexView.MenuImport(Sender: TObject);
 begin
   FOwnerWin.ImportMemory;
+end;
+
+procedure THexView.MenuImportBinary(Sender: TObject);
+begin
+  FOwnerWin.ImportBinary;
+end;
+
+procedure THexView.MenuExportBinary(Sender: TObject);
+begin
+  FOwnerWin.ExportBinary;
 end;
 
 function THexView.RowBytes: Integer;
@@ -1429,19 +1504,11 @@ begin
         Canvas.Brush.Color := RGBToColor(120, 170, 255);
         Canvas.FillRect(X, Y, X + FCharW, Y + FLineH);
       end;
+      // Not printable: a grey dot
       if (V >= 32) and (V < 127) then
         DrawText(X, Y + 1, Chr(V), clBlack, False)
       else
-      begin
-        // Not printable: "?" in inverse video
-        if Word(A + Col) <> FTextCursor then
-        begin
-          Canvas.Brush.Style := bsSolid;
-          Canvas.Brush.Color := clBlack;
-          Canvas.FillRect(X, Y, X + FCharW, Y + FLineH);
-        end;
-        DrawText(X, Y + 1, '?', clWhite, False);
-      end;
+        DrawText(X, Y + 1, '.', clGray, False);
     end;
   end;
   DrawFocus;
@@ -1570,6 +1637,28 @@ begin
   Item.Caption := 'Remove watch';
   Item.OnClick := @MenuRemove;
   FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := '-';
+  FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := 'Save watches (JSON)...';
+  Item.OnClick := @MenuSave;
+  FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
+  Item.Caption := 'Load watches (JSON)...';
+  Item.OnClick := @MenuLoad;
+  FMenu.Items.Add(Item);
+end;
+
+procedure TWatchView.MenuSave(Sender: TObject);
+begin
+  FOwnerWin.SaveWatchesAs;
+end;
+
+procedure TWatchView.MenuLoad(Sender: TObject);
+begin
+  FOwnerWin.LoadWatchesAsk;
+  FSel := -1;
 end;
 
 procedure TWatchView.MenuAdd(Sender: TObject);
@@ -1685,6 +1774,20 @@ begin
   AddItem('-', nil);
   AddItem('Show in the disassembly', @MenuShow);
   AddItem('Remove all', @MenuRemoveAll);
+  AddItem('-', nil);
+  AddItem('Save breakpoints (JSON)...', @MenuSave);
+  AddItem('Load breakpoints (JSON)...', @MenuLoad);
+end;
+
+procedure TBreakView.MenuSave(Sender: TObject);
+begin
+  FOwnerWin.SaveBreaksAs;
+end;
+
+procedure TBreakView.MenuLoad(Sender: TObject);
+begin
+  FOwnerWin.LoadBreaksAsk;
+  FSel := -1;
 end;
 
 function TBreakView.HaveSel: Boolean;
@@ -1801,6 +1904,14 @@ begin
       X := DrawText(X, Y + 1, 'xx' + IntToHex(E.Addr, 2), TextColor, False)  // low byte only
     else
       X := DrawText(X, Y + 1, IntToHex(E.Addr, 4), TextColor, False);
+    // A range: up to its last address or port
+    if E.Last <> E.Addr then
+    begin
+      if E.Port and (E.Last <= $FF) then
+        X := DrawText(X, Y + 1, '-xx' + IntToHex(E.Last, 2), TextColor, False)
+      else
+        X := DrawText(X, Y + 1, '-' + IntToHex(E.Last, 4), TextColor, False);
+    end;
     if not E.Port then
     begin
       Lbl := FOwnerWin.SymbolFor(E.Addr);
@@ -1909,11 +2020,20 @@ var
     DrawText(Col(C), Y, IntToHex(V, Digits), ChangedOrBlack(Changed), False);
   end;
 
+  { A register pair: each half dark red only if the last instruction changed
+    it (LD D,0 marks D, not E); click to edit }
+  procedure PairValue(C: Integer; Reg: TRegId; V, Old: Word);
+  begin
+    AddSpot(Col(C), Y, 4, skRegister, V, 4, Ord(Reg));
+    DrawText(Col(C), Y, IntToHex(V shr 8, 2), ChangedOrBlack((V shr 8) <> (Old shr 8)), False);
+    DrawText(Col(C + 2), Y, IntToHex(V and $FF, 2), ChangedOrBlack((V and $FF) <> (Old and $FF)), False);
+  end;
+
   { "AF  005C (C5C3)": register and the 16-bit word it points to (editable) }
   procedure Pair(C: Integer; const RegName: string; Reg: TRegId; V, Old: Word);
   begin
     Name(C, RegName);
-    RegValue(C + 4, Reg, V, 4, V <> Old);
+    PairValue(C + 4, Reg, V, Old);
     DrawText(Col(C + 9), Y, '(', clGray, False);
     AddSpot(Col(C + 10), Y, 4, skMemWord, Word16(V), 4, V);
     DrawText(Col(C + 10), Y, IntToHex(Word16(V), 4), clGray, False);
@@ -2143,6 +2263,11 @@ begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
   FHistory := TStringList.Create;
+  // Menu item hints show in the status bar
+  Application.AddOnHintHandler(@AppHint);
+  // Watches given on the command line
+  FWatches := Copy(PendingWatches);
+  PendingWatches := nil;
   Caption := 'Debugger';
   Width := 1200;
   Height := 720;
@@ -2259,6 +2384,7 @@ end;
 
 destructor TDebuggerWindow.Destroy;
 begin
+  Application.RemoveOnHintHandler(@AppHint);
   FHistory.Free;
   inherited Destroy;
 end;
@@ -2723,20 +2849,20 @@ end;
 
 procedure TDebuggerWindow.PokeByte(Addr: Word; Value: Byte);
 var
-  Bank: Integer;
+  Kind: TMemoryAt;
   Ok: Boolean;
 begin
   FEmu.Lock;
   try
-    Bank := FEmu.Spec.SlotBank(Addr shr 14);
-    Ok := (Bank >= 0) or ((Bank <> NO_MEMORY) and FEmu.Spec.RomWritable);
+    Kind := FEmu.Spec.MemoryAt(Addr);
+    Ok := (Kind = maRam) or ((Kind = maRom) and FEmu.Spec.RomWritable);
     if Ok then FEmu.Spec.Poke(Addr, Value);
   finally
     FEmu.Unlock;
   end;
   if Ok then Exit;
   Beep;
-  if Bank = NO_MEMORY then
+  if Kind = maNone then
     ShowNotice(Format('There is no memory at %.4X', [Addr]))
   else
     ShowNotice(Format('%.4X is ROM, which can''t be changed (Options > Settings > Machine ' +
@@ -2895,24 +3021,38 @@ begin
       end
       else if FPortCondText[A] <> '' then FPortCondText[A] := '';
     end;
+    // One entry per breakpoint: a range is one, from its first address
     SetLength(FBreakList, N);
     N := 0;
-    for A := 0 to $FFFF do
+    A := 0;
+    while A <= $FFFF do
+    begin
       if FBreak[A] <> 0 then
       begin
         FBreakList[N].Addr := A;
+        FBreakList[N].Last := FEmu.Spec.BreakRangeLast(A, False);
         FBreakList[N].Port := False;
         FBreakList[N].Hits := FEmu.Spec.BreakHits(A);
+        A := FBreakList[N].Last;
         Inc(N);
       end;
-    for A := 0 to $FFFF do
+      Inc(A);
+    end;
+    A := 0;
+    while A <= $FFFF do
+    begin
       if FPortBreak[A] <> 0 then
       begin
         FBreakList[N].Addr := A;
+        FBreakList[N].Last := FEmu.Spec.BreakRangeLast(A, True);
         FBreakList[N].Port := True;
         FBreakList[N].Hits := FEmu.Spec.PortBreakHits(A);
+        A := FBreakList[N].Last;
         Inc(N);
       end;
+      Inc(A);
+    end;
+    SetLength(FBreakList, N);
     SetLength(FPortLog, FEmu.Spec.PortLogCount);
     for A := 0 to High(FPortLog) do FPortLog[A] := FEmu.Spec.PortLog(A);
     for A := 0 to 3 do FSlots[A] := FEmu.Spec.SlotBank(A);
@@ -3269,6 +3409,109 @@ begin
   ClearBreakpoints;
 end;
 
+procedure TDebuggerWindow.SaveBreaksAs;
+var
+  Dlg: TSaveDialog;
+begin
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'Breakpoints (*.json)|*.json|All files|*.*';
+    Dlg.DefaultExt := 'json';
+    Dlg.FileName := 'breakpoints.json';
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    FEmu.Lock;
+    try
+      try
+        SaveBreakpoints(FEmu.Spec, Dlg.FileName);
+        ShowNotice('Breakpoints saved to ' + ExtractFileName(Dlg.FileName));
+      except
+        on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+      end;
+    finally
+      FEmu.Unlock;
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.LoadBreaksAsk;
+var
+  Dlg: TOpenDialog;
+  Error: string;
+  Ok: Boolean;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter := 'Breakpoints (*.json)|*.json|All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if not Dlg.Execute then Exit;
+    FEmu.Lock;
+    try
+      Ok := LoadBreakpoints(FEmu.Spec, Dlg.FileName, Error);
+    finally
+      FEmu.Unlock;
+    end;
+    Refresh(False);
+    if Ok then ShowNotice('Breakpoints loaded from ' + ExtractFileName(Dlg.FileName))
+    else MessageDlg('Could not load the breakpoints: ' + Error, mtError, [mbOK], 0);
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.SaveWatchesAs;
+var
+  Dlg: TSaveDialog;
+begin
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'Watches (*.json)|*.json|All files|*.*';
+    Dlg.DefaultExt := 'json';
+    Dlg.FileName := 'watches.json';
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    try
+      SaveWatches(FWatches, Dlg.FileName);
+      ShowNotice('Watches saved to ' + ExtractFileName(Dlg.FileName));
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.LoadWatchesAsk;
+var
+  Dlg: TOpenDialog;
+  Error: string;
+  W: TWordArray;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter := 'Watches (*.json)|*.json|All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if not Dlg.Execute then Exit;
+    if LoadWatches(Dlg.FileName, W, Error) then
+    begin
+      SetWatches(W);
+      ShowNotice('Watches loaded from ' + ExtractFileName(Dlg.FileName));
+    end
+    else
+      MessageDlg('Could not load the watches: ' + Error, mtError, [mbOK], 0);
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.SetWatches(const Watches: TWordArray);
+begin
+  FWatches := Copy(Watches);
+  Refresh(False);
+end;
+
 procedure TDebuggerWindow.ClearBreakpoints;
 begin
   FEmu.Lock;
@@ -3322,25 +3565,27 @@ const
   TYPE_PORT: array[0..6] of Boolean = (False, False, False, False, True, True, True);
 var
   Dlg: TForm;
-  AddrEdit, CondEdit: TEdit;
+  AddrEdit, EndEdit, CondEdit: TEdit;
   TypeCombo: TComboBox;
   EnabledCheck: TCheckBox;
   Help: TMemo;
   Btn: TButton;
   Flags: Byte;
-  A: Word;
+  A, Last: Word;
   V, I: Integer;
   Error: string;
   Ok, Port: Boolean;
+  Follower: TEndFollower;
+  Test: TBreakCondition;
 
-  procedure AddLabel(const ACaption: string; ATop: Integer);
+  procedure AddLabel(const ACaption: string; ATop: Integer; ALeft: Integer = 10);
   var
     Lbl: TLabel;
   begin
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
     Lbl.Caption := ACaption;
-    Lbl.SetBounds(10, ATop, 420, 18);
+    Lbl.SetBounds(ALeft, ATop, 500 - ALeft, 18);
   end;
 
 begin
@@ -3349,6 +3594,7 @@ begin
   begin
     if OldPort then Flags := FPortBreak[OldAddr] else Flags := FBreak[OldAddr];
   end;
+  Follower := TEndFollower.Create;
   Dlg := TForm.CreateNew(Self, 0);
   try
     if OldAddr >= 0 then Dlg.Caption := 'Edit breakpoint' else Dlg.Caption := 'Add breakpoint';
@@ -3356,17 +3602,34 @@ begin
     Dlg.Position := poOwnerFormCenter;
     Dlg.ClientWidth := 520;
     Dlg.ClientHeight := 560;
-    AddLabel('Address or port (hex; addresses may also be a register or a label):', 10);
+    AddLabel('Address or port:', 10);
+    AddLabel('End address (range):', 10, 140);
+    AddLabel('Type:', 10, 270);
     AddrEdit := TEdit.Create(Dlg);
     AddrEdit.Parent := Dlg;
-    AddrEdit.SetBounds(10, 30, 180, 24);
+    AddrEdit.SetBounds(10, 30, 120, 24);
     if OldAddr >= 0 then AddrEdit.Text := IntToHex(OldAddr, 4)
     else if OldAddr = -2 then AddrEdit.Text := 'FE'       // new port breakpoint
     else AddrEdit.Text := IntToHex(FDisasm.SelAddr, 4);
+    // The end: the same as the start (one address) until it is changed
+    EndEdit := TEdit.Create(Dlg);
+    EndEdit.Parent := Dlg;
+    EndEdit.SetBounds(140, 30, 120, 24);
+    EndEdit.Text := AddrEdit.Text;
+    if OldAddr >= 0 then
+    begin
+      Last := FEmu.Spec.BreakRangeLast(OldAddr, OldPort);
+      if Last <> OldAddr then EndEdit.Text := IntToHex(Last, 4);
+    end;
+    Follower.StartEdit := AddrEdit;
+    Follower.EndEdit := EndEdit;
+    Follower.Own := EndEdit.Text <> AddrEdit.Text;
+    AddrEdit.OnChange := @Follower.StartChange;
+    EndEdit.OnChange := @Follower.EndChange;
     TypeCombo := TComboBox.Create(Dlg);
     TypeCombo.Parent := Dlg;
     TypeCombo.Style := csDropDownList;
-    TypeCombo.SetBounds(200, 30, 310, 24);
+    TypeCombo.SetBounds(270, 30, 240, 24);
     TypeCombo.Items.Add('Execution');
     TypeCombo.Items.Add('Memory read');
     TypeCombo.Items.Add('Memory write');
@@ -3380,11 +3643,12 @@ begin
       if (OldAddr >= 0) and (TYPE_PORT[I] = OldPort) and
          (TYPE_FLAGS[I] = Flags and (BP_EXEC or BP_READ or BP_WRITE)) then
         TypeCombo.ItemIndex := I;
-    AddLabel('A port up to FF matches any high byte (FE = every ULA port).', 60);
-    AddLabel('Condition (empty = always stop; see below):', 90);
+    AddLabel('Hex; addresses may also be a register or a label. A different end makes', 60);
+    AddLabel('one breakpoint over the whole range. A port up to FF matches any high byte.', 76);
+    AddLabel('Condition (empty = always stop; see below):', 102);
     CondEdit := TEdit.Create(Dlg);
     CondEdit.Parent := Dlg;
-    CondEdit.SetBounds(10, 110, 500, 24);
+    CondEdit.SetBounds(10, 122, 500, 24);
     if OldAddr >= 0 then
     begin
       if OldPort then CondEdit.Text := FPortCondText[OldAddr]
@@ -3393,12 +3657,12 @@ begin
     EnabledCheck := TCheckBox.Create(Dlg);
     EnabledCheck.Parent := Dlg;
     EnabledCheck.Caption := 'Enabled';
-    EnabledCheck.SetBounds(10, 140, 200, 24);
+    EnabledCheck.SetBounds(10, 152, 200, 24);
     EnabledCheck.Checked := (Flags and BP_DISABLED) = 0;
     // A short manual of the condition language
     Help := TMemo.Create(Dlg);
     Help.Parent := Dlg;
-    Help.SetBounds(10, 172, 500, 336);
+    Help.SetBounds(10, 184, 500, 324);
     Help.ReadOnly := True;
     Help.ScrollBars := ssAutoVertical;
     Help.Font.Name := MONO_FONT;
@@ -3482,24 +3746,49 @@ begin
       begin
         Ok := ParseHex(AddrEdit.Text, V) and (V <= $FFFF);
         A := V;
+        if Ok then
+        begin
+          Ok := ParseHex(EndEdit.Text, V) and (V <= $FFFF);
+          Last := V;
+        end;
       end
       else
-        Ok := ParseAddress(AddrEdit.Text, FRegs, FRomIndex, A);
+        Ok := ParseAddress(AddrEdit.Text, FRegs, FRomIndex, A) and
+          ParseAddress(EndEdit.Text, FRegs, FRomIndex, Last);
       if not Ok then
       begin
-        MessageDlg('Not a valid address: ' + AddrEdit.Text, mtError, [mbOK], 0);
+        MessageDlg('Not a valid address: ' + AddrEdit.Text + ' / ' + EndEdit.Text, mtError, [mbOK], 0);
         Continue;
+      end;
+      if Last < A then
+      begin
+        MessageDlg('The end address can''t be before the start.', mtError, [mbOK], 0);
+        Ok := False;
+        Continue;
+      end;
+      // Check the condition before changing anything
+      if Trim(CondEdit.Text) <> '' then
+      begin
+        Test := CompileCondition(CondEdit.Text, Error);
+        if Test = nil then
+        begin
+          MessageDlg('Invalid condition: ' + Error, mtError, [mbOK], 0);
+          Ok := False;
+          Continue;
+        end;
+        Test.Free;
       end;
       Flags := TYPE_FLAGS[TypeCombo.ItemIndex];
       if not EnabledCheck.Checked then Flags := Flags or BP_DISABLED;
       FEmu.Lock;
       try
-        // The old one goes if it moved to another address or kind
-        if (OldAddr >= 0) and ((OldAddr <> A) or (OldPort <> Port)) then
+        // The old one (all of its range) goes, then the new one is set
+        if OldAddr >= 0 then
         begin
           if OldPort then FEmu.Spec.PortBreakpoint[OldAddr] := 0
           else FEmu.Spec.Breakpoint[OldAddr] := 0;
         end;
+        FEmu.Spec.SetBreakRange(A, Last, Port);
         if Port then
         begin
           Ok := FEmu.Spec.SetPortBreakCondition(A, CondEdit.Text, Error);
@@ -3517,6 +3806,7 @@ begin
     until Ok;
   finally
     Dlg.Free;
+    Follower.Free;
   end;
   Refresh(False);
 end;
@@ -3626,10 +3916,171 @@ begin
   end;
 end;
 
+function TDebuggerWindow.AsmLabel(Addr: Word; Kind: TOperandKind): string;
+begin
+  // Plain values only get user symbols, as in the disassembly
+  if Kind = okImmediate then Result := UserSymbols.Lookup(Addr)
+  else Result := SymbolFor(Addr);
+end;
+
+procedure TDebuggerWindow.ExportAssembler(Start: Word);
+var
+  Addr: Word;
+  Len: Integer;
+  Dlg: TSaveDialog;
+  Lines: TStringList;
+begin
+  Addr := Start;
+  Len := $100;
+  if not AskRange('Export as assembler', Addr, Len) then Exit;
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'Assembler source (*.asm)|*.asm|All files|*.*';
+    Dlg.DefaultExt := 'asm';
+    Dlg.FileName := Format('code_%.4X.asm', [Addr]);
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    // From the memory as the debugger shows it (taken when it stopped)
+    Lines := AsmExport.ExportAsm(Addr, Len, @Peek, @AsmLabel);
+    try
+      try
+        Lines.SaveToFile(Dlg.FileName);
+        ShowNotice(Format('Exported %.4X-%.4X as assembler to %s',
+          [Addr, Word(Addr + Len - 1), ExtractFileName(Dlg.FileName)]));
+      except
+        on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+      end;
+    finally
+      Lines.Free;
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.ExportBinary;
+var
+  Addr: Word;
+  Len, I: Integer;
+  Dlg: TSaveDialog;
+  Data: TBytes;
+  F: TFileStream;
+begin
+  Addr := FHex.TopAddr;
+  Len := FHex.VisibleBytes;
+  if not AskRange('Export binary', Addr, Len) then Exit;
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Filter := 'Binary files (*.bin)|*.bin|All files|*.*';
+    Dlg.DefaultExt := 'bin';
+    Dlg.FileName := Format('mem_%.4X_%.4X.bin', [Addr, Len]);
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    // As the CPU sees memory, wrapping at FFFF like it (as Export text)
+    SetLength(Data, Len);
+    FEmu.Lock;
+    try
+      for I := 0 to Len - 1 do Data[I] := FEmu.Spec.Peek(Word(Addr + I));
+    finally
+      FEmu.Unlock;
+    end;
+    try
+      F := TFileStream.Create(Dlg.FileName, fmCreate);
+      try
+        F.WriteBuffer(Data[0], Len);
+      finally
+        F.Free;
+      end;
+      ShowNotice(Format('Exported %d bytes from %.4X to %s', [Len, Addr, ExtractFileName(Dlg.FileName)]));
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TDebuggerWindow.AppHint(Sender: TObject);
+begin
+  if Active and (Application.Hint <> '') then SetStatus(Application.Hint);
+end;
+
+procedure TDebuggerWindow.ImportBinary;
+var
+  Addr: Word;
+  AddrText, Msg: string;
+  Dlg: TOpenDialog;
+  F: TFileStream;
+  Data: TBytes;
+  I, N, Rom, NoMem, Past: Integer;
+begin
+  AddrText := IntToHex(FHex.TopAddr, 4);
+  repeat
+    if not InputQuery('Import binary', 'Load at address (hex or label):', AddrText) then Exit;
+    if ParseAddress(AddrText, FRegs, FRomIndex, Addr) then Break;
+    MessageDlg('Not a valid address: ' + AddrText, mtError, [mbOK], 0);
+  until False;
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter := 'All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if not Dlg.Execute then Exit;
+    try
+      F := TFileStream.Create(Dlg.FileName, fmOpenRead or fmShareDenyWrite);
+      try
+        SetLength(Data, F.Size);
+        if F.Size > 0 then F.ReadBuffer(Data[0], F.Size);
+      finally
+        F.Free;
+      end;
+    except
+      on E: Exception do
+      begin
+        MessageDlg('Could not read the file: ' + E.Message, mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+  finally
+    Dlg.Free;
+  end;
+  // Up to FFFF: what goes past it is not loaded (no wrapping to 0000)
+  N := Min(Length(Data), $10000 - Addr);
+  Past := Length(Data) - N;
+  Rom := 0;
+  NoMem := 0;
+  FEmu.Lock;
+  try
+    for I := 0 to N - 1 do
+      case FEmu.Spec.MemoryAt(Word(Addr + I)) of
+        maRam: FEmu.Spec.Poke(Word(Addr + I), Data[I]);
+        maRom:
+          // ROM only with Options > Settings > Machine allowing it
+          if FEmu.Spec.RomWritable then FEmu.Spec.Poke(Word(Addr + I), Data[I])
+          else Inc(Rom);
+      else
+        Inc(NoMem);
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+  Refresh(False);
+  Msg := '';
+  if Past > 0 then
+    Msg := Msg + Format('The file has %d bytes: the last %d went past FFFF and were not ' +
+      'loaded.', [Length(Data), Past]) + LineEnding;
+  if Rom > 0 then
+    Msg := Msg + Format('%d bytes fell on ROM and were not written (Options > Settings > ' +
+      'Machine can allow changing the ROM).', [Rom]) + LineEnding;
+  if NoMem > 0 then
+    Msg := Msg + Format('%d bytes fell where there is no memory.', [NoMem]) + LineEnding;
+  if Msg <> '' then MessageDlg('Import binary', Msg, mtWarning, [mbOK], 0)
+  else ShowNotice(Format('Loaded %d bytes at %.4X-%.4X', [N, Addr, Word(Addr + N - 1)]));
+end;
+
 procedure TDebuggerWindow.ImportMemory;
 var
   Addr: Word;
-  Len, I, Skipped, Bank: Integer;
+  Len, I, Skipped: Integer;
   Dlg: TOpenDialog;
   Values: TBytes;
   Error: string;
@@ -3675,11 +4126,14 @@ begin
     try
       for I := 0 to Len - 1 do
       begin
-        Bank := FEmu.Spec.SlotBank(Word(Addr + I) shr 14);
-        if (Bank >= 0) or ((Bank <> NO_MEMORY) and FEmu.Spec.RomWritable) then
-          FEmu.Spec.Poke(Word(Addr + I), Values[I])
+        case FEmu.Spec.MemoryAt(Word(Addr + I)) of
+          maRam: FEmu.Spec.Poke(Word(Addr + I), Values[I]);
+          maRom:
+            if FEmu.Spec.RomWritable then FEmu.Spec.Poke(Word(Addr + I), Values[I])
+            else Inc(Skipped);
         else
           Inc(Skipped);
+        end;
       end;
     finally
       FEmu.Unlock;

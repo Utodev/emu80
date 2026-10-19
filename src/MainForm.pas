@@ -42,7 +42,8 @@ type
     FModelItems: array[TSpectrumModel] of TMenuItem;
     FRecentMenu: TMenuItem;
     FRecentSymbolsMenu: TMenuItem;
-    FRecentDisksMenu, FRecentCardsMenu: TMenuItem;
+    FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
+    FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
     FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem: TMenuItem;
     FMonoItem: TMenuItem;
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
@@ -116,6 +117,7 @@ type
     procedure DoDiskInsert(Sender: TObject);
     function InsertDiskFile(Drive: Integer; const FileName: string): Boolean;
     procedure UpdateRecentDisksMenu;
+    procedure AddDriveBItem(Item: TMenuItem);
     procedure DoInsertRecentDisk(Sender: TObject);
     procedure DoInsertRecentCard(Sender: TObject);
     procedure DoDiskBrowser(Sender: TObject);
@@ -199,7 +201,7 @@ implementation
 
 uses
   Snapshot, DSK, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, FatFS;
+  SDBrowser, FatFS, DebugFiles;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -423,10 +425,6 @@ begin
   FRecentMenu := AddItem(TopItem, 'Open &recent', nil);
   AddItem(TopItem, '&Save snapshot...', @DoSaveSnapshot, ShortCut(VK_F3, []));
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, 'New blank &tape', @DoNewTape);
-  Item := AddItem(TopItem, 'New &disk in A: (formatted)', @DoDiskNew);
-  Item.Tag := 0;
-  AddItem(TopItem, '-', nil);
   Item := AddItem(TopItem, 'Screens&hot', nil);
   AddItem(Item, 'Save as &SCR...', @DoScreenshotSCR);
   AddItem(Item, 'Save as PNG &1x...', @DoScreenshotPNG).Tag := 1;
@@ -474,12 +472,17 @@ begin
   Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert);
   Item.Tag := 0;
   FRecentDisksMenu := AddItem(TopItem, 'Insert &recent disk (A:)', nil);
+  // Drive B's entries show only while it is connected (UpdateChecks)
   Item := AddItem(TopItem, 'Insert disk in drive &B:...', @DoDiskInsert);
   Item.Tag := 1;
+  AddDriveBItem(Item);
+  FRecentDisksMenuB := AddItem(TopItem, 'Insert recent disk (B:)', nil);
+  AddDriveBItem(FRecentDisksMenuB);
   Item := AddItem(TopItem, '&New disk in A: (formatted)', @DoDiskNew);
   Item.Tag := 0;
   Item := AddItem(TopItem, 'New disk in B: (formatted)', @DoDiskNew);
   Item.Tag := 1;
+  AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
   Item := AddItem(TopItem, '&Save disk A:', @DoDiskSaveSame);
   Item.Tag := 0;
@@ -487,13 +490,16 @@ begin
   Item.Tag := 0;
   Item := AddItem(TopItem, 'Save disk B:', @DoDiskSaveSame);
   Item.Tag := 1;
+  AddDriveBItem(Item);
   Item := AddItem(TopItem, 'Save disk B: as...', @DoDiskSave);
   Item.Tag := 1;
+  AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
   Item := AddItem(TopItem, '&Eject disk A:', @DoDiskEject);
   Item.Tag := 0;
   Item := AddItem(TopItem, 'Eject disk B:', @DoDiskEject);
   Item.Tag := 1;
+  AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
   FFastDiskItem := AddItem(TopItem, '&Fast floppy disk access', @DoFastDisk);
   FDriveBItem := AddItem(TopItem, 'Drive &B: connected', @DoDriveB);
@@ -791,7 +797,7 @@ end;
 procedure TMainWindow.UpdateChecks;
 var
   M: TSpectrumModel;
-  S: Integer;
+  S, I: Integer;
 begin
   M := FEmu.Spec.Model;
   FModelItems[M].Checked := True;
@@ -806,6 +812,7 @@ begin
   FSaveToTapeItem.Checked := Settings.SaveToTape;
   FFastDiskItem.Checked := Settings.FastDisk;
   FDriveBItem.Checked := Settings.DriveB;
+  for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := Settings.DriveB;
   FBorderShotItem.Checked := Settings.ScreenshotBorder;
   FPauseItem.Checked := FEmu.Paused;
   FRecItem.Checked := FEmu.Spec.Recording;
@@ -1797,19 +1804,29 @@ begin
 end;
 
 { The Disk and SD menus' lists of recent images }
+procedure TMainWindow.AddDriveBItem(Item: TMenuItem);
+begin
+  SetLength(FDriveBItems, Length(FDriveBItems) + 1);
+  FDriveBItems[High(FDriveBItems)] := Item;
+end;
+
 procedure TMainWindow.UpdateRecentDisksMenu;
 var
-  I: Integer;
-  Item: TMenuItem;
+  I, D: Integer;
+  Item, Sub: TMenuItem;
 begin
-  FRecentDisksMenu.Clear;
-  for I := 0 to Settings.RecentDisks.Count - 1 do
+  // Both drives share the list; the tag says the drive (1000 for B) and entry
+  for D := 0 to 1 do
   begin
-    Item := AddItem(FRecentDisksMenu, Format('&%d %s', [I + 1, Settings.RecentDisks[I]]),
-      @DoInsertRecentDisk);
-    Item.Tag := I;
+    if D = 0 then Sub := FRecentDisksMenu else Sub := FRecentDisksMenuB;
+    Sub.Clear;
+    for I := 0 to Settings.RecentDisks.Count - 1 do
+    begin
+      Item := AddItem(Sub, Format('&%d %s', [I + 1, Settings.RecentDisks[I]]), @DoInsertRecentDisk);
+      Item.Tag := D * 1000 + I;
+    end;
+    Sub.Enabled := Settings.RecentDisks.Count > 0;
   end;
-  FRecentDisksMenu.Enabled := Settings.RecentDisks.Count > 0;
   FRecentCardsMenu.Clear;
   for I := 0 to Settings.RecentCards.Count - 1 do
   begin
@@ -1822,11 +1839,12 @@ end;
 
 procedure TMainWindow.DoInsertRecentDisk(Sender: TObject);
 var
-  Index: Integer;
+  Index, Drive: Integer;
 begin
-  Index := (Sender as TComponent).Tag;
-  if (Index < Settings.RecentDisks.Count) and ConfirmDiskChanges(0) then
-    InsertDiskFile(0, Settings.RecentDisks[Index]);
+  Drive := (Sender as TComponent).Tag div 1000;
+  Index := (Sender as TComponent).Tag mod 1000;
+  if (Index < Settings.RecentDisks.Count) and ConfirmDiskChanges(Drive) then
+    InsertDiskFile(Drive, Settings.RecentDisks[Index]);
 end;
 
 procedure TMainWindow.DoInsertRecentCard(Sender: TObject);
@@ -2423,9 +2441,10 @@ begin
   try
     for I := 0 to High(Pokes) do
     begin
-      if (FEmu.Spec.SlotBank(Pokes[I].Addr shr 14) < 0) and
-         ((FEmu.Spec.SlotBank(Pokes[I].Addr shr 14) = NO_MEMORY) or not Settings.AllowRomEdit) then
-        Inc(Rom);
+      case FEmu.Spec.MemoryAt(Pokes[I].Addr) of
+        maNone: Inc(Rom);
+        maRom: if not Settings.AllowRomEdit then Inc(Rom);
+      end;
       FEmu.Spec.Poke(Pokes[I].Addr, Pokes[I].Value);
     end;
   finally
@@ -2621,6 +2640,8 @@ var
   Files, Tapes, KeyTexts: TStringList;
   Disks: array[0..1] of string;
   Breaks: array of TBreakArg;
+  BreakFile, WatchFile, DaadBreakFile: string;   // JSON files to load
+  Watches: TWordArray;
   SymFiles: TStringList;
   M: TSpectrumModel;
   J: TJoystickKeys;
@@ -2648,7 +2669,8 @@ var
       (Name = 'sdadd') or (Name = 'sdfolder') or (Name = 'volume') or (Name = 'issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'divmmcrom') or
       (Name = 'zxunofirmware') or (Name = 'zxunoroms') or (Name = 'zxunocustomrom') or
-      (Name = 'shiftkeys');
+      (Name = 'shiftkeys') or (Name = 'breakpoints') or (Name = 'watches') or
+      (Name = 'daadbreakpoints');
   end;
 
   { On/off options, one per setting: --name turns it on, --no-name off }
@@ -2708,6 +2730,9 @@ begin
   Disks[0] := '';
   Disks[1] := '';
   Breaks := nil;
+  BreakFile := '';
+  WatchFile := '';
+  DaadBreakFile := '';
   Files := TStringList.Create;
   Tapes := TStringList.Create;
   SDAdds := TStringList.Create;
@@ -2792,8 +2817,15 @@ begin
       end
       else if Arg = 'tape' then Tapes.Add(Value)
       else if (Arg = 'disk') or (Arg = 'diska') then Disks[0] := Value
-      else if Arg = 'diskb' then Disks[1] := Value
+      else if Arg = 'diskb' then
+      begin
+        Disks[1] := Value;
+        Settings.DriveB := True;   // a disk for B connects the drive
+      end
       else if (Arg = 'sym') or (Arg = 's') then SymFiles.Add(Value)
+      else if Arg = 'breakpoints' then BreakFile := Value
+      else if Arg = 'watches' then WatchFile := Value
+      else if Arg = 'daadbreakpoints' then DaadBreakFile := Value
       else if Arg = 'bp' then AddBreak(Value, BP_EXEC)
       else if Arg = 'bpr' then AddBreak(Value, BP_READ)
       else if Arg = 'bpw' then AddBreak(Value, BP_WRITE)
@@ -3012,6 +3044,31 @@ begin
       finally
         FEmu.Unlock;
       end;
+    end;
+    // Breakpoints, watches and DAAD breakpoints saved by the debuggers
+    if BreakFile <> '' then
+    begin
+      FEmu.Lock;
+      try
+        if not LoadBreakpoints(FEmu.Spec, BreakFile, Err) then
+          Errors := Errors + '--breakpoints ' + BreakFile + ': ' + Err + LineEnding;
+      finally
+        FEmu.Unlock;
+      end;
+    end;
+    if WatchFile <> '' then
+    begin
+      if not LoadWatches(WatchFile, Watches, Err) then
+        Errors := Errors + '--watches ' + WatchFile + ': ' + Err + LineEnding
+      else if DebuggerWindow <> nil then DebuggerWindow.SetWatches(Watches)
+      else PendingWatches := Watches;
+    end;
+    if DaadBreakFile <> '' then
+    begin
+      // They act once the DAAD debugger is open
+      if DaadWindow = nil then DaadWindow := TDaadWindow.CreateFor(Application, FEmu);
+      if not DaadWindow.LoadBreaksFile(DaadBreakFile, Err) then
+        Errors := Errors + '--daadbreakpoints ' + DaadBreakFile + ': ' + Err + LineEnding;
     end;
     if KeyTexts.Count > 0 then
     begin

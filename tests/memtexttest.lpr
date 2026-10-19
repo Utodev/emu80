@@ -39,7 +39,11 @@ begin
     (Values[2] = $A0), 'spaces, lower case and a final comma');
   CheckBad('');
   CheckBad('$1,,$2');
-  CheckBad('12,$34');
+  Check(ParseValues('12, $34,255,0', Values, Err) and (Length(Values) = 4) and (Values[0] = 12) and
+    (Values[1] = $34) and (Values[2] = 255), 'decimal values');
+  CheckBad('256,$34');
+  CheckBad('1A,$34');
+  CheckBad('-1');
   CheckBad('$123');
   CheckBad('$G1');
   CheckBad('$12;$34');

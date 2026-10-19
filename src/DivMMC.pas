@@ -54,6 +54,10 @@ type
     { Memory at Addr (0000-3FFF) while Active }
     function Read(Addr: Word): Byte; inline;
     procedure Write(Addr: Word; Value: Byte);
+    { While Active: Addr (0000-3FFF) can't be written (the EEPROM, or bank 3
+      with MAPRAM); ForceWrite writes it anyway (debugger, ROM edits on) }
+    function ReadOnlyAt(Addr: Word): Boolean;
+    procedure ForceWrite(Addr: Word; Value: Byte);
     { Automatic paging around an opcode fetch at Addr }
     procedure BeforeFetch(Addr: Word); inline;
     procedure AfterFetch(Addr: Word); inline;
@@ -166,6 +170,23 @@ begin
   Bank := FControl and $0F;
   if ((FControl and $C0) = $40) and (Bank = 3) then Exit;   // MAPRAM: bank 3 is read-only
   BankPtr(Bank)[Addr and $1FFF] := Value;
+end;
+
+function TDivMMC.ReadOnlyAt(Addr: Word): Boolean;
+begin
+  if Addr < $2000 then Result := True
+  else Result := ((FControl and $C0) = $40) and ((FControl and $0F) = 3);
+end;
+
+procedure TDivMMC.ForceWrite(Addr: Word; Value: Byte);
+begin
+  if Addr < $2000 then
+  begin
+    if ((FControl and $80) = 0) and ((FControl and $40) <> 0) then BankPtr(3)[Addr] := Value
+    else RomPtr[Addr] := Value;
+  end
+  else
+    BankPtr(FControl and $0F)[Addr and $1FFF] := Value;
 end;
 
 procedure TDivMMC.BeforeFetch(Addr: Word);

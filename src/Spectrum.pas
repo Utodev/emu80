@@ -88,6 +88,15 @@ type
     Rows: array[0..7] of Byte;   // bits cleared for pressed keys
   end;
 
+  TMemoryAt = (maRam, maRom, maNone);
+
+  { One breakpoint over First..Last: the flags and condition of each
+    address (or port) in it are the same, and changing any changes all }
+  TBreakRange = record
+    First, Last: Word;
+    Port: Boolean;
+  end;
+
   TSpectrum = class(TZ80Bus)
   private
     FModel: TSpectrumModel;
@@ -147,6 +156,7 @@ type
     FPortBreakFlags: array[0..$FFFF] of Byte;   // BP_READ (IN) / BP_WRITE (OUT) per port
     FPortBreakConds: array of TBreakCondition;
     FPortBreakpoints: Integer;
+    FBreakRanges: array of TBreakRange;     // breakpoints over a range of addresses or ports
     FProbeBus: TZ80Bus;                     // dry run of the next instruction
     FProbeCpu: TZ80;
     FProbeCovered: Boolean;                 // the probe checked the instruction being run
@@ -267,6 +277,9 @@ type
     procedure SetBreakpoint(Addr: Word; Flags: Byte);
     function GetPortBreakpoint(Port: Word): Byte;
     procedure SetPortBreakpoint(Port: Word; Flags: Byte);
+    procedure SetOneBreakpoint(Addr: Word; Flags: Byte);
+    procedure SetOnePortBreakpoint(Port: Word; Flags: Byte);
+    procedure DeleteBreakRange(R: Integer);
     procedure CheckPortBreak(Port: Word; Write: Boolean);
     function PortBreakMatch(Port: Word; Write: Boolean): Boolean;
     function ProbeBreak: Boolean;
@@ -345,6 +358,14 @@ type
       execution can resume from it. }
     procedure SkipBreakpointOnce;
     procedure ClearBreakpoints;
+    { Make First..Last one breakpoint (removing the breakpoints there were in
+      it), before setting its condition and flags on First }
+    procedure SetBreakRange(First, Last: Word; Port: Boolean);
+    { The range Addr is in, -1 if none }
+    function BreakRangeIndex(Addr: Word; Port: Boolean): Integer;
+    { The last address of the breakpoint at Addr (Addr itself if it is not
+      a range) }
+    function BreakRangeLast(Addr: Word; Port: Boolean): Word;
     { Condition for the breakpoint at Addr ('' = always). False if the text
       is not a valid condition (Error says why). }
     function SetBreakCondition(Addr: Word; const Text: string; out Error: string): Boolean;
@@ -405,7 +426,10 @@ type
     { Debugger: page RAM bank 0-7 in at C000 (128K/+2/+3 normal paging).
       Ignores the paging lock. False if this machine can't. }
     function SetSlot3Bank(Bank: Integer): Boolean;
-    { Debugger: write a byte where the CPU would (ROM is left unchanged) }
+    { What is at Addr now: RAM, ROM (also the DivMMC's EEPROM or its
+      write-protected bank when paged in) or nothing }
+    function MemoryAt(Addr: Word): TMemoryAt;
+    { Debugger: write a byte where the CPU would; ROM only if RomWritable }
     procedure Poke(Addr: Word; Value: Byte);
     property TrackPrevRegs: Boolean read FTrackPrev write SetTrackPrev;
     property PrevRegs: TZ80Regs read FPrevRegs write FPrevRegs;
@@ -938,18 +962,31 @@ begin
   Result := CurrentRom;
 end;
 
-procedure TSpectrum.Poke(Addr: Word; Value: Byte);
+function TSpectrum.MemoryAt(Addr: Word): TMemoryAt;
 var
   Bank: Integer;
 begin
+  // The DivMMC paged in at 0000-3FFF: its EEPROM (or write-protected bank)
+  // is like ROM, its RAM at 2000-3FFF is RAM
   if FDivOn and (Addr < $4000) and FDiv.Active then
   begin
-    FDiv.Write(Addr, Value);
+    if FDiv.ReadOnlyAt(Addr) then Result := maRom else Result := maRam;
     Exit;
   end;
   Bank := FSlotBank[Addr shr 14];
-  if (Bank = NO_MEMORY) or ((Bank < 0) and not RomWritable) then Exit;
-  FSlot[Addr shr 14]^[Addr and $3FFF] := Value;
+  if Bank = NO_MEMORY then Result := maNone
+  else if Bank < 0 then Result := maRom
+  else Result := maRam;
+end;
+
+procedure TSpectrum.Poke(Addr: Word; Value: Byte);
+begin
+  case MemoryAt(Addr) of
+    maNone: Exit;
+    maRom: if not RomWritable then Exit;
+  end;
+  if FDivOn and (Addr < $4000) and FDiv.Active then FDiv.ForceWrite(Addr, Value)
+  else FSlot[Addr shr 14]^[Addr and $3FFF] := Value;
 end;
 
 function TSpectrum.FramesSinceReset: Int64;
@@ -2566,7 +2603,61 @@ begin
   Result := FBreakFlags[Addr];
 end;
 
+function TSpectrum.BreakRangeIndex(Addr: Word; Port: Boolean): Integer;
+begin
+  for Result := 0 to High(FBreakRanges) do
+    if (FBreakRanges[Result].Port = Port) and (Addr >= FBreakRanges[Result].First) and
+       (Addr <= FBreakRanges[Result].Last) then Exit;
+  Result := -1;
+end;
+
+function TSpectrum.BreakRangeLast(Addr: Word; Port: Boolean): Word;
+var
+  R: Integer;
+begin
+  R := BreakRangeIndex(Addr, Port);
+  if R >= 0 then Result := FBreakRanges[R].Last else Result := Addr;
+end;
+
+procedure TSpectrum.DeleteBreakRange(R: Integer);
+var
+  I: Integer;
+begin
+  for I := R to High(FBreakRanges) - 1 do FBreakRanges[I] := FBreakRanges[I + 1];
+  SetLength(FBreakRanges, Length(FBreakRanges) - 1);
+end;
+
+procedure TSpectrum.SetBreakRange(First, Last: Word; Port: Boolean);
+var
+  A: Integer;
+begin
+  // Whatever breakpoints there were in it go (whole ranges, if they overlap)
+  for A := First to Last do
+    if Port then SetPortBreakpoint(A, 0) else SetBreakpoint(A, 0);
+  if Last > First then
+  begin
+    SetLength(FBreakRanges, Length(FBreakRanges) + 1);
+    FBreakRanges[High(FBreakRanges)].First := First;
+    FBreakRanges[High(FBreakRanges)].Last := Last;
+    FBreakRanges[High(FBreakRanges)].Port := Port;
+  end;
+end;
+
 procedure TSpectrum.SetBreakpoint(Addr: Word; Flags: Byte);
+var
+  R, A: Integer;
+begin
+  R := BreakRangeIndex(Addr, False);
+  if R < 0 then
+  begin
+    SetOneBreakpoint(Addr, Flags);
+    Exit;
+  end;
+  for A := FBreakRanges[R].First to FBreakRanges[R].Last do SetOneBreakpoint(A, Flags);
+  if Flags = 0 then DeleteBreakRange(R);
+end;
+
+procedure TSpectrum.SetOneBreakpoint(Addr: Word; Flags: Byte);
 begin
   if (Flags = 0) and (Length(FBreakConds) > 0) then FreeAndNil(FBreakConds[Addr]);
   if (FBreakFlags[Addr] and (BP_READ or BP_WRITE)) <> 0 then Dec(FMemBreakpoints);
@@ -2584,6 +2675,7 @@ begin
   FillChar(FPortBreakFlags, SizeOf(FPortBreakFlags), 0);
   FPortBreakpoints := 0;
   for I := 0 to High(FPortBreakConds) do FreeAndNil(FPortBreakConds[I]);
+  SetLength(FBreakRanges, 0);
 end;
 
 function TSpectrum.GetPortBreakpoint(Port: Word): Byte;
@@ -2592,6 +2684,20 @@ begin
 end;
 
 procedure TSpectrum.SetPortBreakpoint(Port: Word; Flags: Byte);
+var
+  R, A: Integer;
+begin
+  R := BreakRangeIndex(Port, True);
+  if R < 0 then
+  begin
+    SetOnePortBreakpoint(Port, Flags);
+    Exit;
+  end;
+  for A := FBreakRanges[R].First to FBreakRanges[R].Last do SetOnePortBreakpoint(A, Flags);
+  if (Flags and (BP_READ or BP_WRITE)) = 0 then DeleteBreakRange(R);
+end;
+
+procedure TSpectrum.SetOnePortBreakpoint(Port: Word; Flags: Byte);
 begin
   Flags := Flags and (BP_READ or BP_WRITE or BP_DISABLED);
   if (Flags and (BP_READ or BP_WRITE)) = 0 then
@@ -2607,17 +2713,33 @@ end;
 function TSpectrum.SetPortBreakCondition(Port: Word; const Text: string; out Error: string): Boolean;
 var
   Cond: TBreakCondition;
+  R, A, First, Last: Integer;
 begin
   Error := '';
-  Cond := nil;
-  if Trim(Text) <> '' then
+  R := BreakRangeIndex(Port, True);
+  if R >= 0 then
   begin
-    Cond := CompileCondition(Text, Error);
-    if Cond = nil then Exit(False);
+    First := FBreakRanges[R].First;
+    Last := FBreakRanges[R].Last;
+  end
+  else
+  begin
+    First := Port;
+    Last := Port;
   end;
-  if Length(FPortBreakConds) = 0 then SetLength(FPortBreakConds, $10000);
-  FPortBreakConds[Port].Free;
-  FPortBreakConds[Port] := Cond;
+  // Every port of a range has its own copy (with its own hit count)
+  for A := First to Last do
+  begin
+    Cond := nil;
+    if Trim(Text) <> '' then
+    begin
+      Cond := CompileCondition(Text, Error);
+      if Cond = nil then Exit(False);
+    end;
+    if Length(FPortBreakConds) = 0 then SetLength(FPortBreakConds, $10000);
+    FPortBreakConds[A].Free;
+    FPortBreakConds[A] := Cond;
+  end;
   Result := True;
 end;
 
@@ -2758,17 +2880,33 @@ end;
 function TSpectrum.SetBreakCondition(Addr: Word; const Text: string; out Error: string): Boolean;
 var
   Cond: TBreakCondition;
+  R, A, First, Last: Integer;
 begin
   Error := '';
-  Cond := nil;
-  if Trim(Text) <> '' then
+  R := BreakRangeIndex(Addr, False);
+  if R >= 0 then
   begin
-    Cond := CompileCondition(Text, Error);
-    if Cond = nil then Exit(False);
+    First := FBreakRanges[R].First;
+    Last := FBreakRanges[R].Last;
+  end
+  else
+  begin
+    First := Addr;
+    Last := Addr;
   end;
-  if Length(FBreakConds) = 0 then SetLength(FBreakConds, $10000);
-  FBreakConds[Addr].Free;
-  FBreakConds[Addr] := Cond;
+  // Every address of a range has its own copy (with its own hit count)
+  for A := First to Last do
+  begin
+    Cond := nil;
+    if Trim(Text) <> '' then
+    begin
+      Cond := CompileCondition(Text, Error);
+      if Cond = nil then Exit(False);
+    end;
+    if Length(FBreakConds) = 0 then SetLength(FBreakConds, $10000);
+    FBreakConds[A].Free;
+    FBreakConds[A] := Cond;
+  end;
   Result := True;
 end;
 

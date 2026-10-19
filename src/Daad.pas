@@ -127,6 +127,13 @@ type
     function LocationText(N: Integer): string;
     function MessageText(N: Integer): string;
     function SysMessageText(N: Integer): string;
+    { For exporting the source: a byte of the copy of memory, a token ('' if
+      none), and a text with the escapes of a DSF (#n, #k...) or of an SCE
+      (\r, \k...) }
+    function ByteAt(Addr: Word): Byte;
+    function WordAt(Addr: Word): Word;
+    function Token(N: Integer): string;
+    function SourceText(Addr: Word; Sce: Boolean): string;
   end;
 
 const
@@ -196,13 +203,15 @@ const
     adjective, 4 preposition), -1 for other flags }
   function FlagWordKind(N: Integer): Integer;
 
-implementation
-
 const
   // Characters 16-31 of DAAD texts: ª ¡ ¿ « » á é í ó ú ñ Ñ ç Ç ü Ü
   SPANISH: array[16..31] of string = (#$C2#$AA, #$C2#$A1, #$C2#$BF, #$C2#$AB, #$C2#$BB,
     #$C3#$A1, #$C3#$A9, #$C3#$AD, #$C3#$B3, #$C3#$BA, #$C3#$B1, #$C3#$91, #$C3#$A7,
     #$C3#$87, #$C3#$BC, #$C3#$9C);
+
+implementation
+
+const
   // DRC leaves out the 255 after these (DONE, OK, NOTDONE, SKIP, RESTART, REDO)
   TERMINATORS = [22, 23, 103, 116, 117, 108];
   MAX_ENTRIES = 2000;
@@ -959,8 +968,8 @@ begin
   if Id = 255 then Exit('_');
   if IsPAW and (Id = 1) then Exit('*');   // PAW: any word
   Result := Find(Kind);
-  // Verbs below 20 may be movement nouns (N, S...)
-  if (Result = '') and (Kind = 0) and (Id < 20) then Result := Find(2);
+  // Nouns up to 39 can be used as verbs (N, S..., as DRC allows)
+  if (Result = '') and (Kind = 0) and (Id <= 39) then Result := Find(2);
   if Result = '' then Result := IntToStr(Id);
 end;
 
@@ -1001,6 +1010,63 @@ begin
       Inc(N);
     end;
   SetLength(Result, N);
+end;
+
+function TDaadGame.ByteAt(Addr: Word): Byte;
+begin
+  Result := FMem[Addr];
+end;
+
+function TDaadGame.WordAt(Addr: Word): Word;
+begin
+  Result := W(Addr);
+end;
+
+function TDaadGame.Token(N: Integer): string;
+begin
+  if (N >= 0) and (N <= 127) then Result := FTokens[N] else Result := '';
+end;
+
+function TDaadGame.SourceText(Addr: Word; Sce: Boolean): string;
+var
+  C: Byte;
+  D, Guard: Integer;
+  Esc: string;
+begin
+  if Sce then Esc := '\' else Esc := '#';
+  if IsPAW then
+  begin
+    // PAW's newlines come as #n; quotes are escaped in a DSF
+    Result := PAWTextAt(Addr);
+    if Sce then Result := StringReplace(Result, '#n', '\r', [rfReplaceAll])
+    else Result := StringReplace(Result, '"', '\"', [rfReplaceAll]);
+    Exit;
+  end;
+  Result := '';
+  Guard := 0;
+  repeat
+    C := FMem[Addr];
+    Addr := Word(Addr + 1);
+    Inc(Guard);
+    if C < 128 then
+      Result := Result + FTokens[C xor $7F]
+    else
+    begin
+      D := 255 - C;
+      case D of
+        10: Break;
+        13: if Sce then Result := Result + '\r' else Result := Result + '#n';
+        11: Result := Result + Esc + 'b';
+        12: Result := Result + Esc + 'k';
+        14: Result := Result + Esc + 'g';
+        15: Result := Result + Esc + 't';
+        16..31: Result := Result + SPANISH[D];
+        127: Result := Result + Esc + 'f';
+        34: if Sce then Result := Result + '"' else Result := Result + '\"';
+        32, 33, 35..126: Result := Result + Chr(D);
+      end;
+    end;
+  until Guard > 2000;
 end;
 
 function TDaadGame.ObjectText(N: Integer): string;

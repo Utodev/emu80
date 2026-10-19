@@ -75,8 +75,7 @@ Function keys:
 --------------------
 
 File
-  Open, Open recent, Save snapshot (.z80 or .sna), New blank tape,
-  New disk in A: (already formatted, 40 tracks, 9 sectors of 512 bytes),
+  Open, Open recent, Save snapshot (.z80 or .sna),
   Screenshot (.SCR, or PNG at 1x or 2x with or without the border), Exit.
 
 Machine
@@ -100,11 +99,18 @@ Tape
   time. Turbo or custom-speed savers can't be decoded.
 
 Floppy
-  Disk browser, insert, create and eject +3 disks in drives A: and B:,
-  Insert recent disk (the last 8 disk images, into drive A:), Save disk
-  (into the file it was loaded from), Save disk as, Fast floppy disk access
-  (off: the drive works at real speed, with seek and rotation times) and
-  "Drive B: connected".
+  Disk browser, insert, create (already formatted, 40 tracks, 9 sectors of
+  512 bytes) and eject +3 disks in drives A: and B:, Insert recent disk
+  (A:) and (B:) (the last 8 disk images; both drives share the list), Save
+  disk (into the file it was loaded from), Save disk as, Fast floppy disk
+  access (off: the drive works at real speed, with seek and rotation
+  times) and "Drive B: connected".
+  Drive B: is not connected by default, and while it isn't, the menu
+  entries for it are hidden. It is connected from this menu, from Options >
+  Settings > Tape & disk, with --driveb or by giving it a disk (--diskb).
+
+Menu entries with a description show it in the status bar while the
+pointer is over them (the debugger's menus show it in its own status bar).
 
 SD
   The DivMMC's SD card: SD card browser, insert an image, Insert recent SD
@@ -251,6 +257,12 @@ Opening a tape waits for the BIOS and ESXDOS and types LOAD "": at once in
 48K mode; with a 128K menu, from its 48 BASIC (the fourth entry). Note that
 on 128K ROMs ESXDOS pages the 48K BASIC in after booting (as on a 128K with
 a DivMMC).
+
+Which ROM is started matters: for a 48K ROM the BIOS switches 128K paging
+(port 7FFD) off through DEVCONTROL, as on the real board, so programs that
+page memory or switch screens (such as the Radastan video player
+.playrmov) need a 128K ROM: choose one in the boot menu (Break) or make it
+the default in the BIOS setup (Edit).
 
 Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset
 (Shift+F6) restarts the ROM the BIOS chose.
@@ -455,10 +467,18 @@ Disassembly
   there, a green tick or red cross says whether it will be taken.
   Double-click a line (or press Space) to set or remove an execution
   breakpoint. Click an instruction byte to change it. Right-click for: go to
-  address, toggle breakpoint, breakpoint type (execution, read, write,
-  read/write), port breakpoint, breakpoint with condition (opens the same
-  window as adding or editing one in the breakpoints zone, for that line),
-  enabled, remove.
+  address, export as assembler, toggle breakpoint, breakpoint type
+  (execution, read, write, read/write), port breakpoint, breakpoint with
+  condition (opens the same window as adding or editing one in the
+  breakpoints zone, for that line), enabled, remove.
+  Export as assembler asks for an address and a length and saves that
+  range as a .asm source for sjasmplus that assembles back to the same
+  bytes: ORG, an instruction per line (its address in a comment), labels
+  for jump, call and memory targets (the symbol at that address, or Lxxxx
+  inside the range; outside it, defined with EQU) and the symbols at the
+  instructions' addresses. Encodings an assembler would not produce (unused
+  prefixes, undocumented ED duplicates, DDCB that also copy to a register)
+  are written as DB, with the instruction in a comment.
   Breakpoint lines are red; a switched-off breakpoint is pale pink. The
   letter on the left is the type: E execution, R read, W write, A any
   access. Read and write breakpoints stop before the instruction that
@@ -468,7 +488,9 @@ Disassembly
 Registers
   AF, HL, DE, BC, IX and IY with the 16-bit word they point to, the
   alternate set, I, R, SP, PC, the flags (X = set), IM, IFF1, IFF2, DI/EI and
-  HALT. Values changed by the last instruction are dark red. Click a value
+  HALT. Values changed by the last instruction are dark red (in AF, HL, DE,
+  BC, IX, IY and the alternate set, only the half that changed: LD D,0 marks
+  D, not E). Click a value
   to edit it; click a flag, IFF1 or IFF2 to toggle it and IM to cycle 0-1-2.
   Below: the top 8 stack entries (> marks the top), the last 8 port
   accesses (instruction address, port, R for a read or W for a write, value;
@@ -490,24 +512,35 @@ Registers
   pages 8-11, the DivMMC firmware page 12 and its RAM pages 16-23).
 
 Memory
-  Hex and text; bytes outside 32-126 show as an inverse "?". The XOR value
+  Hex and text; bytes outside 32-126 show as a grey ".". The XOR value
   is applied to every byte shown; what you type is what you see (memory gets
   it XORed with the key). Click a hex value to edit it, or a character to
   type text from there. Right-click: go to address, add a watch at that
-  byte, sprite mode, export, import.
+  byte, sprite mode, Export text, Import text, Export binary, Import
+  binary.
   Sprite mode (Space, or the context menu) shows the bytes as 8x8 sprites:
   each box is 8 bytes, one byte per row of pixels, with the address of each
   row on the left; hovering over a box shows its addresses. Space again goes
   back to hex.
-  Export asks for an address and a length (hex; by default what is on
+  Export text asks for an address and a length (hex; by default what is on
   screen) and writes a text file of hex values with $, separated by commas,
   16 per line:  $3E,$01,$CD,...  The bytes are exported as they are in
   memory, without the XOR.
-  Import asks for an address and a length and reads such a file into
-  memory. It fails if the file has fewer values than the length, or if any
-  value is not $ and one or two hex digits; spaces and line breaks don't
-  matter. Bytes that fall on ROM are not written unless the settings allow
+  Import text asks for an address and a length and reads a comma
+  separated text file into memory: decimal values (0 to 255), or $ and one
+  or two hex digits. It fails if the file has fewer values than the length,
+  or if any value is not valid; spaces and line breaks don't matter. Bytes that fall on ROM are not written unless the settings allow
   changing the ROM.
+  Export binary asks for an address and a length (by default what is on
+  screen) and saves those bytes as they are to a binary file (.bin).
+  Import binary asks for an address (by default the first one shown) and a
+  file, and loads the file there as it is. It doesn't wrap round: what
+  would go past FFFF is not loaded, and a message says how much. Bytes on
+  ROM are only written if Options > Settings > Machine allows changing the
+  ROM; RAM paged at 0000-3FFF (the +2A/+3 all-RAM modes, the DivMMC's RAM
+  at 2000-3FFF when it is paged in) is written like any RAM, while the
+  DivMMC's EEPROM counts as ROM. Editing bytes, Import text and POKE follow the
+  same rules.
 
 Breakpoints
   Every breakpoint with its on/off box, type, address, label and condition.
@@ -518,11 +551,17 @@ Breakpoints
   OUTI...) instruction, with the execution point on it.
   Insert adds one, Delete removes the selected one, Space or a click on the
   box switches it on or off, Enter or a double-click edits it (address,
-  type, condition, enabled). The editing window includes a short manual of
-  the conditions.
+  end address, type, condition, enabled). The editing window includes a
+  short manual of the conditions.
+  End address makes the breakpoint cover a range of addresses or ports
+  (shown as 8000-80FF). It follows the start address while it hasn't been
+  changed by hand; when both are equal it is a normal breakpoint. A range is
+  a single breakpoint: in the disassembly every line inside it is red, and
+  toggling, switching off or editing any of them acts on the whole range.
 
   Right-click for the same actions, to show it in the disassembly or to
-  remove them all.
+  remove them all, and to save them all to a JSON file or load them from
+  one (loading replaces them); --breakpoints FILE loads one at start.
 
   When any breakpoint stops the emulation, the debugger opens (if it isn't
   open) with the green execution point on the instruction where it
@@ -534,7 +573,24 @@ Breakpoints
 
 Watches
   Addresses whose two bytes are shown (and can be edited). Insert or
-  right-click adds one, Delete removes the selected one.
+  right-click adds one, Delete removes the selected one. Right-click also
+  saves them to a JSON file or loads them from one (replacing them);
+  --watches FILE loads one at start.
+
+Breakpoint and watch files
+  JSON files, with addresses and ports in hex:
+    {"pzx": "breakpoints", "version": 1,
+     "memory": [{"address": "8000", "type": "exec", "enabled": true,
+                 "condition": "A = 3"}],
+     "ports":  [{"port": "00FE", "type": "out", "enabled": true,
+                 "condition": ""}]}
+  (a range adds "end": "80FF" after the address or port)
+  (memory types exec, read, write, access; port types in, out, any)
+    {"pzx": "watches", "version": 1, "watches": ["5C3A", "8000"]}
+    {"pzx": "daad-breakpoints", "version": 1,
+     "breakpoints": [{"address": "8A69", "enabled": true,
+                      "condition": "f0 = 3", "condact": "P1 E5  NOUN2 251"}]}
+  (the DAAD/PAW debugger's; "condact" only says which one it was)
 
 Go to and View data
   Right-clicking a hex number or a label anywhere in the debugger (an
@@ -674,6 +730,10 @@ Process
   remove a breakpoint on it. Right-click for: toggle breakpoint, breakpoint
   with condition, enabled, remove. Breakpoint lines are red, pale pink when
   switched off; a "?" on the left means it has a condition.
+  On the current condact, a condition shows on the right whether it holds
+  with the flags and objects as they are: a green tick or a red cross (as
+  in the Z80 debugger). Conditions that depend on something else (CHANCE,
+  PICTURE, ISDONE, ISNDONE, INKEY, QUIT, PARSE) show an orange "?".
 
 Breakpoints
   Under the process: every breakpoint with its on/off box, the condact's
@@ -682,8 +742,10 @@ Breakpoints
   holds). Insert adds one on the condact selected in the process, Delete
   removes the selected one, Space or a click on the box switches it on or
   off, Enter or a double-click edits its condition. Right-click for the
-  same, to show it in the process or to remove them all. Breakpoints act
-  while the DAAD/PAW debugger is open.
+  same, to show it in the process or to remove them all, and to save them
+  all to a JSON file or load them from one (loading replaces them; see
+  Breakpoint and watch files in 10); --daadbreakpoints FILE loads one at
+  start. Breakpoints act while the DAAD/PAW debugger is open.
 
 Breakpoint conditions
   Conditions are on flags only:
@@ -707,9 +769,13 @@ Flags
   fAdverb 36, fPrep 43, fNoun2 44, fAdject2 45, fCPronounNoun 46,
   fCPronounAdject 47) show the word and its synonyms when the mouse is over
   their value, and changing them offers the words of that kind to choose
-  from (verbs include the movement nouns below 20), besides typing the
-  number; 255 is no word. The flags (and the objects) are found from
-  the first stop, and are updated while the game runs.
+  from (verbs include the nouns up to 39), besides typing the number; 255
+  is no word. The flags (and the objects) are found from the first stop,
+  and are updated while the game runs. They are shown in as many columns
+  as fit (down each column, then the next): the flags and objects take
+  60% of the window's width until the splitter is moved. After a step
+  (F7), the values the condact changed are red (flags and object
+  locations).
 
 Objects
   Every object's location, with "carried" (254), "worn" (253) or "not
@@ -726,6 +792,34 @@ Keys and toolbar
   can be followed from where the game starts dealing with it. It goes on
   working with the window closed: the window opens again when it stops
   (breakpoints only act while it is open).
+  Export process (the floppy button) saves the process shown, and Export
+  game (the disk button) the whole game, as source code: DSF (DAAD Ready's
+  DRC) or SCE (the original DAAD compiler), as the file's extension says
+  (.sce, else DSF). The source has the vocabulary, the system and user
+  messages, the object and location texts, the connections, the objects
+  and every process, as unDRC and unDAAD write them; compiled again it gives
+  the same database, with these exceptions: XMES texts are in the XMB file,
+  not in memory, and are left as markers; PAUSE and BEEP durations are the
+  database's (DRC scales them for each target); a v3 database needs DRF's
+  -v3 option (the DSF says so). The DSF file is ISO-8859-1 and the SCE
+  code page 437.
+  A PAW game is exported as it is to an SCE (PAW condacts, no object
+  attributes). To a DSF, pzx asks whether to export it as a PAW game (the
+  same) or to convert it to DAAD, as PAWS2DAAD does: DESC becomes RESTART,
+  INVEN the SYSMESS/LISTAT entry, SAVE, LOAD and PARSE get their 0, PROMPT
+  becomes LET fPrompt, TIMEOUT HASAT TIMEOUT, and condacts DAAD lacks
+  (TURNS, SCORE, CHARSET, MODE, GRAPHIC, LINE, PROTECT), those after a
+  terminator and the words of the entries of PAW processes 1 and 2 are left
+  as "PAWS2DAAD note" comments. The processes are arranged as in DAAD
+  Ready's empty database, whose definitions and processes 0, 1, 2 and 6 are
+  added: the response table becomes process 5, PAW processes 1 and 2
+  become 3 and 4, processes 3 to 6 go after the last one and the rest keep
+  their numbers (PROCESS calls are renumbered too). The system messages
+  DAAD has and PAW lacks come from the empty database, and process 1 gets
+  the entry for PAW's auto-decrement flags as a comment (remove its
+  semicolons if the game needs them). After converting, pzx reminds you
+  that the source needs checking by hand: PAW's flags and fonts are not
+  DAAD's.
 
 
 12. COMMAND LINE
@@ -746,7 +840,7 @@ typed keys.
   --tape FILE        insert a .tap without starting it (combine with --keyin)
   --disk FILE        insert a .dsk in drive A: (switches to the +3 unless
                      --model says otherwise); --diska is the same
-  --diskb FILE       insert a .dsk in drive B:
+  --diskb FILE       insert a .dsk in drive B: (connects drive B:)
   --sym FILE         load a symbol file (also -s); the breakpoints given on
                      the command line can then use its symbols, both as
                      addresses (--bp MAIN) and in conditions
@@ -811,7 +905,7 @@ In pzx.ini each one is a key with the same name (see 4):
   --autoplay         start the tape automatically          (Tape & disk)
   --savetotape       SAVE writes to the tape               (Tape & disk)
   --fastdisk         fast floppy disk access               (Tape & disk)
-  --driveb           drive B: connected                    (Tape & disk)
+  --driveb           drive B: connected (default: no)      (Tape & disk)
   --floppynoise      emulate floppy drive noise            (Tape & disk)
   --saveonexit       save the settings when pzx closes     (General)
   --pngborder        include the border in PNG screenshots (File menu)
@@ -823,6 +917,11 @@ In pzx.ini each one is a key with the same name (see 4):
   --divmmcrom FILE   the DivMMC firmware; empty = the bundled esxDOS (ROMs)
   --zxunofirmware FILE   the ZX-Uno's BIOS; empty = zxuno/FIRMWARE.ZX1 (ROMs)
   --zxunoroms FILE   the ZX-Uno's ROMs; empty = zxuno/ROMS.ZX1  (ROMs)
+  --breakpoints FILE breakpoints saved by the debugger (JSON), instead of
+                     any there were
+  --watches FILE     watches saved by the debugger (JSON)
+  --daadbreakpoints FILE  breakpoints saved by the DAAD/PAW debugger
+                     (JSON); they act once that debugger is open (F11)
   --zxunocustomrom FILE  a 16K ROM the ZX-Uno runs (as a 48K) instead of
                      the one its BIOS chooses; empty = none       (ROMs)
 

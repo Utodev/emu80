@@ -64,3 +64,28 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/videotest.lpr" > "$B
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/zxunotest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/zxunotest" "$ROOT/roms" "$ROOT/tests/daad"
+
+# What the debugger and POKE may write: ROM, RAM paged at 0000
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/poketest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/poketest" "$ROOT/roms" "$ROOT/esxdos"
+
+# Breakpoints and watches saved as JSON and loaded back
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/debugfilestest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/debugfilestest" "$ROOT/roms" "$BUILD"
+
+# Disassembly exported as sjasmplus source
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/asmexporttest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/asmexporttest" "$ROOT/roms" "$BUILD/rom48.asm"
+# With sjasmplus, the source must assemble back to the ROM
+SJ=${SJASMPLUS:-$(command -v sjasmplus || command -v sjasmplus.exe || true)}
+if [ -n "$SJ" ]; then
+  (cd "$BUILD" && "$SJ" --nologo --msg=war --raw=rom48.bin rom48.asm) > "$BUILD/sjasm.log" 2>&1
+  if cmp -s "$BUILD/rom48.bin" "$ROOT/roms/48.rom" && ! grep -q -i 'warning\|error' "$BUILD/sjasm.log"; then
+    echo "Assembler export: sjasmplus rebuilds the 48K ROM"
+  else
+    echo "Assembler export: sjasmplus does not rebuild the 48K ROM"; cat "$BUILD/sjasm.log"; exit 1
+  fi
+fi

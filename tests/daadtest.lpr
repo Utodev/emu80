@@ -13,7 +13,7 @@ program daadtest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, StrUtils, Models, Spectrum, Daad;
+  SysUtils, StrUtils, Classes, Models, Spectrum, Daad, DaadExport;
 
 var
   Failures: Integer = 0;
@@ -97,6 +97,7 @@ var
   Map: array[0..$FFFF] of Byte;
   Top: Word;
   I: Integer;
+  Src: TStringList;
 
   procedure W(A, V: Word);
   begin
@@ -170,6 +171,26 @@ begin
     Game.BuildMap(@Map);
     Check((Map[$A200] and DAAD_INPUT) <> 0, 'PAW: the response table marks the player''s input');
     Check((Map[$A400] and DAAD_CONDACT) <> 0, 'PAW condact in the map');
+    // Source: as a PAW game, and converted to DAAD as PAWS2DAAD does
+    Src := ExportDaadSource(Game, True);
+    try
+      Check((Pos('INVEN', Src.Text) > 0) and (Pos('/PRO 1', Src.Text) > 0) and
+        (Pos('PAWS2DAAD', Src.Text) = 0), 'PAW game exported as SCE');
+    finally
+      Src.Free;
+    end;
+    Src := ExportDaadSource(Game, False, True);
+    try
+      Check(Pos('/PRO 3    ; PAW process 1', Src.Text) > 0, 'PAW process 1 becomes DAAD process 3');
+      Check(Pos('/PRO 5    ; PAW process 0', Src.Text) > 0, 'PAW response table becomes process 5');
+      Check((Pos('/PRO 6 ; Initialisation', Src.Text) > 0) and (Pos('#define fDarkF', Src.Text) > 0),
+        'DAAD template processes and definitions added');
+      Check(Pos('it was INVEN', Src.Text) > 0, 'PAW INVEN converted');
+      Check(Pos('RESTART  ; PAWS2DAAD note: it was DESC', Src.Text) > 0, 'PAW DESC converted');
+      Check(Pos(';> _       _     MINUS   5       1', Src.Text) > 0, 'auto-decrement flags entry');
+    finally
+      Src.Free;
+    end;
   finally
     Game.Free;
   end;
@@ -221,6 +242,8 @@ var
   Err: string;
   Prev, PrevSP, Commands: Integer;
   Breaks: array of TDaadBreak;
+  Src: TStringList;
+  Text: string;
 begin
   Sp := TSpectrum.Create(Model, RomDir);
   Game := TDaadGame.Create;
@@ -258,6 +281,29 @@ begin
       Name + ': found with its first byte overwritten');
     Mem[DDB_BASE] := I;
     Game.Load(Mem);
+    // Source export: every section and process, in both formats
+    for I := 0 to 1 do
+    begin
+      Src := ExportDaadSource(Game, I = 1);
+      try
+        Text := Src.Text;
+        Check((Pos('/VOC', Text) > 0) and (Pos('/STX', Text) > 0) and (Pos('/OBJ', Text) > 0) and
+          (Pos('/CON', Text) > 0) and (Pos('/END', Text) > 0), Name + ': source sections');
+        Check(Pos(Format('/PRO %d', [Game.NumProcesses - 1]), Text) > 0, Name + ': every process exported');
+        if I = 0 then
+          Check(Pos('> _      _      ', Text) > 0, Name + ': DSF entries')
+        else
+          Check(Pos('/TOK', Text) > 0, Name + ': SCE tokens');
+      finally
+        Src.Free;
+      end;
+    end;
+    Src := ExportDaadProcess(Game, 1, False);
+    try
+      Check((Pos('/PRO 1', Src.Text) > 0) and (Pos('/PRO 2', Src.Text) = 0), Name + ': one process exported');
+    finally
+      Src.Free;
+    end;
     WriteLn(Format('  %s: v%d, %d processes, %d entries, %d condacts, %d objects, %d locations',
       [Name, Game.Version, Game.NumProcesses, Length(Game.Entries), Length(Game.Condacts),
        Game.NumObjects, Game.NumLocations]));
