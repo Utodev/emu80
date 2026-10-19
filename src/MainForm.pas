@@ -39,7 +39,6 @@ type
     FTempCard: string;          // image of a card made from a folder ('' if none)
     FTempFolder: string;        // that folder
     FMenu: TMainMenu;
-    FModelItems: array[TSpectrumModel] of TMenuItem;
     FRecentMenu: TMenuItem;
     FRecentSymbolsMenu: TMenuItem;
     FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
@@ -417,7 +416,6 @@ end;
 procedure TMainWindow.BuildMenu;
 var
   TopItem, Item: TMenuItem;
-  M: TSpectrumModel;
   S: Integer;
 begin
   FMenu := TMainMenu.Create(Self);
@@ -437,15 +435,8 @@ begin
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, 'E&xit', @DoQuit);
 
+  // The model is chosen with the toolbar's chip button or in Settings
   TopItem := AddItem(FMenu.Items, '&Machine', nil);
-  for M := Low(TSpectrumModel) to High(TSpectrumModel) do
-  begin
-    FModelItems[M] := AddItem(TopItem, ModelInfo[M].Name, @DoModel);
-    FModelItems[M].Tag := Ord(M);
-    FModelItems[M].RadioItem := True;
-    FModelItems[M].GroupIndex := 1;
-  end;
-  AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&NMI', @DoNMI, ShortCut(VK_F5, []));
   AddItem(TopItem, '&Hard reset', @DoHardReset, ShortCut(VK_F6, []));
   AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssShift]));
@@ -842,7 +833,6 @@ var
   S, I: Integer;
 begin
   M := FEmu.Spec.Model;
-  FModelItems[M].Checked := True;
   FModelPopupItems[M].Checked := True;
   FModelButton.Hint := 'Machine: ' + ModelInfo[M].Name + ' (click to change)';
   FFastLoadItem.Checked := Settings.FastLoad;

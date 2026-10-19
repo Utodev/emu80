@@ -116,8 +116,8 @@ Supported files:
 | `.z80` | snapshots, versions 1, 2 and 3. |
 | `.dsk` | +3 disk images (standard and extended). Opening one switches to the +3 if needed and boots it. |
 
-The machine model is chosen with the chip button on the toolbar (click it and pick one), from
-the Machine menu or in Options > Settings.
+The machine model is chosen with the chip button on the toolbar (click it and pick one) or in
+Options > Settings.
 
 ## 2. Keyboard
 
@@ -170,7 +170,7 @@ In the menu bar, the storage menus (Tape, Floppy and SD) are between two separat
 **File**: Open, Open recent, Save snapshot (.z80 or .sna), Screenshot (.SCR, or PNG at 1x or 2x
 with or without the border), Exit.
 
-**Machine**: The models, NMI (F5), Hard reset (F6: off and on, clears the memory), Reset
+**Machine**: NMI (F5), Hard reset (F6: off and on, clears the memory), Reset
 (Shift+F6), Pause and POKE.
 
 **Tape**: Tape browser, Play, Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
