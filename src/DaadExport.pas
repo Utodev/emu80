@@ -1,5 +1,5 @@
 { DaadExport: the source of a DAAD or PAW game read from memory, for the
-  DAAD debugger. Two formats, as unDRC and unDAAD write them:
+  Adventure Debugger. Two formats, as unDRC and unDAAD write them:
     DSF  DAAD Ready / DRC: texts in quotes with #n, #k...; entries start
          with ">"; indirection is @n; v3 code (INDIR, XMES) and Maluva
          (EXTERN with a third byte) as DRC writes it.
@@ -12,7 +12,14 @@
   0, 1, 2 and 6, the PAW response table as 5, PAW processes 1 and 2 as 3
   and 4, PAW processes 3-6 after the last one, the rest with their numbers.
   The DSF file is ISO-8859-1 and the SCE file code page 437 (MS-DOS), as
-  their compilers expect. }
+  their compilers expect.
+  A Quill game (PAW's predecessor, read with PAW's condact numbers) is only
+  converted to DAAD (DSF): its event table becomes process 5 and its status
+  table process 4 (DAAD's process 1 calls it every turn, before the order,
+  as The Quill runs it); its words, which have no type, become nouns
+  (up to 39, which DAAD lets act as verbs) or verbs or nouns as they are
+  used (see QuillVocabulary); objects weigh 1, and those whose word is 200 or more (The Quill's
+  wearable ones) are wearable. }
 unit DaadExport;
 
 {$mode objfpc}{$H+}
@@ -101,6 +108,11 @@ end;
 { The process a PAW process becomes in DAAD (see the unit's comment) }
 function DaadProcess(Game: TDaadGame; P: Integer): Integer;
 begin
+  if Game.IsQuill then
+  begin
+    if P = 0 then Result := 5 else Result := 4;
+    Exit;
+  end;
   case P of
     0: Result := 5;
     1: Result := 3;
@@ -156,6 +168,22 @@ begin
     Lines([Format('%-8s %s', [Name, Params])]);
 end;
 
+var
+  { The Quill: the DAAD type each word got in the vocabulary (QuillVocabulary) }
+  QuillTypes: record
+    Ready: Boolean;
+    Verb, Noun: array[0..255] of Boolean;
+    Number: array[0..255] of Integer;   // its number in DAAD
+  end;
+
+{ A Quill word can be the verb (Verb) or the noun of an entry in DAAD }
+function QuillWordFits(Id: Integer; Verb: Boolean): Boolean;
+begin
+  if (Id = 255) or not QuillTypes.Ready then Exit(True);
+  if Verb then Result := QuillTypes.Verb[Id] or (QuillTypes.Noun[Id] and (QuillTypes.Number[Id] <= 39))
+  else Result := QuillTypes.Noun[Id];
+end;
+
 procedure AddProcess(Game: TDaadGame; P: Integer; Sce, ToDaad: Boolean; L: TStrings);
 var
   E, K, N, J, Off, Line: Integer;
@@ -164,21 +192,29 @@ var
   Name, Params, Head, Indir2, Verb, Noun: string;
   First, Ended: Boolean;
   Out: TStringArray;
+  EntryStart, Line2: Integer;
 begin
-  if ToDaad then L.Add(Format('/PRO %d    ; PAW process %d', [DaadProcess(Game, P), P]))
+  if ToDaad and Game.IsQuill then
+  begin
+    if P = 0 then L.Add('/PRO 5    ; Quill event table')
+    else L.Add('/PRO 4    ; Quill status table');
+  end
+  else if ToDaad then L.Add(Format('/PRO %d    ; PAW process %d', [DaadProcess(Game, P), P]))
   else L.Add(Format('/PRO %d', [P]));
   for E := 0 to Game.Processes[P].EntryCount - 1 do
   begin
     En := Game.Entries[Game.Processes[P].FirstEntry + E];
     Verb := WordOf(Game, En.Verb, 0, ToDaad);
     Noun := WordOf(Game, En.Noun, 2, ToDaad);
-    // PAW processes 1 and 2 run every entry: DAAD's must be "_ _"
+    // PAW processes 1 and 2 (The Quill's status table) run every entry:
+    // DAAD's must be "_ _"
     if ToDaad and (P in [1, 2]) and ((Verb <> '_') or (Noun <> '_')) then
     begin
       L.Add(Format('%sit was: > %s %s', [NOTE, Verb, Noun]));
       Verb := '_';
       Noun := '_';
     end;
+    EntryStart := L.Count;
     if Sce then
     begin
       L.Add('');
@@ -271,20 +307,171 @@ begin
       if ToDaad and (C.Opcode in PAW_TERMINATORS) then Ended := True;
     end;
     if First and not Sce then L.Add(TrimRight(Head));   // an entry with no condacts
+    // The Quill: a word that got the other type in DAAD (QuillVocabulary)
+    // can't be written: the entry is left as a comment
+    if ToDaad and Game.IsQuill and not (QuillWordFits(En.Verb, True) and QuillWordFits(En.Noun, False)) then
+    begin
+      for Line2 := EntryStart to L.Count - 1 do L[Line2] := '; ' + L[Line2];
+      L.Insert(EntryStart, Format('%sthe words of this entry (%s %s) have the other type in DAAD',
+        [NOTE, Verb, Noun]));
+    end;
     if not Sce then L.Add('');
   end;
 end;
 
+procedure QuillTypesOf(Game: TDaadGame); forward;
+
 function ExportDaadProcess(Game: TDaadGame; Proc: Integer; Sce: Boolean; ToDaad: Boolean): TStringList;
 begin
   Result := TStringList.Create;
-  if Game.IsPAW then
+  if Game.IsQuill then
+    Result.Add(Format('; Process %d, exported by pzx from the Quill game in memory', [Proc]))
+  else if Game.IsPAW then
     Result.Add(Format('; Process %d, exported by pzx from the PAW game in memory', [Proc]))
   else
     Result.Add(Format('; Process %d, exported by pzx from the DAAD game in memory', [Proc]));
-  if ToDaad then Result.Add('; Converted from PAW to DAAD: check it before using it');
+  if ToDaad then
+    Result.Add(Format('; Converted from %s to DAAD: check it before using it',
+      [EngineName(Game.Engine)]));
+  if Game.IsQuill then QuillTypesOf(Game);
   Result.Add('');
   AddProcess(Game, Proc, Sce, ToDaad and Game.IsPAW, Result);
+end;
+
+{ An object's noun and adjective (The Quill: one word, version A none) }
+function ObjectNoun(Game: TDaadGame; I: Integer; ToDaad: Boolean): string;
+begin
+  if Game.IsQuill then
+  begin
+    if Game.PosObjectWords = 0 then Exit('_');
+    // A word that is a verb in DAAD can't be an object's
+    if not QuillWordFits(Game.ByteAt(Word(Game.PosObjectWords + I)), False) then Exit('_');
+    Exit(WordOf(Game, Game.ByteAt(Word(Game.PosObjectWords + I)), 2, ToDaad));
+  end;
+  Result := WordOf(Game, Game.ByteAt(Word(Game.PosObjectWords + I * 2)), 2, ToDaad);
+end;
+
+function ObjectAdjective(Game: TDaadGame; I: Integer; ToDaad: Boolean): string;
+begin
+  if Game.IsQuill then Exit('_');
+  Result := WordOf(Game, Game.ByteAt(Word(Game.PosObjectWords + I * 2 + 1)), 3, ToDaad);
+end;
+
+{ The Quill's words (4 letters and a number) with a DAAD type. DAAD lets
+  nouns up to 39 act as verbs, and DRC wants one type per word: words up to
+  39 are nouns; the others verbs (the first word of an entry, a connection),
+  nouns (the second word, an object's word, or unused), and those used both
+  ways become nouns with a free number up to 39 (or verbs, with a note, if
+  there is none left) }
+procedure QuillVocabulary(Game: TDaadGame; const Voc: array of TStringList; Notes: TStrings);
+var
+  AsVerb, AsNoun, Used: array[0..255] of Boolean;
+  NewId: array[0..255] of Integer;
+  E, I, Id, K, B, Free: Integer;
+  A: Word;
+  S: string;
+begin
+  FillChar(AsVerb, SizeOf(AsVerb), 0);
+  FillChar(AsNoun, SizeOf(AsNoun), 0);
+  FillChar(Used, SizeOf(Used), 0);
+  for E := 0 to High(Game.Entries) do
+  begin
+    AsVerb[Game.Entries[E].Verb] := True;
+    AsNoun[Game.Entries[E].Noun] := True;
+  end;
+  for I := 0 to Game.NumLocations - 1 do
+  begin
+    A := Game.WordAt(Word(Game.PosConnections + I * 2));
+    K := 0;
+    while (Game.ByteAt(A) <> 255) and (K < 64) do
+    begin
+      AsVerb[Game.ByteAt(A)] := True;
+      A := Word(A + 2);
+      Inc(K);
+    end;
+  end;
+  if Game.PosObjectWords <> 0 then
+    for I := 0 to Game.NumObjects - 1 do AsNoun[Game.ByteAt(Word(Game.PosObjectWords + I))] := True;
+  A := Game.PosVocabulary;
+  I := 0;
+  while (Game.ByteAt(A) <> 0) and (I < 4000) do
+  begin
+    Used[Game.ByteAt(Word(A + 4))] := True;
+    A := Word(A + 5);
+    Inc(I);
+  end;
+  // Words up to 39 are nouns (verbs too); the others verbs if only used as
+  // verbs, else nouns. Then the numbers for those used both ways.
+  for Id := 0 to 255 do
+  begin
+    NewId[Id] := Id;
+    QuillTypes.Verb[Id] := (Id >= 40) and AsVerb[Id] and not AsNoun[Id];
+    QuillTypes.Noun[Id] := not QuillTypes.Verb[Id];
+  end;
+  QuillTypes.Ready := True;
+  for Id := 0 to 255 do QuillTypes.Number[Id] := Id;
+  Free := 1;
+  for Id := 40 to 254 do
+    if Used[Id] and AsVerb[Id] and AsNoun[Id] then
+    begin
+      while (Free <= 39) and Used[Free] do Inc(Free);
+      if Free <= 39 then
+      begin
+        NewId[Id] := Free;
+        QuillTypes.Number[Id] := Free;
+        QuillTypes.Verb[Id] := False;
+        QuillTypes.Noun[Id] := True;
+        Used[Free] := True;
+        Notes.Add(Format('; Word %d is a verb and a noun in the game: noun %d here (DAAD lets ' +
+          'nouns up to 39 act as verbs).', [Id, Free]));
+      end
+      else
+      begin
+        QuillTypes.Verb[Id] := True;
+        QuillTypes.Noun[Id] := False;
+        Notes.Add(Format('; PAWS2DAAD note: word %d is a verb and a noun in the game, and there ' +
+          'is no free noun number up to 39 for it: it is a verb here, and the entries (or ' +
+          'objects) that use it as a noun are left as comments.', [Id]));
+      end;
+    end;
+  A := Game.PosVocabulary;
+  I := 0;
+  while (Game.ByteAt(A) <> 0) and (I < 4000) do
+  begin
+    S := '';
+    for K := 0 to 3 do
+    begin
+      B := 255 - Game.ByteAt(Word(A + K));
+      if B in [32..126] then S := S + Chr(B);
+    end;
+    S := TrimRight(S);
+    Id := Game.ByteAt(Word(A + 4));
+    A := Word(A + 5);
+    Inc(I);
+    // 255 is "no word" (_), which DAAD has without saying so
+    if Id = 255 then Continue;
+    if QuillTypes.Verb[Id] then
+      Voc[0].AddObject(Format('%.3d %s', [Id, S]), TObject(PtrInt(Id)))
+    else
+      Voc[2].AddObject(Format('%.3d %s', [NewId[Id], S]), TObject(PtrInt(NewId[Id])));
+  end;
+end;
+
+{ The DAAD types of The Quill's words, for a process exported by itself }
+procedure QuillTypesOf(Game: TDaadGame);
+var
+  Voc: array[0..6] of TStringList;
+  Notes: TStringList;
+  K: Integer;
+begin
+  for K := 0 to 6 do Voc[K] := TStringList.Create;
+  Notes := TStringList.Create;
+  try
+    QuillVocabulary(Game, Voc, Notes);
+  finally
+    for K := 0 to 6 do Voc[K].Free;
+    Notes.Free;
+  end;
 end;
 
 function ExportDaadSource(Game: TDaadGame; Sce: Boolean; ToDaad: Boolean): TStringList;
@@ -295,6 +482,7 @@ var
   S, Txt, Attr: string;
   Voc: array[0..6] of TStringList;
   Pro: array of Integer;   // ToDaad: the PAW process of each DAAD one, -1 the template's
+  QuillNotes: TStringList; // The Quill: what was done with its words
 
   procedure Texts(const Section, Comment: string; Count: Integer; Table: Word);
   var
@@ -327,7 +515,10 @@ begin
   L := TStringList.Create;
   Result := L;
   L.Add(Separator);
-  if Game.IsPAW then L.Add('; Exported by pzx from the PAW game in memory')
+  if Game.IsQuill then
+    L.Add(Format('; Exported by pzx from the Quill game in memory (database version %s)',
+      [Copy('A?C', Game.QuillVersion, 1)]))
+  else if Game.IsPAW then L.Add('; Exported by pzx from the PAW game in memory')
   else
   begin
     L.Add('; Exported by pzx from the DAAD game in memory');
@@ -340,6 +531,12 @@ begin
   begin
     L.Add('; Converted to DAAD as PAWS2DAAD does, with the processes of DAAD Ready''s');
     L.Add('; empty database: check every "PAWS2DAAD note" and test the game.');
+  end;
+  if Game.IsQuill then
+  begin
+    L.Add('; The Quill: the event table is process 5 and the status table process 4.');
+    L.Add(Format('; Objects that can be carried: %d (in DAAD, ABILITY %d 255 in process 6).',
+      [Game.QuillCarry, Game.QuillCarry]));
   end;
   if not Sce and (Game.Version >= 3) then
     L.Add('; A DAAD v3 database: compile it with DRF''s -v3 option');
@@ -369,7 +566,11 @@ begin
 
   // Vocabulary, by type and number
   for K := 0 to 6 do Voc[K] := TStringList.Create;
+  QuillNotes := TStringList.Create;
   try
+    if Game.IsQuill then QuillVocabulary(Game, Voc, QuillNotes)
+    else
+    begin
     A := Game.PosVocabulary;
     I := 0;
     while (Game.ByteAt(A) <> 0) and (I < 4000) do
@@ -388,8 +589,18 @@ begin
       A := Word(A + 7);
       Inc(I);
     end;
+    end;
     L.Add(Separator);
     L.Add('/VOC    ;Vocabulary');
+    if Game.IsQuill then
+    begin
+      L.Add('; PAWS2DAAD note: The Quill''s words have 4 letters and DAAD''s 5: make them');
+      L.Add('; longer where the fifth letter tells words apart (EXAMine, LANTern...).');
+      L.Add('; The Quill''s words have no type: those up to 39 are nouns (DAAD lets them');
+      L.Add('; act as verbs, as directions do), the others verbs or nouns as the game');
+      L.Add('; uses them.');
+      L.AddStrings(QuillNotes);
+    end;
     for K := 0 to 6 do
     begin
       if Voc[K].Count = 0 then Continue;
@@ -404,9 +615,19 @@ begin
     end;
   finally
     for K := 0 to 6 do Voc[K].Free;
+    QuillNotes.Free;
   end;
 
-  Texts('STX', 'System messages', Game.NumSysMessages, Game.PosSysMessages);
+  if Game.IsQuill then
+  begin
+    // Version A's are one after another: by address
+    L.Add(Separator);
+    L.Add('/STX    ;System messages');
+    for I := 0 to Game.NumSysMessages - 1 do
+      L.Add(Format('/%d "%s"', [I, Game.SourceText(Game.SysMessageAddr(I), False)]));
+  end
+  else
+    Texts('STX', 'System messages', Game.NumSysMessages, Game.PosSysMessages);
   // DAAD has more system messages than PAW: those of the empty database
   if ToDaad then
     for I := Game.NumSysMessages to High(TEMPLATE_STX) do
@@ -436,7 +657,12 @@ begin
 
   // Objects: where they start, weight, container, wearable, the 16 user
   // attributes (15 to 0; PAW has none), noun and adjective
-  if Game.IsPAW then
+  if Game.IsQuill then
+  begin
+    Weights := 0;
+    Attrs := 0;
+  end
+  else if Game.IsPAW then
   begin
     Weights := Game.WordAt($FFEB);
     Attrs := 0;
@@ -452,7 +678,15 @@ begin
   for I := 0 to Game.NumObjects - 1 do
   begin
     Loc := Game.ByteAt(Word(Game.PosInitiallyAt + I));
-    B := Game.ByteAt(Word(Weights + I));
+    if Game.IsQuill then
+    begin
+      // Weight 1; wearable if its word is 200 or more
+      B := 1;
+      if (Game.PosObjectWords <> 0) and (Game.ByteAt(Word(Game.PosObjectWords + I)) in [200..254]) then
+        B := B or $80;
+    end
+    else
+      B := Game.ByteAt(Word(Weights + I));
     Attr := '';
     for K := 15 downto 0 do
       if not Game.IsPAW and ((Game.WordAt(Word(Attrs + I * 2)) and (1 shl K)) <> 0) then
@@ -461,8 +695,7 @@ begin
         Attr := Attr + '_ ';
     S := Format('/%-4d %11s %7d   %s %s  %s  %-8s %s', [I, LocText(Loc, Sce), B and $3F,
       Copy('_Y', Ord((B and $40) <> 0) + 1, 1), Copy('_Y', Ord((B and $80) <> 0) + 1, 1), Attr,
-      WordOf(Game, Game.ByteAt(Word(Game.PosObjectWords + I * 2)), 2, ToDaad),
-      WordOf(Game, Game.ByteAt(Word(Game.PosObjectWords + I * 2 + 1)), 3, ToDaad)]);
+      ObjectNoun(Game, I, ToDaad), ObjectAdjective(Game, I, ToDaad)]);
     L.Add(TrimRight(S));
   end;
 

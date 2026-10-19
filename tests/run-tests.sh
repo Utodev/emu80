@@ -50,7 +50,7 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/divmmctest.lpr" > "$
 "$BUILD/divmmctest" "$ROOT/roms" "$ROOT/esxdos" "$BUILD/divmmctest.img"
 rm -f "$BUILD/divmmctest.img"
 
-# DAAD debugger: the DAAD Ready test game on the 48K and 128K interpreters
+# Adventure Debugger: the DAAD Ready test game on the 48K and 128K interpreters
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/daadtest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/daadtest" "$ROOT/roms" "$ROOT/tests/daad"
@@ -74,6 +74,12 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/poketest.lpr" > "$BU
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/debugfilestest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/debugfilestest" "$ROOT/roms" "$BUILD"
+
+# The Quill: a database built in memory; with a folder of Quill games
+# (QUILL_GAMES, or to_be_ignored/quillgames), those games too
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/quilltest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/quilltest" "$ROOT/roms" "${QUILL_GAMES:-$ROOT/to_be_ignored/quillgames}"
 
 # Hints: every instruction and condact has a description
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/helptest.lpr" > "$BUILD/fpc.log" || {

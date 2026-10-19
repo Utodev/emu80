@@ -16,7 +16,7 @@ type
     ikRun, ikBreak, ikBreakpoint, ikCondition, ikClearBreakpoints, ikStepInto, ikStepOver,
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
-    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip);
+    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
@@ -382,6 +382,17 @@ begin
         end;
         D.Pen(clBlack); D.Fill(DarkGrey); D.Rect(4, 2, 12, 15);
         D.Pen(LightGrey); D.Fill(LightGrey); D.Circle(6, 4, 0.8);
+      end;
+    ikZ80:
+      begin
+        // "Z80" in bold, small
+        D.C.Font.Name := 'Arial';
+        D.C.Font.Style := [fsBold];
+        D.C.Font.Height := -D.S(8);
+        D.C.Font.Quality := fqNonAntialiased;
+        D.C.Font.Color := DarkBlue;
+        D.C.Brush.Style := bsClear;
+        D.C.TextOut((D.S(16) - D.C.TextWidth('Z80')) div 2, (D.S(16) - D.C.TextHeight('Z80')) div 2, 'Z80');
       end;
     ikGoTo:
       begin

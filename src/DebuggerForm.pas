@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, Menus,
   LCLType, Dialogs, ComCtrls, Clipbrd, Emulator, Spectrum, Disasm, Z80Core, Symbols, Icons, Models,
-  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr, DelayHint, Z80Help;
+  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr, DelayHint, Z80Help, Z80Opcodes;
 
 type
   TDebuggerWindow = class;
@@ -124,6 +124,7 @@ type
     FTypeItems: array[0..3] of TMenuItem;   // execution, read, write, read/write
     FEnabledItem, FRemoveItem, FConditionItem: TMenuItem;
     FBack: array of LongWord;   // where the view was before each jump: top shl 16 or selection
+    FSearch: string;            // the text searched last
     FPlaced: Boolean;           // a first address has been shown
     procedure Layout;
     function LineAt(Y: Integer): Integer;
@@ -135,6 +136,8 @@ type
     { Remember the view before a jump, for Backspace }
     procedure PushBack;
     procedure JumpTo(ATop, ASel: Word);
+    { A line as the view shows it: address, bytes, label and instruction }
+    function LineText(Addr: Word; out Len: Integer): string;
     procedure MenuClick(Sender: TObject);
     procedure DrawCheck(X, Y: Integer; Ok: Boolean);
     procedure DrawArrow(X, Y: Integer);
@@ -152,6 +155,9 @@ type
     { Scroll so Addr is visible, keeping the view if it already is. }
     procedure EnsureVisible(Addr: Word);
     property SelAddr: Word read FSel write FSel;
+    { Ask for a text and find it; F3 finds the next one }
+    procedure Search;
+    procedure SearchNext;
   end;
 
   THexView = class(TDebugView)
@@ -166,6 +172,8 @@ type
     FSpriteRowBytes, FSpriteRows: Integer;   // sprite layout of the last paint
     FSelA, FSelB: Integer;  // text column selection: anchor and end (-1 = none)
     FDragging: Boolean;
+    FSearchText: string;    // the search: text, or hex bytes
+    FSearchHex, FSearchCase: Boolean;
     FReadItem, FWriteItem, FCopyTextItem, FCopyItem, FPasteItem: TMenuItem;
     procedure SetXor(Value: Byte);
     function HasSel: Boolean;
@@ -182,6 +190,7 @@ type
     function CopyRange(out First, Last: Integer): Boolean;
     procedure MenuPaste(Sender: TObject);
     procedure PasteAt(Addr: Word);
+    procedure MenuSearch(Sender: TObject);
     procedure MenuGoTo(Sender: TObject);
     procedure MenuWatch(Sender: TObject);
     procedure MenuSprites(Sender: TObject);
@@ -209,6 +218,9 @@ type
     { Escape: drop the typing position or the selection; False if there
       was neither (Escape then closes the window) }
     function CancelTyping: Boolean;
+    { Ask for text or hex bytes and find them (selected); F3: the next }
+    procedure Search;
+    procedure SearchNext;
     { Bytes on screen, from TopAddr }
     function VisibleBytes: Integer;
     property TopAddr: Word read FTop;
@@ -337,6 +349,7 @@ type
     procedure DoGoTo(Sender: TObject);
     procedure DoAddWatch(Sender: TObject);
     procedure DoUnoRegs(Sender: TObject);
+    procedure DoZ80Opcodes(Sender: TObject);
     function MakeColumn(AParent: TWinControl; const ACaption: string; AWidth: Integer;
       AAlign: TAlign): TPanel;
     procedure FormResize(Sender: TObject);
@@ -494,6 +507,7 @@ const
   MENU_ENABLE = 103;
   MENU_PORT = 104;
   MENU_EXPORTASM = 105;
+  MENU_SEARCH = 106;
 
   CLICKABLE = [skRegister, skMemWord, skMemByte, skMemXorByte, skAscii, skFlag, skIFF, skIM,
     skSlot3, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper];
@@ -928,6 +942,7 @@ begin
   inherited CreateView(AOwner);
   FPopup := TPopupMenu.Create(Self);
   AddItem('Go to address...  (Ctrl+G)', MENU_GOTO);
+  AddItem('Search...  (Ctrl+F, F3: next)', MENU_SEARCH);
   AddItem('Export as assembler (.asm, sjasmplus)...', MENU_EXPORTASM);
   AddItem('-', -1);
   AddItem('Toggle breakpoint  (Space)', MENU_TOGGLE);
@@ -1035,6 +1050,67 @@ begin
   Invalidate;
 end;
 
+function TDisasmView.LineText(Addr: Word; out Len: Integer): string;
+var
+  Instr, Lbl: string;
+  Operand, J: Integer;
+  Kind: TOperandKind;
+begin
+  Instr := DisassembleEx(Addr, @FOwnerWin.Peek, Len, Operand, Kind);
+  // Labels as DrawInstruction shows them
+  if Operand >= 0 then
+  begin
+    if Kind = okImmediate then Lbl := UserSymbols.Lookup(Operand)
+    else Lbl := FOwnerWin.SymbolFor(Operand);
+    if Lbl <> '' then Instr := StringReplace(Instr, '$' + IntToHex(Operand, 4), Lbl, []);
+  end;
+  Result := FOwnerWin.SymbolFor(Addr) + ' ' + IntToHex(Addr, 4) + ' ';
+  for J := 0 to Min(Len, 4) - 1 do Result := Result + IntToHex(FOwnerWin.Peek(Word(Addr + J)), 2) + ' ';
+  Result := Result + Instr;
+end;
+
+procedure TDisasmView.Search;
+var
+  S: string;
+begin
+  S := FSearch;
+  if not InputQuery('Search the disassembly', 'Text to find (addresses, bytes, labels, ' +
+    'instructions; F3 finds the next one):', S) or (Trim(S) = '') then Exit;
+  FSearch := Trim(S);
+  SearchNext;
+end;
+
+{ From the instruction after the selected one, round the whole memory }
+procedure TDisasmView.SearchNext;
+var
+  A, Len, Done: Integer;
+  Want: string;
+begin
+  if FSearch = '' then
+  begin
+    Search;
+    Exit;
+  end;
+  Want := UpperCase(FSearch);
+  LineText(FSel, Len);
+  A := FSel + Len;
+  Done := Len;
+  while Done <= $10000 do
+  begin
+    if A > $FFFF then A := 0;
+    if Pos(Want, UpperCase(LineText(A, Len))) > 0 then
+    begin
+      GoToAddr(A);
+      FOwnerWin.ShowNotice(Format('Found "%s" at %.4X (F3: next)', [FSearch, A]));
+      Exit;
+    end;
+    Inc(A, Len);
+    Inc(Done, Len);
+  end;
+  Beep;
+  FOwnerWin.ShowNotice(Format('"%s" is not in the disassembly', [FSearch]));
+end;
+
 procedure TDisasmView.GoToAddr(Addr: Word);
 begin
   JumpTo(Addr, Addr);
@@ -1096,7 +1172,7 @@ end;
   its value in brackets in grey. Returns the X after the text. }
 function TDisasmView.DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean): Integer;
 var
-  Instr, Mnem, Tok, Lbl, Help: string;
+  Instr, Mnem, Tok, Lbl, Help, Undoc: string;
   Len, Operand, P, Start, V: Integer;
   Kind: TOperandKind;
   TextColor: TColor;
@@ -1106,6 +1182,13 @@ begin
   Instr := DisassembleEx(Addr, @FOwnerWin.Peek, Len, Operand, Kind);
   Help := InstructionHelp(Instr);
   if Help <> '' then Help := Help + LineEnding + 'T-States: ' + InstructionTStates(Addr, @FOwnerWin.Peek);
+  // Undocumented: said in the hint, and the mnemonic in bold dark red
+  Undoc := UndocumentedNote(Addr, @FOwnerWin.Peek);
+  if Undoc <> '' then
+  begin
+    if Help = '' then Help := Instr;
+    Help := Help + LineEnding + 'Undocumented: ' + Undoc;
+  end;
   Lbl := '';
   if Operand >= 0 then
   begin
@@ -1124,7 +1207,9 @@ begin
   Mnem := Copy(Instr, 1, P - 1);
   // Over the mnemonic: what the instruction does
   if Help <> '' then AddSpot(X, Y - 1, Length(Mnem), skDoc, 0, 0, 0, Help);
-  X := DrawText(X, Y, Mnem, MnemonicColor(OnBreak), False);
+  if Undoc = '' then X := DrawText(X, Y, Mnem, MnemonicColor(OnBreak), False)
+  else if OnBreak then X := DrawText(X, Y, Mnem, RGBToColor(255, 225, 120), True)
+  else X := DrawText(X, Y, Mnem, RGBToColor(150, 0, 0), True);
   IsFlow := (Mnem = 'JP') or (Mnem = 'JR') or (Mnem = 'CALL') or (Mnem = 'RET');
   FirstOperand := True;
   if P <= Length(Instr) then X := DrawText(X, Y, ' ', TextColor, False);
@@ -1316,6 +1401,7 @@ begin
         if FOwnerWin.AskAddress(A) then GoToAddr(A);
       end;
     MENU_EXPORTASM: FOwnerWin.ExportAssembler(FTop);
+    MENU_SEARCH: Search;
     MENU_TOGGLE:
       begin
         FSel := FMenuAddr;
@@ -1368,6 +1454,12 @@ begin
       begin
         A := FTop;
         if FOwnerWin.AskAddress(A) then GoToAddr(A);
+        Key := 0;
+      end;
+    VK_F:
+      if ssCtrl in Shift then
+      begin
+        Search;
         Key := 0;
       end;
     VK_DOWN:
@@ -1513,6 +1605,11 @@ begin
   FPasteItem.OnClick := @MenuPaste;
   FMenu.Items.Add(FPasteItem);
   Item := TMenuItem.Create(FMenu);
+  Item.Caption := 'Search...  (Ctrl+F, F3: next)';
+  Item.Hint := 'Find text, or bytes in hex, as the zone shows them (with the XOR)';
+  Item.OnClick := @MenuSearch;
+  FMenu.Items.Add(Item);
+  Item := TMenuItem.Create(FMenu);
   Item.Caption := '-';
   FMenu.Items.Add(Item);
   Item := TMenuItem.Create(FMenu);
@@ -1537,6 +1634,150 @@ begin
   FMenu.Items.Add(Item);
   FSpriteRowBytes := 8;
   FSpriteRows := 1;
+end;
+
+procedure THexView.MenuSearch(Sender: TObject);
+begin
+  Search;
+end;
+
+{ A small window: what to find, as text or as hex bytes ("3E 01" or "3E01") }
+procedure THexView.Search;
+var
+  Dlg: TForm;
+  Edit: TEdit;
+  TextRadio, HexRadio: TRadioButton;
+  CaseCheck: TCheckBox;
+  Lbl: TLabel;
+  Btn: TButton;
+begin
+  Dlg := TForm.CreateNew(Self, 0);
+  try
+    Dlg.Caption := 'Search the memory';
+    Dlg.BorderStyle := bsDialog;
+    Dlg.Position := poOwnerFormCenter;
+    Dlg.ClientWidth := 380;
+    Dlg.ClientHeight := 150;
+    Lbl := TLabel.Create(Dlg);
+    Lbl.Parent := Dlg;
+    Lbl.Caption := 'Find:';
+    Lbl.SetBounds(10, 14, 60, 18);
+    Edit := TEdit.Create(Dlg);
+    Edit.Parent := Dlg;
+    Edit.SetBounds(70, 10, 300, 24);
+    Edit.Text := FSearchText;
+    TextRadio := TRadioButton.Create(Dlg);
+    TextRadio.Parent := Dlg;
+    TextRadio.Caption := 'Text';
+    TextRadio.SetBounds(70, 44, 80, 22);
+    HexRadio := TRadioButton.Create(Dlg);
+    HexRadio.Parent := Dlg;
+    HexRadio.Caption := 'Bytes in hex (3E 01 or 3E01)';
+    HexRadio.SetBounds(160, 44, 210, 22);
+    TextRadio.Checked := not FSearchHex;
+    HexRadio.Checked := FSearchHex;
+    CaseCheck := TCheckBox.Create(Dlg);
+    CaseCheck.Parent := Dlg;
+    CaseCheck.Caption := 'Match case (text)';
+    CaseCheck.SetBounds(70, 72, 200, 22);
+    CaseCheck.Checked := FSearchCase;
+    Btn := TButton.Create(Dlg);
+    Btn.Parent := Dlg;
+    Btn.Caption := 'Find';
+    Btn.Default := True;
+    Btn.ModalResult := mrOk;
+    Btn.SetBounds(200, 112, 80, 28);
+    Btn := TButton.Create(Dlg);
+    Btn.Parent := Dlg;
+    Btn.Caption := 'Cancel';
+    Btn.Cancel := True;
+    Btn.ModalResult := mrCancel;
+    Btn.SetBounds(290, 112, 80, 28);
+    Dlg.ActiveControl := Edit;
+    if (Dlg.ShowModal <> mrOk) or (Edit.Text = '') then Exit;
+    FSearchText := Edit.Text;
+    FSearchHex := HexRadio.Checked;
+    FSearchCase := CaseCheck.Checked;
+  finally
+    Dlg.Free;
+  end;
+  SearchNext;
+end;
+
+{ From the byte after the selection (or the first one shown), round the
+  whole memory; the bytes found are selected }
+procedure THexView.SearchNext;
+var
+  Want: array of Byte;
+  S: string;
+  I, N, Start, A: Integer;
+  V: Byte;
+  Ok: Boolean;
+begin
+  if FSearchText = '' then
+  begin
+    Search;
+    Exit;
+  end;
+  if FSearchHex then
+  begin
+    S := StringReplace(StringReplace(FSearchText, ' ', '', [rfReplaceAll]), '$', '', [rfReplaceAll]);
+    if Odd(Length(S)) or (S = '') then
+    begin
+      MessageDlg('The bytes must be pairs of hex digits: 3E 01 or 3E01.', mtError, [mbOK], 0);
+      Exit;
+    end;
+    SetLength(Want, Length(S) div 2);
+    for I := 0 to High(Want) do
+    begin
+      N := StrToIntDef('$' + Copy(S, I * 2 + 1, 2), -1);
+      if N < 0 then
+      begin
+        MessageDlg('"' + Copy(S, I * 2 + 1, 2) + '" is not a hex byte.', mtError, [mbOK], 0);
+        Exit;
+      end;
+      Want[I] := N;
+    end;
+  end
+  else
+  begin
+    S := FSearchText;
+    if not FSearchCase then S := UpperCase(S);
+    SetLength(Want, Length(S));
+    for I := 1 to Length(S) do Want[I - 1] := Ord(S[I]);
+  end;
+  if HasSel then Start := SelFirst + 1
+  else if FTextCursor >= 0 then Start := FTextCursor
+  else Start := FTop;
+  for N := 0 to $FFFF do
+  begin
+    A := (Start + N) and $FFFF;
+    Ok := True;
+    for I := 0 to High(Want) do
+    begin
+      // What the zone shows: the byte with the XOR
+      V := FOwnerWin.Peek(Word(A + I)) xor FXor;
+      if not FSearchHex and not FSearchCase and (V in [Ord('a')..Ord('z')]) then Dec(V, 32);
+      if V <> Want[I] then
+      begin
+        Ok := False;
+        Break;
+      end;
+    end;
+    if Ok then
+    begin
+      FSelA := A;
+      FSelB := Min($FFFF, A + High(Want));
+      FTextCursor := -1;
+      // On screen, if it isn't
+      if Word(A - FTop) >= VisibleBytes then FTop := Word(A and not (HEX_BYTES - 1));
+      Invalidate;
+      FOwnerWin.ShowNotice(Format('Found at %.4X (F3: next)', [A]));
+      Exit;
+    end;
+  end;
+  Beep;
+  FOwnerWin.ShowNotice('Not found in memory');
 end;
 
 function THexView.CancelTyping: Boolean;
@@ -2000,6 +2241,11 @@ begin
   inherited KeyDown(Key, Shift);
   if ssCtrl in Shift then
     case Key of
+      VK_F:
+        begin
+          Search;
+          Key := 0;
+        end;
       VK_C:
         begin
           FMenuAddr := FTextCursor;
@@ -2840,6 +3086,8 @@ begin
   AddButton(ikGoTo, 'Go to address (Ctrl+G)', @DoGoTo);
   AddButton(ikWatch, 'Add a watch', @DoAddWatch);
   FUnoButton := AddButton(ikChip, 'ZXUno Regs: the ZX-Uno''s registers', @DoUnoRegs);
+  AddSeparator;
+  AddButton(ikZ80, 'Z80: the instruction set, as tables of opcodes', @DoZ80Opcodes);
 
   // Data zone (bottom third): memory (just as wide as its contents) |
   // breakpoints | watches, the last two sharing the rest
@@ -4187,6 +4435,11 @@ begin
   FUnoRegs.BringToFront;
 end;
 
+procedure TDebuggerWindow.DoZ80Opcodes(Sender: TObject);
+begin
+  ShowZ80Opcodes;
+end;
+
 procedure TDebuggerWindow.DoAddWatch(Sender: TObject);
 begin
   AddWatch;
@@ -4209,6 +4462,14 @@ begin
     if FDisasm.Editing or FHex.Editing or FRegView.Editing or FWatchView.Editing or
        FBreakView.Editing then Exit;
     if not FHex.CancelTyping then Close;
+    Key := 0;
+    Exit;
+  end;
+  // F3: the next match in the zone with the focus
+  if Key = VK_F3 then
+  begin
+    if FHex.Focused then FHex.SearchNext
+    else if FDisasm.Focused then FDisasm.SearchNext;
     Key := 0;
     Exit;
   end;

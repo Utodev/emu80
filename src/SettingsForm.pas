@@ -34,14 +34,14 @@ type
     FFloppyNoise, FSaveOnExit: TCheckBox;
     FFirmwareBrowse: TButton;
     FUnoFirmware, FUnoRoms, FUnoCustom: TEdit;   // ZX-Uno BIOS, ROMs and custom ROM files
-    FJoystick, FIssue, FShiftKeys: TComboBox;
+    FJoystick: TComboBox;
+    FIssue2, FIssue3, FShiftNormal, FShiftSides: TRadioButton;
     FVolume, FSpeed: TTrackBar;
     FScale: TComboBox;
     FRomModel: TComboBox;
     FRomLabels: array[0..3] of TLabel;
     FRomEdits: array[0..3] of TEdit;
     FRomBrowse: array[0..3] of TButton;
-    FRomNote: TLabel;
     FRomFiles: array[TSpectrumModel, 0..3] of string;   // being edited
     FShownRomModel: Integer;
     FOwn: array[0..3] of Boolean;   // DivMMC, Timex, Radastan, ULAplus as set (not forced)
@@ -52,6 +52,11 @@ type
     { A short explanation in grey under an option }
     function AddNote(Page: TWinControl; const AText: string; ATop: Integer): TLabel;
     function AddCombo(Page: TWinControl; ATop, AWidth: Integer): TComboBox;
+    { A box with a title around a section of a page }
+    function AddGroup(Page: TWinControl; const ACaption: string; ATop, AHeight: Integer): TGroupBox;
+    { Radio buttons that are one choice go on a panel of their own }
+    function AddRadioPanel(Group: TWinControl; ATop, AHeight: Integer): TPanel;
+    function AddRadio(Panel: TWinControl; const ACaption: string; ALeft, ATop: Integer): TRadioButton;
     procedure DoBrowse(Sender: TObject);
     procedure DoFirmwareBrowse(Sender: TObject);
     procedure DoUnoBrowse(Sender: TObject);
@@ -88,7 +93,8 @@ var
   S, Y, I: Integer;
   J: TJoystickKeys;
   Page: TTabSheet;
-  Bevel: TBevel;
+  Group: TGroupBox;
+  Panel: TPanel;
 begin
   inherited CreateNew(AOwner, 0);
   Caption := 'Settings';
@@ -154,137 +160,140 @@ begin
   AddNote(Page, 'Off: changes made while running (window size, model, recent files...) ' +
     'are forgotten; OK in this dialog still saves.', Y + 22);
 
-  // Machine and input
-  Page := AddPage('Machine');
-  Y := 14;
-  FContention := AddCheck(Page, 'Contended memory and I/O (real timing)', Y);
-  Inc(Y, 28);
-  FSnow := AddCheck(Page, 'ULA snow (16K, 48K, 128K and +2)', Y);
-  Inc(Y, 28);
-  FRomEdit := AddCheck(Page, 'Allow changing the ROM from the debugger and with POKE', Y);
-  Inc(Y, 28);
-  FULAPlus := AddCheck(Page, 'ULAplus (64-colour palette)', Y);
-  Inc(Y, 28);
-  FTimex := AddCheck(Page, 'Timex screen modes (second screen, hi-colour, 512x192 hi-res)', Y);
-  Inc(Y, 28);
-  FRadastan := AddCheck(Page, 'Radastan mode (ZX-Uno: 128x96, 16 colours)', Y);
-  Inc(Y, 28);
-  FScanlines := AddCheck(Page, 'Scanlines (window size 2x or more)', Y);
-  Inc(Y, 40);
-  AddLabel(Page, 'Joystick (cursors + Ctrl):', Y + 4);
-  FJoystick := AddCombo(Page, Y, 270);
-  for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
-  Inc(Y, 36);
-  AddLabel(Page, 'Keyboard (16K/48K):', Y + 4);
-  FIssue := AddCombo(Page, Y, 270);
-  FIssue.Items.Add('Issue 2');
-  FIssue.Items.Add('Issue 3');
-  Inc(Y, 36);
-  AddLabel(Page, 'Shift keys:', Y + 4);
-  FShiftKeys := AddCombo(Page, Y, 270);
-  FShiftKeys.Items.Add('Shift = CAPS SHIFT, Ctrl = SYMBOL');
-  FShiftKeys.Items.Add('Left = CAPS SHIFT, right = SYMBOL');
-  FShiftKeys.Hint := 'Second option: left Shift and left Ctrl are CAPS SHIFT, right Shift and ' +
-    'right Ctrl SYMBOL SHIFT';
-  FShiftKeys.ShowHint := True;
-
   // Hardware connected to the machine
   Page := AddPage('Hardware');
   Y := 14;
   FTurboSound := AddCheck(Page, 'TurboSound', Y);
-  AddNote(Page, 'Two AY sound chips on the 128K and later models.', Y + 22);
-  Inc(Y, 50);
+  FTurboSound.Hint := 'Two AY sound chips on the 128K and later models';
+  Inc(Y, 28);
   FAY48 := AddCheck(Page, 'AY sound chip on the 16K and 48K', Y);
-  AddNote(Page, 'An AY interface at the 128K''s ports (FFFD and BFFD).', Y + 22);
-  Inc(Y, 50);
+  FAY48.Hint := 'An AY interface at the 128K''s ports (FFFD and BFFD)';
+  Inc(Y, 28);
   FMouse := AddCheck(Page, 'Kempston mouse', Y);
-  AddNote(Page, 'Moved with the PC mouse over the picture.', Y + 22);
-  Inc(Y, 50);
+  FMouse.Hint := 'Moved with the PC mouse over the picture';
+  Inc(Y, 28);
   FDivMMC := AddCheck(Page, 'DivMMC interface', Y);
-  AddNote(Page, 'SD card with the esxDOS firmware (see the SD menu). Changing it ' +
-    'switches the machine off and on.', Y + 22);
+  FDivMMC.Hint := 'SD card with the esxDOS firmware (see the SD menu); changing it switches ' +
+    'the machine off and on';
 
-  // Tape and disk
-  Page := AddPage('Tape && disk');
-  Y := 14;
-  FFastLoad := AddCheck(Page, 'Fast tape loading', Y);
+  // Tapes and disks
+  Page := AddPage('Storage');
+  Group := AddGroup(Page, 'Tape', 8, 116);
+  Y := 8;
+  FFastLoad := AddCheck(Group, 'Fast tape loading', Y);
   Inc(Y, 28);
-  FAutoPlay := AddCheck(Page, 'Start the tape automatically when the ROM loads (real-time mode)', Y);
+  FAutoPlay := AddCheck(Group, 'Start the tape automatically when the ROM loads (real-time mode)', Y);
   Inc(Y, 28);
-  FSaveToTape := AddCheck(Page, 'SAVE writes the blocks to the tape', Y);
+  FSaveToTape := AddCheck(Group, 'SAVE writes the blocks to the tape', Y);
+  Group := AddGroup(Page, 'Floppy', 136, 116);
+  Y := 8;
+  FFastDisk := AddCheck(Group, 'Fast floppy disk access (no real drive timing)', Y);
   Inc(Y, 28);
-  FFastDisk := AddCheck(Page, 'Fast floppy disk access (no real drive timing)', Y);
+  FDriveB := AddCheck(Group, 'Drive B: connected (+3)', Y);
   Inc(Y, 28);
-  FDriveB := AddCheck(Page, 'Drive B: connected (+3)', Y);
-  Inc(Y, 28);
-  FFloppyNoise := AddCheck(Page, 'Emulate floppy drive noise', Y);
-  AddNote(Page, 'Motor, head steps and reading, when the drive works at real speed.', Y + 22);
+  FFloppyNoise := AddCheck(Group, 'Emulate floppy drive noise', Y);
+  FFloppyNoise.Hint := 'Motor, head steps and reading, when the drive works at real speed';
 
-  // ROMs
+  // ROMs: the machine's, the DivMMC's and the ZX-Uno's (an empty file is
+  // the standard one)
   Page := AddPage('ROMs');
-  Y := 14;
-  AddLabel(Page, 'Standard ROM folder:', Y + 4);
+  Group := AddGroup(Page, 'ROMs', 8, 248);
+  Y := 8;
+  AddLabel(Group, 'Standard ROM folder:', Y + 4);
   FRomDir := TEdit.Create(Self);
-  FRomDir.Parent := Page;
-  FRomDir.SetBounds(180, Y, 190, 24);
+  FRomDir.Parent := Group;
+  FRomDir.SetBounds(170, Y, 190, 24);
   FBrowse := TButton.Create(Self);
-  FBrowse.Parent := Page;
+  FBrowse.Parent := Group;
   FBrowse.Caption := 'Browse...';
-  FBrowse.SetBounds(376, Y, 80, 25);
+  FBrowse.SetBounds(366, Y, 80, 25);
   FBrowse.OnClick := @DoBrowse;
-  Inc(Y, 44);
-  AddLabel(Page, 'ROM files for:', Y + 4);
-  FRomModel := AddCombo(Page, Y, 276);
+  Inc(Y, 40);
+  AddLabel(Group, 'ROM files for:', Y + 4);
+  FRomModel := AddCombo(Group, Y, 276);
+  FRomModel.Left := 170;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do FRomModel.Items.Add(ModelInfo[M].Name);
   FRomModel.OnChange := @DoRomModel;
   Inc(Y, 36);
   for I := 0 to 3 do
   begin
-    FRomLabels[I] := AddLabel(Page, '', Y + 4);
+    FRomLabels[I] := AddLabel(Group, '', Y + 4);
     FRomEdits[I] := TEdit.Create(Self);
-    FRomEdits[I].Parent := Page;
-    FRomEdits[I].SetBounds(180, Y, 190, 24);
+    FRomEdits[I].Parent := Group;
+    FRomEdits[I].SetBounds(170, Y, 190, 24);
+    FRomEdits[I].Hint := 'Labels for a ROM are read from a .sym file next to it';
+    FRomEdits[I].ShowHint := True;
     FRomBrowse[I] := TButton.Create(Self);
-    FRomBrowse[I].Parent := Page;
+    FRomBrowse[I].Parent := Group;
     FRomBrowse[I].Caption := 'Browse...';
     FRomBrowse[I].Tag := I;
-    FRomBrowse[I].SetBounds(376, Y, 80, 25);
+    FRomBrowse[I].SetBounds(366, Y, 80, 25);
     FRomBrowse[I].OnClick := @DoRomBrowse;
     Inc(Y, 32);
   end;
-  // Placed under the ROMs the model has (see ShowRomEdits)
-  FRomNote := AddLabel(Page, 'Leave a file empty to use the standard ROM from the folder above. ' +
-    'Labels for a ROM are read from a .sym file next to it.', Y + 6);
-  FRomNote.AutoSize := False;
-  FRomNote.WordWrap := True;
-  FRomNote.SetBounds(16, Y + 6, 440, 40);
-  FRomNote.Font.Color := clGrayText;
-  // The DivMMC's firmware, apart from the machine's ROMs
-  Inc(Y, 56);
-  Bevel := TBevel.Create(Self);
-  Bevel.Parent := Page;
-  Bevel.Shape := bsTopLine;
-  Bevel.SetBounds(16, Y, 440, 4);
-  Inc(Y, 10);
-  AddLabel(Page, 'DivMMC firmware:', Y + 4);
+  Group := AddGroup(Page, 'DivMMC', 266, 64);
+  Y := 8;
+  AddLabel(Group, 'Firmware:', Y + 4);
   FFirmware := TEdit.Create(Self);
-  FFirmware.Parent := Page;
-  FFirmware.SetBounds(180, Y, 190, 24);
+  FFirmware.Parent := Group;
+  FFirmware.SetBounds(170, Y, 190, 24);
   FFirmware.TextHint := 'esxdos/ESXMMC.BIN (bundled)';
+  FFirmware.Hint := 'An 8K EEPROM image';
+  FFirmware.ShowHint := True;
   FFirmwareBrowse := TButton.Create(Self);
-  FFirmwareBrowse.Parent := Page;
+  FFirmwareBrowse.Parent := Group;
   FFirmwareBrowse.Caption := 'Browse...';
-  FFirmwareBrowse.SetBounds(376, Y, 80, 25);
+  FFirmwareBrowse.SetBounds(366, Y, 80, 25);
   FFirmwareBrowse.OnClick := @DoFirmwareBrowse;
-  AddNote(Page, 'Empty: esxDOS 0.8.9, which comes with pzx. An 8K EEPROM image.', Y + 30);
-  Inc(Y, 66);
-  FUnoFirmware := AddFileRow(Page, 'ZX-Uno BIOS:', 'zxuno/FIRMWARE.ZX1', Y, 1);
+  Group := AddGroup(Page, 'ZX-Uno', 340, 128);
+  Y := 8;
+  FUnoFirmware := AddFileRow(Group, 'BIOS:', 'zxuno/FIRMWARE.ZX1', Y, 1);
   Inc(Y, 32);
-  FUnoRoms := AddFileRow(Page, 'ZX-Uno ROMs:', 'zxuno/ROMS.ZX1', Y, 2);
+  FUnoRoms := AddFileRow(Group, 'ROMs:', 'zxuno/ROMS.ZX1', Y, 2);
   Inc(Y, 32);
-  FUnoCustom := AddFileRow(Page, 'ZX-Uno custom ROM:', 'none', Y, 3);
-  AddNote(Page, 'Empty: the ones in the zxuno folder. A custom ROM (16K) runs as a 48K ' +
-    'instead of the BIOS''s choice. Changes switch the ZX-Uno off and on.', Y + 30);
+  FUnoCustom := AddFileRow(Group, 'Custom ROM:', 'none', Y, 3);
+  FUnoCustom.Hint := 'A 16K ROM that runs as a 48K instead of the BIOS''s choice; changes ' +
+    'switch the ZX-Uno off and on';
+  FUnoCustom.ShowHint := True;
+
+  // The rest of the machine, last
+  Page := AddPage('Miscellaneous');
+  Group := AddGroup(Page, 'Graphics', 8, 136);
+  Y := 8;
+  FULAPlus := AddCheck(Group, 'ULAplus (64-colour palette)', Y);
+  Inc(Y, 28);
+  FScanlines := AddCheck(Group, 'Scanlines (window size 2x or more)', Y);
+  Inc(Y, 28);
+  FTimex := AddCheck(Group, 'Timex screen modes (second screen, hi-colour, 512x192 hi-res)', Y);
+  Inc(Y, 28);
+  FRadastan := AddCheck(Group, 'Radastan mode', Y);
+  Group := AddGroup(Page, 'Controls', 152, 168);
+  Y := 8;
+  AddLabel(Group, 'Keyboard (16K/48K):', Y);
+  Panel := AddRadioPanel(Group, Y - 2, 26);
+  FIssue2 := AddRadio(Panel, 'Issue 2', 0, 0);
+  FIssue3 := AddRadio(Panel, 'Issue 3', 100, 0);
+  Inc(Y, 30);
+  AddLabel(Group, 'Shift keys:', Y);
+  Panel := AddRadioPanel(Group, Y - 2, 52);
+  FShiftNormal := AddRadio(Panel, 'Shift = CAPS SHIFT, Ctrl = SYMBOL', 0, 0);
+  FShiftSides := AddRadio(Panel, 'Left = CAPS SHIFT, right = SYMBOL', 0, 26);
+  FShiftSides.Hint := 'Left Shift and left Ctrl are CAPS SHIFT, right Shift and right Ctrl ' +
+    'SYMBOL SHIFT';
+  FShiftSides.ShowHint := True;
+  Inc(Y, 62);
+  AddLabel(Group, 'Joystick (cursors + Ctrl):', Y + 4);
+  FJoystick := AddCombo(Group, Y, 270);
+  FJoystick.Left := 170;
+  for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
+  Group := AddGroup(Page, 'Core features', 328, 116);
+  Y := 8;
+  FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
+  Inc(Y, 28);
+  FSnow := AddCheck(Group, 'ULA snow (16K, 48K, 128K and +2)', Y);
+  Inc(Y, 28);
+  FRomEdit := AddCheck(Group, 'Allow writing to ROM', Y);
+  FRomEdit.Hint := 'From the debugger and with POKE';
   FShownRomModel := -1;
 end;
 
@@ -310,6 +319,7 @@ begin
   Result.Caption := ACaption;
   Result.Left := 16;
   Result.Top := ATop;
+  Result.ShowHint := True;
 end;
 
 function TSettingsDialog.AddNote(Page: TWinControl; const AText: string; ATop: Integer): TLabel;
@@ -321,6 +331,33 @@ begin
   Result.AutoSize := False;
   Result.WordWrap := True;
   Result.SetBounds(36, ATop, 430, 34);
+end;
+
+function TSettingsDialog.AddGroup(Page: TWinControl; const ACaption: string;
+  ATop, AHeight: Integer): TGroupBox;
+begin
+  Result := TGroupBox.Create(Self);
+  Result.Parent := Page;
+  Result.Caption := ACaption;
+  Result.SetBounds(8, ATop, 468, AHeight);
+end;
+
+function TSettingsDialog.AddRadioPanel(Group: TWinControl; ATop, AHeight: Integer): TPanel;
+begin
+  Result := TPanel.Create(Self);
+  Result.Parent := Group;
+  Result.BevelOuter := bvNone;
+  Result.SetBounds(170, ATop, 290, AHeight);
+end;
+
+function TSettingsDialog.AddRadio(Panel: TWinControl; const ACaption: string;
+  ALeft, ATop: Integer): TRadioButton;
+begin
+  Result := TRadioButton.Create(Self);
+  Result.Parent := Panel;
+  Result.Caption := ACaption;
+  Result.Left := ALeft;
+  Result.Top := ATop;
 end;
 
 function TSettingsDialog.AddCombo(Page: TWinControl; ATop, AWidth: Integer): TComboBox;
@@ -373,12 +410,12 @@ begin
   AddLabel(Page, ACaption, ATop + 4);
   Result := TEdit.Create(Self);
   Result.Parent := Page;
-  Result.SetBounds(180, ATop, 190, 24);
+  Result.SetBounds(170, ATop, 190, 24);
   Result.TextHint := AHint;
   B := TButton.Create(Self);
   B.Parent := Page;
   B.Caption := 'Browse...';
-  B.SetBounds(376, ATop, 80, 25);
+  B.SetBounds(366, ATop, 80, 25);
   B.Tag := ATag;
   B.OnClick := @DoUnoBrowse;
 end;
@@ -444,7 +481,6 @@ begin
     FRomEdits[I].Text := FRomFiles[M, I];
     FRomEdits[I].TextHint := ModelInfo[M].RomFiles[I];
   end;
-  FRomNote.Top := FRomEdits[0].Top + ModelInfo[M].RomCount * 32 + 4;
 end;
 
 procedure TSettingsDialog.DoRomModel(Sender: TObject);
@@ -512,8 +548,10 @@ begin
   FFloppyNoise.Checked := S.FloppyNoise;
   FSaveOnExit.Checked := S.SaveOnExit;
   FJoystick.ItemIndex := Ord(S.Joystick);
-  if S.Issue2 then FIssue.ItemIndex := 0 else FIssue.ItemIndex := 1;
-  FShiftKeys.ItemIndex := Ord(S.ShiftSides);
+  FIssue2.Checked := S.Issue2;
+  FIssue3.Checked := not S.Issue2;
+  FShiftSides.Checked := S.ShiftSides;
+  FShiftNormal.Checked := not S.ShiftSides;
   FSound.Checked := not S.Sound;
   FTurboSound.Checked := S.TurboSound;
   FMonochrome.Checked := S.Monochrome;
@@ -562,8 +600,8 @@ begin
   S.FloppyNoise := FFloppyNoise.Checked;
   S.SaveOnExit := FSaveOnExit.Checked;
   S.Joystick := TJoystickKeys(FJoystick.ItemIndex);
-  S.Issue2 := FIssue.ItemIndex = 0;
-  S.ShiftSides := FShiftKeys.ItemIndex = 1;
+  S.Issue2 := FIssue2.Checked;
+  S.ShiftSides := FShiftSides.Checked;
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
   S.Monochrome := FMonochrome.Checked;

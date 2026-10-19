@@ -61,6 +61,19 @@ begin
   end;
 end;
 
+procedure CheckUndoc(const Bytes: array of Byte; Want: Boolean);
+var
+  I: Integer;
+begin
+  FillChar(Mem.Bytes, SizeOf(Mem.Bytes), 0);
+  for I := 0 to High(Bytes) do Mem.Bytes[I] := Bytes[I];
+  if (UndocumentedNote(0, @Mem.Peek) <> '') <> Want then
+  begin
+    WriteLn('FAIL  undocumented ', Disassemble(0, @Mem.Peek, I), ': ', Want);
+    Inc(Failures);
+  end;
+end;
+
 var
   Op, Op2: Integer;
   Name: string;
@@ -86,6 +99,20 @@ begin
   CheckText('ADD A,B', 'Flags: S, Z, H, P/V (overflow) and C set by the result; N reset');
   CheckText('RLC (IX+$05),B', 'also copied to B');
   CheckText('LD A,I', 'P/V = IFF2');
+  CheckUndoc([$CB, $30], True);          // SLL B
+  CheckUndoc([$CB, $20], False);         // SLA B
+  CheckUndoc([$ED, $44], False);         // NEG
+  CheckUndoc([$ED, $4C], True);          // NEG duplicate
+  CheckUndoc([$ED, $63], False);         // LD (nn),HL: listed officially
+  CheckUndoc([$ED, $70], True);          // IN F,(C)
+  CheckUndoc([$ED, $00], True);          // does nothing
+  CheckUndoc([$DD, $21], False);         // LD IX,nn
+  CheckUndoc([$DD, $26], True);          // LD IXH,n
+  CheckUndoc([$DD, $00], True);          // the prefix does nothing
+  CheckUndoc([$DD, $CB, $05, $06], False);   // RLC (IX+5)
+  CheckUndoc([$DD, $CB, $05, $00], True);    // RLC (IX+5),B
+  CheckUndoc([$FD, $CB, $05, $46], False);   // BIT 0,(IY+5)
+  CheckUndoc([$FD, $CB, $05, $40], True);    // BIT duplicate
   CheckT([$00], '4');
   CheckT([$20, $05], '7 or 12');
   CheckT([$10, $05], '8 or 13');
@@ -99,25 +126,36 @@ begin
   CheckT([$ED, $57], '9');
   CheckT([$DD, $E9], '8');
   for Name in CONDACT_NAMES do
-    if CondactHelp(Name, False) = '' then
+    if CondactHelp(Name, aeDAAD) = '' then
     begin
       WriteLn('FAIL  no help for the DAAD condact ', Name);
       Inc(Failures);
     end;
   for Name in PAW_CONDACT_NAMES do
-    if CondactHelp(Name, True) = '' then
+    if CondactHelp(Name, aePAW) = '' then
     begin
       WriteLn('FAIL  no help for the PAW condact ', Name);
       Inc(Failures);
     end;
-  if Pos('PSI', CondactHelp('MOVE', True)) = 0 then
+  if Pos('I already have it', CondactHelp('GET', aeQuill)) = 0 then
   begin
-    WriteLn('FAIL  PAW MOVE: ', CondactHelp('MOVE', True));
+    WriteLn('FAIL  Quill GET: ', CondactHelp('GET', aeQuill));
     Inc(Failures);
   end;
-  if Pos('Succeeds if the current location is the same as locno', CondactHelp('AT', False)) = 0 then
+  for Name in PAW_CONDACT_NAMES do
+    if CondactHelp(Name, aeQuill) = '' then
+    begin
+      WriteLn('FAIL  no help for the Quill (PAW) condact ', Name);
+      Inc(Failures);
+    end;
+  if Pos('PSI', CondactHelp('MOVE', aePAW)) = 0 then
   begin
-    WriteLn('FAIL  AT: ', CondactHelp('AT', False));
+    WriteLn('FAIL  PAW MOVE: ', CondactHelp('MOVE', aePAW));
+    Inc(Failures);
+  end;
+  if Pos('Succeeds if the current location is the same as locno', CondactHelp('AT', aeDAAD)) = 0 then
+  begin
+    WriteLn('FAIL  AT: ', CondactHelp('AT', aeDAAD));
     Inc(Failures);
   end;
   Seen.Free;

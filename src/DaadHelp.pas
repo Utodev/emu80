@@ -1,6 +1,7 @@
-{ DaadHelp: what a condact does, for the DAAD/PAW debugger's hints: DAAD's
+{ DaadHelp: what a condact does, for the Adventure Debugger's hints: DAAD's
   from DaadHelp.inc (tools/make-daad-help.py), PAW's from PawHelp.inc
-  (tools/make-paw-help.py, from PAW's technical guide). }
+  (tools/make-paw-help.py, from PAW's technical guide), The Quill's from
+  QuillHelp.inc (tools/make-quill-help.py, from its manual). }
 unit DaadHelp;
 
 {$mode objfpc}{$H+}
@@ -8,15 +9,16 @@ unit DaadHelp;
 interface
 
 uses
-  SysUtils;
+  SysUtils, Daad;
 
 { The help for a condact by name ('' if there is none) }
-function CondactHelp(const Name: string; PAW: Boolean): string;
+function CondactHelp(const Name: string; Engine: TAdvEngine): string;
 
 implementation
 
 {$I DaadHelp.inc}
 {$I PawHelp.inc}
+{$I QuillHelp.inc}
 
 const
   { Condacts DAAD has but its documentation doesn't describe }
@@ -29,12 +31,16 @@ const
       'Calls machine code at that address of the database.',
     'Unused condact number: it does nothing.');
 
-function CondactHelp(const Name: string; PAW: Boolean): string;
+function CondactHelp(const Name: string; Engine: TAdvEngine): string;
 var
   I: Integer;
 begin
   Result := '';
-  if PAW then
+  // The Quill's manual describes its condacts; PAW's text for any other
+  if Engine = aeQuill then
+    for I := 0 to QUILL_HELP_COUNT - 1 do
+      if QUILL_HELP_NAMES[I] = Name then Exit(QUILL_HELP_TEXTS[I]);
+  if Engine in [aePAW, aeQuill] then
   begin
     for I := 0 to PAW_HELP_COUNT - 1 do
       if PAW_HELP_NAMES[I] = Name then Exit(PAW_HELP_TEXTS[I]);

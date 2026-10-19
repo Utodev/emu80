@@ -54,7 +54,7 @@ type
   { What stopped the emulation }
   TBreakKind = (bkNone, bkExec, bkMemory, bkPort, bkRunTo, bkDaad);
 
-  { DAAD debugger: where to stop next. dsNext: at the next condact; dsOver:
+  { Adventure Debugger: where to stop next. dsNext: at the next condact; dsOver:
     at the next one with SP at or above DaadSP (after a PROCESS returns) }
   TDaadStop = (dsNone, dsNext, dsOver);
 
@@ -397,7 +397,7 @@ type
     property Breakpoint[Addr: Word]: Byte read GetBreakpoint write SetBreakpoint;
     property PortBreakpoint[Port: Word]: Byte read GetPortBreakpoint write SetPortBreakpoint;
     property TempBreak: Integer read FTempBreak write FTempBreak;
-    { DAAD debugger: Map has DAAD_* flags for every address (the condacts of
+    { Adventure Debugger: Map has DAAD_* flags for every address (the condacts of
       the game's processes); while on, the interpreter's condact fetches are
       followed. Off with nil. }
     procedure SetDaadMap(Map: PByte);

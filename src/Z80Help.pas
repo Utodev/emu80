@@ -21,6 +21,10 @@ function InstructionTStates(Addr: Word; Peek: TPeekFunc): string;
 { What a flag of F means (Index 0 = S, bit 7 ... 7 = C, bit 0) }
 function FlagHelp(Index: Integer): string;
 
+{ '' if the instruction at Addr is documented; else what is undocumented
+  about it (as "The Undocumented Z80 Documented" by Sean Young tells) }
+function UndocumentedNote(Addr: Word; Peek: TPeekFunc): string;
+
 implementation
 
 const
@@ -588,6 +592,71 @@ begin
     T2 := TakenT(Op);
   end;
   if T2 > 0 then Result := Format('%d or %d', [T, T2]) else Result := IntToStr(T);
+end;
+
+function UndocumentedNote(Addr: Word; Peek: TPeekFunc): string;
+var
+  Op, Op2, Op4: Byte;
+  Text, Ix: string;
+  Len: Integer;
+begin
+  Result := '';
+  Op := Peek(Addr);
+  Op2 := Peek(Word(Addr + 1));
+  case Op of
+    $CB:
+      if Op2 in [$30..$37] then
+        Result := 'SLL (shift logical left) works like SLA, but sets bit 0 instead of resetting it.';
+    $ED:
+      case Op2 of
+        $4C, $54, $5C, $64, $6C, $74, $7C:
+          Result := 'A duplicate of NEG (ED 44).';
+        $55, $5D, $65, $6D, $75, $7D:
+          Result := 'A duplicate of RETN (ED 45): like every RETI/RETN, it copies IFF2 to IFF1.';
+        $4E, $66, $6E:
+          Result := 'A duplicate of IM 0.';
+        $76:
+          Result := 'A duplicate of IM 1.';
+        $7E:
+          Result := 'A duplicate of IM 2.';
+        $70:
+          Result := 'IN F,(C): reads the port in BC but doesn''t store the value; it only sets ' +
+            'the flags, like the other IN r,(C).';
+        $71:
+          Result := 'OUT (C),0: writes 0 to the port in BC.';
+        $40..$4B, $4D, $4F..$53, $56..$5B, $5E, $5F, $60..$63, $67..$6A, $6B, $6F, $72, $73,
+        $78..$7B, $A0..$A3, $A8..$AB, $B0..$B3, $B8..$BB:
+          Result := '';
+      else
+        Result := 'An ED instruction that doesn''t exist: it does nothing (as two NOPs).';
+      end;
+    $DD, $FD:
+      begin
+        if Op = $DD then Ix := 'IX' else Ix := 'IY';
+        if Op2 in [$DD, $ED, $FD] then
+          Exit(Format('A %.2X prefix followed by another prefix: it has no effect (only the ' +
+            'last DD or FD counts).', [Op]));
+        if Op2 = $CB then
+        begin
+          Op4 := Peek(Word(Addr + 3));
+          if (Op4 and 7) = 6 then Exit;
+          if Op4 in [$40..$7F] then
+            Result := Format('A duplicate of BIT n,(%s+d): the low bits of the opcode don''t ' +
+              'matter.', [Ix])
+          else
+            Result := Format('Also stores the result in a register (the low 3 bits of the ' +
+              'opcode say which): the byte at (%s+d) and the register both get it.', [Ix]);
+          Exit;
+        end;
+        Text := Disassemble(Addr, Peek, Len);
+        if Pos(Ix, Text) = 0 then
+          Result := Format('The %.2X prefix has no effect on this instruction (it doesn''t use ' +
+            'HL, H or L): it runs as without it, 4 T-states later.', [Op])
+        else if (Pos(Ix + 'H', Text) > 0) or (Pos(Ix + 'L', Text) > 0) then
+          Result := Format('%sH and %sL, the high and low bytes of %s, used as 8-bit registers ' +
+            '(where H and L would be).', [Ix, Ix, Ix]);
+      end;
+  end;
 end;
 
 function FlagHelp(Index: Integer): string;

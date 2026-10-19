@@ -1,6 +1,7 @@
-{ DaadForm: the DAAD/PAW debugger, a non-modal window that follows a DAAD
-  or PAW game condact by condact (PAW is DAAD's predecessor: the same
-  structures, its own condacts).
+{ DaadForm: the Adventure Debugger, a non-modal window that follows a DAAD,
+  PAW or Quill game condact by condact (PAW is DAAD's predecessor and The
+  Quill PAW's: much the same structures, their own condacts; The Quill's
+  flags are fewer, with the object locations right after them).
 
   The game's database (DDB, usually at 8400) says where every condact of every
   process is; the machine stops when the interpreter reads the opcode of
@@ -72,9 +73,11 @@ type
     FLines: array of Integer;   // condact index, or -1 - entry index for an entry's line
     FSel: Integer;              // selected line, -1 if none
     FMenu: TPopupMenu;
-    FEnabledItem, FRemoveItem: TMenuItem;
+    FEnabledItem, FRemoveItem, FToggleItem, FConditionItem: TMenuItem;
     FDefaultHint: string;
+    FSearch: string;            // the text searched last
     function SelCondact: Integer;
+    function LineText(L: Integer): string;
     procedure MenuClick(Sender: TObject);
     { The state of a condition (CondactState) as a tick, cross or "?" }
     procedure DrawState(X, Y, State: Integer);
@@ -91,6 +94,9 @@ type
     procedure Build;
     function LineOfCondact(C: Integer): Integer;
     procedure SelectCondact(C: Integer);
+    { Ask for a text and find it in the process; F3 finds the next one }
+    procedure Search;
+    procedure SearchNext;
   end;
 
   { The breakpoints }
@@ -160,6 +166,7 @@ type
     FToolbar: TToolBar;
     FRunButton, FBreakButton: TToolButton;
     FProcessBox: TComboBox;
+    FEngineLabel: TLabel;            // PAW, DAAD or Quill
     FAfterInput: TCheckBox;
     FCode: TDaadCodeView;
     FBreakView: TDaadBreakView;
@@ -243,7 +250,7 @@ type
 var
   DaadWindow: TDaadWindow;
 
-{ Open the DAAD debugger, stopping at the next condact. Says so and returns
+{ Open the Adventure Debugger, stopping at the next condact. Says so and returns
   False if there is no DAAD game in memory. }
 function ShowDaadDebugger(Emu: TEmulator): Boolean;
 
@@ -276,9 +283,9 @@ begin
   Result := DaadWindow.LoadGame;
   if not Result then
   begin
-    MessageDlg('DAAD/PAW debugger', 'There is no DAAD or PAW game in memory: no DAAD ' +
-      'database (DDB version 2 or 3, as made by DC 2.0 or later and DRC) nor a PAW one ' +
-      'was found.', mtInformation, [mbOK], 0);
+    MessageDlg('Adventure Debugger', 'There is no DAAD, PAW or Quill game in memory: no ' +
+      'DAAD database (DDB version 2 or 3, as made by DC 2.0 or later and DRC) nor a PAW or ' +
+      'Quill one was found.', mtInformation, [mbOK], 0);
     Exit;
   end;
   // Follow the interpreter (it may still be, for "stop after player
@@ -550,6 +557,7 @@ const
   MENU_REMOVE_ALL = 6;
   MENU_SAVE = 7;
   MENU_LOAD = 8;
+  MENU_SEARCH = 9;
 
 function AddMenuItem(Menu: TPopupMenu; const ACaption: string; ATag: Integer;
   AHandler: TNotifyEvent): TMenuItem;
@@ -566,10 +574,71 @@ begin
   inherited CreateView(AOwner);
   FSel := -1;
   FMenu := TPopupMenu.Create(Self);
-  AddMenuItem(FMenu, 'Toggle breakpoint  (Space)', MENU_TOGGLE, @MenuClick);
-  AddMenuItem(FMenu, 'Breakpoint with condition...', MENU_CONDITION, @MenuClick);
+  AddMenuItem(FMenu, 'Search...  (Ctrl+F, F3: next)', MENU_SEARCH, @MenuClick);
+  AddMenuItem(FMenu, '-', 0, nil);
+  FToggleItem := AddMenuItem(FMenu, 'Toggle breakpoint  (Space)', MENU_TOGGLE, @MenuClick);
+  FConditionItem := AddMenuItem(FMenu, 'Breakpoint with condition...', MENU_CONDITION, @MenuClick);
   FEnabledItem := AddMenuItem(FMenu, 'Enabled', MENU_ENABLE, @MenuClick);
   FRemoveItem := AddMenuItem(FMenu, 'Remove breakpoint', MENU_REMOVE, @MenuClick);
+end;
+
+{ A line as the view shows it: an entry's address, words and number; a
+  condact's address, the condact and the text it prints }
+function TDaadCodeView.LineText(L: Integer): string;
+var
+  G: TDaadGame;
+  E: Integer;
+begin
+  G := FOwnerWin.Game;
+  if FLines[L] < 0 then
+  begin
+    E := -1 - FLines[L];
+    Result := Format('%.4X > %s %s entry %d', [G.Entries[E].Header, G.VocWord(G.Entries[E].Verb, 0),
+      G.VocWord(G.Entries[E].Noun, 2), E - G.Processes[G.Entries[E].Process].FirstEntry]);
+  end
+  else
+    Result := Format('%.4X %s "%s"', [G.Condacts[FLines[L]].Addr, G.CondactText(G.Condacts[FLines[L]]),
+      G.CondactMessage(G.Condacts[FLines[L]])]);
+end;
+
+procedure TDaadCodeView.Search;
+var
+  S: string;
+begin
+  S := FSearch;
+  if not InputQuery('Search the process', 'Text to find (condacts, words, the texts they ' +
+    'print; F3 finds the next one):', S) or (Trim(S) = '') then Exit;
+  FSearch := Trim(S);
+  SearchNext;
+end;
+
+{ From the line after the selected one, round the process }
+procedure TDaadCodeView.SearchNext;
+var
+  I, L: Integer;
+  Want: string;
+begin
+  if FSearch = '' then
+  begin
+    Search;
+    Exit;
+  end;
+  if Length(FLines) = 0 then Exit;
+  Want := UpperCase(FSearch);
+  for I := 1 to Length(FLines) do
+  begin
+    L := (Max(FSel, -1) + I) mod Length(FLines);
+    if Pos(Want, UpperCase(LineText(L))) > 0 then
+    begin
+      FSel := L;
+      EnsureVisible(L);
+      Invalidate;
+      FOwnerWin.FStatusBar.SimpleText := Format('Found "%s" (F3: next)', [FSearch]);
+      Exit;
+    end;
+  end;
+  Beep;
+  FOwnerWin.FStatusBar.SimpleText := Format('"%s" is not in this process', [FSearch]);
 end;
 
 function TDaadCodeView.SelCondact: Integer;
@@ -598,9 +667,13 @@ begin
   if FTop + Y div FLineH <= High(FLines) then FSel := FTop + Y div FLineH;
   Invalidate;
   C := SelCondact;
-  if (Button = mbRight) and (C >= 0) then
+  if Button = mbRight then
   begin
-    B := FOwnerWin.BreakIndex(FOwnerWin.Game.Condacts[C].Addr);
+    // Search always; the breakpoint items on a condact
+    B := -1;
+    if C >= 0 then B := FOwnerWin.BreakIndex(FOwnerWin.Game.Condacts[C].Addr);
+    FToggleItem.Enabled := C >= 0;
+    FConditionItem.Enabled := C >= 0;
     FEnabledItem.Enabled := B >= 0;
     FEnabledItem.Checked := (B >= 0) and FOwnerWin.BreakEntry(B).Enabled;
     FRemoveItem.Enabled := B >= 0;
@@ -630,7 +703,7 @@ begin
     CName := Trim(Copy(G.CondactText(G.Condacts[FLines[L]]), 1, 8));
     if X < X0 + Length(CName) * FCharW then
     begin
-      Help := CondactHelp(CName, G.IsPAW);
+      Help := CondactHelp(CName, G.Engine);
       if Help <> '' then
         DelayedHint.Request(Self, Rect(X0, (L - FTop) * FLineH, X0 + Length(CName) * FCharW,
           (L - FTop + 1) * FLineH), Help);
@@ -662,6 +735,11 @@ end;
 procedure TDaadCodeView.KeyDown(var Key: Word; Shift: TShiftState);
 begin
   case Key of
+    VK_F: if ssCtrl in Shift then Search else
+      begin
+        inherited KeyDown(Key, Shift);
+        Exit;
+      end;
     VK_SPACE: if SelCondact >= 0 then FOwnerWin.ToggleBreak(FOwnerWin.Game.Condacts[SelCondact].Addr);
     VK_UP, VK_DOWN:
       begin
@@ -681,6 +759,11 @@ var
   C, B: Integer;
   A: Word;
 begin
+  if (Sender as TMenuItem).Tag = MENU_SEARCH then
+  begin
+    Search;
+    Exit;
+  end;
   C := SelCondact;
   if C < 0 then Exit;
   A := FOwnerWin.Game.Condacts[C].Addr;
@@ -1025,7 +1108,11 @@ end;
 
 function TDaadDataView.ItemCount: Integer;
 begin
-  if not FObjects then Result := 256
+  if not FObjects then
+  begin
+    // The Quill has 37 (33 flags, the order's words, the location...)
+    if FOwnerWin.Game.Valid then Result := FOwnerWin.Game.FlagCount else Result := 256;
+  end
   else if FOwnerWin.Game.Valid then Result := FOwnerWin.Game.NumObjects
   else Result := 0;
 end;
@@ -1107,7 +1194,7 @@ begin
         X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
         X := DrawText(X, Y, ' @ ', clGray, False);
         X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), clBlack, False);
-        S := FlagName(N, FOwnerWin.Game.IsPAW);
+        S := FlagName(N, FOwnerWin.Game.Engine);
         if S <> '' then DrawText(X + FCharW, Y, Copy(S, 1, ColChars - 15), clGray, False);
       end
       else
@@ -1161,9 +1248,9 @@ begin
     begin
       V := FOwnerWin.FFlags[N];
       S := FOwnerWin.WordText(V, Kind);
-      if V = 255 then S := Format('%s = 255: no word (_)', [FlagName(N, FOwnerWin.Game.IsPAW)])
-      else if S = '' then S := Format('%s = %d: not a word of the vocabulary', [FlagName(N, FOwnerWin.Game.IsPAW), V])
-      else S := Format('%s = %d: %s', [FlagName(N, FOwnerWin.Game.IsPAW), V, S]);
+      if V = 255 then S := Format('%s = 255: no word (_)', [FlagName(N, FOwnerWin.Game.Engine)])
+      else if S = '' then S := Format('%s = %d: not a word of the vocabulary', [FlagName(N, FOwnerWin.Game.Engine), V])
+      else S := Format('%s = %d: %s', [FlagName(N, FOwnerWin.Game.Engine), V, S]);
     end;
   end;
   if S <> Hint then
@@ -1192,7 +1279,7 @@ begin
   FGame := TDaadGame.Create;
   FUser := -1;
   FCurrent := -1;
-  Caption := 'DAAD/PAW Debugger';
+  Caption := 'Adventure Debugger';
   Width := 840;
   Height := 480;
   Position := poMainFormCenter;
@@ -1250,7 +1337,7 @@ begin
   Data.Width := 520;
   Data.BevelOuter := bvNone;
   FDataPanel := Data;
-  Zone := MakeZone(Data, 'Objects (location)', 270, alRight);
+  Zone := MakeZone(Data, 'Objects location', 270, alRight);
   FObjZone := Zone;
   FObjView := TDaadDataView.CreateView(Self);
   FObjView.FObjects := True;
@@ -1258,7 +1345,7 @@ begin
   FObjView.Align := alClient;
   FObjView.Hint := 'Click a location to change it (252 not created, 253 worn, 254 carried)';
   FObjView.ShowHint := True;
-  Zone := MakeZone(Data, 'Flags (value @ its flag)', 0, alClient);
+  Zone := MakeZone(Data, 'Flags', 0, alClient);
   FFlagView := TDaadDataView.CreateView(Self);
   FFlagView.Parent := Zone;
   FFlagView.Align := alClient;
@@ -1284,6 +1371,16 @@ begin
   FProcessBox.Top := 0;
   FProcessBox.Width := 130;
   FProcessBox.OnChange := @ProcessChange;
+  // The engine of the game, at the right end of the header
+  FEngineLabel := TLabel.Create(Self);
+  FEngineLabel.Parent := Header;
+  FEngineLabel.Font.Style := [fsBold];
+  FEngineLabel.AnchorSideRight.Control := Header;
+  FEngineLabel.AnchorSideRight.Side := asrRight;
+  FEngineLabel.BorderSpacing.Right := 8;
+  FEngineLabel.Anchors := [akRight];
+  FEngineLabel.AnchorVerticalCenterTo(Header);
+  FEngineLabel.Caption := '';
   FCode := TDaadCodeView.CreateView(Self);
   FCode.Parent := Zone;
   FCode.Align := alClient;
@@ -1380,6 +1477,7 @@ begin
     FEmu.Unlock;
   end;
   Result := FGame.Load(FMem);
+  if Result then FEngineLabel.Caption := EngineName(FGame.Engine) else FEngineLabel.Caption := '';
   if not Result then Exit;
   // A different game (or a new one loaded): follow its condacts
   SetLength(Old, Length(FMap));
@@ -1402,8 +1500,14 @@ begin
       FProcessBox.Items.Clear;
       for A := 0 to FGame.NumProcesses - 1 do FProcessBox.Items.Add(IntToStr(A));
     end;
-    // PAW's process 0 is the response table
-    if FProcessBox.Items.Count > 0 then
+    // PAW's process 0 is the response table; The Quill's two are the
+    // event and status tables
+    if FGame.IsQuill and (FProcessBox.Items.Count = 2) then
+    begin
+      FProcessBox.Items[0] := '0 (events)';
+      FProcessBox.Items[1] := '1 (status)';
+    end
+    else if FProcessBox.Items.Count > 0 then
       if FGame.IsPAW then FProcessBox.Items[0] := '0 (responses)' else FProcessBox.Items[0] := '0';
   finally
     FProcessBox.Items.EndUpdate;
@@ -1417,7 +1521,10 @@ begin
   if FUser < 0 then Exit;
   FEmu.Lock;
   try
-    for I := 0 to High(FFlags) do FFlags[I] := FEmu.Spec.Peek(Word(FUser + I));
+    // The flags, then the object locations (after the flags in The Quill)
+    for I := 0 to 255 do
+      if I < FGame.FlagCount then FFlags[I] := FEmu.Spec.Peek(Word(FUser + I)) else FFlags[I] := 0;
+    for I := 0 to 255 do FFlags[256 + I] := FEmu.Spec.Peek(Word(FUser + FGame.ObjectsOffset + I));
   finally
     FEmu.Unlock;
   end;
@@ -1507,7 +1614,8 @@ begin
   FPrevFlags[N] := Value;   // a change made here is not the condact's
   FEmu.Lock;
   try
-    FEmu.Spec.Poke(Word(FUser + N), Value);
+    if N >= 256 then FEmu.Spec.Poke(Word(FUser + FGame.ObjectsOffset + N - 256), Value)
+    else FEmu.Spec.Poke(Word(FUser + N), Value);
   finally
     FEmu.Unlock;
   end;
@@ -1520,7 +1628,7 @@ var
   E: Integer;
 begin
   if not FGame.Valid then
-    S := 'No DAAD or PAW game in memory'
+    S := 'No DAAD, PAW or Quill game in memory'
   else if not FEmu.Paused then
   begin
     if FEmu.Spec.DaadFetchPC < 0 then
@@ -1541,7 +1649,10 @@ begin
   end
   else
     S := 'Stopped outside the condacts: Step (F7) runs to the next one';
-  if FGame.IsPAW then
+  if FGame.IsQuill then
+    S := S + Format('    Quill database (version %s) at %.4X, %d objects, %d locations',
+      [Copy('A?C', FGame.QuillVersion, 1), FGame.Base, FGame.NumObjects, FGame.NumLocations])
+  else if FGame.IsPAW then
     S := S + Format('    PAW database at %.4X, %d processes, %d objects, %d locations',
       [FGame.Base, FGame.NumProcesses, FGame.NumObjects, FGame.NumLocations])
   else
@@ -1596,8 +1707,12 @@ begin
   Sce := False;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'DAAD Ready / DRC source (*.dsf)|*.dsf|Original DAAD source (*.sce)|*.sce|' +
-      'All files|*.*';
+    // A Quill game only as DAAD Ready / DRC source
+    if FGame.IsQuill then
+      Dlg.Filter := 'DAAD Ready / DRC source (*.dsf)|*.dsf|All files|*.*'
+    else
+      Dlg.Filter := 'DAAD Ready / DRC source (*.dsf)|*.dsf|Original DAAD source (*.sce)|*.sce|' +
+        'All files|*.*';
     Dlg.FileName := ADefault;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if not Dlg.Execute then Exit;
@@ -1605,7 +1720,8 @@ begin
     // No extension typed: the one of the type chosen in the dialog
     if ExtractFileExt(FileName) = '' then
     begin
-      if Dlg.FilterIndex = 2 then FileName := FileName + '.sce' else FileName := FileName + '.dsf';
+      if (Dlg.FilterIndex = 2) and not FGame.IsQuill then FileName := FileName + '.sce'
+      else FileName := FileName + '.dsf';
       if FileExists(FileName) and (MessageDlg(ExtractFileName(FileName) +
         ' already exists. Replace it?', mtConfirmation, [mbYes, mbNo], 0) <> mrYes) then Exit;
     end;
@@ -1621,6 +1737,18 @@ function TDaadWindow.AskPawMode(Sce: Boolean; out ToDaad: Boolean): Boolean;
 begin
   ToDaad := False;
   Result := True;
+  // A Quill game: always converted to DAAD, as a DSF
+  if FGame.IsQuill then
+  begin
+    if Sce then
+    begin
+      MessageDlg('A Quill game can only be exported as a DSF (DAAD Ready / DRC source), ' +
+        'converted to DAAD.', mtInformation, [mbOK], 0);
+      Exit(False);
+    end;
+    ToDaad := True;
+    Exit;
+  end;
   // An SCE is written as the PAW game is
   if not FGame.IsPAW or Sce then Exit;
   case QuestionDlg('Export a PAW game',
@@ -1636,7 +1764,8 @@ end;
 
 procedure TDaadWindow.ConvertedNotice;
 begin
-  MessageDlg('The PAW game has been converted to DAAD, but the conversion can''t be complete: ' +
+  MessageDlg('The ' + EngineName(FGame.Engine) + ' game has been converted to DAAD, but the ' +
+    'conversion can''t be complete: ' +
     'check the source by hand for possible issues (start with the "PAWS2DAAD note" comments), ' +
     'then compile it and test the game.', mtWarning, [mbOK], 0);
 end;
@@ -2085,7 +2214,7 @@ begin
     if (Prev >= 0) and (FGame.Condacts[Prev].Entry = C.Entry) and
        (FGame.Condacts[Prev].Opcode = OP_INDIR) then P1 := FFlags[FGame.Condacts[Prev].Params[0]];
   end;
-  Here := FFlags[38];
+  Here := FFlags[FGame.LocationFlag];
   if CName = 'AT' then Result := Res(Here = P0)
   else if CName = 'NOTAT' then Result := Res(Here <> P0)
   else if CName = 'ATGT' then Result := Res(Here > P0)
@@ -2149,6 +2278,7 @@ begin
   if AnyEditing then Exit;
   case Key of
     VK_ESCAPE: Close;
+    VK_F3: if FCode.Focused then FCode.SearchNext;
     VK_F5: DoRun(Self);
     VK_F7: DoStep(Self);
     VK_F10: DoStepOver(Self);

@@ -1,5 +1,5 @@
 { Daad: reads the database (DDB) of a DAAD game from a copy of the
-  Spectrum's memory, for the DAAD debugger.
+  Spectrum's memory, for the Adventure Debugger.
 
   The DDB is usually at 8400 (DAAD v2 and v3, as written by DC 2.0+ and
   DRC); older games have it elsewhere (La Diosa de Cozumel at 8380), so the
@@ -49,8 +49,13 @@ type
     Entry: Integer;
   end;
 
+  { The adventure system that made the game }
+  TAdvEngine = (aeDAAD, aePAW, aeQuill);
+
   TDaadEntry = record
     Header: Word;          // address of its verb byte
+    Separator: Word;       // The Quill: the 255 between conditions and actions
+    Ending: Word;          // The Quill: the 255 after the actions
     Verb, Noun: Byte;
     Code: Word;            // address of its first condact
     Process: Integer;
@@ -91,9 +96,17 @@ type
     function TextAt(Addr: Word): string;
     function TryAt(A: Word): Boolean;
     function TryPAW: Boolean;
+    function TryQuill: Boolean;
     function PAWTextAt(Addr: Word): string;
+    function QuillVocAt(A: Word): string;
   public
-    IsPAW: Boolean;           // a PAW game (DAAD's predecessor) instead of DAAD
+    { PAW or The Quill (PAW's predecessor: its tables are read as PAW's,
+      with PAW's condact numbers) instead of DAAD }
+    IsPAW: Boolean;
+    IsQuill: Boolean;
+    QuillVersion: Integer;    // The Quill: 1 (A) or 3 (C)
+    QuillCarry: Integer;      // The Quill: how many objects can be carried
+    Compressed: Boolean;      // PAW, The Quill: texts use the abbreviations
     PosAbbreviations: Word;   // PAW: compressed text
     Base: Word;               // address of the header
     Version: Integer;
@@ -107,6 +120,14 @@ type
     { Read the game in Mem. False if there is no DAAD database (at 8400, or
       anywhere else in memory). }
     function Load(const Mem: TDaadMemory): Boolean;
+    function Engine: TAdvEngine;
+    { The flags as the game sees them: how many there are, the flag with the
+      player's location and where the object locations start (after IX) }
+    function FlagCount: Integer;
+    function LocationFlag: Integer;
+    function ObjectsOffset: Integer;
+    { Where system message N starts }
+    function SysMessageAddr(N: Integer): Word;
     property Valid: Boolean read FValid;
     { Index of the condact that starts at Addr, -1 if none. DRC may share
       condacts between entries: then the first entry in Recent (header
@@ -196,7 +217,12 @@ const
   OP_MES = 77; OP_XMES = 120; OP_INDIR = 122; OP_SETAT = 124;
 
   { Names of the system flags (as in the DAAD Ready templates) }
-  function FlagName(N: Integer; PAW: Boolean = False): string;
+  function FlagName(N: Integer; Engine: TAdvEngine = aeDAAD): string;
+  { The name of an engine: 'DAAD', 'PAW' or 'Quill' }
+  function EngineName(Engine: TAdvEngine): string;
+  { A Quill condact as PAW numbers it: conditions are the same, actions
+    are numbered differently (and version A has fewer) }
+  function QuillToPAW(Opcode: Integer; Condition: Boolean; Version: Integer): Integer;
   { Meaning of an object location: 'carried', 'worn', 'not created' or '' }
   function LocationName(Loc: Integer): string;
   { The kind of vocabulary word a flag holds (0 verb, 1 adverb, 2 noun, 3
@@ -217,13 +243,57 @@ const
   MAX_ENTRIES = 2000;
   MAX_CONDACTS = 1000;
 
-function FlagName(N: Integer; PAW: Boolean): string;
+function EngineName(Engine: TAdvEngine): string;
 begin
+  case Engine of
+    aePAW: Result := 'PAW';
+    aeQuill: Result := 'Quill';
+  else
+    Result := 'DAAD';
+  end;
+end;
+
+function QuillToPAW(Opcode: Integer; Condition: Boolean; Version: Integer): Integer;
+begin
+  Result := Opcode;
+  if Condition then Exit;
+  // As unPAWS does: version A's actions to C's, then C's to PAW's
+  if Version = 1 then
+  begin
+    if Opcode > 20 then Inc(Opcode, 10)
+    else if Opcode > 11 then Inc(Opcode, 9)
+    else if Opcode > 10 then Inc(Opcode, 6);
+  end;
+  if (Opcode > 20) and (Opcode < 36) then Dec(Opcode, 2)
+  else if Opcode = 36 then Inc(Opcode, 10)
+  else if (Opcode > 17) and (Opcode < 21) then Inc(Opcode, 29);
+  Result := Opcode + 18;
+end;
+
+function FlagName(N: Integer; Engine: TAdvEngine): string;
+begin
+  // The Quill: 33 flags, then the words of the order and the location
+  if Engine = aeQuill then
+  begin
+    case N of
+      0: Result := 'fDark';
+      1: Result := 'fObjectsCarried';
+      30: Result := 'fScore';
+      31: Result := 'fTurns';
+      32: Result := 'fTurnsHi';
+      33: Result := 'fVerb';
+      34: Result := 'fNoun';
+      35: Result := 'fPlayer';
+    else
+      Result := '';
+    end;
+    Exit;
+  end;
   case N of
     0: Result := 'fDark';
     1: Result := 'fObjectsCarried';
     // PAW's flag 28 is free for the game
-    28: if PAW then Result := '' else Result := 'fDarkF';
+    28: if Engine = aePAW then Result := '' else Result := 'fDarkF';
     29: Result := 'fGFlags';
     30: Result := 'fScore';
     31: Result := 'fTurns';
@@ -505,6 +575,8 @@ var
 begin
   Move(Mem, FMem, SizeOf(FMem));
   IsPAW := False;
+  IsQuill := False;
+  Compressed := False;
   // Usually at 8400; older games elsewhere (La Diosa de Cozumel: 8380)
   Result := TryAt(DDB_BASE);
   if Result then Exit;
@@ -518,8 +590,161 @@ begin
       BestEntries := Length(Entries);
     end;
   Result := (Best >= 0) and TryAt(Best);
-  // Not DAAD: a PAW game?
+  // Not DAAD: a PAW game? a Quill one?
   if not Result then Result := TryPAW;
+  if not Result then Result := TryQuill;
+end;
+
+function TDaadGame.Engine: TAdvEngine;
+begin
+  if IsQuill then Result := aeQuill
+  else if IsPAW then Result := aePAW
+  else Result := aeDAAD;
+end;
+
+function TDaadGame.FlagCount: Integer;
+begin
+  if IsQuill then Result := 37 else Result := 256;
+end;
+
+function TDaadGame.LocationFlag: Integer;
+begin
+  if IsQuill then Result := 35 else Result := 38;
+end;
+
+function TDaadGame.ObjectsOffset: Integer;
+begin
+  if IsQuill then Result := 37 else Result := 256;
+end;
+
+{ The Quill (Spectrum): the database is at a fixed place, by version: A at
+  26931, C at 27356, with the colour codes 16, 17... 21 (every other byte)
+  at +977 (A) or +169 (C) as a signature; the counts and the tables'
+  addresses follow it (as unPAWS reads them). Two tables of entries: the
+  event table (responses, process 0 here) and the status table (process 1,
+  run every turn). Version A's system messages are one after another. }
+function TDaadGame.TryQuill: Boolean;
+var
+  Top, Attr, T: Word;
+  V, I, E: Integer;
+begin
+  Result := False;
+  FValid := False;
+  SetLength(Processes, 0);
+  SetLength(Entries, 0);
+  SetLength(Condacts, 0);
+  FillChar(FCondactAt, SizeOf(FCondactAt), 0);
+  for V in [3, 1] do
+  begin
+    if V = 1 then
+    begin
+      Top := 26931;
+      Attr := Top + 977;
+    end
+    else
+    begin
+      Top := 27356;
+      Attr := Top + 169;
+    end;
+    I := 0;
+    while (I < 6) and (FMem[Word(Attr + I * 2)] = 16 + I) do Inc(I);
+    if I < 6 then Continue;
+    IsPAW := True;
+    IsQuill := True;
+    QuillVersion := V;
+    Base := Top;
+    Version := 0;
+    Language := 0;          // The Quill was only in English
+    PosTokens := 0;
+    PosProcesses := 0;
+    T := Attr + 13;
+    QuillCarry := FMem[T];
+    NumObjects := FMem[Word(T + 1)];
+    NumLocations := FMem[Word(T + 2)];
+    NumMessages := FMem[Word(T + 3)];
+    NumProcesses := 2;
+    SetLength(Processes, 2);
+    if V = 1 then
+    begin
+      PosSysMessages := Top + 168;
+      NumSysMessages := 32;
+      PosObjects := W(Word(T + 8));
+      Processes[0].Table := W(Word(T + 4));
+      Processes[1].Table := W(Word(T + 6));
+      PosAbbreviations := T + 24;
+      Compressed := False;
+      PosMessages := W(Word(Attr + 25));
+      PosLocations := W(Word(Attr + 23));
+      PosConnections := W(Word(Attr + 27));
+      PosVocabulary := W(Word(Attr + 29));
+      PosInitiallyAt := W(Word(Attr + 31));
+      PosObjectWords := 0;
+    end
+    else
+    begin
+      PosSysMessages := W(Word(T + 15));
+      NumSysMessages := FMem[Word(T + 4)];
+      PosObjects := W(Word(T + 9));
+      Processes[0].Table := W(Word(T + 5));
+      Processes[1].Table := W(Word(T + 7));
+      PosAbbreviations := T + 29;
+      Compressed := (FMem[PosAbbreviations] < 128) and (FMem[Word(PosAbbreviations + 1)] = 128);
+      PosMessages := W(Word(Attr + 26));
+      PosLocations := W(Word(Attr + 24));
+      PosConnections := W(Word(Attr + 30));
+      PosVocabulary := W(Word(Attr + 32));
+      PosInitiallyAt := W(Word(Attr + 34));
+      PosObjectWords := W(Word(Attr + 36));
+    end;
+    if (NumLocations > 0) and (Processes[0].Table >= $4000) and (Processes[1].Table >= $4000) then
+    begin
+      ReadProcesses;
+      if (Length(Entries) > 0) and not FBadEntry then
+      begin
+        Result := True;
+        for E := 0 to High(Entries) do
+          if Entries[E].Code < $4000 then Result := False;
+        if Result then
+        begin
+          FValid := True;
+          Exit;
+        end;
+      end;
+    end;
+    IsPAW := False;
+    IsQuill := False;
+    SetLength(Processes, 0);
+    SetLength(Entries, 0);
+    SetLength(Condacts, 0);
+    FillChar(FCondactAt, SizeOf(FCondactAt), 0);
+  end;
+end;
+
+function TDaadGame.SysMessageAddr(N: Integer): Word;
+var
+  A: Word;
+  Guard: Integer;
+begin
+  if not (IsQuill and (QuillVersion = 1)) then Exit(W(Word(PosSysMessages + N * 2)));
+  // Quill A: one after another, each ended by 31 (XORed); zeros between
+  A := PosSysMessages;
+  Guard := 0;
+  while (N > 0) and (Guard < 20000) do
+  begin
+    while (FMem[A] <> (31 xor $FF)) and (Guard < 20000) do
+    begin
+      A := Word(A + 1);
+      Inc(Guard);
+    end;
+    A := Word(A + 1);
+    Dec(N);
+  end;
+  while (FMem[A] = 0) and (Guard < 20000) do
+  begin
+    A := Word(A + 1);
+    Inc(Guard);
+  end;
+  Result := A;
 end;
 
 { PAW (48K): the addresses of its tables are in the last bytes of memory
@@ -550,12 +775,14 @@ begin
   Base := Top;
   Version := 0;
   Language := -1;
+  QuillVersion := 0;
   NumObjects := FMem[Word(Top + 324)];
   NumLocations := FMem[Word(Top + 325)];
   NumMessages := FMem[Word(Top + 326)];
   NumSysMessages := FMem[Word(Top + 327)];
   NumProcesses := FMem[Word(Top + 328)];
   PosAbbreviations := W(Word(Top + 332));
+  Compressed := (PosAbbreviations <> 0) and (FMem[PosAbbreviations] = 0);
   PosProcesses := W($FFD9);
   PosObjects := W($FFDB);
   PosLocations := W($FFDD);
@@ -593,16 +820,49 @@ end;
 function TDaadGame.PAWTextAt(Addr: Word): string;
 var
   C: Byte;
-  Guard, N, Skip: Integer;
+  Guard, N, Skip, Col: Integer;
   A: Word;
-  Compressed: Boolean;
+
+  procedure Put(Ch: Char);
+  begin
+    Result := Result + Ch;
+    Inc(Col);
+    if Col >= 32 then Col := 0;
+  end;
+
+  { The Quill wraps words at 32 columns: before a letter it counts the
+    letters that follow up to a space or a punctuation mark (abbreviations
+    don't count) and starts a new line if they don't fit. Its texts often
+    have no space where a line broke like that: one is put there. }
+  procedure QuillWrap(From: Word);
+  var
+    Count, G: Integer;
+    D: Byte;
+  begin
+    if (Col = 0) or (Result = '') or (Result[Length(Result)] = ' ') then Exit;
+    Count := 0;
+    G := 0;
+    repeat
+      D := FMem[From] xor $FF;
+      if Chr(D) in ['A'..'Z', 'a'..'z', '0'..'9'] then Inc(Count);
+      From := Word(From + 1);
+      Inc(G);
+    until ((D < 128) and not (Chr(D) in ['A'..'Z', 'a'..'z', '0'..'9'])) or (G > 64);
+    if Col + Count > 32 then
+    begin
+      Result := Result + ' ';
+      Col := 0;
+    end;
+  end;
+
 begin
   Result := '';
-  Compressed := (PosAbbreviations <> 0) and (FMem[PosAbbreviations] = 0);
   Guard := 0;
   Skip := 0;
+  Col := 0;
   repeat
     C := FMem[Addr] xor $FF;
+    if IsQuill and (Chr(C) in ['A'..'Z', 'a'..'z', '0'..'9']) and (Skip = 0) then QuillWrap(Addr);
     Addr := Word(Addr + 1);
     Inc(Guard);
     if Skip > 0 then
@@ -612,11 +872,20 @@ begin
     end;
     case C of
       31: Break;
-      13: Result := Result + '#n';
-      6: Result := Result + ' ';
+      13:
+        begin
+          Result := Result + '#n';
+          Col := 0;
+        end;
+      6:
+        begin
+          // Tab: to column 0 or 16
+          Result := Result + ' ';
+          if Col < 16 then Col := 16 else Col := 0;
+        end;
       16..21: Skip := 1;
       22, 23: Skip := 2;
-      32..126: Result := Result + Chr(C);
+      32..126: Put(Chr(C));
       165..255:
         if Compressed then
         begin
@@ -631,10 +900,10 @@ begin
           end;
           while ((FMem[A] and $80) = 0) and (Length(Result) < 2000) do
           begin
-            if FMem[A] in [32..126] then Result := Result + Chr(FMem[A]);
+            if FMem[A] in [32..126] then Put(Chr(FMem[A]));
             A := Word(A + 1);
           end;
-          if (FMem[A] and $7F) in [32..126] then Result := Result + Chr(FMem[A] and $7F);
+          if (FMem[A] and $7F) in [32..126] then Put(Chr(FMem[A] and $7F));
         end;
     end;
   until Guard > 2000;
@@ -741,12 +1010,14 @@ var
   Table, A, Hdr: Word;
   Op: Byte;
   C: TDaadCondact;
+  InConditions: Boolean;
 begin
   FBadEntry := False;
   SetLength(Processes, NumProcesses);
   for P := 0 to NumProcesses - 1 do
   begin
-    Table := W(PosProcesses + P * 2);
+    // The Quill's two tables are known already
+    if IsQuill then Table := Processes[P].Table else Table := W(PosProcesses + P * 2);
     Processes[P].Table := Table;
     Processes[P].FirstEntry := Length(Entries);
     Processes[P].EntryCount := 0;
@@ -769,19 +1040,46 @@ begin
         Process := P;
         FirstCondact := Length(Condacts);
         CondactCount := 0;
+        Separator := 0;
+        Ending := 0;
       end;
       Inc(Processes[P].EntryCount);
       A := Entries[High(Entries)].Code;
+      InConditions := True;
       for N := 0 to MAX_CONDACTS do
       begin
-        if FMem[A] = 255 then Break;
+        if FMem[A] = 255 then
+        begin
+          // The Quill: conditions, 255, actions, 255
+          if IsQuill and InConditions then
+          begin
+            InConditions := False;
+            Entries[High(Entries)].Separator := A;
+            A := Word(A + 1);
+            Continue;
+          end;
+          if IsQuill then Entries[High(Entries)].Ending := A;
+          Break;
+        end;
         if N = MAX_CONDACTS then
         begin
           FBadEntry := True;
           Break;
         end;
         C.Addr := A;
-        if IsPAW then
+        if IsQuill then
+        begin
+          // As PAW's condact; an unknown one is not Quill code
+          K := QuillToPAW(FMem[A], InConditions, QuillVersion);
+          if (InConditions and (FMem[A] > 15)) or (K > High(PAW_CONDACT_PARAMS)) then
+          begin
+            FBadEntry := True;
+            Break;
+          end;
+          C.Opcode := K;
+          C.Indirect := False;
+        end
+        else if IsPAW then
         begin
           // No indirection in PAW; an unknown opcode is not PAW code
           if FMem[A] > High(PAW_CONDACT_PARAMS) then
@@ -861,7 +1159,15 @@ begin
     for K := 1 to Condacts[I].ParamCount do
       Map[Word(A + K)] := Map[Word(A + K)] or 2;   // DAAD_STREAM
   end;
-  // The end marks are read too
+  // The end marks are read too (The Quill: the one between conditions and
+  // actions and the last one)
+  if IsQuill then
+    for I := 0 to High(Entries) do
+    begin
+      if Entries[I].Separator <> 0 then Map[Entries[I].Separator] := Map[Entries[I].Separator] or 2;
+      if Entries[I].Ending <> 0 then Map[Entries[I].Ending] := Map[Entries[I].Ending] or 2;
+    end
+  else
   for I := 0 to High(Entries) do
     if Entries[I].CondactCount > 0 then
     begin
@@ -967,6 +1273,19 @@ var
 
 begin
   if Id = 255 then Exit('_');
+  if IsQuill then
+  begin
+    // 4 letters and a number, no word types
+    A := PosVocabulary;
+    Guard := 0;
+    while (FMem[A] <> 0) and (Guard < 4000) do
+    begin
+      if FMem[Word(A + 4)] = Id then Exit(QuillVocAt(A));
+      A := Word(A + 5);
+      Inc(Guard);
+    end;
+    Exit(IntToStr(Id));
+  end;
   if IsPAW and (Id = 1) then Exit('*');   // PAW: any word
   Result := Find(Kind);
   // Nouns up to 39 can be used as verbs (N, S..., as DRC allows)
@@ -984,6 +1303,17 @@ begin
   for I := 0 to 255 do Ids[I] := '';
   A := PosVocabulary;
   Guard := 0;
+  // The Quill: every word, whatever the kind
+  if IsQuill then
+    while (FMem[A] <> 0) and (Guard < 4000) do
+    begin
+      I := FMem[Word(A + 4)];
+      S := QuillVocAt(A);
+      if Ids[I] = '' then Ids[I] := S else Ids[I] := Ids[I] + '/' + S;
+      A := Word(A + 5);
+      Inc(Guard);
+    end
+  else
   while (FMem[A] <> 0) and (Guard < 4000) do
   begin
     if FMem[Word(A + 6)] = Kind then
@@ -1011,6 +1341,20 @@ begin
       Inc(N);
     end;
   SetLength(Result, N);
+end;
+
+{ A word of The Quill's vocabulary: 4 letters, XORed with 255 }
+function TDaadGame.QuillVocAt(A: Word): string;
+var
+  J, D: Integer;
+begin
+  Result := '';
+  for J := 0 to 3 do
+  begin
+    D := 255 - FMem[Word(A + J)];
+    if D in [32..126] then Result := Result + Chr(D);
+  end;
+  Result := TrimRight(Result);
 end;
 
 function TDaadGame.ByteAt(Addr: Word): Byte;
@@ -1091,7 +1435,7 @@ end;
 function TDaadGame.SysMessageText(N: Integer): string;
 begin
   if (N < 0) or (N >= NumSysMessages) then Exit('');
-  Result := TextAt(W(Word(PosSysMessages + N * 2)));
+  Result := TextAt(SysMessageAddr(N));
 end;
 
 end.

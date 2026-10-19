@@ -41,12 +41,12 @@ and pick one), from the Machine menu or in Options > Settings.
   Tab               extended mode (CAPS + SYMBOL)
   , . - = ; ' /     the matching SYMBOL SHIFT characters
 
-Shift keys: Settings > Machine (--shiftkeys) chooses between "standard"
+Shift keys: Settings > Miscellaneous (--shiftkeys) chooses between "standard"
 (the default: either Shift is CAPS SHIFT, either Ctrl SYMBOL SHIFT) and
 "sides" (the left Shift and left Ctrl are CAPS SHIFT, the right Shift and
 right Ctrl SYMBOL SHIFT).
 
-Joystick: Settings > Machine chooses what the cursor
+Joystick: Settings > Miscellaneous chooses what the cursor
 keys plus either Ctrl key (fire) emulate: nothing (they work as on the
 keyboard), a Kempston joystick (port 1F), a Sinclair Interface 2 joystick 1
 (keys 6-0) or joystick 2 (keys 1-5), a Cursor/Protek/AGF joystick (keys
@@ -64,7 +64,7 @@ pointer leaves the picture.
 Function keys:
   F1  documentation (this text)    F7  tape browser
   F2  open                         F8  play tape (Shift+F8 stop)
-  F3  save snapshot                F11 DAAD/PAW debugger
+  F3  save snapshot                F11 Adventure Debugger
   F4  pause                        Ctrl+P POKE
   F5  NMI                          F12 debugger
   Shift+F11 turbo (as fast as possible)
@@ -73,6 +73,9 @@ Function keys:
 
 3. MENUS AND TOOLBAR
 --------------------
+
+In the menu bar, the storage menus (Tape, Floppy and SD) are between two
+separators (|).
 
 File
   Open, Open recent, Save snapshot (.z80 or .sna),
@@ -107,7 +110,7 @@ Floppy
   times) and "Drive B: connected".
   Drive B: is not connected by default, and while it isn't, the menu
   entries for it are hidden. It is connected from this menu, from Options >
-  Settings > Tape & disk, with --driveb or by giving it a disk (--diskb).
+  Settings > Storage, with --driveb or by giving it a disk (--diskb).
 
 Menu entries with a description show it in the status bar while the
 pointer is over them (the debugger's menus show it in its own status bar).
@@ -119,8 +122,8 @@ SD
 
 Debug
   Debugger (F12), Clear all breakpoints, Load symbols, Load recent symbols
-  (the last 8 symbol files), Clear symbols and, at the bottom, DAAD/PAW
-  debugger (F11, see DAAD/PAW DEBUGGER).
+  (the last 8 symbol files), Clear symbols and, at the bottom, Adventure
+  Debugger (F11, see ADVENTURE DEBUGGER).
 
 Options
   Black and white display, Window size, Mute sound, Turbo speed (Shift+F11:
@@ -151,7 +154,8 @@ light red while the drive or card is read or written, like a drive's light.
 4. SETTINGS
 -----------
 
-Options > Settings has five pages:
+Options > Settings has five pages (sections of a page are boxes with a
+title):
 
 General       machine model, window size, black and white display, mute
               sound (the same as Options > Mute sound), volume and CPU
@@ -159,28 +163,29 @@ General       machine model, window size, black and white display, mute
               50 per second, and contention is not applied above 1x), and
               whether the settings are saved when pzx closes (on by default;
               when off, changes last only until pzx is closed).
-Machine       contended memory and I/O (on by default: real timing; off makes
-              every access take its nominal time), ULA snow (on by default;
-              only the 16K, 48K, 128K and +2 show it), allow changing the ROM
-              from the debugger and with POKE (off by default), ULAplus,
-              Timex screen modes, Radastan mode and scanlines (all off by
-              default; see VIDEO MODES below), cursor keys joystick, keyboard
-              issue 2 or 3 (16K/48K: affects bit 6 of port FE) and the
-              shift keys (standard or sides, see 2).
 Hardware      what is connected to the machine: TurboSound, an AY chip on the
               16K/48K, the Kempston mouse and the DivMMC interface (changing
-              the DivMMC switches the machine off and on).
-Tape & disk   fast loading, auto play, SAVE to tape, fast floppy disk access,
-              drive B: and floppy drive noise (on by default: the drive's
-              motor, head steps and reading are heard when it works at real
-              speed, not with fast floppy disk access).
-ROMs          the folder with the standard ROMs and, for each model, the ROM
-              file to use for each of its ROMs (empty = the standard one);
-              labels for a ROM are read from a .sym file with the same name
-              next to it. Below, separately, the DivMMC firmware (empty = the
-              bundled esxdos/ESXMMC.BIN), the ZX-Uno's BIOS and ROMs
-              (empty = the ones in the zxuno folder) and its custom ROM
-              (see ZX-Uno).
+              the DivMMC switches the machine off and on). Hovering over one
+              explains it.
+Storage       Tape: fast loading, auto play and SAVE to tape. Floppy: fast
+              floppy disk access, drive B: and floppy drive noise (on by
+              default: the drive's motor, head steps and reading are heard
+              when it works at real speed, not with fast floppy disk access).
+ROMs          ROMs: the folder with the standard ROMs and, for each model,
+              the ROM file to use for each of its ROMs (empty = the standard
+              one); labels for a ROM are read from a .sym file with the same
+              name next to it. DivMMC: its firmware (empty = the bundled
+              esxdos/ESXMMC.BIN). ZX-Uno: its BIOS and ROMs (empty = the
+              ones in the zxuno folder) and its custom ROM (see ZX-Uno).
+Miscellaneous Graphics: ULAplus, scanlines, Timex screen modes and Radastan
+              mode (all off by default; see VIDEO MODES below). Controls:
+              keyboard issue 2 or 3 (16K/48K: affects bit 6 of port FE) and
+              the shift keys (standard or sides, see 2), as radio buttons,
+              and the cursor keys joystick. Core features: contended memory
+              and I/O (on by default: real timing; off makes every access
+              take its nominal time), ULA snow (on by default; only the 16K,
+              48K, 128K and +2 show it) and allow writing to ROM (from the
+              debugger and with POKE; off by default).
 
 Settings are kept in pzx.ini in the same folder as the program (next to
 pzx.app on macOS). See --config and --config-add below to use other files.
@@ -270,7 +275,7 @@ Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset
 
 Video modes
 -----------
-Settings > Machine can add these to any model (they are off by default):
+Settings > Miscellaneous can add these to any model (they are off by default):
 
 ULAplus     a palette of 64 colours (GGGRRRBB) at ports BF3B (register)
             and FF3B (data): registers 0-63 are the palette, register 64
@@ -451,14 +456,28 @@ BFFD), as the AY interfaces for the 48K did. Mute sound (Options menu) silences 
 
 Debug > Debugger (F12) opens a window and stops the emulation at the
 current instruction. The window takes the focus, on the execution line, so
-F7 and F10 step at once (the DAAD/PAW debugger does the same). Closing it carries on running. Hovering over a hex
+F7 and F10 step at once (the Adventure Debugger does the same). Closing it carries on running. Hovering over a hex
 value shows it in decimal. The window has five zones, each with a title:
 disassembly and registers on top, memory, breakpoints and watches in the
 bottom third. The window is made to fit the screen: on a small one the
 disassembly and the bottom zones show fewer lines, while the registers zone
 keeps all of its lines. The toolbar has run, break, step into, step over, run to
 cursor, go to address and add watch; run is greyed out while running and
-break while stopped. On the ZX-Uno it also has ZXUno Regs (the chip
+break while stopped. After a separator, the Z80 button opens a window with
+the Z80's instruction set as tables, one per tab: Main (no prefix), CB,
+ED, DD and FD. Each is 16x16, the opcode's high digit on the left and the
+low one on top, with the instruction in each cell (operands as n, nn, d
+for a displacement and e for a relative jump); the opcodes a prefix
+doesn't have are empty, and the prefixes themselves are greyed. The
+undocumented instructions are in bold dark red. Resting the mouse on a
+cell for a second shows what the instruction does, as in the
+disassembly, and what is undocumented about it. The window is square,
+with the letters as big as fit (the operands go on two lines when that
+makes them bigger). The box on top (Find instruction) marks, as you
+type, every instruction with that text (LD A, IXH, (IX+d)...) in light
+blue, and the titles of the tabs that have some; if the table shown has
+none but another one has, the first such table is shown. Empty, nothing
+is marked. Escape closes it. On the ZX-Uno it also has ZXUno Regs (the chip
 button): a window, which can stay open, with the ZX-Uno's registers
 (number, name, hex value and the names of the bits set), updated while
 the machine runs. Select a value, type a new one and press Enter to write
@@ -471,6 +490,16 @@ Disassembly
   memory), how it affects the flags and its T-states without contention
   ("T-States: 7 or 12" when it takes longer if a condition holds or a block
   instruction repeats).
+  Undocumented instructions (as "The Undocumented Z80 Documented" by Sean
+  Young describes them: SLL, IXH/IXL/IYH/IYL, the ED duplicates of NEG,
+  RETN and IM, IN F,(C) and OUT (C),0, ED opcodes that do nothing, DD/FD
+  prefixes with no effect, DDCB/FDCB that also store the result in a
+  register...) have their mnemonic in bold dark red, and the hint says
+  what is undocumented about them.
+  Search (right-click, or Ctrl+F) asks for a text and finds it in the
+  disassembly (addresses, bytes, labels and instructions, as shown) from
+  the line after the selected one, round the whole memory; F3, while the
+  disassembly has the focus, finds the next one.
   Labels on the left (20 characters), mnemonics in blue, registers in bold. Jumps and
   memory references show the label, with the value in grey brackets. The
   arrow marks the execution point; on a conditional jump, call or return
@@ -538,7 +567,12 @@ Memory
   it XORed with the key). Click a hex value to edit it, or a character to
   type text from there. Right-click: go to address, add a watch at that
   byte, read breakpoint, write breakpoint, sprite mode, Copy, Copy values, Paste,
-  Export text, Import text, Export binary, Import binary.
+  Search, Export text, Import text, Export binary, Import binary.
+  Search (or Ctrl+F) opens a window to find text (match case or not) or
+  bytes in hex, written with spaces between them or all together (3E 01
+  or 3E01), as the zone shows them (with the XOR). It looks from the byte
+  after the selection, round the whole memory, and selects what it finds;
+  F3, while the memory zone has the focus, finds the next one.
   Read breakpoint and Write breakpoint (on the hex values or the text)
   switch that type on or off for the byte; if the byte is in the
   selection, for the whole selection (one breakpoint with a range); if a
@@ -571,7 +605,7 @@ Memory
   Import binary asks for an address (by default the first one shown) and a
   file, and loads the file there as it is. It doesn't wrap round: what
   would go past FFFF is not loaded, and a message says how much. Bytes on
-  ROM are only written if Options > Settings > Machine allows changing the
+  ROM are only written if Options > Settings > Miscellaneous allows changing the
   ROM; RAM paged at 0000-3FFF (the +2A/+3 all-RAM modes, the DivMMC's RAM
   at 2000-3FFF when it is paged in) is written like any RAM, while the
   DivMMC's EEPROM counts as ROM. Editing bytes, Import text and POKE follow the
@@ -628,7 +662,7 @@ Breakpoint and watch files
     {"pzx": "daad-breakpoints", "version": 1,
      "breakpoints": [{"address": "8A69", "enabled": true,
                       "condition": "f0 = 3", "condact": "P1 E5  NOUN2 251"}]}
-  (the DAAD/PAW debugger's; "condact" only says which one it was)
+  (the Adventure Debugger's; "condact" only says which one it was)
 
 Go to and View data
   Right-clicking a hex number or a label anywhere in the debugger (an
@@ -726,16 +760,19 @@ Labels
   symbols or --sym and take precedence.
 
 ROM
-  The ROM can't be changed from the debugger unless Settings > Machine
+  The ROM can't be changed from the debugger unless Settings > Miscellaneous
   allows it. Changes last until the model or its ROMs are loaded again.
 
 
-11. DAAD/PAW DEBUGGER
----------------------
+11. ADVENTURE DEBUGGER
+----------------------
 
-DAAD is the engine of many text adventures, and PAW (the Professional
-Adventure Writing System) its predecessor. Debug > DAAD/PAW debugger (F11)
-follows a DAAD or PAW game condact by condact, in a window of its own. The game
+The Adventure Debugger follows a text adventure condact by condact, in a
+window of its own. It supports three engines: DAAD, the engine of many
+text adventures; PAW (the Professional Adventure Writing System), its
+predecessor; and The Quill, PAW's predecessor. Open it with Debug >
+Adventure Debugger (F11). The engine of the game in memory (DAAD, PAW or
+Quill) is shown at the right end of the process zone's title. The game
 must be in memory: its database (DDB version 2 or 3, as written by DC 2.0
 or later and DRC; La Diosa de Cozumel and later), usually at 8400 but
 looked for anywhere, with any of the 48K and 128K interpreters, English or
@@ -751,7 +788,18 @@ some have DAAD names but other numbers or parameters (DESC and PARSE take
 none, 18 is INVEN...). "Stop after player input" stops at the first condact
 run once PAW starts the response table with the player's order. Texts using
 characters the game redefines (accented letters, for instance) show the
-character the game replaced. Opening it stops the game at the next condact run (if
+character the game replaced.
+
+Quill games (Spectrum, versions A and C of its database) are found by the
+database at its fixed address. The Quill works much like PAW (its
+condacts are shown with PAW's names), with these differences: there are
+two tables, the event table (the responses, shown as "0 (events)") and the
+status table (run every turn, "1 (status)"); each entry has its
+conditions and then its actions; there are 33 flags, then the words of the
+order (33 and 34) and the player's location (35), and the object
+locations follow them; words have 4 letters and no type. The Quill wraps
+words at 32 columns, and its texts often lack the space where a line
+broke: the debugger puts one there. Opening it stops the game at the next condact run (if
 the game is waiting for a command, when it gets one); closing it carries on
 running, like Run.
 
@@ -769,8 +817,12 @@ Process
   of MES, MESSAGE, SYSMESS and DESC are shown in grey. Condacts shared by
   several entries (DRC does that) are shown in the entry being run.
   Click a condact to select it; double-click it (or press Space) to set or
-  remove a breakpoint on it. Right-click for: toggle breakpoint, breakpoint
-  with condition, enabled, remove. Breakpoint lines are red, pale pink when
+  remove a breakpoint on it. Right-click for: search, toggle breakpoint,
+  breakpoint with condition, enabled, remove.
+  Search (or Ctrl+F) asks for a text and finds it in the process shown:
+  the entries' words, the condacts and the texts they print (MES,
+  MESSAGE, SYSMESS, DESC), from the line after the selected one, round the
+  process; F3, while the process has the focus, finds the next one. Breakpoint lines are red, pale pink when
   switched off; a "?" on the left means it has a condition.
   On the current condact, a condition shows on the right whether it holds
   with the flags and objects as they are: a green tick or a red cross (as
@@ -789,7 +841,7 @@ Breakpoints
   same, to show it in the process or to remove them all, and to save them
   all to a JSON file or load them from one (loading replaces them; see
   Breakpoint and watch files in 10); --daadbreakpoints FILE loads one at
-  start. Breakpoints act while the DAAD/PAW debugger is open.
+  start. Breakpoints act while the Adventure Debugger is open.
 
 Breakpoint conditions
   Conditions are on flags only:
@@ -803,11 +855,11 @@ Breakpoint conditions
   group. Upper or lower case, spaces as you like. An empty condition means
   always.
 
-Flags
-  The 256 flags: number, value and, after @, the value of the flag it points
-  at ("001 007 @ 090": flag 1 is 7 and flag 7 is 90), with the names of the
-  system flags (DAAD's, also for PAW games, but for fDarkF: PAW's flag 28
-  is free for the game). Click a value to change it (0-255, decimal; Enter changes
+Flags (the zone's title)
+  The 256 flags (37 in The Quill): number, value and, after @, the value of
+  the flag it points at ("001 007 @ 090": flag 1 is 7 and flag 7 is 90),
+  with the names of the system flags (DAAD's, also for PAW games, but for
+  fDarkF: PAW's flag 28 is free for the game; The Quill's own). Click a value to change it (0-255, decimal; Enter changes
   it, Escape or clicking elsewhere leaves it); the one after @ changes the
   flag pointed at.
   Flags holding a word of the vocabulary (fVerb 33, fNoun 34, fAdject1 35,
@@ -822,7 +874,7 @@ Flags
   (F7), the values the condact changed are red (flags and object
   locations).
 
-Objects
+Objects location (the zone's title)
   Every object's location, with "carried" (254), "worn" (253) or "not
   created" (252), and its description. Click a location to change it.
 
@@ -871,6 +923,18 @@ Keys and toolbar
   semicolons if the game needs them). After converting, pzx reminds you
   that the source needs checking by hand: PAW's flags and fonts are not
   DAAD's.
+  A Quill game can only be exported as a DSF, converted to DAAD in the same
+  way (there is no SCE export): the event table becomes process 5 and the
+  status table process 4 (which DAAD's process 1 runs every turn before the
+  order, as The Quill does). Its words get a type: those up to 39 are
+  nouns (DAAD lets them act as verbs, as directions do), the others verbs
+  or nouns as the game uses them, and those used both ways become nouns
+  renumbered up to 39 while there are free numbers (if not, the entries
+  that can't use them are left as comments); a comment reminds that The
+  Quill's words have 4 letters and DAAD's 5, so they may need lengthening.
+  Objects weigh 1, and those whose word is 200 or more (The Quill's
+  wearable ones) are wearable; the source says how many objects can be
+  carried.
 
 
 12. COMMAND LINE
@@ -936,28 +1000,28 @@ In pzx.ini each one is a key with the same name (see 4):
   --volume N         volume 0 to 100                       (General)
   --scale N, --speed N, --model M    (see above)           (General)
   --turbo            run as fast as possible (this session) (Options menu)
-  --contention       contended memory and I/O              (Machine)
-  --snow             ULA snow                              (Machine)
-  --romedit          allow changing the ROM                (Machine)
-  --ulaplus          ULAplus 64-colour palette             (Machine)
-  --timex            Timex screen modes                    (Machine)
-  --radastan         Radastan mode (ZX-Uno)                (Machine)
-  --scanlines        scanlines, from window size 2x        (Machine)
+  --contention       contended memory and I/O              (Miscellaneous)
+  --snow             ULA snow                              (Miscellaneous)
+  --romedit          allow changing the ROM                (Miscellaneous)
+  --ulaplus          ULAplus 64-colour palette             (Miscellaneous)
+  --timex            Timex screen modes                    (Miscellaneous)
+  --radastan         Radastan mode (ZX-Uno)                (Miscellaneous)
+  --scanlines        scanlines, from window size 2x        (Miscellaneous)
   --joystick J       what the cursor keys + Ctrl emulate: none, kempston,
-                     sinclair1, sinclair2, cursor or fuller (Machine)
-  --issue N          keyboard issue 2 or 3                 (Machine)
+                     sinclair1, sinclair2, cursor or fuller (Miscellaneous)
+  --issue N          keyboard issue 2 or 3                 (Miscellaneous)
   --shiftkeys S      standard (Shift = CAPS, Ctrl = SYMBOL) or sides
-                     (left = CAPS, right = SYMBOL)       (Machine)
+                     (left = CAPS, right = SYMBOL)       (Miscellaneous)
   --turbosound       TurboSound                            (Hardware)
   --ay48             AY chip on the 16K/48K                (Hardware)
   --kmouse           Kempston mouse                        (Hardware)
   --divmmc           DivMMC interface                      (Hardware)
-  --fastload         fast tape loading                     (Tape & disk)
-  --autoplay         start the tape automatically          (Tape & disk)
-  --savetotape       SAVE writes to the tape               (Tape & disk)
-  --fastdisk         fast floppy disk access               (Tape & disk)
-  --driveb           drive B: connected (default: no)      (Tape & disk)
-  --floppynoise      emulate floppy drive noise            (Tape & disk)
+  --fastload         fast tape loading                     (Storage)
+  --autoplay         start the tape automatically          (Storage)
+  --savetotape       SAVE writes to the tape               (Storage)
+  --fastdisk         fast floppy disk access               (Storage)
+  --driveb           drive B: connected (default: no)      (Storage)
+  --floppynoise      emulate floppy drive noise            (Storage)
   --saveonexit       save the settings when pzx closes     (General)
   --pngborder        include the border in PNG screenshots (File menu)
   --romdir DIR       the standard ROM folder               (ROMs)
@@ -971,7 +1035,7 @@ In pzx.ini each one is a key with the same name (see 4):
   --breakpoints FILE breakpoints saved by the debugger (JSON), instead of
                      any there were
   --watches FILE     watches saved by the debugger (JSON)
-  --daadbreakpoints FILE  breakpoints saved by the DAAD/PAW debugger
+  --daadbreakpoints FILE  breakpoints saved by the Adventure Debugger
                      (JSON); they act once that debugger is open (F11)
   --zxunocustomrom FILE  a 16K ROM the ZX-Uno runs (as a 48K) instead of
                      the one its BIOS chooses; empty = none       (ROMs)

@@ -1,4 +1,4 @@
-{ daadtest: the DAAD debugger's view of a game. Loads the DAAD Ready test
+{ daadtest: the Adventure Debugger's view of a DAAD game. Loads the DAAD Ready test
   game (48K and 128K interpreters), reads its database and follows the
   interpreter: the fetch instruction learnt must be CHECK (from the
   interpreter's symbols), each stop must be on a condact the database has,
@@ -457,10 +457,10 @@ begin
   TestGame(sm48K, ParamStr(1), IncludeTrailingPathDelimiter(ParamStr(2)) + 'test48.tap', '48K', $6234);
   TestGame(sm128K, ParamStr(1), IncludeTrailingPathDelimiter(ParamStr(2)) + 'test128.tap', '128K', $653A);
   if Failures = 0 then
-    WriteLn('DAAD debugger: all passed')
+    WriteLn('Adventure Debugger (DAAD): all passed')
   else
   begin
-    WriteLn('DAAD debugger: ', Failures, ' failures');
+    WriteLn('Adventure Debugger (DAAD): ', Failures, ' failures');
     Halt(1);
   end;
 end.

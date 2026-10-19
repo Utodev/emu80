@@ -117,7 +117,7 @@ type
     procedure DoDiskInsert(Sender: TObject);
     function InsertDiskFile(Drive: Integer; const FileName: string): Boolean;
     procedure UpdateRecentDisksMenu;
-    { The game file just loaded, for default names (DAAD/PAW source export) }
+    { The game file just loaded, for default names (Adventure Debugger's source export) }
     procedure NoteMediaFile(const FileName: string);
     procedure AddDriveBItem(Item: TMenuItem);
     procedure DoInsertRecentDisk(Sender: TObject);
@@ -453,6 +453,8 @@ begin
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_P, [ssCtrl]));
 
+  // The storage menus (Tape, Floppy, SD) between separators
+  AddItem(FMenu.Items, '|', nil).Enabled := False;
   TopItem := AddItem(FMenu.Items, '&Tape', nil);
   AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, []));
   AddItem(TopItem, '&Play', @DoTapePlay, ShortCut(VK_F8, []));
@@ -521,6 +523,7 @@ begin
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, 'E&ject SD card', @DoSDEject);
 
+  AddItem(FMenu.Items, '|', nil).Enabled := False;
   TopItem := AddItem(FMenu.Items, '&Debug', nil);
   AddItem(TopItem, '&Debugger...', @DoDebugger, ShortCut(VK_F12, []));
   AddItem(TopItem, '&Clear all breakpoints', @DoClearBreakpoints);
@@ -529,7 +532,7 @@ begin
   FRecentSymbolsMenu := AddItem(TopItem, 'Load &recent symbols', nil);
   AddItem(TopItem, 'C&lear symbols', @DoClearSymbols);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, 'D&AAD/PAW debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
+  AddItem(TopItem, '&Adventure Debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
 
   TopItem := AddItem(FMenu.Items, '&Options', nil);
   FMonoItem := AddItem(TopItem, '&Black and white display', @DoMonochrome);
@@ -3081,7 +3084,7 @@ begin
     end;
     if DaadBreakFile <> '' then
     begin
-      // They act once the DAAD debugger is open
+      // They act once the Adventure Debugger is open
       if DaadWindow = nil then DaadWindow := TDaadWindow.CreateFor(Application, FEmu);
       if not DaadWindow.LoadBreaksFile(DaadBreakFile, Err) then
         Errors := Errors + '--daadbreakpoints ' + DaadBreakFile + ': ' + Err + LineEnding;
@@ -3303,8 +3306,8 @@ begin
   end;
   if (Kind = bkDaad) and (DaadWindow <> nil) then
   begin
-    // The DAAD/PAW debugger stopped at a condact: the Z80 one only follows,
-    // and the DAAD/PAW one gets the focus (last)
+    // The Adventure Debugger stopped at a condact: the Z80 one only follows,
+    // and the Adventure Debugger gets the focus (last)
     if (DebuggerWindow <> nil) and DebuggerWindow.Visible then DebuggerWindow.BreakHit;
     DaadWindow.BreakHit;
     UpdateChecks;
