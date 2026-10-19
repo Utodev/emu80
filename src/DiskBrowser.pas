@@ -44,6 +44,8 @@ type
     procedure DoDelete(Sender: TObject);
     procedure DoExport(Sender: TObject);
     procedure DoImport(Sender: TObject);
+    procedure DoImportFolder(Sender: TObject);
+    procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
     function ImportExists(const AName: string): Boolean;
     function ImportWrite(const AName: string; const Data: TBytes; Replace: Boolean): string;
     procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -72,6 +74,9 @@ type
     (Replace: the one there goes first); '' or an error message }
   TImportExists = function(const AName: string): Boolean of object;
   TImportWrite = function(const AName: string; const Data: TBytes; Replace: Boolean): string of object;
+  { Making a folder (Path: "GAMES" or "GAMES/ARCADE", inside the browser's
+    folder); '' or an error message }
+  TImportMakeDir = function(const Path: string): string of object;
 
 { Shared with the SD card browser: the name and header of a file imported
   from the PC (DefaultHeader: the header box ticked at first; Remaining:
@@ -80,10 +85,16 @@ type
 function AskImport(const FileName: string; Size: Integer; var AName: string; out Header: Boolean;
   out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean): Boolean;
 function SuggestName(const FileName: string): string;
-{ Import files chosen on the PC (several at a time) with Exists and Write.
-  Dir: the browser's last PC folder (updated). Returns a status text. }
+{ Import files and folders of the PC with Exists and Write: Paths (dropped
+  on the browser), else the ones chosen in a dialog (PickFolder: a folder,
+  else several files). With MakeDir, folders are made again with their
+  contents (Exists and Write then get names like "GAMES/ARCADE/JET.TAP");
+  without it (a +3 disk has no folders) the files in them are all imported
+  side by side. Dir: the browser's last PC folder (updated). Returns a
+  status text. }
 function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
-  Write: TImportWrite): string;
+  Write: TImportWrite; MakeDir: TImportMakeDir = nil; Paths: TStrings = nil;
+  PickFolder: Boolean = False): string;
 { Export files to the PC: one with a save dialog, several into a folder;
   asks before overwriting, and once whether to keep +3DOS headers. Dir: the
   browser's last PC folder (updated). Returns a status text. }
@@ -135,10 +146,55 @@ begin
 end;
 
 function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
-  Write: TImportWrite): string;
+  Write: TImportWrite; MakeDir: TImportMakeDir; Paths: TStrings; PickFolder: Boolean): string;
+var
+  Files, Prefixes, Folders: TStringList;
+
+  // A file, or a folder with what is in it (Prefix: the folders it is in)
+  procedure Add(const Path, Prefix: string);
+  var
+    Info: TSearchRec;
+    Names: TStringList;
+    Sub: string;
+    K: Integer;
+  begin
+    if not DirectoryExists(Path) then
+    begin
+      if FileExists(Path) then
+      begin
+        Files.Add(Path);
+        Prefixes.Add(Prefix);
+      end;
+      Exit;
+    end;
+    Sub := Prefix;
+    if Assigned(MakeDir) then
+    begin
+      Sub := Prefix + SuggestName(ExcludeTrailingPathDelimiter(Path));
+      if Folders.IndexOf(Sub) < 0 then Folders.Add(Sub);
+      Sub := Sub + '/';
+    end;
+    Names := TStringList.Create;
+    try
+      if FindFirst(IncludeTrailingPathDelimiter(Path) + '*', faAnyFile, Info) = 0 then
+      try
+        repeat
+          if (Info.Name <> '.') and (Info.Name <> '..') then Names.Add(Info.Name);
+        until FindNext(Info) <> 0;
+      finally
+        FindClose(Info);
+      end;
+      Names.Sort;
+      for K := 0 to Names.Count - 1 do
+        Add(IncludeTrailingPathDelimiter(Path) + Names[K], Sub);
+    finally
+      Names.Free;
+    end;
+  end;
+
 var
   Dlg: TOpenDialog;
-  Files: TStringList;
+  DirDlg: TSelectDirectoryDialog;
   Data: TBytes;
   S: TFileStream;
   I, Done, Answer: Integer;
@@ -148,18 +204,63 @@ var
 begin
   Result := '';
   Files := TStringList.Create;
-  Dlg := TOpenDialog.Create(nil);
+  Prefixes := TStringList.Create;
+  Folders := TStringList.Create;
   try
-    Dlg.InitialDir := StartDir(Dir);
-    Dlg.Filter := 'All files|*.*';
-    Dlg.Options := Dlg.Options + [ofFileMustExist, ofAllowMultiSelect];
-    if not Dlg.Execute then Exit;
-    Files.Assign(Dlg.Files);
-    if Files.Count > 0 then Dir := ExtractFileDir(Files[0]);
-  finally
-    Dlg.Free;
-  end;
-  try
+    if Paths = nil then
+    begin
+      Paths := TStringList.Create;
+      try
+        if PickFolder then
+        begin
+          DirDlg := TSelectDirectoryDialog.Create(nil);
+          try
+            DirDlg.Title := 'Import a folder and its contents';
+            DirDlg.InitialDir := StartDir(Dir);
+            if not DirDlg.Execute then Exit;
+            Paths.Add(DirDlg.FileName);
+            // Next time the dialog opens where this folder is
+            Dir := ExtractFileDir(ExcludeTrailingPathDelimiter(DirDlg.FileName));
+          finally
+            DirDlg.Free;
+          end;
+        end
+        else
+        begin
+          Dlg := TOpenDialog.Create(nil);
+          try
+            Dlg.InitialDir := StartDir(Dir);
+            Dlg.Filter := 'All files|*.*';
+            Dlg.Options := Dlg.Options + [ofFileMustExist, ofAllowMultiSelect];
+            if not Dlg.Execute then Exit;
+            Paths.Assign(Dlg.Files);
+            if Paths.Count > 0 then Dir := ExtractFileDir(Paths[0]);
+          finally
+            Dlg.Free;
+          end;
+        end;
+        for I := 0 to Paths.Count - 1 do Add(Paths[I], '');
+      finally
+        Paths.Free;
+      end;
+    end
+    else
+    begin
+      if Paths.Count > 0 then Dir := ExtractFileDir(ExcludeTrailingPathDelimiter(Paths[0]));
+      for I := 0 to Paths.Count - 1 do Add(Paths[I], '');
+    end;
+
+    // The folders first (parents come before what is in them)
+    for I := 0 to Folders.Count - 1 do
+    begin
+      Error := MakeDir(Folders[I]);
+      if Error <> '' then
+      begin
+        MessageDlg('Could not create the folder ' + Folders[I] + ': ' + Error, mtError, [mbOK], 0);
+        Exit('');
+      end;
+    end;
+
     Done := 0;
     ForAll := False;
     SameHeader := False;
@@ -201,6 +302,7 @@ begin
         SameHeader := Header;
         if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
       end;
+      AName := Prefixes[I] + AName;
       Answer := mrNo;
       if Exists(AName) then
       begin
@@ -215,11 +317,16 @@ begin
         Break;
       end;
       Inc(Done);
-      if Files.Count = 1 then Result := 'imported ' + UpperCase(AName);
+      if (Files.Count = 1) and (Folders.Count = 0) then Result := 'imported ' + UpperCase(AName);
     end;
-    if (Files.Count > 1) or (Done = 0) then Result := Format('imported %d of %d files', [Done, Files.Count]);
+    if (Files.Count > 1) or (Done = 0) or (Folders.Count > 0) then
+      Result := Format('imported %d of %d files', [Done, Files.Count]);
+    if Folders.Count = 1 then Result := Result + ', 1 folder'
+    else if Folders.Count > 1 then Result := Result + Format(', %d folders', [Folders.Count]);
   finally
     Files.Free;
+    Prefixes.Free;
+    Folders.Free;
   end;
 end;
 
@@ -367,6 +474,8 @@ begin
   Height := 400;
   Position := poMainFormCenter;
   OnClose := @FormClose;
+  AllowDropFiles := True;
+  OnDropFiles := @FormDropFiles;
 
   FImages := TImageList.Create(Self);
   LoadIcons(FImages);
@@ -390,7 +499,9 @@ begin
   AddSeparator;
   AddButton(ikRefresh, 'Read the directory again', @DoRefresh);
   AddSeparator;
-  AddButton(ikOpen, 'Import files from the PC onto the disk...', @DoImport);
+  AddButton(ikOpen, 'Import files from the PC onto the disk... (or drop files and folders here)', @DoImport);
+  AddButton(ikImportFolder, 'Import the files in a folder of the PC (and its subfolders) onto the disk...',
+    @DoImportFolder);
   AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
   AddButton(ikRename, 'Rename the selected file... (F2)', @DoRename);
   AddButton(ikDelete, 'Delete the selected files (Del)', @DoDelete);
@@ -814,6 +925,31 @@ var
 begin
   // +3DOS files usually have a header: ticked by default
   Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite);
+  if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
+end;
+
+procedure TDiskBrowserWindow.DoImportFolder(Sender: TObject);
+var
+  Status: string;
+begin
+  // A +3 disk has no folders: the files in them all go side by side
+  Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite, nil, nil, True);
+  if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
+end;
+
+procedure TDiskBrowserWindow.FormDropFiles(Sender: TObject; const FileNames: array of string);
+var
+  Paths: TStringList;
+  I: Integer;
+  Status: string;
+begin
+  Paths := TStringList.Create;
+  try
+    for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
+    Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite, nil, Paths);
+  finally
+    Paths.Free;
+  end;
   if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
 end;
 

@@ -12,7 +12,7 @@ This is a ZX Spectrum Emulator made with  Lazarus (Free Pascal) using LCL
 
 # Documentation
 
-- `README.TXT` (shown by Help > Documentation and `--help`) explains how pzx works and all
+- `README.md` (shown by Help > Documentation and `--help`) explains how pzx works and all
   its command line options. ALWAYS keep it up to date: any change to features, menus, keys,
   settings or command line options must be reflected in it in the same change.
 
@@ -24,6 +24,10 @@ This is a ZX Spectrum Emulator made with  Lazarus (Free Pascal) using LCL
 
 - `lazbuild src/pzx.lpi` writes `pzx.exe` into `src/` (so it builds from any folder or drive).
   When Claude builds it, move the result to the repository's top folder afterwards
-  (`mv -f src/pzx.exe pzx.exe`) so it sits next to `roms/`, `esxdos/`, `README.TXT` and
+  (`mv -f src/pzx.exe pzx.exe`) so it sits next to `roms/`, `esxdos/`, `README.md` and
   `LICENSE`. When the user builds it from Lazarus it stays in `src/`, which also works.
 
+# Beware
+
+The specnext folder won't be added to any package. It requires license. The folder will be created by the packages, but empty. When running the emulator in Spectrum Next mode, if the folder is empty, the emulator would show
+a message saying you need to add the latest distribution to the specnext folder.

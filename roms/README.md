@@ -15,6 +15,14 @@ themselves.
 
 The files were taken from the FUSE emulator distribution.
 
+`currah.rom` is the 2K ROM of the Currah µSpeech (© Currah 1983) and
+`sp0256-al2.rom` the 2K mask ROM of its speech chip, the General Instrument
+SP0256-AL2. Microchip Technology holds the copyright to the SP0256-AL2 ROM
+image and the intellectual property rights to the algorithms and data it
+contains; Microchip allowed Joe Zbiciak to distribute it as long as this is
+acknowledged (spatula-city.org/~im14u2c/sp0256-al2/). Both files are from
+k1.spdns.de (Vintage/Sinclair/82/Peripherals/Currah uSpeech).
+
 `48.sym` lists the 48K ROM routines and system variables with the names used
 in *The Complete Spectrum ROM Disassembly* (Ian Logan and Frank O'Hara), taken
 from Richard Dymond's SkoolKit disassembly (github.com/skoolkid/rom, GPL v3).

@@ -49,6 +49,7 @@ type
     TurboSound: Boolean;          // two AY chips (128K and later)
     AY48: Boolean;                // AY interface on the 16K/48K
     DivMMC: Boolean;              // DivMMC interface connected
+    Currah: Boolean;              // Currah µSpeech connected
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     ZXUnoRoms: string;            // its ROMs ('' = zxuno/ROMS.ZX1)
@@ -109,7 +110,7 @@ type
   end;
 
 const
-  BOOL_OPTIONS: array[0..19] of TBoolOption = (
+  BOOL_OPTIONS: array[0..20] of TBoolOption = (
     (Name: 'bw'; Section: 'General'),
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'contention'; Section: 'Machine'),
@@ -123,6 +124,7 @@ const
     (Name: 'ay48'; Section: 'Hardware'),
     (Name: 'kmouse'; Section: 'Hardware'),
     (Name: 'divmmc'; Section: 'Hardware'),
+    (Name: 'currah'; Section: 'Hardware'),
     (Name: 'fastload'; Section: 'TapeDisk'),
     (Name: 'autoplay'; Section: 'TapeDisk'),
     (Name: 'savetotape'; Section: 'TapeDisk'),
@@ -235,6 +237,7 @@ begin
   SaveToTape := True;
   ScreenshotBorder := True;
   TurboSound := False;
+  Currah := False;
   Monochrome := False;
   Contention := True;
   UlaSnow := True;
@@ -322,6 +325,7 @@ begin
     'ay48': Result := @AY48;
     'kmouse': Result := @KempstonMouse;
     'divmmc': Result := @DivMMC;
+    'currah': Result := @Currah;
     'fastload': Result := @FastLoad;
     'autoplay': Result := @AutoPlayTape;
     'savetotape': Result := @SaveToTape;

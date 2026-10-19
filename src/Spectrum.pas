@@ -9,7 +9,7 @@ unit Spectrum;
 interface
 
 uses
-  SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad;
+  SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah;
 
 const
   SCREEN_WIDTH = 352;
@@ -47,6 +47,7 @@ type
   TPagingState = record
     Slots: array[0..3] of Integer;   // as SlotBank
     DivActive, DivMapped: Boolean;   // the DivMMC paged in; by automap
+    CurrahPaged: Boolean;            // the Currah µSpeech's ROM paged in
     DivControl: Byte;                // its port E3
     UnoConf, UnoMapper: Byte;        // ZX-Uno MASTERCONF and MASTERMAPPER
   end;
@@ -114,6 +115,7 @@ type
     Cpu: TZ80;
     Ram: array[0..ZXUNO_PAGES - 1] of TBank;
     DivState: TDivState;
+    CurrahPaged: Boolean;
     Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
     ULAPlusPal: array[0..63] of Byte;
     ZXReg: array[0..255] of Byte;
@@ -198,6 +200,8 @@ type
     FRecorder: TTapeRecorder;
     FDiv: TDivMMC;
     FDivOn: Boolean;                        // DivMMC connected
+    FCurrah: TCurrah;
+    FCurrahOn: Boolean;                     // Currah µSpeech connected
     FResetFrame: Int64;                     // frame of the last reset
     FMicLevel: Boolean;
     FBreakHit: Boolean;
@@ -302,6 +306,7 @@ type
     procedure NoteEsxdosCall;
     procedure ExecuteOne;
     function U(T: Integer): Integer; inline;
+    function LowRead(Addr: Word; T: Integer): Byte; inline;
     function FrameLength: Integer; inline;
     function FrameStartT: Int64; inline;
     procedure TapeSaveTrap;
@@ -530,6 +535,9 @@ type
     { The DivMMC interface (connected while DivMMCOn) }
     property DivMMC: TDivMMC read FDiv;
     property DivMMCOn: Boolean read FDivOn write SetDivOn;
+    { The Currah µSpeech (connected while CurrahOn; its ROMs loaded first) }
+    property Currah: TCurrah read FCurrah;
+    property CurrahOn: Boolean read FCurrahOn write FCurrahOn;
     { ZX-Uno register (debugger) }
     function ZXUnoRegister(Reg: Byte): Byte;
     { Debugger: write a ZX-Uno register, as an OUT to FD3B would }
@@ -659,6 +667,7 @@ begin
   FProbeCpu := TZ80.Create(FProbeBus);
   FRecorder := TTapeRecorder.Create(FTape);
   FDiv := TDivMMC.Create;
+  FCurrah := TCurrah.Create;
   // ZX-Uno files next to the ROM folder; its BIOS showing its boot screen
   // and starting the first ROM (the 48K)
   ZXUnoFirmware := ExtractFilePath(ExcludeTrailingPathDelimiter(ARomDir)) + 'zxuno' +
@@ -699,6 +708,7 @@ begin
   ClearBreakpoints;
   FRecorder.Free;
   FDiv.Free;
+  FCurrah.Free;
   FProbeCpu.Free;
   FProbeBus.Free;
   FFDC.Free;
@@ -802,6 +812,7 @@ begin
   FAY.Reset;
   FAY2.Reset;
   FDiv.Reset(Hard);
+  FCurrah.Reset;
   FResetFrame := FFrameCount;
   FAYChip := 0;
   FillChar(FSnowPix, SizeOf(FSnowPix), $FF);
@@ -964,6 +975,7 @@ begin
   Result.Cpu.CopyStateFrom(FCpu);
   Move(FRam, Result.Ram, SizeOf(FRam));
   FDiv.SaveState(Result.DivState);
+  Result.CurrahPaged := FCurrah.Paged;
   Result.Port7FFD := FPort7FFD;
   Result.Port1FFD := FPort1FFD;
   Result.Border := FBorder;
@@ -999,6 +1011,7 @@ begin
   FCpu.CopyStateFrom(S.Cpu);
   Move(S.Ram, FRam, SizeOf(FRam));
   FDiv.LoadState(S.DivState);
+  FCurrah.Paged := S.CurrahPaged;
   FPort7FFD := S.Port7FFD;
   FPort1FFD := S.Port1FFD;
   FBorder := S.Border;
@@ -1037,6 +1050,7 @@ begin
   Result.DivActive := FDivOn and FDiv.Active;
   Result.DivMapped := FDiv.Mapped;
   Result.DivControl := FDiv.Control;
+  Result.CurrahPaged := FCurrahOn and FCurrah.Paged;
   Result.UnoConf := FZXReg[0];
   Result.UnoMapper := FZXReg[1];
 end;
@@ -1116,6 +1130,7 @@ begin
     if FDiv.ReadOnlyAt(Addr) then Result := maRom else Result := maRam;
     Exit;
   end;
+  if FCurrahOn and FCurrah.Paged and (Addr < $1000) then Exit(maRom);
   Bank := FSlotBank[Addr shr 14];
   if Bank = NO_MEMORY then Result := maNone
   else if Bank < 0 then Result := maRom
@@ -1200,10 +1215,23 @@ begin
   Inc(T, Time);
 end;
 
+{ 0000-3FFF without the DivMMC paged in: the Spectrum's ROM, or the Currah
+  µSpeech's (any access to 0038 toggles it, after the access) }
+function TSpectrum.LowRead(Addr: Word; T: Integer): Byte;
+begin
+  if not FCurrahOn then Exit(FSlot[0]^[Addr]);
+  if FCurrah.Paged and (Addr < $1000) then Result := FCurrah.ReadRom(Addr)
+  else if FCurrah.Paged and (Addr = $1000) then Result := FCurrah.ReadStatus(U(T))
+  else Result := FSlot[0]^[Addr];
+  if Addr = $0038 then FCurrah.Toggle;
+end;
+
 function TSpectrum.ReadMem(Addr: Word; T: Integer): Byte;
 begin
   if FDivOn and (Addr < $4000) and FDiv.Active then
     Result := FDiv.Read(Addr)
+  else if Addr < $4000 then
+    Result := LowRead(Addr, T)
   else
     Result := FSlot[Addr shr 14]^[Addr and $3FFF];
   if FDaadOn and (FDaadMap[Addr] <> 0) then DaadRead(Addr);
@@ -1355,9 +1383,11 @@ begin
   begin
     // DivMMC automatic paging happens around opcode fetches
     FDiv.BeforeFetch(Addr);
-    if FDiv.Active then Result := FDiv.Read(Addr) else Result := FSlot[0]^[Addr];
+    if FDiv.Active then Result := FDiv.Read(Addr) else Result := LowRead(Addr, T);
     FDiv.AfterFetch(Addr);
   end
+  else if Addr < $4000 then
+    Result := LowRead(Addr, T)
   else
     Result := FSlot[Addr shr 14]^[Addr and $3FFF];
   // ULA snow: with I pointing at contended memory, the refresh cycle (the
@@ -1399,6 +1429,8 @@ function TSpectrum.Peek(Addr: Word): Byte;
 begin
   if FDivOn and (Addr < $4000) and FDiv.Active then
     Result := FDiv.Read(Addr)
+  else if FCurrahOn and FCurrah.Paged and (Addr < $1000) then
+    Result := FCurrah.ReadRom(Addr)
   else
     Result := FSlot[Addr shr 14]^[Addr and $3FFF];
 end;
@@ -1415,6 +1447,12 @@ begin
     FBreakKind := bkMemory;
     FBreakInstr := FInstrPC;
     FBreakReason := Format('Write breakpoint at %.4X (instruction at %.4X)', [Addr, FInstrPC]);
+  end;
+  if FCurrahOn and (Addr < $4000) then
+  begin
+    // The µSpeech: 1000 an allophone, 3000/3001 the intonation
+    FCurrah.Write(Addr, Value, U(T));
+    if Addr = $0038 then FCurrah.Toggle;
   end;
   if FDivOn and (Addr < $4000) and FDiv.Active then
   begin
@@ -1493,6 +1531,7 @@ begin
   IOContendPre(Port, T);
   Result := $FF;
   Responded := False;
+  if FCurrahOn and (Port = $0038) then FCurrah.Toggle;
 
   if (Port and 1) = 0 then
   begin
@@ -1602,6 +1641,7 @@ begin
   IOContendPre(Port, T);
   LogPort(Port, Value, True);
   CheckPortBreak(Port, True);
+  if FCurrahOn and (Port = $0038) then FCurrah.Toggle;
 
   if (Port and 1) = 0 then
   begin
@@ -2384,6 +2424,11 @@ begin
     Reading := FFDC.HeadActive;
   end;
   if Two then AYGain := 0.25 else AYGain := 0.35;
+  if FCurrahOn then
+  begin
+    FCurrah.ClockHz := FInfo.ClockHz;
+    FCurrah.Sync(FInfo.FrameT);
+  end;
   FSampleCount := 0;
   EvIndex := 0;
   if Length(FSamples) < Trunc(FInfo.FrameT / TPerSample) + 2 then
@@ -2447,6 +2492,13 @@ begin
       FAY2Levels[0] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[2] * 0.25) * AYGain;
     R := Acc * 0.5 + (FAYLevels[2] * 0.75 + FAYLevels[1] * 0.5 + FAYLevels[0] * 0.25 +
       FAY2Levels[2] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[0] * 0.25) * AYGain;
+    if FCurrahOn then
+    begin
+      // The µSpeech's voice, mixed in with the Spectrum's sound on the TV
+      Floppy := FCurrah.Level(EndT) * 2.5;
+      L := L + Floppy;
+      R := R + Floppy;
+    end;
     if Drive then
     begin
       Floppy := 0;
@@ -2505,6 +2557,7 @@ begin
     Inc(EvIndex);
   end;
   FEventCount := 0;
+  if FCurrahOn then FCurrah.EndFrame(FInfo.FrameT);
   FSamplePos := FSamplePos - FInfo.FrameT;
   Dec(FAYTickT, FInfo.FrameT);
 end;

@@ -94,6 +94,10 @@ begin
       CopyTree(V, E[0].Cluster, IncludeTrailingPathDelimiter(ParamStr(2)) + 'SYS');
       CopyTree(V, E[1].Cluster, IncludeTrailingPathDelimiter(ParamStr(2)) + 'BIN');
       Check(Length(V.ListDir(E[0].Cluster)) > 5, 'SYS copied onto the card');
+      // Folders made inside another one, as the SD card browser imports them
+      V.FindDir('GAMES/ARCADE', True, E[2].Cluster);
+      Check(V.FindDir('/TMP/GAMES/ARCADE', False) = V.FindDir('ARCADE', False,
+        V.FindDir('GAMES', False, E[2].Cluster)), 'folders made inside a folder');
     finally
       V.Free;
     end;

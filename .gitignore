@@ -103,3 +103,4 @@ CLAUDE.md
 tools/*
 build/*
 to_be_ignored/*
+specnext/*

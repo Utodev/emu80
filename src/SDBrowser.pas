@@ -42,6 +42,10 @@ type
     procedure DoRefresh(Sender: TObject);
     procedure DoNewFolder(Sender: TObject);
     procedure DoImport(Sender: TObject);
+    procedure DoImportFolder(Sender: TObject);
+    procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
+    function ImportMakeDir(const Path: string): string;
+    function TargetDir(Vol: TFatVolume; const AName: string; MakeMissing: Boolean; out Base: string): LongWord;
     procedure DoExport(Sender: TObject);
     procedure DoRename(Sender: TObject);
     procedure DoDelete(Sender: TObject);
@@ -97,6 +101,8 @@ begin
   Height := 460;
   Position := poMainFormCenter;
   OnClose := @FormClose;
+  AllowDropFiles := True;
+  OnDropFiles := @FormDropFiles;
 
   FImages := TImageList.Create(Self);
   LoadIcons(FImages);
@@ -112,7 +118,9 @@ begin
   AddButton(ikRefresh, 'Read the card again', @DoRefresh);
   AddSeparator;
   AddButton(ikNewFolder, 'New folder...', @DoNewFolder);
-  AddButton(ikOpen, 'Import files from the PC into this folder...', @DoImport);
+  AddButton(ikOpen, 'Import files from the PC into this folder... (or drop files and folders here)', @DoImport);
+  AddButton(ikImportFolder, 'Import a folder of the PC with its contents into this folder...',
+    @DoImportFolder);
   AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
   AddButton(ikRename, 'Rename the selected file or folder... (F2)', @DoRename);
   AddButton(ikDelete, 'Delete the selected files (or empty folders) (Del)', @DoDelete);
@@ -402,24 +410,94 @@ var
   Status: string;
 begin
   // Files on an SD card usually have no +3DOS header: unticked by default
-  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite);
+  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir);
   Refresh;
   if Status <> '' then FStatus.SimpleText := Status;
+end;
+
+procedure TSDBrowserWindow.DoImportFolder(Sender: TObject);
+var
+  Status: string;
+begin
+  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
+    nil, True);
+  Refresh;
+  if Status <> '' then FStatus.SimpleText := Status;
+end;
+
+procedure TSDBrowserWindow.FormDropFiles(Sender: TObject; const FileNames: array of string);
+var
+  Paths: TStringList;
+  I: Integer;
+  Status: string;
+begin
+  Paths := TStringList.Create;
+  try
+    for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
+    Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
+      Paths);
+  finally
+    Paths.Free;
+  end;
+  Refresh;
+  if Status <> '' then FStatus.SimpleText := Status;
+end;
+
+{ The folder of the card a name like "GAMES/ARCADE/JET.TAP" goes into (from
+  the one shown), making it if MakeMissing, and the file's name (JET.TAP) }
+function TSDBrowserWindow.TargetDir(Vol: TFatVolume; const AName: string; MakeMissing: Boolean;
+  out Base: string): LongWord;
+var
+  P: Integer;
+begin
+  P := LastDelimiter('/', AName);
+  Base := Copy(AName, P + 1, MaxInt);
+  if P = 0 then Result := DirCluster
+  else Result := Vol.FindDir(Copy(AName, 1, P - 1), MakeMissing, DirCluster);
+end;
+
+function TSDBrowserWindow.ImportMakeDir(const Path: string): string;
+var
+  Vol: TFatVolume;
+begin
+  Result := 'there is no SD card';
+  FEmu.Lock;
+  try
+    if OpenVolume(Vol) then
+      try
+        try
+          // Folders already there are merged with
+          Vol.FindDir(Path, True, DirCluster);
+          Result := '';
+        except
+          on E: Exception do Result := E.Message;
+        end;
+      finally
+        Vol.Free;
+      end;
+  finally
+    FEmu.Unlock;
+  end;
 end;
 
 function TSDBrowserWindow.ImportExists(const AName: string): Boolean;
 var
   Vol: TFatVolume;
   Raw: array[0..10] of Byte;
-  Error: string;
+  Error, Base: string;
+  Dir: LongWord;
 begin
   Result := False;
-  if not MakeName83(AName, Raw, Error) then Exit;
   FEmu.Lock;
   try
     if OpenVolume(Vol) then
       try
-        Result := Vol.Exists(DirCluster, Raw);
+        try
+          Dir := TargetDir(Vol, AName, False, Base);
+          if MakeName83(Base, Raw, Error) then Result := Vol.Exists(Dir, Raw);
+        except
+          on EFatError do Result := False;   // no such folder yet
+        end;
       finally
         Vol.Free;
       end;
@@ -432,6 +510,8 @@ function TSDBrowserWindow.ImportWrite(const AName: string; const Data: TBytes;
   Replace: Boolean): string;
 var
   Vol: TFatVolume;
+  Base: string;
+  Dir: LongWord;
 begin
   Result := 'there is no SD card';
   FEmu.Lock;
@@ -439,8 +519,9 @@ begin
     if OpenVolume(Vol) then
       try
         try
-          if Replace then Vol.PutFile(DirCluster, AName, Data)
-          else Vol.WriteFile(DirCluster, AName, Data);
+          Dir := TargetDir(Vol, AName, True, Base);
+          if Replace then Vol.PutFile(Dir, Base, Data)
+          else Vol.WriteFile(Dir, Base, Data);
           Result := '';
         except
           on E: Exception do Result := E.Message;

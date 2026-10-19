@@ -1,13 +1,16 @@
 #!/bin/sh
-# Makes .deb and .rpm packages of the Linux build (run build.sh first).
+# Makes .deb and .rpm packages of the Linux build (run build.sh first) and
+# a .zip of the Windows one (pzx.exe in this folder, built with lazbuild).
 #
-#   ./package.sh            both packages, into build/packages/
+#   ./package.sh            the packages, into build/packages/
 #
+# The .zip has a pzx-VERSION-windows folder with pzx.exe, roms, esxdos,
+# zxuno, README.md and LICENSE (pzx.ini is made there when pzx closes).
 # The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
 # (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
 # RPMBUILD=command uses another rpmbuild.
 #
-# Installed layout: the program, roms, esxdos, zxuno, README.TXT and LICENSE
+# Installed layout: the program, roms, esxdos, zxuno, README.md and LICENSE
 # in /usr/lib/pzx (pzx finds them next to itself), /usr/bin/pzx to start it,
 # a desktop entry and the icon. The settings go to ~/.config/pzx/pzx.ini,
 # as /usr/lib/pzx can't be written. The version is the release number
@@ -16,13 +19,37 @@ set -e
 cd "$(dirname "$0")"
 ROOT=$(pwd)
 
-[ -x build/linux/pzx ] || { echo "build/linux/pzx not found: run build.sh first" >&2; exit 1; }
 VERSION=$(sed -n "s/.*PZX_RELEASE = '\([0-9]*\)'.*/\1/p" src/Release.inc)
 [ -n "$VERSION" ] || { echo "No release number in src/Release.inc" >&2; exit 1; }
 MAINTAINER="Uto <csanchez@kioskoymas.com>"
 SUMMARY="ZX Spectrum emulator (48K, 128K, +2, +2B, +3, ZX-Uno)"
 OUT="$ROOT/build/packages"
 mkdir -p "$OUT"
+
+# Windows: a .zip of pzx.exe and its folders
+if [ -f pzx.exe ]; then
+  ZIP="pzx-$VERSION-windows"
+  rm -f "$OUT/$ZIP.zip"
+  python3 - "$OUT/$ZIP.zip" "$ZIP" pzx.exe roms esxdos zxuno README.md LICENSE <<'EOF'
+import os, sys, zipfile
+out, top, names = sys.argv[1], sys.argv[2], sys.argv[3:]
+with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+    for name in names:
+        if os.path.isdir(name):
+            for folder, dirs, files in os.walk(name):
+                dirs.sort()
+                for f in sorted(files):
+                    path = os.path.join(folder, f)
+                    z.write(path, os.path.join(top, path))
+        else:
+            z.write(name, os.path.join(top, name))
+EOF
+  echo "Built build/packages/$ZIP.zip"
+else
+  echo "pzx.exe not found (build it with lazbuild src/pzx.lpi): no .zip" >&2
+fi
+
+[ -x build/linux/pzx ] || { echo "build/linux/pzx not found: run build.sh first (no .deb, no .rpm)" >&2; exit 1; }
 
 # The files, staged on a Linux file system (the permissions must be real)
 WORK=$(mktemp -d)
@@ -33,8 +60,8 @@ mkdir -p "$LIB" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
   "$STAGE/usr/share/icons/hicolor/256x256/apps" "$STAGE/usr/share/doc/pzx"
 cp build/linux/pzx "$LIB/pzx"
 cp -R roms esxdos zxuno "$LIB/"
-cp README.TXT LICENSE "$LIB/"
-cp README.TXT "$STAGE/usr/share/doc/pzx/"
+cp README.md LICENSE "$LIB/"
+cp README.md "$STAGE/usr/share/doc/pzx/"
 cp LICENSE "$STAGE/usr/share/doc/pzx/copyright"
 cat > "$STAGE/usr/bin/pzx" <<'EOF'
 #!/bin/sh

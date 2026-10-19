@@ -135,6 +135,7 @@ type
     { DivMMC on or off as the settings say (a change powers the machine
       off and on); False with a message if the firmware is missing }
     function ApplyDivMMC: Boolean;
+    procedure ApplyCurrah;
     function InsertSDCard(const FileName: string; Remember: Boolean = True): Boolean;
     procedure DoSDFolder(Sender: TObject);
     { A temporary card with esxDOS and the files of a PC folder in its root }
@@ -662,6 +663,41 @@ begin
   FEmu.Sound := Settings.Sound;
   ApplyRomFiles;
   ApplyDivMMC;
+  ApplyCurrah;
+end;
+
+{ The Currah µSpeech: plugging it in or out switches the machine off and
+  on. Its ROMs are currah.rom and sp0256-al2.rom in the ROM folder. }
+procedure TMainWindow.ApplyCurrah;
+var
+  Dir, Err: string;
+begin
+  if Settings.Currah = FEmu.Spec.CurrahOn then Exit;
+  Err := '';
+  FEmu.Lock;
+  try
+    if Settings.Currah then
+    begin
+      Dir := IncludeTrailingPathDelimiter(FEmu.Spec.RomDir);
+      try
+        FEmu.Spec.Currah.LoadRoms(Dir + 'currah.rom', Dir + 'sp0256-al2.rom');
+        FEmu.Spec.CurrahOn := True;
+      except
+        on E: Exception do Err := E.Message;
+      end;
+    end
+    else
+      FEmu.Spec.CurrahOn := False;
+    if Err = '' then FEmu.Spec.Reset(True);
+  finally
+    FEmu.Unlock;
+  end;
+  if Err <> '' then
+  begin
+    Settings.Currah := False;
+    MessageDlg('Currah ' + #$C2#$B5 + 'Speech: ' + Err + LineEnding +
+      'It needs currah.rom and sp0256-al2.rom in the ROM folder.', mtError, [mbOK], 0);
+  end;
 end;
 
 function TMainWindow.ApplyDivMMC: Boolean;
@@ -2643,7 +2679,7 @@ begin
   UpdateChecks;
 end;
 
-{ Command line: see README.TXT. Options may start with - or -- and
+{ Command line: see README.md. Options may start with - or -- and
   take their value as the next argument or after "=". }
 procedure TMainWindow.ProcessCommandLine;
 type
@@ -3337,7 +3373,10 @@ begin
     '128K, +2 and +3 from the disassemblies by Paul Farrow, Garry Lancaster and ' +
     'others (ZXSpectrumVault rom-disassemblies).' + LineEnding +
     'ZX-Uno (its design, core, BIOS and ROMs pack): (C) ZX-Uno Team.' + LineEnding +
-    'esxDOS: (C) Miguel Guerreiro (Papaya Dezign).',
+    'esxDOS: (C) Miguel Guerreiro (Papaya Dezign).' + LineEnding +
+    'Currah ' + #$C2#$B5 + 'Speech ROM: (C) Currah 1983. SP0256-AL2 mask ROM: Microchip ' +
+    'Technology holds its copyright and the rights to its algorithms and data. SP0256 ' +
+    'emulation ported from MAME (BSD-3-Clause, Joseph Zbiciak and Tim Lindner).',
     mtInformation, [mbOK], 0);
 end;
 

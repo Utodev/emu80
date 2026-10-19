@@ -308,6 +308,7 @@ type
     FSlots: array[0..3] of Integer; // what is paged in each 16K slot
     FSlot3OK: Boolean;              // slot 3 can be changed (128K paging)
     FDivActive: Boolean;            // the DivMMC is paged in at 0000-3FFF
+    FCurrahPaged: Boolean;          // the Currah µSpeech's ROM is paged in
     FDivOn: Boolean;                // the DivMMC is connected
     FDivControl: Byte;              // its control register (port E3)
     FDivMapped: Boolean;            // paged in by the automatic paging
@@ -422,6 +423,7 @@ type
     function SlotBank(Slot: Integer): Integer;
     function Slot3Changeable: Boolean;
     function DivActive: Boolean;
+    function CurrahPaged: Boolean;
     function DivOn: Boolean;
     function DivControl: Byte;
     function DivMappedNow: Boolean;
@@ -2936,6 +2938,7 @@ begin
   begin
     Bank := FOwnerWin.SlotBank(I);
     if (I = 0) and FOwnerWin.DivActive then Text_ := 'DIV'
+    else if (I = 0) and FOwnerWin.CurrahPaged then Text_ := 'SPCH'
     else if FOwnerWin.UnoOn and (Bank = -5) then Text_ := 'BOOT'
     else if Bank = NO_MEMORY then Text_ := '----'
     else if Bank < 0 then Text_ := 'ROM' + IntToStr(-1 - Bank)
@@ -2943,7 +2946,8 @@ begin
     DrawText(Col(7 + I * 7), Y, IntToStr(I) + ':', clGray, False);
     // Dark red if the last instruction paged something else in
     ValueColor := ChangedOrBlack((Bank <> PP.Slots[I]) or
-      ((I = 0) and (FOwnerWin.DivActive <> PP.DivActive)));
+      ((I = 0) and ((FOwnerWin.DivActive <> PP.DivActive) or
+      (FOwnerWin.CurrahPaged <> PP.CurrahPaged))));
     if (I = 3) and FOwnerWin.Slot3Changeable then
     begin
       // A drop-down: underlined, click to choose the bank
@@ -3119,7 +3123,7 @@ begin
   FXorEdit.BorderSpacing.Right := 4;
   FXorEdit.Anchors := [akTop, akRight];
   FXorEdit.Top := 1;
-  FXorEdit.Width := 44;
+  FXorEdit.Width := Scale96ToForm(30);   // two hex digits
   Lbl := TLabel.Create(Self);
   Lbl.Parent := Header;
   Lbl.Caption := 'XOR:';
@@ -3422,6 +3426,11 @@ end;
 function TDebuggerWindow.DivActive: Boolean;
 begin
   Result := FDivActive;
+end;
+
+function TDebuggerWindow.CurrahPaged: Boolean;
+begin
+  Result := FCurrahPaged;
 end;
 
 function TDebuggerWindow.DivOn: Boolean;
@@ -3874,7 +3883,8 @@ begin
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
     FUnoButton.Visible := FUnoOn;
-    if FDivActive then FRomIndex := -1;
+    FCurrahPaged := FEmu.Spec.CurrahOn and FEmu.Spec.Currah.Paged;
+    if FDivActive or FCurrahPaged then FRomIndex := -1;
     Cpu := FEmu.Spec.Cpu;
     FRegs.A := Cpu.A; FRegs.F := Cpu.F; FRegs.A_ := Cpu.A_; FRegs.F_ := Cpu.F_;
     FRegs.BC := Cpu.BC.W; FRegs.DE := Cpu.DE.W; FRegs.HL := Cpu.HL.W;

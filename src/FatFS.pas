@@ -72,9 +72,10 @@ type
     { Files, or empty directories }
     procedure Delete(const E: TFatEntry);
     procedure Rename(DirCluster: LongWord; const E: TFatEntry; const NewName: string);
-    { The directory at Path ("/", "/GAMES/ARCADE"...), creating the missing
-      folders if asked; raises if it can't }
-    function FindDir(const Path: string; CreateMissing: Boolean): LongWord;
+    { The directory at Path ("/", "/GAMES/ARCADE"...) inside the one at Start
+      (0: the root), creating the missing folders if asked; raises if it
+      can't }
+    function FindDir(const Path: string; CreateMissing: Boolean; Start: LongWord = 0): LongWord;
     { Write a file, replacing one with the same name }
     procedure PutFile(DirCluster: LongWord; const AName: string; const Data: TBytes);
     function FreeBytes: Int64;
@@ -751,14 +752,14 @@ begin
   end;
 end;
 
-function TFatVolume.FindDir(const Path: string; CreateMissing: Boolean): LongWord;
+function TFatVolume.FindDir(const Path: string; CreateMissing: Boolean; Start: LongWord): LongWord;
 var
   Parts: TStringArray;
   I, K: Integer;
   Entries: TFatEntries;
   Found: Boolean;
 begin
-  Result := 0;
+  Result := Start;
   Parts := StringReplace(Path, '\', '/', [rfReplaceAll]).Split(['/']);
   for I := 0 to High(Parts) do
   begin

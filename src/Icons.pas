@@ -16,7 +16,7 @@ type
     ikRun, ikBreak, ikBreakpoint, ikCondition, ikClearBreakpoints, ikStepInto, ikStepOver,
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
-    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80);
+    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
@@ -346,11 +346,17 @@ begin
         D.Rect(4.5, 2, 5.8, 5); D.Rect(6.6, 2, 7.9, 5); D.Rect(8.7, 2, 10, 5);
         D.Pen(clWhite); D.Fill(clWhite); D.Rect(4.5, 9, 11.5, 13.5);
       end;
-    ikFolderUp, ikNewFolder:
+    ikFolderUp, ikNewFolder, ikImportFolder:
       begin
         D.Pen(DarkYellow); D.Fill(Yellow);
         D.Poly([1, 4, 6, 4, 7, 5, 14, 5, 14, 14, 1, 14]);
-        if Kind = ikFolderUp then
+        if Kind = ikImportFolder then
+        begin
+          // An arrow going into the folder
+          D.Pen(DarkBlue); D.Fill(Blue);
+          D.Poly([7.5, 13, 11.5, 9, 9, 9, 9, 1, 6, 1, 6, 9, 3.5, 9]);
+        end
+        else if Kind = ikFolderUp then
         begin
           D.Pen(DarkGreen); D.Fill(Green);
           D.Poly([7.5, 6, 11.5, 10, 9, 10, 9, 13, 6, 13, 6, 10, 3.5, 10]);

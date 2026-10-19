@@ -28,7 +28,7 @@ type
     FRomDir: TEdit;
     FBrowse: TButton;
     FFastLoad, FAutoPlay, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
-    FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC: TCheckBox;
+    FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
     FFloppyNoise, FSaveOnExit: TCheckBox;
@@ -174,6 +174,10 @@ begin
   Inc(Y, 28);
   FDivMMC := AddCheck(Page, 'DivMMC interface', Y);
   FDivMMC.Hint := 'SD card with the esxDOS firmware (see the SD menu); changing it switches ' +
+    'the machine off and on';
+  Inc(Y, 28);
+  FCurrah := AddCheck(Page, 'Currah ' + #$C2#$B5 + 'Speech', Y);
+  FCurrah.Hint := 'Speech synthesizer for the 48K BASIC (LET s$="..."); changing it switches ' +
     'the machine off and on';
 
   // Tapes and disks
@@ -537,6 +541,7 @@ begin
   FAutoPlay.Checked := S.AutoPlayTape;
   FMouse.Checked := S.KempstonMouse;
   FDivMMC.Checked := S.DivMMC;
+  FCurrah.Checked := S.Currah;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
   FUnoRoms.Text := S.ZXUnoRoms;
@@ -604,6 +609,7 @@ begin
   S.ShiftSides := FShiftSides.Checked;
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
+  S.Currah := FCurrah.Checked;
   S.Monochrome := FMonochrome.Checked;
   S.Contention := FContention.Checked;
   S.UlaSnow := FSnow.Checked;

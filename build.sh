@@ -42,7 +42,7 @@ if [ "$OS" = macos ]; then
   mv -f "$OUT/pzx" "$APP/MacOS/pzx"
   rm -rf "$APP/MacOS/roms"
   cp -R roms "$APP/MacOS/roms"
-  cp README.TXT LICENSE "$APP/MacOS/"
+  cp README.md LICENSE "$APP/MacOS/"
   rm -rf "$APP/MacOS/esxdos"
   cp -R esxdos "$APP/MacOS/esxdos"
   rm -rf "$APP/MacOS/zxuno"
@@ -64,7 +64,7 @@ EOF
 else
   rm -rf "$OUT/roms"
   cp -R roms "$OUT/roms"
-  cp README.TXT LICENSE "$OUT/"
+  cp README.md LICENSE "$OUT/"
   rm -rf "$OUT/esxdos"
   cp -R esxdos "$OUT/esxdos"
   rm -rf "$OUT/zxuno"

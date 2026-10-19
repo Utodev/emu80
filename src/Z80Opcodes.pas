@@ -300,15 +300,11 @@ var
       CW := (W - Hdr) div 16;
       RH := (H - HdrRow) div 16;
       LineH := C.TextHeight('Xg') - 1;
-      // The widest line of any cell (bold only for the undocumented ones,
-      // as they are drawn)
+      // The widest line of any cell (in bold, as they are drawn)
       Widest := 0;
       for T := Low(TOpcodeTable) to High(TOpcodeTable) do
         for Op := 0 to 255 do
-        begin
-          if FUndoc[T, Op] then C.Font.Style := [fsBold] else C.Font.Style := [];
           for Line in CellLines(FTexts[T, Op], ASplit) do Widest := Max(Widest, C.TextWidth(Line));
-        end;
       if (Widest + 4 <= CW) and (LineH * NLines + 2 <= RH) then Exit;
       Dec(Result);
     until Result <= 5;
@@ -469,13 +465,13 @@ begin
   Lines := CellLines(Txt, FSplit);
   if Pos('prefix', Txt) > 0 then
     C.Font.Color := clGray
-  else if FUndoc[FTable, Op] then
-  begin
-    C.Font.Color := RGBToColor(150, 0, 0);
-    C.Font.Style := [fsBold];
-  end
   else
-    C.Font.Color := clWindowText;
+  begin
+    // Every instruction in bold; the undocumented ones in dark red
+    C.Font.Style := [fsBold];
+    if FUndoc[FTable, Op] then C.Font.Color := RGBToColor(150, 0, 0)
+    else C.Font.Color := clWindowText;
+  end;
   H := C.TextHeight('Xg') - 1;
   C.Brush.Style := bsClear;
   for I := 0 to High(Lines) do

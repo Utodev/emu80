@@ -7,8 +7,8 @@ unit TapeBrowser;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType,
-  Emulator, Tape, Icons;
+  Classes, SysUtils, Forms, Controls, Graphics, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Menus,
+  LCLType, Emulator, Tape, Icons;
 
 type
   TTapeBrowserWindow = class(TForm)
@@ -44,6 +44,8 @@ type
     procedure DoDelete(Sender: TObject);
     procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure DoSave(Sender: TObject);
+    procedure DoExportBlock(Sender: TObject);
+    procedure ListMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure MoveSelected(Delta: Integer);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
   public
@@ -77,6 +79,7 @@ constructor TTapeBrowserWindow.CreateFor(AOwner: TComponent; AEmu: TEmulator);
 var
   Col: TListColumn;
   Bottom: TPanel;
+  Item: TMenuItem;
 begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
@@ -140,11 +143,18 @@ begin
   FList.Parent := Self;
   FList.Align := alClient;
   FList.OnCustomDrawItem := @ListCustomDrawItem;
+  // Right-click: the selected block to a binary file
+  FList.PopupMenu := TPopupMenu.Create(Self);
+  Item := TMenuItem.Create(FList.PopupMenu);
+  Item.Caption := 'Export block as binary...';
+  Item.OnClick := @DoExportBlock;
+  FList.PopupMenu.Items.Add(Item);
   FList.ViewStyle := vsReport;
   FList.ReadOnly := True;
   FList.RowSelect := True;
   FList.HideSelection := False;
   FList.OnDblClick := @ListDblClick;
+  FList.OnMouseDown := @ListMouseDown;
   FList.OnKeyDown := @ListKeyDown;
   Col := FList.Columns.Add;
   Col.Caption := '';
@@ -446,6 +456,61 @@ begin
     Dlg.Free;
   end;
   Refresh(True);
+end;
+
+{ A right-click selects the block under the mouse (for its menu) }
+procedure TTapeBrowserWindow.ListMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+var
+  Item: TListItem;
+begin
+  if Button <> mbRight then Exit;
+  Item := FList.GetItemAt(X, Y);
+  if Item <> nil then FList.Selected := Item;
+end;
+
+{ The selected block's bytes (without the flag byte and the checksum) to a
+  file: blockN.bin by default, N its number on the tape }
+procedure TTapeBrowserWindow.DoExportBlock(Sender: TObject);
+var
+  Dlg: TSaveDialog;
+  Data: TBytes;
+  N: Integer;
+  F: TFileStream;
+begin
+  if FList.Selected = nil then Exit;
+  N := FList.Selected.Index;
+  FEmu.Lock;
+  try
+    if N >= FEmu.Spec.Tape.Count then Exit;
+    Data := Copy(FEmu.Spec.Tape[N].Data);
+  finally
+    FEmu.Unlock;
+  end;
+  // The flag byte first and the checksum last are not the block's data
+  if Length(Data) >= 2 then Data := Copy(Data, 1, Length(Data) - 2) else Data := nil;
+  Dlg := TSaveDialog.Create(Self);
+  try
+    Dlg.Title := Format('Export block %d as binary', [N + 1]);
+    Dlg.Filter := 'Binary files (*.bin)|*.bin|All files|*.*';
+    Dlg.DefaultExt := 'bin';
+    Dlg.InitialDir := Settings.LastDir;
+    Dlg.FileName := Format('block%d.bin', [N + 1]);
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    try
+      F := TFileStream.Create(Dlg.FileName, fmCreate);
+      try
+        if Length(Data) > 0 then F.WriteBuffer(Data[0], Length(Data));
+      finally
+        F.Free;
+      end;
+    except
+      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    Dlg.Free;
+  end;
 end;
 
 procedure TTapeBrowserWindow.FormClose(Sender: TObject; var CloseAction: TCloseAction);
