@@ -1,0 +1,680 @@
+@title Browser Guide
+@author Garry Lancaster
+@version 1.07
+@copyright Copyright (C)2022 Garry Lancaster
+@date 2022/06/18
+@----------------------------------------------------------------------------
+@node MAIN
+@next SCREEN
+@{r}Browser Guide
+@{c}@{h1}The Browser
+
+The @{i}Browser@{ui} provides a quick and convenient way to navigate through the
+files and directories on your SD card, and to view or run any supported file
+types.
+
+Note that when you press @{b}G@{ub} in the @{i}Browser@{ui}, an appropriate guide for the
+currently-highlighted file or directory will be shown, if there is one.
+Otherwise, this guide will be shown.
+
+@{"Main screen" LINK SCREEN}
+@{"View Options" LINK VIEW}
+@{"Filter Options" LINK FILTERS}
+@{"Main Actions" LINK ACTIONS}
+@{"Extended Actions" LINK EXTENDED}
+@{"Links" LINK LINKS}
+@{"Preferences" LINK PREFS}
+@{"Configuration - colour schemes" LINK SCHEMES}
+@{"Configuration - supported filetypes" LINK BROWSERCFG}
+@{"Configuration - extended actions" LINK BROWSEXTCFG}
+@{"Using the Browser from NextBASIC" LINK DOTBROWSE}
+@{"Using the Browser from machine-code" LINK IDEBROWSER}
+@{"Current limitations" LINK LIMITATIONS}
+@{"Filename metadata" LINK FILEMETA}
+@----------------------------------------------------------------------------
+@node SCREEN
+@prev MAIN
+@next VIEW
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}The main screen
+
+The main screen consists of several sections.
+
+The top line shows the user area, drive letter and path of the directory
+currently being displayed.
+
+The 2nd line shows the currently-active @{"view options" LINK VIEW}, such as the sort order
+and the type of additional information being displayed for each file.
+
+The main central area of the screen contains a list of files and directories.
+A highlight bar is shown over the currently-selected entry. This can be moved
+around using the up and down cursor keys. The left and right cursor keys move
+to the previous or next screen of files.
+
+If the highlight bar is cyan, then pressing @{b}ENTER@{ub} will launch the file (or
+change to the directory). Some file types can be launched in an alternative
+way by holding @{b}SYMBOL-SHIFT@{ub} and pressing @{b}ENTER@{ub}.
+
+For example, text (@{i}.TXT@{ui}) files will be shown in a viewer if you press @{b}ENTER@{ub},
+but in an editor if you press @{b}SYMBOL-SHIFT@{ub} and @{b}ENTER@{ub}.
+
+As another example, @{i}TAP@{ui},  @{i}TZX@{ui}, @{i}SNA@{ui} and @{i}Z80@{ui} files will be loaded automatically
+using the options (eg 48K/128K mode) previously selected if you press @{b}ENTER@{ub}.
+If you press @{b}SYMBOL-SHIFT@{ub} and @{b}ENTER@{ub}, you can choose different options.
+
+If the highlight bar is yellow, the file type is not supported for launching.
+
+Towards the bottom is the @{i}Browser@{ui} banner. This line also shows the
+currently-active file filters (an optional wildcard, plus indicators showing
+whether system/hidden or "dot" files are being displayed).
+
+The bottom two lines show some help text, indicating the main action keys that
+you can use. They are also used to request input (such as a new name when
+renaming a file). During input, you can use the cursor keys to move around,
+DELETE to delete a character or EDIT to clear the entire input.
+@----------------------------------------------------------------------------
+@node VIEW
+@prev SCREEN
+@next FILTERS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}View Options
+
+The current view options are shown at the top of the screen and can be
+changed by pressing the keys highlighted.
+
+@{h2}Order
+Press @{b}O@{ub} to change the current sort order. Files can be sorted by name, size,
+date/time or left unsorted. Press @{b}+@{ub} or @{b}-@{ub} to reverse the current order.
+
+@{h2}Mixed mode
+Press @{b}X@{ub} to switch between the default mixed mode (where files and
+directories are listed together) and unmixed mode (where directories are
+always listed first).
+
+@{h2}Search
+If the current sort order is by name, you can press @{b}H@{ub} to start an
+incremental search of the file list. The highlight jumps to the best-matched
+name for the characters you have typed so far. Press @{b}ENTER@{ub} to finish.
+
+@{h2}Name
+If a file's name is too long to fit on a single line in the display, only the
+start and end will be shown, with a @{i}~@{ui} character indicating where the missing
+part of the name is. You can press @{b}N@{ub} to show the full filename of the
+currently-highlighted file (including any metadata - see @{"filters" LINK FILTERS} for info).
+
+@{h2}Area
+Press @{b}A@{ub} to change the user area currently being displayed. (User areas are
+only supported on +3DOS-formatted drives, eg the RAMdisk and mounted +3 disks).
+
+@{h2}Info
+Press @{b}I@{ub} to change the additional information column shown for each file.
+This can be nothing, size, date/time or attributes.
+@----------------------------------------------------------------------------
+@node FILTERS
+@prev VIEW
+@next ACTIONS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Filter Options
+
+The current filter options are shown in the @{i}Browser@{ui} banner at the bottom of
+the screen.
+
+@{h2}Filter
+Press @{b}F@{ub} to change the main filter. This is a wildcard string which can be
+used to restrict the files that are shown. For example, type @{i}*.bas@{ui} to show
+only files with a .BAS extension.
+
+After pressing @{b}F@{ub} you can quickly restore the default all-files filter (@{i}*.*@{ui})
+by just pressing @{b}ENTER@{ub}.
+
+Note that in the "mixed mode" @{"view option" LINK VIEW}, the filter will affect the
+directories that are listed as well as the files. Switching to unmixed mode
+can be useful, as directories will be listed first and not affected by the
+filter.
+
+@{h2}System files
+Press @{b}S@{ub} to toggle whether or not system/hidden files are shown. The @{b}S@{ub}
+indicator lights or dims appropriately.
+
+@{h2}Filename metadata
+Press @{b}{@{ub} to toggle whether or not special @{"filename metadata" LINK FILEMETA} is shown.
+This metadata is enclosed within @{i}{@{ui} braces @{i}}@{ui}, and can be used by some programs
+to store additional information.
+
+@{h2}. and .. directories
+Press @{b}.@{ub} to toggle whether or not the special @{i}.@{ui} and @{i}..@{ui} directory entries
+are shown. The @{b}.@{ub} indicator lights or dims appropriately.
+
+(Although it can be helpful to use the @{i}..@{ui} directory to move up to the parent
+directory, you can also do this by pressing @{b}EDIT@{ub}.)
+@----------------------------------------------------------------------------
+@node ACTIONS
+@prev FILTERS
+@next EXTENDED
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Main Actions
+
+A number of actions that can be performed in the current directory or on the
+currently-highlighted entry are shown at the bottom of the screen. You can
+also access @{"extended actions" LINK EXTENDED} by pressing @{b}EXTEND@{ub}.
+
+@{h2}Guide
+Press @{b}G@{ub} to show an appropriate guide for the currently-highlighted entry.
+If none is available, this guide will be shown instead.
+
+@{h2}Links
+Press @{b}L@{ub} to change to the C:/links directory. This allows you to get fast
+access to your favourite games and directories, if you save links to them here
+using the "MakeLink" @{"extended action" LINK EXTENDED} (see @{"links" LINK LINKS} for details).
+
+@{h2}Change drive
+Press @{b}D@{ub} to change the display to the next available drive letter.
+
+@{h2}Copy
+Press @{b}C@{ub} to copy the currently-highlighted file to another drive or directory.
+Navigate to the destination and press @{b}P@{ub} to paste a copy of the file (which
+you can optionally rename). Note that directories cannot be copied.
+
+@{h2}Move
+Press @{b}V@{ub} to move the currently-highlighted entry to another drive or directory.
+Navigate to the destination and press @{b}P@{ub} to move it (optionally renamed).
+Directories can be moved, but not to a different drive.
+
+@{h2}Rename
+Press @{b}R@{ub} to rename the currently-highlighted entry.
+
+@{h2}Erase
+Press @{b}E@{ub} to erase (delete) the currently-highlighted entry. Directories may
+only be erased if they do not contain any other files or directories.
+
+@{h2}Make directory
+Press @{b}K@{ub} to make a new directory. (Directories are not supported on +3DOS-
+formatted drives, eg the RAMdisk and mounted +3 disks).
+
+@{h2}Unmount
+Press @{b}U@{ub} to unmount the current drive (and change to the next). Note that
+the @{i}C:@{ui} drive cannot be unmounted as it contains important system files.
+
+@{h2}Remount
+Press @{b}M@{ub} to unmount all drives and SD cards and allow a new SD card to be
+inserted.
+@----------------------------------------------------------------------------
+@node EXTENDED
+@prev ACTIONS
+@next LINKS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Extended Actions
+
+Press @{b}EXTEND@{ub} to see a list of additional actions available for the
+currently-highlighted file or directory (only actions relevant to the current
+entry are shown).
+
+Press @{b}EXTEND@{ub} again to return to the main actions (or cycle through further
+pages of extended actions if there are more than can fit on a single page).
+
+Additional extended actions can be configured by editing the @{"enBrowsext.cfg" LINK BROWSEXTCFG}
+file. Some of the available extended actions supplied are:
+
+@{h2}Edit
+Edit the file (the @{b}.QE@{ub} text editor is used by default).
+
+@{h2}Text2BAS
+Convert a text file (@{i}.TXT@{ui}) to NextBASIC (@{i}.BAS@{ui}).
+
+@{h2}BAS2Text
+Convert a NextBASIC file (@{i}.BAS@{ui}) to text (@{i}.TXT@{ui}).
+
+@{h2}Hexdump
+Show the contents of a file as a hexadecimal listing.
+
+@{h2}MakeRUN
+Convert the current directory to be runnable (@{i}.RUN@{ui}), using the currently-
+highlighted file as the one to be launched when the directory is selected.
+Any @{i}.GDE@{ui} or @{i}.TXT@{ui}/@{i}.DOC@{ui}/@{i}.MD@{ui} file with the same name will be used as the Guide.
+
+@{h2}MakeLink
+Creates a link (or shortcut) to the currently-highlighted file or directory.
+See @{"links" LINK LINKS} for details.
+
+@{h2}Catalog
+Show a detailed listing of the currently-highlighted directory.
+
+@{h2}Clear
+Erase all files in the currently-highlighted directory.
+
+@{h2}Mount
+Mount the currently-highlighted file as a drive.
+
+@{h2}Defrag
+Defragment the file.
+
+@{h2}+/-PROT
+Add/remove the file's @{i}PROT@{ui} (protected/read-only) attribute.
+
+@{h2}+/-SYS
+Add/remove the file's @{i}SYS@{ui} (system/hidden) attribute.
+@----------------------------------------------------------------------------
+@node LINKS
+@prev EXTENDED
+@next PREFS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Links
+
+You can keep a list of frequently-accessed files or directories for quick and
+easy access using the @{i}Browser@{ui}'s "links" facility. These can also be thought
+of as "favourites" or "shortcuts".
+
+If you want to add a link to the currently-highlighted file or directory,
+press @{b}EXTEND@{ub} followed by @{b}L@{ub} to perform the "makeLink" @{"extended action" LINK EXTENDED}.
+
+All the links you create in this way are stored in the C:/Links directory on
+your SD card. You can instantly switch to this directory at any time by
+pressing the @{b}L@{ub} key.
+
+Links are created with the same name as the original file or directory, with
+".lnk" appended to them. You can rename, copy, move or erase these files like
+any other file (doing this does not change the original file). If renaming,
+make sure you retain the ".lnk" extension.
+
+When you press @{b}ENTER@{ub} on a link, the @{i}Browser@{ui} switches to the directory
+containing the original file and runs it as if you had pressed @{b}ENTER@{ub} on the
+original file itself.
+
+If you hold @{b}SYMBOL-SHIFT@{ub} whilst pressing @{b}ENTER@{ub} on a link, the @{i}Browser@{ui} switches
+to the appropriate directory and highlights the original file, but does not
+attempt to run it.
+
+Links can also be created from the command-line using the @{b}.MAKELNK@{ub} dot
+command.
+@----------------------------------------------------------------------------
+@node PREFS
+@prev LINKS
+@next SCHEMES
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Preferences
+
+The @{i}Browser@{ui} will remember your currently-selection view and filter options,
+as well as the current drive and directory, even when you reset the computer.
+
+If you power-cycle the computer, sensible defaults are used when you first
+enter the @{i}Browser@{ui} again.
+
+You can, however, choose different defaults if you wish by using the provided
+@{b}.BROWSEPREFS@{ub} dot command. If you add this to your @{b}autoexec.bas@{ub} file,
+then your selected defaults will be enforced on every reset.
+
+For further information, type @{b}.BROWSEPREFS@{ub} at the command-line.
+@----------------------------------------------------------------------------
+@node SCHEMES
+@prev PREFS
+@next BROWSERCFG
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Configuration - colour schemes
+
+Various different @{i}Browser@{ui} colour schemes can be selected according to
+your preferences. You can also create your own colour schemes. Some schemes
+show different types of items (eg files, directories, links) in different
+colours, unlike the default "classic" scheme.
+
+The @{b}.BROWSEPREFS@{ub} dot command allows you to change to a predefined
+colour scheme, or to a colour scheme loaded from a file. To see a list of the
+predefined schemes, just type @{b}.BROWSEPREFS@{ub} at the command-line.
+
+Select a predefined scheme with the @{i}--scheme@{ui} option. For example,
+        @{b}.browseprefs --scheme grey@{ub}
+switches to a grey-scale colour scheme.
+
+Select a scheme defined in a file (usually with the extension @{i}.bcs@{ui}) with
+the @{i}--scheme-file@{ui} option. For example:
+        @{b}.browseprefs --scheme-file "c:/myschemes/vivid.bcs"@{ub}
+
+These commands are suitable for adding to your @{b}autoexec.bas@{ub} file, so that
+your preference is set every time the Next boots.
+
+You can also change colour schemes from within the @{i}Browser@{ui} itself by
+selecting a colour scheme file (with the @{i}.bcs@{ui} extension). Some samples are
+provided in the @{b}c:/demos/Colour Schemes/Browser@{ub} directory.
+
+@{h2}.BCS file format
+
+If you wish to define your own colour scheme, you can create a @{i}.bcs@{ui} file.
+This is a binary file (which could, for example be saved by @{b}SAVE..CODE@{ub}),
+containing the following values:
+
+@{i}Offset@{ui}  @{i}Data@{ui}
++0      attribute value: base colour scheme (background, help messages etc)
++1      attribute value: colour stripe black/red
++2      attribute value: colour stripe yellow/red
++3      attribute value: colour stripe yellow/green
++4      attribute value: colour stripe cyan/green
++5      attribute value: colour stripe cyan/black
++6      attribute value: highlighted info bar items
++7      attribute value: standard info bar items
++8      attribute value: highlighted unknown files
++9      attribute value: highlighted links
++10     attribute value: highlighted selectable files
++11     attribute value: highlighted runnable directories
++12     attribute value: highlighted standard directories
++13     attribute value: reserved for future use
++14     attribute value: reserved for future use
++15     attribute value: reserved for future use
++16     attribute value: unknown files
++17     attribute value: links
++18     attribute value: selectable files
++19     attribute value: runnable directories
++20     attribute value: standard directories
++21     attribute value: reserved for future use
++22     attribute value: reserved for future use
++23     attribute value: reserved for future use
++24     attribute value: reserved for future use
++25     attribute value: reserved for future use
++26     attribute value: reserved for future use
++27     attribute value: reserved for future use
++28     attribute value: reserved for future use
++29     attribute value: reserved for future use
++30     attribute value: reserved for future use
++31     attribute value: reserved for future use
+
++32..33 palette data: INK 0
++34..35 palette data: INK 1
++36..37 palette data: INK 2
++38..39 palette data: INK 3
++40..41 palette data: INK 4
++42..43 palette data: INK 5
++44..45 palette data: INK 6
++46..47 palette data: INK 7
++48..49 palette data: BRIGHT INK 0
++50..51 palette data: BRIGHT INK 1
++52..53 palette data: BRIGHT INK 2
++54..55 palette data: BRIGHT INK 3
++56..57 palette data: BRIGHT INK 4
++58..59 palette data: BRIGHT INK 5
++60..61 palette data: BRIGHT INK 6
++62..63 palette data: BRIGHT INK 7
++64..65 palette data: PAPER 0
++66..67 palette data: PAPER 1
++68..69 palette data: PAPER 2
++70..71 palette data: PAPER 3
++72..73 palette data: PAPER 4
++74..75 palette data: PAPER 5
++76..77 palette data: PAPER 6
++78..79 palette data: PAPER 7
++80..81 palette data: BRIGHT PAPER 0
++82..83 palette data: BRIGHT PAPER 1
++84..85 palette data: BRIGHT PAPER 2
++86..87 palette data: BRIGHT PAPER 3
++88..89 palette data: BRIGHT PAPER 4
++90..91 palette data: BRIGHT PAPER 5
++92..93 palette data: BRIGHT PAPER 6
++94..95 palette data: BRIGHT PAPER 7
+
+Note that palette data is in the format: 1st byte:RRRGGGBB, 2nd byte:0000000B
+Note also that the palette data can be omitted, and the standard palette will
+be used.
+@----------------------------------------------------------------------------
+@node BROWSERCFG
+@prev SCHEMES
+@next BROWSEXTCFG
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Configuration - supported filetypes
+
+The @{b}c:/nextzxos/browser.cfg@{ub} file can be edited to configure additional
+supported file types. Each line in the file configures support for a particular
+file type (or group of types) when @{b}ENTER@{ub} is pressed.
+
+If a file type appears on more than one line, the first line is used when
+@{b}ENTER@{ub} is pressed, and the second is used when @{b}SYMBOL-SHIFT@{ub} and @{b}ENTER@{ub}
+are pressed together.
+
+Each line consists of 3 parts: the type list, a separator and a list of
+NextBASIC commands to be executed.
+
+@{h2}Type list
+This consists of one or more extensions, separated by commas. Each extension is
+between 1 and 3 characters long, and may contain the @{i}?@{ui} or @{i}*@{ui} wildcard
+characters to match multiple extensions.
+
+@{h2}Separator
+As well as separating the type list from the NextBASIC commands, the separator
+indicates what should happen after the commands have been executed:
+  @{b}<@{ub}  return to the Browser
+  @{b}:@{ub}  return to the main NextZXOS menu
+  @{b};@{ub}  enter the NextBASIC editor
+
+@{h2}Command list
+This is simply a list of NextBASIC commands, separated by colons. A few special
+characters may also be used, and will be substituted by the Browser:
+  @{b}|@{ub}  replaced by the selected filename (the long filename is used if
+  @{b} @{ub}  directly preceded by @{b}"@{ub}, otherwise the short 8.3 filename
+  @{b} @{ub}  is used)
+  @{b}@{ub}  replaced by c:/nextzxos/
+  @{b}`@{ub}  replaced by the current language code ("en" for English)
+@----------------------------------------------------------------------------
+@node BROWSEXTCFG
+@prev BROWSERCFG
+@next DOTBROWSE
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Configuration - extended actions
+
+The @{b}c:/nextzxos/enBrowsext.cfg@{ub} file can be edited to configure additional
+extended actions. Each line in the file configures a single action.
+
+Each line consists of several sections separated by colons.
+
+@{h2}Action name
+The first section is the action name. This can be up to 12 characters long. The
+key used to select the action is the first capital letter in the name. Care
+must be taken when adding actions to ensure there isn't a clash with other
+actions supporting the same file types.
+
+@{h2}Supported types
+The second section defines which files and/or directories are supported by the
+action. It can be empty (all files and directories are supported), or consist
+of any of the following:
+  @{b}f@{ub}  only files are supported
+  @{b}d@{ub}  only directories are supported
+  @{b}.@{ub}  only files/directories with one of the following extensions are
+  @{b} @{ub}  supported (followed by a comma-separated list of extensions)
+
+You can specify @{b}f@{ub} or @{b}b@{ub} on their own, or followed by @{b}.@{ub} and a list
+of extensions.
+
+@{h2}Confirmation prompt
+The third section can be some text which will be used as a prompt, asking the
+user if they really want to perform the action. If empty, the action is
+performed immediately.
+
+@{h2}Final separator
+Unlike between the first 3 sections, the final separator between the
+confirmation prompt and command list may be either @{b}:@{ub} @{b}<@{ub} or @{b};@{ub} as in
+@{"c:/nextzxos/browser.cfg" LINK BROWSERCFG}
+
+@{h2}Command list
+This is a list of NextBASIC commands, just as in @{"c:/nextzxos/browser.cfg" LINK BROWSERCFG}, and
+with the same substitution rules.
+@----------------------------------------------------------------------------
+@node DOTBROWSE
+@prev BROWSEXTCFG
+@next IDEBROWSER
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Using the Browser from NextBASIC
+
+A dot command is provided to make it easy to bring up the @{i}Browser@{ui} from
+NextBASIC and use it to select a file.
+
+For further information, type @{b}.BROWSE@{ub} at the command-line.
+@----------------------------------------------------------------------------
+@node IDEBROWSER
+@prev DOTBROWSE
+@next LIMITATIONS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Using the Browser from machine-code
+
+The @{b}IDE_BROWSER@{ub} NextZXOS API call is provided to make it easy to bring up
+the @{i}Browser@{ui} from your machine-code programs and use it to select a file.
+
+For further information, see the NextZXOS API documentation in
+@{b}c:/docs/nextzxos/NextZXOS_and_esxDOS_APIs.pdf@{ub}
+@----------------------------------------------------------------------------
+@node LIMITATIONS
+@prev IDEBROWSER
+@next FILEMETA
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Current Limitations
+
+@{h2}Performance
+Bear in mind that the ZX Spectrum Next has far less memory and performance than
+a typical desktop computer. It is not advisable to place a directory containing
+many thousands of files on your SD card, as such large directories will take
+a long time to sort and will be difficult to navigate. Splitting your files
+into multiple directories containing a few hundred files at most will help
+keep @{i}Browser@{ui} operation fast and efficient.
+
+@{h2}+3DOS drives
++3DOS drives (typically the @{b}M:@{ub} RAMdisk and any mounted CP/M or +3 disk images)
+have a couple of limitations.
+
+  @{h3}Filename lengths
+  Filenames are limited to 8 characters with a 3 character extension.
+  This is an inherent limitation of the CP/M filesystem used on +3DOS drives.
+
+  @{h3}Date/timestamps
+  Date/timestamps are only supported if the +3DOS drive's filesystem has been
+  specifically set up to provide them. This is true of @{b}.P3D@{ub} disk images
+  created with the @{b}.MKDATA@{ub} dot command, but +3 @{b}.DSK@{ub} disk images do not
+  usually support them.
+
+  Additionally, not all files will have date/timestamps, if they were created
+  when an RTC module was not fitted.
+@----------------------------------------------------------------------------
+@node FILEMETA
+@prev LIMITATIONS
+@toc MAIN
+@{r}Browser Guide
+@{c}@{h1}Filename metadata
+
+The @{i}Browser@{ui} by default hides parts of filenames that contain metadata
+used by other programs to encode additional information about the file that
+cannot be contained within the file body itself.
+
+This is currently only used by the .TAP/.TZX/.SNA/.Z80 loaders, but metadata
+will be hidden in any filename if it conforms to the expected format, so other
+programs could use their own metadata if desired.
+
+By default, the loaders don't use the filename to store metadata, but maintain
+it in the metadata cache (c:/nextzxos/metadata). However, you can choose to
+store the metadata in the filename from the loader's options screen. This
+makes it easy to distribute a single .TAP/.TZX/.SNA/.Z80 file to others
+complete with the appropriate settings.
+
+You can also set bit 1 of the special @{i}%FORMAT@{ui} variable if you want the
+loaders to store metadata in the filename by default rather than the metadata
+cache. To do this, add a command such as the following to your @{i}autoexec.bas@{ui}:
+        @{b}10 %FORMAT=BIN 10@{ub}
+
+See the @{i}NextZXOS@{ui} guide (from the main menu) for more information on
+filesystem options provided by @{b}%FORMAT@{ub}.
+
+A dot command, @{b}.METADATA@{ub}, is provided to easily read or write any metadata
+for files to the metadata cache and/or filename. Type @{b}.METADATA@{ub} at the
+command line for full details.
+
+Filename metadata takes the following form:
+
+        @{i}filename@{ui}@{b}{keyname=metadata-contentsXX}@{ub}@{i}.ext@{ui}
+
+where @{i}filename.ext@{ui} is what will be displayed when metadata is being hidden.
+
+The @{b}keyname@{ub} field is an identifier for the type of metadata stored in the
+filename.
+
+The @{b}XX@{ub} field is a 2-digit hexadecimal value which encodes the total length
+of the metadata (in characters) including the enclosing @{b}{@{ub} and @{b}}@{ub} characters.
+
+The remainder of the @{b}metadata-contents@{ub} are specific to the program
+using the metadata, and are not assigned meaning by the @{i}Browser@{ui}.
+
+@{h2}Metadata for .TAP/.TZX/.SNA/.Z80 files
+The key name used for these files is @{b}LOAD@{ub} and the @{b}metadata-contents@{ub}
+are defined as follows:
+@{b}
+Offset          Meaning@{ub}
++0              Load mode (ASCII code of key used to start loading)
++1              Execution speed ('0'=3.5MHz, '1'=7MHz, '2'=14MHz, '3'=28MHz)
++2..+3          Hex-coded byte:
+                bit 7:  DAC mono Specdrum enable
+                bit 6:  DAC mono GS covox enable
+                bit 5:  DAC mono Pentagon/atm enable
+                bit 4:  DAC stereo covox enable
+                bit 3:  DAC stereo profi covox enable
+                bit 2:  DAC soundrive mode 2 enable
+                bit 1:  DAC soundrive mode 1 enable
+                bit 0:  AY in 48K mode enable
++4..+5          Hex-coded byte:
+                bit 7:  DMA enable
+                bit 6:  Timex port ff enable
+                bit 5:  issue 2 keyboard enable
+                bit 4:  printer support enable
+                bit 3:  UART/i2c enable
+                bit 2:  mouse enable
+                bit 1:  ULAplus enable
+                bit 0:  LOAD "" CODE mode (TAP/TZX only)
++6..+7          Hex-coded byte:
+                bit 7:  load via Pi audio (TAP only)
+                bit 6:  pause at loading screens (TAP only)
+                bit 5:  tape loading simulation (TAP only)
+                bit 4:  0 (reserved)
+                bit 3:  0 (reserved)
+                bit 2:  0 (reserved)
+                bit 1:  0 (reserved)
+                bit 0:  0 (reserved)
++8..+9          Hex-coded byte:
+                bits 7..4:  joystick left mode
+                bits 3..0:  joystick right mode
+
+                Joystick modes are:     0=leave as default
+                                        1=Sinclair 2
+                                        2=Kempston 1
+                                        3=Cursor
+                                        4=Sinclair 1
+                                        5=Kempston 2
+                                        6=MD 1
+                                        7=MD 2
+                                        8=Keyjoy
+
+If joystick left mode=8, there follow 11 ASCII keycodes
+If joystick right mode=8, there follow 11 ASCII keycodes
+
+Joystick keycodes are listed in the following order:
+        +0      up
+        +1      down
+        +2      left
+        +3      right
+        +4      fire/B
+        +5      fire 2/C
+        +6      start
+        +7      button A
+        +8      button X
+        +9      button Y
+        +10     button Z
+
+Joystick keycode values are:
+        A..Z    letter keys
+        0..9    number keys
+        e       ENTER
+        c       CAPS SHIFT
+        s       SYMBOL SHIFT
+        _       SPACE

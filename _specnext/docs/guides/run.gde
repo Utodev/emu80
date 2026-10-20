@@ -1,0 +1,30 @@
+@title Runnable Directories
+@author Garry Lancaster
+@version 1.0
+@copyright Copyright (C)2021 Garry Lancaster
+@date 2021/06/16
+
+@----------------------------------------------------------------------------
+@node main
+@{c}@{h1}Runnable Directories
+
+Runnable Directories allow software consisting of multiple files to be
+presented to the user as a single entity within the @{i}Browser@{ui}. This allows
+support files to be hidden away and saves the user from having to decide which
+file needs to be used to start the program.
+
+To be runnable, a directory needs to be named with the extension @{b}.run@{ub} and
+contain an auto-running @{i}NextBASIC@{ui} program named @{b}run.bas@{ub}
+
+The @{b}run.bas@{ub} program could launch a different type of file, if desired.
+For example, if your actual software is called @{b}game.nex@{ub}, it could
+consist of the line:
+
+@{c}@{b}10 .nexload game.nex@{ub}
+
+Optionally, a @{i}NextGuide@{ui} document named @{b}run.gde@{ub} can also be
+provided, and will be shown if the user presses @{b}G@{ub} with the directory name
+highlighted in the @{i}Browser@{ui}.
+
+To navigate into a runnable directory in the @{i}Browser@{ui}, it is necessary to
+press @{b}SYMBOL SHIFT@{ub} and @{b}ENTER@{ub} together.

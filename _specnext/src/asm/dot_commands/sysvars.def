@@ -1,0 +1,109 @@
+; ***************************************************************************
+; * System variables                                                        *
+; ***************************************************************************
+
+CACHEBK equ     $5b33
+RETVARS equ     $5b58
+RAMRST  equ     $5b5d
+RAMERR  equ     $5b5e
+KSTATE  equ     $5c00
+LAST_K  equ     $5c08
+REPDEL  equ     $5c09
+REPPER  equ     $5c0a
+K_DATA  equ     $5c0d
+TVDATA  equ     $5c0e
+STRMS   equ     $5c10
+CHARS   equ     $5c36
+RASP    equ     $5c38
+PIP     equ     $5c39
+ERR_NR  equ     $5c3a
+FLAGS   equ     $5c3b
+TV_FLAG equ     $5c3c
+ERR_SP  equ     $5c3d
+MODE    equ     $5c41
+NEWPPC  equ     $5c42
+PPC     equ     $5c45
+SUBPPC  equ     $5c47
+BORDCR  equ     $5c48
+E_PPC   equ     $5c49
+VARS    equ     $5c4b
+DEST    equ     $5c4d
+CHANS   equ     $5c4f
+CURCHL  equ     $5c51
+PROG    equ     $5c53
+NXTLIN  equ     $5c55
+DATADD  equ     $5c57
+E_LINE  equ     $5c59
+K_CUR   equ     $5c5b
+CH_ADD  equ     $5c5d
+X_PTR   equ     $5c5f
+WORKSP  equ     $5c61
+STKBOT  equ     $5c63
+STKEND  equ     $5c65
+BREG    equ     $5c67
+MEM     equ     $5c68
+FLAGS2  equ     $5c6a
+DF_SZ   equ     $5c6b
+OLDPPC  equ     $5c6e
+OSPCC   equ     $5c70
+FLAGX   equ     $5c71
+STRLEN  equ     $5c72
+T_ADDR  equ     $5c74
+SEED    equ     $5c76
+FRAMES  equ     $5c78
+UDG     equ     $5c7b
+COORDS  equ     $5c7d
+GMODE   equ     $5c7f
+PR_CC   equ     $5c80
+STIMEOUT equ    $5c81
+ECHO_E  equ     $5c82
+DF_CC   equ     $5c84
+DF_CCL  equ     $5c86
+S_POSN  equ     $5c88
+SPOSNL  equ     $5c8a
+SCR_CT  equ     $5c8c
+ATTR_P  equ     $5c8d
+MASK_P  equ     $5c8e
+ATTR_T  equ     $5c8f
+MASK_T  equ     $5c90
+P_FLAG  equ     $5c91
+MEMBOT  equ     $5c92
+RAMTOP  equ     $5cb2
+P_RAMT  equ     $5cb4
+
+; As offsets from ERR_NR (usually held in IY)
+; NOTE: Negative offsets must be used with iy- rather than iy+
+;       These are indicated with the naming convention iy_mVARNAME
+
+iy_mKSTATE      equ     ERR_NR-KSTATE
+iy_mKSTATE_4    equ     ERR_NR-(KSTATE+4)
+iy_mREPPER      equ     ERR_NR-REPPER
+iy_mK_DATA      equ     ERR_NR-K_DATA
+iy_mPIP         equ     ERR_NR-PIP
+iy_mRASP        equ     ERR_NR-RASP
+
+iy_ERR_NR       equ     ERR_NR-ERR_NR
+
+iy_FLAGS        equ     FLAGS-ERR_NR
+iy_TVFLAG       equ     TV_FLAG-ERR_NR
+iy_MODE         equ     MODE-ERR_NR
+iy_PPC          equ     PPC-ERR_NR
+iy_SUBPPC       equ     SUBPPC-ERR_NR
+iy_BORDCR       equ     BORDCR-ERR_NR
+iy_E_PPC        equ     E_PPC-ERR_NR
+iy_K_CUR        equ     K_CUR-ERR_NR
+iy_X_PTR        equ     X_PTR-ERR_NR
+iy_BREG         equ     BREG-ERR_NR
+iy_FLAGS2       equ     FLAGS2-ERR_NR
+iy_DFSZ         equ     DF_SZ-ERR_NR
+iy_OLDPPC       equ     OLDPPC-ERR_NR
+iy_OSPCC        equ     OSPCC-ERR_NR
+iy_FLAGX        equ     FLAGX-ERR_NR
+iy_STRLEN       equ     STRLEN-ERR_NR
+iy_FRAMES       equ     FRAMES-ERR_NR
+iy_PR_CC        equ     PR_CC-ERR_NR
+iy_S_POSN       equ     S_POSN-ERR_NR
+iy_SPOSNL       equ     SPOSNL-ERR_NR
+iy_SCR_CT       equ     SCR_CT-ERR_NR
+iy_PFLAG        equ     P_FLAG-ERR_NR
+iy_MEMBOT       equ     MEMBOT-ERR_NR

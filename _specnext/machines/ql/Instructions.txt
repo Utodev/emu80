@@ -1,0 +1,12 @@
+.bit
+.cfg
+.rom
+
+go to c:/machines/QL
+
+qxl.win goes to the root of the SD card. Card needs to be defragmented first
+
+core2.bit is for the KS2 machine while core.bit is for the KS1 machine
+
+For core2.bit to work as is, it requires the tbblue.fw version 1.44db by David Banks (Included in the drive) - Changes are documented here: https://gitlab.com/hoglet67/tbblue/-/commit/53d6d97f09638d9f985af64bc2216e8d33e5631f
+

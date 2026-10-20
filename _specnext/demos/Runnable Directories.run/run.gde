@@ -1,0 +1,36 @@
+@title Runnable Directories
+@author Garry Lancaster
+@version 1.0
+@copyright Copyright (C)2021 Garry Lancaster
+@date 2021/06/26
+
+@----------------------------------------------------------------------------
+@node main
+@{c}@{h1}Runnable Directories
+
+Runnable Directories allow software consisting of multiple files to be
+presented to the user as a single entity within the @{i}Browser@{ui}. This allows
+support files to be hidden away and saves the user from having to decide which
+file needs to be used to start the program.
+
+To be runnable, a directory needs to be named with the extension @{b}.run@{ub} and
+contain an auto-running @{i}NextBASIC@{ui} program named @{b}run.bas@{ub}
+
+Optionally, a @{i}NextGuide@{ui} document named @{b}run.gde@{ub} can also be
+provided, and will be shown if the user presses @{b}G@{ub} with the directory name
+highlighted in the @{i}Browser@{ui}.
+
+To navigate into a runnable directory in the @{i}Browser@{ui}, it is necessary to
+press @{b}SYMBOL SHIFT@{ub} and @{b}ENTER@{ub} together.
+
+The @{b}.MAKERUN@{ub} dot command can automatically create a runnable directory,
+and works with any filetype supported by the @{i}Browser@{ui}, and documentation
+in @{b}.gde@{ub}, @{b}.txt@{ub}, @{b}.doc@{ub} or @{b}.md@{ub} format.
+
+@{c}eg: @{b}.makerun myprog.nex@{ub}
+
+will make a directory runnable, launching @{b}myprog.nex@{ub}, and with documentation
+found in @{b}myprog.gde@{ub} or @{b}myprog.txt@{ub} etc.
+
+This can also be done directly from the @{i}Browser@{ui} by choosing the @{b}makeRUN@{ub}
+option from the extended actions menu.

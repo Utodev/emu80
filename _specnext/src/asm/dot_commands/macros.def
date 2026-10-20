@@ -1,0 +1,164 @@
+; ***************************************************************************
+; * Macro definitions                                                       *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * Macros for making system calls from dot commands.                       *
+; ***************************************************************************
+
+macro call48k,address
+        rst     $18
+        defw    address
+endm
+
+macro callesx,hook
+        rst     $8
+        defb    hook
+endm
+
+macro print_char
+        rst     $10
+endm
+
+macro callp3d,callid,rampage
+        exx
+        ld      de,callid
+        ld      c,rampage
+        callesx m_p3dos
+endm
+
+macro exit_dot_to_hl
+        rst     $20
+endm
+
+
+; ***************************************************************************
+; * Macros to emulate z80asm's useful DEFVARS directive.                    *
+; ***************************************************************************
+; eg, for a block of variables starting at value $0017:
+;       definevars $0017
+;       ds_b    abyte,1
+;       ds_bX   5                       ; 5 unused bytes, unnamed
+;       ds_b    sevenbytes,7
+;       ds_w    twowords,2
+;       ds_p    apointer,1
+;       ds_l    threelongs,3
+;
+macro definevars,varstart
+defvars_offset  defl    varstart
+endm
+
+macro ds_b,name,size
+name            equ     defvars_offset
+defvars_offset  defl    name+size
+endm
+
+macro ds_bX,size
+defvars_offset  defl    defvars_offset+size
+endm
+
+macro ds_w,name,size
+name            equ     defvars_offset
+defvars_offset  defl    name+(2*size)
+endm
+
+macro ds_p,name,size
+name            equ     defvars_offset
+defvars_offset  defl    name+(3*size)
+endm
+
+macro ds_l,name,size
+name            equ     defvars_offset
+defvars_offset  defl    name+(4*size)
+endm
+
+
+; ***************************************************************************
+; * Macros for ZX Spectrum Next new instructions                            *
+; ***************************************************************************
+
+macro swapnib
+        defb    $ed,$23
+endm
+
+macro mul_de
+        defb    $ed,$30
+endm
+
+macro addhl_A_badFc
+        defb    $ed,$31
+endm
+
+macro addde_A_badFc
+        defb    $ed,$32
+endm
+
+macro addbc_A_badFc
+        defb    $ed,$33
+endm
+
+macro addhl_N,val
+        defb    $ed,$34,(val)&$ff,(val)/$100
+endm
+
+macro addde_N,val
+        defb    $ed,$35,(val)&$ff,(val)/$100
+endm
+
+macro addbc_N,val
+        defb    $ed,$36,(val)&$ff,(val)/$100
+endm
+
+macro pushval,val
+        ; NOTE: PUSHVAL is big-endian
+        defb    $ed,$8a,(val)/$100,(val)&$ff
+endm
+
+macro nxtregn,reg,val
+        defb    $ed,$91,reg,val
+endm
+
+macro nxtrega,val
+        defb    $ed,$92,val
+endm
+
+macro pixeldn
+        defb    $ed,$93
+endm
+
+macro pixelad
+        defb    $ed,$94
+endm
+
+macro setae
+        defb    $ed,$95
+endm
+
+macro bsla
+        defb    $ed,$28
+endm
+
+macro bsra
+        defb    $ed,$29
+endm
+
+macro bsrl
+        defb    $ed,$2a
+endm
+
+macro bsrf
+        defb    $ed,$2b
+endm
+
+macro brlc
+        defb    $ed,$2c
+endm
+
+macro ldix
+        defb    $ed,$a4
+endm
+
+macro ldirx
+        defb    $ed,$b4
+endm

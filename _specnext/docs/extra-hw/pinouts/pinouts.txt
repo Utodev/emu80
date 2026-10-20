@@ -1,0 +1,253 @@
+ZX Spectrum Next Conn. Pinouts
+-------------------------------
+
+Author:  Phoebus R. Dokos
+Date:	 2018-09-24
+License: CC BY-NC-SA
+Version: 2.1
+
+Changelog
+---------
+2020-04-24: 2.1 Updated info for CN4
+2020-04-24: 2.0 Updated info for Speaker (AA)
+2020-04-24: 1.9 Added info about Joystick / External I/O dual purpose connectors
+2020-04-17: 1.8 Added info for RGB connector usage (Robin Verhagen-Guest)
+2020-04-17: 1.7 Changed impedance for speaker (thanks to Simon N. Goodwin)
+2019-10-14: 1.6 Modified J15 for new keyboard lines
+2019-10-14: 1.5 Modified CN4 EDGE
+2018-09-25: 1.4 Added CN4 EDGE
+2018-09-24: 1.3 Added CN1 VGA
+2018-09-24: 1.2 Added J3 Speaker
+2018-09-24: 1.1 Added J13 Sd/card
+2018-09-24: 1.0 Added J15 GPIO
+
+
+
+----------------------------------
+J15 - GPIO
+==========
+Type: 2 x 10 IDC 2.54mm spc.
+      Male Pin Header
+
+GND         1|---|20        GND	  
+-------------|* *|-------------
+5V          2|   |19         5V
+-------------|* *|-------------
+3.3V        3|   |18       3.3V
+-------------|* *|-------------
+KEYB_C5**   4|   |17  KEYB_C6**
+-------------|* *|-------------
+N16         5|   |16 
+-------------|* *|-------------
+ESP_TX      6|   |15 ESP_GPIO_2
+-------------|* *|-------------
+ESP_RX      7|   |14 ESP_GPIO_0
+-------------|* *|-------------
+i2c_SCL     8|   |13    i2c_SDA
+-------------|* *|-------------
+12V         9|   |12        12V
+-------------|* *|-------------
+GND        10|   |11        GND
+-------------|* *|-------------
+             -----
+
+** Pin 4:  M16(FPGA) - Normal state Pulled Up (Once a Next keyboard is connected
+                       it's pulled down.
+   Pin 17: M15(FPGA) - Normal state Pulled Up (Once a Next keyboard is connected
+                       it's pulled down.                      
+                      
+             
+J13 - Daughtercard connector 
+============================
+Type: 2 x 5 IDC 2.54mm spc.
+      Male Pin Header
+
+
+NMI_MF      1|---|10      SD_CS	  
+-------------|* *|-------------
+SD_MOSI     2|   | 9    SD 3.3V
+-------------|* *|-------------
+GND         3|   | 8     SD_SCK
+-------------|* *|-------------
+SD_CS2      4|   | 7    SD_MISO
+-------------|* *|-------------
+BT_RST      5|   | 6 NMI_DIVMMC 
+-------------|* *|-------------
+             -----
+             
+             
+             
+J3 - Beeper connector
+=====================
+Type: 1 x 4 IDC 2.54mm spc.
+      Male Pin Header
+
+___________________
+|  *   *   *   *  |
+---|---|---|---|---
+  1|  2|  3|  4|
+   |   |   |   |
+   |   |   |   |
+   --|--   --|--
+    -|      +|
+    
+Accepts:
+a. Standard PC Piezo speaker -or-
+b.  20 - 25mm magnet, impedance >=28 ohms
+
+Pin 1 or 2 = negative, pin 3 or 4 = positive for Piezo type. 
+For normal coned type speaker the polarity does not matter.
+
+
+CN1 - VGA/RGB connector
+=======================
+
+GND--------------------|
+N/C----------------|   |
+BLUE-----------|   |   |
+GREEN------|   |   |   |
+RED----|   |   |   |   |
+      1|  2|  3|  4|  5|
+-------|---|---|---|---|-------
+\      *   *   *   *   *      /
+ \ 6-*--7*--8*--9*-10*-|     /
+  \                         /
+   \   *   *   *   *   *   /
+    \--|---|---|---|---|--/
+     11| 12| 13| 14| 15|
+       |   |   |   |   |
+N/C----|   |   |   |   |
+N/C--------|   |   |   |
+H-SYNC---------|   |   |
+V-SYNC-------------|   |
+N/C--------------------|
+ 
+Notes: Pins 6,7,8,9,10,& 5 are all GND
+       In VGA mode, H-SYNC and V-SYNC are carried separately
+       In RGB mode, H-SYNC carries composite sync, and V-SYNC carries 1 (3.3V)
+
+CN2-CN3 Joystick connector
+==========================
+Type: DB-9 Male (As seen on Next)
+
+------------------
+\ 1  2  3  4  5 / 
+ \  6  7  8  9 /
+  -------------
+ 
+ +---------------+------------------------------------------+ 
+ | JOYSTICK MODE |              I/O MODE                    |
+ +---------------+-----------------------------+------------+
+ |   Pin Name    |   Function    |   Function  |  Function  |
+#|(Atari compat.)|in Bitbang Mode|In Clock Mode|In UART Mode|
+-+---------------+---------------+-------------+------------+
+1|      Up       |     Input     |     Input   |    Input   |   
+2|     Down      |     Input     |     Input   |    Input   |   
+3|     Left      |     Input     |     Input   |    Input   |   
+4|    Right      |     Input     |     Input   |    Input   |   
+5|     +5V       |      +5V      |      +5V    |     +5V    |
+6|   Button 1    |     Input     |     Input   |    Input   |   
+7| Select Signal |    Output     |     Clock   |     TxD    |
+8|     GND       |      GND      |      GND    |     GND    |
+9|   Button 2    |     Input     |     Input   |     RxD    |
+-+---------------+---------------+-------------+------------+
+
+Notes
+-----
+* Joystick signals are active low with a pull up resistor attached.
+* In I/O mode the output is 3.3V and inputs are 5V tolerant with small series 
+  resistance.  The output appears on both joystick connectors but the input is 
+  only read from the selected joystick.
+* In I/O Clock mode, pin 7 carries either a fast or slow clock signal
+
+In joystick mode, the joystick is read using the six button md pad algorithm 
+using the following State Machine:
+
+1. Loop through each state (0-7) with duration of one scan line per state.
+2. If the state is even, output LOW to the select pin. If it's odd, output HIGH.
+3. Read the six input pins according to the table 
+   (LOW = the button is being pressed).
+4. After the loop, wait approximately 3ms so that the control-
+   ler can reset.
+
++-----+-----------+-----+-----+-----+-----+-----+-----+
+|State|SEL (Pin 7)|Pin 1|Pin 2|Pin 3|Pin 4|Pin 6|Pin 9|
++-----+-----------+-----+-----+-----+-----+-----+-----+
+|  0  |   LOW	  |	|     |     |     |     |     |			
+|  1  |   HIGH    |     |     |     |     |     |     |					
+|  2  |   LOW	  |	|     |  *  |  *  |  A  |Start|
+|  3  |   HIGH	  | Up	| Down| Left|Right|  B  |  C  |
+|  4  |   LOW	  | **	|  ** |     |     |     |     |				
+|  5  |   HIGH	  |  Z	|  Y  |	 X  |Mode |     |     |		
+|  6  |   LOW	  |     |     |     |     |     |     |	
+|  7  |   HIGH	  |     |     |     |     |     |     |	
++-----+-----------+-----+-----+-----+-----+-----+-----+
+
+ *: These pins are set LOW together and indicate the presence of a controller.
+**: These pins are set LOW together and indicate a 6-button controller connected
+
+CN4 - Edge Connector
+====================
+
+            ========================
+BUS_A15     |                      |     BUS_A14    
+------------|===                ===|------------
+BUS_A13     |                      |     BUS_A12          
+------------|===                ===|------------
+BUS_D7      |                      |          5V           
+------------|===                ===|------------
+/BUS_ROMCS  |                      |          9V           
+------------|===                ===|------------
+Key         |                      |         Key           
+------------]]]]                [[[[------------
+BUS_D0      |                      |         GND           
+------------|===                ===|------------
+BUS_D1      |                      |         GND           
+------------|===                ===|------------
+BUS_D2      |                      |    /CPU_CLK           
+------------|===                ===|------------
+BUS_D6      |                      |      BUS_A0           
+------------|===                ===|------------
+BUS_D5      |                      |      BUS_A1          
+------------|===                ===|------------
+BUS_D3      |                      |      BUS_A2          
+------------|===                ===|------------
+BUS_D4      |                      |      BUS_A3           
+------------|===                ===|------------
+/BUS_INT    |                      |/BUS_IORQULA           
+------------|===                ===|------------
+/BUS_NMI    |                      |         GND           
+------------|===                ===|------------
+/CPU_HALT   |                      |  /BUS_ROMCS            
+------------|===                ===|------------
+/BUS_MREQ   |                      |    Reserved        
+------------|===                ===|------------
+/BUS_IORQ   |                      |          NC           
+------------|===                ===|------------
+/BUS_RD     |                      |          NC           
+------------|===                ===|------------
+/BUS_WR     |                      |BUS_BUSREQ**             
+------------|===                ===|------------
+NC          |                      |    /BUS_RST              
+------------|===                ===|------------
+/BUS_WAIT   |                      |      BUS_A7                       
+------------|===                ===|------------
+NC*         |                      |      BUS_A6                       
+------------|===                ===|------------
+NC          |                      |      BUS_A5                       
+------------|===                ===|------------
+/BUS_M1     |                      |      BUS_A4                       
+------------|===                ===|------------
+/BUS_REFSH  |                      |  /BUS_ROMCS                       
+------------|===                ===|------------
+BUS_A8      |                      | /BUS_BUSACK             
+------------|===                ===|------------
+BUS_A10     |                      |      BUS_A9           
+------------|===                ===|------------
+Reserved    |                      |     BUS_A11          
+------------|===                ===|------------
+            |                      |
+            ========================
+            
+* No 12V line on the Next PCB; needs to be provided by external adapter
+** BUSREQ is Active High 

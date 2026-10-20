@@ -1,0 +1,8 @@
+#Multitasking
+
+The presence of GNU/screen (hereforth only called screen) allows the simple multiplexing (therefore, multitasking) of terminal based applications.
+
+To launch a new screen, as a developer in a terminal, type "screen", to use it from a script it is advised to use "screen -q" to skip the splashscreen.
+
+The screen key controls are very sophisticated
+When running screen Ctrl-A then c (henceforth written at "CtrlAc") creates a new screen.

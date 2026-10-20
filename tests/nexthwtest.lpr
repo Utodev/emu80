@@ -125,6 +125,19 @@ begin
   Check(Sp.Peek($8000) = $AA, 'the Multiface''s NMI ran its ROM, with its RAM at 2000');
   Check(Sp.Cpu.PC.W = $8100, 'back from the Multiface');
   Check(Sp.Peek($2000) = 0, 'the Multiface paged out after RETN');
+  // Stackless (NR C0 bit 3): the NMI leaves memory below SP alone, RETN
+  // returns through NR C2-C3
+  NextReg($C0, $08);
+  Sp.Poke($8FFE, $55);
+  Sp.Poke($8FFF, $66);
+  Sp.Poke($8000, 0);
+  Sp.Cpu.SP.W := $9000;
+  Sp.RequestNMI;
+  RunFrames(1);
+  Check(Sp.Peek($8000) = $AA, 'stackless NMI: the Multiface ran');
+  Check((Sp.Peek($8FFE) = $55) and (Sp.Peek($8FFF) = $66), 'stackless NMI: nothing written on the stack');
+  Check((Sp.Cpu.PC.W = $8100) and (Sp.Cpu.SP.W = $9000), 'stackless NMI: back through NR C2-C3');
+  NextReg($C0, $00);
   // NR 02 bit 3: the same by software
   Sp.Poke($8000, 0);
   NextReg($02, $08);
@@ -219,6 +232,26 @@ begin
   Sp.ForeignCore := -1;
 end;
 
+{ With the stackless NMI on (NR C0 bit 3, as NextZXOS has it) but no NMI
+  taken, RETI and RETN return to the address on the stack }
+procedure TestStacklessNmi;
+begin
+  NextReg($C0, $08);
+  NextReg($C2, $00);
+  NextReg($C3, $83);                       // NMI return address 8300
+  Put($9000, [$00, $81]);                  // on the stack: 8100
+  Put($8200, [$ED, $4D, $ED, $45]);        // RETI, RETN
+  Sp.Cpu.SP.W := $9000;
+  Sp.Cpu.PC.W := $8200;
+  Sp.StepInstruction;
+  Check(Sp.Cpu.PC.W = $8100, 'stackless NMI: RETI returns to the stack''s address');
+  Sp.Cpu.SP.W := $9000;
+  Sp.Cpu.PC.W := $8202;
+  Sp.StepInstruction;
+  Check(Sp.Cpu.PC.W = $8100, 'stackless NMI: RETN without an NMI returns to the stack''s address');
+  NextReg($C0, $00);
+end;
+
 procedure TestSnapshot(const Dir: string);
 var
   FileName: string;
@@ -252,6 +285,7 @@ begin
     TestKeys;
     TestMultiface;
     TestNex(ParamStr(2));
+    TestStacklessNmi;
     TestFlash;
     TestSnapshot(ParamStr(2));
     if Failures = 0 then

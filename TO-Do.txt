@@ -1,0 +1,33 @@
+- Soporte  de TZX
+- Soporte de Spectrum next
+- Soporte de ZX 81
+- Soporte de Pentagon, scorpion
+- Soporte de SAM Coupe
+
+- Pointless interfaces:
+  + IF1 + microdrive
+  + Plus/D
+  + Wafadrive
+  + Dandanator?
+  + Currah
+  + Multiface
+
+
+  BUGS
+
+- La opcion de fast load no funciona bien en la cinta
+  
+
+
+Current prompt
+
+Vamos a implementar la máquina Spectrum Next (zxnext en la linea de comandos de elegir maquina), un Spectrum potenciado. El manual ZXSpectrumNextManualColorONLINE_1stEd está en la carpeta habitual.
+En la carpeta Specnext está la ultima distribución para el Next. Si el emulador encuentra esa carpeta vacía, y seleccionamos el SPectrum Next, nos
+saldrá un mensaje que diga que tenemos que descargar la distribución y colocarla en la carpeta zxnext, y después volveremos sin cambiar de máquina. Si nos habian lanzado con zxnext desde linea de comando,
+salimos del programa. Please be aware the manual covers even the basic interpreter and usage of the nextZXOS, but we really only need the hardware implementation as most of that is in the distribuition. 
+Supporting memory model, the next registers, the Z80N CPU (specific to the next) and being able to create a SD card with the distro as we do with ESXDOS for ZX-Uno, should be enough.
+
+El manual debería  ser suficiente para implementar el Next, pero ZEsarUX también lo implementa. La distro tendrá seguramente una imagen que aparece que incluye el logo de Sinclair, ese logo no lo podemos usar
+así que haz algo que lo cambie por "pzx" cuando aparezca una distribucion nueva en la carpeta. 
+
+Prepara el plan y dime si te falta algo.

@@ -1,0 +1,3 @@
+Known problems, issues, or caveats of use
+
+Please report bugs to https://github.com/StalePixels/NextPi/issues

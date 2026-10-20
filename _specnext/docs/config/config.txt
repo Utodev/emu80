@@ -1,0 +1,405 @@
+The config.ini, menu.ini and menu.def files
+-------------------------------------------
+Author:  Phoebus R. Dokos (based on documentation by: Garry Lancaster &
+                           Alvin Albrecht)
+Date:	 2020-04-30
+License: CC BY-NC-SA
+Version: 1.7
+
+Changelog
+---------
+2018-09-24: 1.0 Initial version
+2019-06-24: 1.1 Major update due to FW changes
+2020-02-29: 1.2 Update to reflect new folder
+                locations and esxDOS ROM file
+                name
+2020-03-05: 1.3 Minor update
+2020-04-28: 1.4 Added new config.ini options
+2020-04-28: 1.5 Corrected some descriptions (with input from Garry Lancaster,
+                                             Alvin Albrecht and Darran Rimron)
+2020-04-30: 1.6 Updated for FW v1.29 changes (Garry Lancaster)
+2020-04-30: 1.7 Updated for FW v1.29b changes (Garry Lancaster)
+
+
+Introduction
+============
+Configuration of your ZX Spectrum Next computer can be done in two ways:
+1 a. Via the Boot Screen (by pressing <SPACEBAR> while booting and then entering 
+     the Editor Module with "E")
+  b. Automatically upon boot specifically for the screen detection/adjustment
+2. Via the config.ini or menu.ini files
+
+The second method provides access to some settings not found on the regular ZX 
+Spectrum Next Editor Module, adding a machine personality, changing the machine
+type for said personality, provide alternate ROM images and even more 
+importantly setting your monitor if it doesn't work out of the box.
+
+Config.ini, menu.ini and menu.def are regular text files, located in the
+c:/machines/next/ folder of your boot SD Card and read upon first boot after
+an F1 reset or cold boot.
+
+
+Global settings: config.ini
+===========================
+The config.ini file contains global settings that apply to ALL the machine
+personalities. This file is not initially provided on the SD card supplied
+with your Next, but it will be automatically created when you first select
+your desired video mode on the testcard screen. It will also be created or
+updated whenever you make a change to the settings via the boot screen
+(ie by pressing <SPACEBAR> while booting and then entering the editor module
+with "E").
+
+The global settings in the config.ini file are set one-per-line with each
+setting's name followed by an '=' sign followed by the value of the setting
+
+Note: Starting with FW version 1.10b, if you modify the config.ini and enter 
+non-acceptable values for each setting, the FW upon boot will replace these
+values with the smallest acceptable one.
+
+Note: Most hardware features are enabled in the ZX Spectrum Next personality
+by NextZXOS, regardless of the global settings. Settings which indicate personal
+preferences (such as joystick modes, scanlines, video mode etc) are respected.
+
+The global settings are:
+
+
+1. scandoubler
+This sets the scandoubler ON (1) or OFF (0). 
+Scandoubler must be ON for VGA displays and OFF for RGB type monitors (or SCART
+connections). It changes the horizontal scanrate from 30kHz (VGA) to 15KHz
+(RGB). If you're using a  PS/2 keyboard this setting can also be changed on the 
+fly by pressing F2 otherwise on a Spectrum membrane keyboard you'll need to 
+press NMI (on the side of the machine) + 2. This function key responds differently
+on digital displays as it forces a resync.
+
+Default setting:
+scandoubler=1
+
+
+2.50_60hz 
+This sets the main frequency of the display to 50Hz(0) or 60Hz(1). 
+60Hz should be avoided whenever possible and as a setting it is only there for 
+those whose displays cannot work below 60Hz (usually monitors specifically made 
+for PCs). 50Hz retains the proper frame rate for Spectrum software and software
+that requires very strict timings so it's advisable you always use that.
+If you're using a PS/2 keyboard this setting can also be changed on the fly by 
+pressing F3 (or NMI+3)
+
+Default setting:
+50_60hz=0
+
+
+3. timex 
+This enables Timex modes (HiRes and Multicolour) if set to (1)
+
+Default setting:
+timex=1
+
+
+4.psgmode
+psgmode sets the on board PSG mode to AY (0), YM (1), reserved (2) and disabled
+(3).
+Noe: To truly disable AY the port addresses should be disabled and reset will 
+silence it (See relavant NextREG documentation)
+
+Default setting:
+psgmode=0
+
+
+5.stereomode
+stereomode changes the stereophonic (Left-Center-Right) ordering of the PSG 
+channels from ABC (0) to ACB (1)
+
+Default setting:
+stereomode=1
+
+
+6.intsnd
+
+Intsnd enables (1) or disables (0) the internal beeper.
+
+Default setting:
+intsnd=1
+
+
+7.turbosound
+Turbosound disables(0) or enables(1) the additional 2 AYs to give you either an 
+option of 3 or 9 channels of PSG audio
+
+Default setting:
+turbosound=1
+
+
+8.dac
+This setting enables (1) or disables (0) ALL onboard SpecDRUM / Covox 
+Soundrive compatible DAC hardware. Individual DAC hardware can be selectively
+disabled/enabled by the relevant NextREG. See the NextREG documentation for
+details.
+For the Soviet Timings personality only, Soundrive mode 2 is disabled as this
+clashes with the Pentagon/ATM DAC.
+
+Default setting:
+dac=1
+
+
+9.divmmc
+This enables (1) or disables (0) the onboard divMMC. This won't affect boot but
+will make the divMMC hardware unavailable to the selected personality. If this 
+is enabled, then *if* the setting is *NOT* overriden by the per-personality 
+settings as outlined in the following section, then a ROM image file named 
+esxmmc.bin is expected to be located in c:/machines/next/.
+
+Default setting:
+divmmc=0
+
+
+10.divports
+This enables(1) access to the DivMMC i/o ports. For the +3e personality to 
+operate properly, this needs to be set, as it needs access to these ports even 
+though the DivMMC ROM is not loaded/used. 
+
+Default setting:
+divports=1
+
+
+11. mf
+This enables (1) or disables (0) the onboard MF-compatible hardware. It, too can
+be overridden by the per-personality setting as outlined in the following 
+section. If it is however enabled and the ROM filename is NOT overriden, then it
+can be one of the following according to selected machine type. If machine type 
+is 0 (48K) then the rom filename expected is mf.rom, if machine type is 1 (128K)
+then the rom filename expected is mf128.rom and if it's 2 (+2/+3) then the 
+expected rom filename is mf3.rom. These rom image files must be user provided 
+and then placed in the c:/machines/next/ folder.
+
+Default setting:
+mf=0
+
+
+12. joystick1
+joystick1 (and joystick2 that follows) sets the first port joystick type to one
+of the following options: 
+0 = Sinclair 2 (67890)
+1 = Kempston 1 (port 0x1F)
+2 = Cursor (56780)
+3 = Sinclair 1 (12345)
+4 = Kempston 2 (port 0x37)
+5 = MD 1 (3 or 6 button joystick port 0x1F)
+-or-
+6 = MD 2 (3 or 6 button joystick port 0x37)
+
+
+Default setting:
+joystick1=2
+
+
+13. joystick2
+This setting is as the previous one and accepts the same options (some of which 
+are mutually exclusive i.e. if you select a Kempston 1 for joystick1 you cannot 
+select a Kempston 1 for the second port as well)
+
+Default setting:
+joystick2=0
+
+
+14. ps2
+This setting rewires internally the PS/2 port to have the mouse connector as 
+first PS/2 device(1) rather than the default which is keyboard(0). This 
+facilitates plugging in a PS/2 mouse without a Y-splitter cable if you already 
+have a membrane keyboard attached or a regular cased Next.
+
+Default setting:
+ps2=1 (cased next)
+ps2=0 (board backers' distribution)
+
+
+15. scanlines
+This setting produces a cosmetic scanline-like effect of variable intensity from
+totally disabled (0), to 50% (1), 25% (2) and 12.5% (3).
+Scanlines are also controlled on the fly with the F7 key on the PS/2 keyboard 
+(or NMI+7)
+
+Default setting:
+scanlines=0
+
+
+16. turbokey
+turbokey, enables(1) or disables (0) access to speeds over the standard 3.58Mhz.
+If enabled, speed can be also overriden on the fly with the F8 key on a PS/2 
+keyboard (or NMI+8)
+
+Default setting:
+turbokey=1
+
+
+17. timing
+timing sets a global screenmode setting from 0..7 for all menu items that have a
+screen mode set to 8 and it's set automatically from the new testcard video
+setting module upon boot. If a menu item contains a video mode different from 
+8 then this setting is overridden. An express setting of timing=8 forces the
+appearance of the TestCard.
+
+Default setting (new distribution):
+timing=8
+
+
+18. default
+this setting bridges the global configuration section with the per-personality 
+configuration section/menu and selects which of the machine personalities that 
+follow will be the one that boots by default. Entries are 0-based so the default
+(0) actually means the 1st entry in the list
+
+Default setting:
+default=0
+
+
+19. dma
+This setting enables(1) or disables (0) the onboard DMA controller. 
+The controller type is determined by which port is accessed and can be either 
+Z80DMA or ZXNDMA. See the NextREG and zxnDMA documentation for details.
+
+default=0
+
+
+20. keyb_issue
+This setting enables Issue 2 (1) keyboard emulation or selects the default 
+Issue 3 (0). Only applies to very old software.
+
+default=0
+
+
+21. ay48
+This setting enables (1) or disables  (0) the presence of the base (128K style)
+AY chip while in 48K mode. This is needed for certain programs that identify 
+erroneously a 48K personality as 128K.
+
+default=0
+
+
+22. uart_i2c
+This setting enables (1) or disables (0) the I2C and UART devices
+
+default=1
+
+
+23. kmouse
+This setting enables (1) or disables (1) the Kempston Mouse.
+default=1
+
+
+24. ulaplus
+This setting enables (1) or disables (0) support for the ULA+ ULA extensions
+
+default=1
+
+
+25. hdmisound
+This settings enables (1) or disables (0) sound output from the digital video
+port. Sound is still being output by the audio out jack in the back.
+
+default=1
+
+
+26. beepmode
+This setting disables (1) or enables (0) mixing of the beeper channel in the 
+audio stream output. If set to disabled, beeper audio will only come from the 
+internal speaker.
+
+default=0
+
+
+27. buttonswap
+This setting enables (1) or disables (0) swapping of the left/right mouse
+buttons.
+
+default=0
+
+
+28. mousedpi
+This setting selects the sensitivity to mouse movement:
+0 = Low DPI mouse
+1 = Normal DPI mouse
+2 = Medium DPI mouse
+3 = High DPI mouse
+
+default=1
+
+
+Per-Personality Settings: menu.ini and menu.def
+===============================================
+The per-personality settings group serves three functions:
+1. Create a boot menu entry per-line
+2. Describe each machine personality's type as well as the display that's 
+   connected to it
+3. Override -if required- some global settings specifically for that personality
+
+The SD card supplied with your Next comes with a default set of peronsality
+menu items in the menu.def file. This file will be replaced whenever you
+update your SD card from a new distribution, so it is advisable that you do
+not change it.
+
+If you want to add or remove personalities from the menu, first you should
+copy or rename the menu.def file to menu.ini, and then make all your desired
+changes to the menu.ini file.
+
+When booting, the Next will use the menu.ini file if it is present; only if it
+is missing will the default menu file (menu.def) be used.
+
+
+You will need one line starting with "menu=" per-personality up to a maximum of 
+24 lines as follows:
+
+menu="Name of machine",Type,Display,Main_ROM_Image_File,
+      divMMC_ROM_Image_File,MF_ROM_Image_File
+
+"Name of machine" is a meaninful name describing what this machine-personality 
+                  is. 
+                  Note: Make sure that the name is 32 characters long or shorter
+                  as specifically for the Boot menu/Editor modules only standard
+                  Spectrum resolution and fonts are supported.
+
+e.g. ZX Spectrum 128K UK
+
+Type can be one of the following: 0 (48K Spectrum), 
+                                  1 (128K/+2 -grey- Spectrum), 
+                                  2 (+2A/+3/Next), 
+                                  3 (Soviet clone-style timings 128K Spectrum)
+                                  
+The machine type controls what roms are loaded (so it will prevent paging in 
+non-existent roms via ports 7ffd, 1ffd) and which multiface model is implemented
+The Firmware can use that information to further modify the machine's timing 
+model to accurately reflect the operation of the specific personality chosen.
+
+Display can be a number from 0 to 6 for VGA or 7 for Digital. This takes as a 
+base the 50_60hz setting in the Global settings group and modifies the sync 
+frequency in steps of approximately 1Hz to facilitate screen "lock" according to
+your monitor. As the number is increased, the realtime speed of the machine 
+increases with frame rates rising with it toward a rate VGA monitors may be able
+to accept.  The relative timings of all the hardware remains intact so that the
+machine will continue to generate a correct display with the spectrum's original
+video frame.. Setting 7 (Digital) completely modifies the timings to make the 
+display compatible with modern HDMI/DVI monitors as well as changing the aspect 
+ratio and border size (Especially for the 60Hz Digital setting 7). 
+Many HDMI/DVI monitors will work with a setting of 0 to 6 however ALL HDMI/DVI
+monitors will work with a setting of 7.
+A setting of 8 allows the video testing boot module to set the screen according
+to the user's input during boot (See timing setting above)
+
+Main_ROM_Image_File is a ROM image file that's appropriate for the machine type
+you've selected in the previous setting e.g. 48.rom for a standard 48K ZX 
+Spectrum and which MUST be located in c:/machines/next/.
+
+divMMC_ROM_Image_File. If this is set, then the global divMMC setting is 
+overriden and the filename defined is used in lieu of the default esxmmc.bin. 
+This rom image file is also expected to be found in c:/machines/next/ and lastly,
+
+MF_ROM_Image_File, if this is set then the Global configuration for MF hardware 
+is overriden, the hardware is enabled and the rom image file used is the one you
+specify. This file should also be located in c:/machines/next/
+
+
+e.g. menu=ZX Spectrum 128K,1,7,128Kalt.rom 
+will add a boot menu entry that's enabling the 128K toastrack type with a bug 
+fixed rom named 128Kal.rom and Digital display type. If divMMC is enabled in 
+global settings this will require the presence of an esxDOS rom and if MF is 
+enabled then it will require the presence of MF128.ROM

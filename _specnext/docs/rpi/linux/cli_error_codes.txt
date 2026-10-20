@@ -1,0 +1,27 @@
+NextPi Error Codes
+
+When a NextPi CLI command fails, the errors are creatged in a specific format, 
+as follows:
+
+    ERROR:INT string
+
+The following codes are currently in use, with a longer form version of messages
+and should be standard across all NextPi CLI API scripts:
+
+0:  This script requires UID 0, aka root, permissions.  This should actually
+    be the default UID for most NextPi operations, so if you are seeing this
+    something "strange" is afoot.
+    
+1:  Invalid parameters for this function.  Generic "wrong invocation" error -
+    check the online documentation and try again -- run the CLI tool with no 
+    parameters for a link to the docs.
+    
+2:  Missing dependency.  Many functions depend upon files being in the correct
+    places on NextPi, and one of the expected, pre-installed, files is not
+    present.  This should only ever occour if you have a corrupt SD card, or
+    if you've been editing the default system files.  Check the online help
+    for the CLI in question to see if re-initalising the tool is an option.
+    
+3:  Bucket Not Found.  You requested a bucket that does not exist. This may
+    not actually be an error, if you were checking for the existance of a bucket
+    before creating it, etc. But the code is the same.

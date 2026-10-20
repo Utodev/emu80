@@ -1,0 +1,845 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file, based on parts of zx64.zsm
+
+
+; ***************************************************************************
+; * ZX Spectrum Next input routines                                         *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * Definitions                                                             *
+; ***************************************************************************
+
+; System variables
+LAST_K          equ     $5c08
+ERR_NR          equ     $5c3a
+FRAMES          equ     $5c78
+iy_FLAGS        equ     $5c3b-ERR_NR
+iy_MODE         equ     $5c41-ERR_NR
+iy_FLAGS2       equ     $5c6a-ERR_NR
+
+
+; ***************************************************************************
+; * Data                                                                    *
+; ***************************************************************************
+
+zibuf:          defw    0       ; Z-address of input buffer
+inppos:         defw    0       ; X,Y of start of input buffer
+maxl:           defb    0       ; Max input length
+actl:           defb    0       ; Actual input length
+curp:           defb    0       ; Cursor position
+oframe:         defb    0       ; Last value of FRAMES ticker
+timev:          defw    0       ; Countdown in 50ths of a second to timeout
+inschar:        defb    0       ; character being inserted
+yil:            defb    0       ; border cycler for ZXILIV debug breakpoint
+cached_curp:    defb    255     ; cached curp from interrupted input (255=none)
+cached_cwin:    defb    0       ; cached cwin from interrupted input
+inputkeypress:  defb    0       ; 1=a key was pressed during input
+windirty:       defb    0       ; window dirty bits since interrupted input:
+                                ;  bit 0=upper window changed
+                                ;  bit 1=lower window changed
+
+
+; ***************************************************************************
+; * Key polling and scanning                                                *
+; ***************************************************************************
+
+; Check if a key has been pressed.
+; Returns A=key and Fz=0 if so.
+; Returns A=0 and Fz=1 if no key waiting.
+poll_key:
+        xor     a
+        bit     5,(iy+iy_FLAGS)
+        ret     z               ; return with A=0, Fz=1 if no key waiting
+        ld      a,(LAST_K)      ; get the key value
+        res     5,(iy+iy_FLAGS) ; signal it has been taken
+        ld      (iy+iy_MODE),0  ; clear the mode in case it has changed
+        ; drop into check_break
+
+; If BREAK is being pressed, return A=27 and Fz=0
+; Otherwise preserve AF
+check_break:
+        push    af
+        cp      ' '
+        jr      nz,not_break    ; SPACE would have been returned if BREAK
+        ld      a,$fe
+        in      a,($fe)
+        bit     0,a             ; check for CAPS SHIFT
+        jr      nz,not_break
+        ld      a,$7e
+        in      a,($fe)
+        bit     0,a             ; check for SPACE
+        jr      nz,not_break
+        pop     af              ; discard entry AF
+        ld      a,27            ; A=27
+        and     a               ; Fz=0
+        ret
+not_break:
+        pop     af
+        ret
+
+; Wait for a keypress and return in A
+wait_key:
+        push    bc
+        push    de
+        push    hl
+        push    ix
+        ld      a,(iy+iy_FLAGS2)
+        push    af              ; save state of FLAGS2 (containing CAPS bit)
+        ld      a,2
+        call    CHAN_OPEN_r3    ; select channel 2
+        call    dodos_ram0_noerr
+        defw    IDE_STREAM_IN   ; wait for a key
+        ld      (iy+iy_MODE),0  ; clear the mode in case it has changed
+        pop     bc
+        ld      (iy+iy_FLAGS2),b; restore FLAGS2 to undo CAPS if pressed
+        call    check_break     ; replace SPACE with BREAK if appropriate
+        pop     ix
+        pop     hl
+        pop     de
+        pop     bc
+        ret                     ; return with A=key
+
+
+; ***************************************************************************
+; * "MORE" prompt handling                                                  *
+; ***************************************************************************
+
+more:
+        push    ix
+        ld      de,str_more
+        call    set_help        ; output prompt in the help line
+        xor     a
+        call    CHAN_OPEN_r3    ; select channel 2
+        call    dodos_ram0_noerr
+        defw    IDE_STREAM_IN   ; wait for a key
+        call    zap_help        ; clear the help line
+        call    res_more        ; reset the number of scrolls
+        pop     ix
+        ret
+
+res_more:
+        push    hl
+        ld      a,(win_hc)
+        dec     a
+        ld      hl,lwtop
+        sub     (hl)            ; A = no. of scrolls to next [MORE]
+        ld      (scrls),a
+        pop     hl
+        ret
+
+
+; ***************************************************************************
+; * Character conversions                                                   *
+; ***************************************************************************
+
+; Convert char A to lower-case
+lcase:
+        cp      'A'
+        ret     c
+        cp      'Z'+1
+        ret     nc              ; return unless upper-case letter
+        set     5,a
+        ret
+
+
+; ***************************************************************************
+; * Timed input routines                                                    *
+; ***************************************************************************
+
+; Initialise timed input.
+initime:
+        ld      h,d             ; HL,DE = timeout in tenths of a second
+        ld      l,e
+        add     hl,hl
+        add     hl,hl
+        add     hl,de           ; HL = timeout in 50ths of a second
+        ld      (timev),hl
+        ld      a,(frames)
+        ld      (oframe),a
+        ret
+
+; Read a character.
+; Requires timeout parameters to have been already initialised.
+rchar1:
+        call    putcur          ; show the cursor if enabled
+        ld      hl,(timev)
+        ld      a,h
+        or      l
+        jr      nz,rchar_loop   ; on if using a timeout
+        call    wait_key        ; otherwise just wait for a key
+rchar_end:
+        push    af              ; save key
+        call    putcur          ; remove the cursor
+        pop     af
+        ret
+rchar_loop:
+        ld      hl,oframe       ; Has the 50Hz counter changed?
+        ld      a,(FRAMES)
+        cp      (hl)
+        jr      z,rchar2
+        ld      (hl),a          ; update oframe
+        ld      hl,(timev)
+        dec     hl
+        ld      a,h
+        or      l
+        jr      z,rchar_end     ; Return with timeout
+        ld      (timev),hl
+rchar2:
+        call    poll_key
+        jr      nz,rchar_end
+        jr      rchar_loop
+
+
+; ***************************************************************************
+; * Read a character from keyboard                                          *
+; ***************************************************************************
+; Entry: DE=timeout in 1/10ths second (0=no timeout)
+; Exit:  A=char (0=timeout occurred)
+
+NXRCHR:
+        call    initime
+        call    rchar1
+        and     a
+        ret     z               ; exit if timed-out
+        push    af
+        call    res_more        ; reset scrolls to MORE prompt
+        pop     af
+        ld      b,a             ; Translate Spectrum control codes
+        ld      hl,xltab        ; to Z-machine control codes. B=code to do.
+xltlp:
+        ld      a,(hl)
+        inc     hl
+        inc     hl
+        or      a
+        jr      z,xltend        ; exit if end of table
+        cp      b
+        jr      nz,xltlp
+        dec     hl
+        ld      a,(hl)          ; return translated character
+        ret
+xltend:
+        ld      a,b             ; return untranslated character
+        ret
+
+
+; ***************************************************************************
+; * Translation table: Spectrum control codes to Z-machine                  *
+; ***************************************************************************
+
+xltab:
+        defb    12,127  ; Delete
+        defb    8,131   ; Left
+        defb    9,132   ; Right
+        defb    11,129  ; Up
+        defb    10,130  ; Down
+        defb    0       ; End of table
+
+
+; ***************************************************************************
+; * Control code routine table                                              *
+; ***************************************************************************
+
+COMTAB:
+        defw    timed0          ; 0=Timeout
+        defw    no_op           ; 1
+        defw    no_op           ; 2
+        defw    no_op           ; 3
+        defw    chgpaper        ; TRUE VIDEO
+        defw    chgink          ; INV VIDEO
+        defw    capslock        ; CAPS LOCK
+        defw    del2eol         ; EDIT
+        defw    movlt           ; cursor left
+        defw    movrt           ; cursor right
+        defw    eol             ; cursor down
+        defw    bol             ; cursor up
+        defw    delete          ; DELETE
+        defw    finish          ; ENTER
+        defw    helptog         ; EXTEND
+        defw    rdel            ; GRAPHICS
+        defw    no_op           ; 16
+        defw    no_op           ; 17
+        defw    no_op           ; 18
+        defw    no_op           ; 19
+        defw    no_op           ; 20
+        defw    no_op           ; 21
+        defw    no_op           ; 22
+        defw    no_op           ; 23
+        defw    no_op           ; 24
+        defw    no_op           ; 25
+        defw    no_op           ; 26
+        defw    del2bol         ; BREAK
+        defw    no_op           ; 28
+        defw    no_op           ; 29
+        defw    no_op           ; 30
+        defw    no_op           ; 31
+
+
+; ***************************************************************************
+; * Miscellaneous editing keys                                              *
+; ***************************************************************************
+
+; Change current ink
+chgink:
+        call    tilemap_cycle_ink
+        jr      no_op_proxy
+
+; Change current paper
+chgpaper:
+        call    tilemap_cycle_paper
+        jr      no_op_proxy
+
+; Toggle CAPS lock
+capslock:
+        ld      a,(iy+iy_FLAGS2)
+        xor     8               ; flip caps lock bit
+        ld      (iy+iy_FLAGS2),a
+        jr      no_op_proxy
+
+; Toggle help enable
+helptog:
+        ld      hl,helpflg
+        ld      a,(hl)
+        cpl
+        ld      (hl),a
+        ld      de,str_inputhelp
+        call    set_opt_help
+no_op_proxy:
+        jr      no_op
+
+
+; ***************************************************************************
+; * Process line input control code                                         *
+; ***************************************************************************
+
+input_ctrl:
+        ld      l,a
+        ld      h,0
+        add     hl,hl
+        ld      de,comtab
+        add     hl,de           ; HL=address of routine for control char
+        ld      e,(hl)
+        inc     hl
+        ld      h,(hl)
+        ld      l,e             ; HL=routine
+        jp      (hl)            ; execute it
+
+
+; ***************************************************************************
+; * Line input                                                              *
+; ***************************************************************************
+; Entry: HL=Z-Machine address of input buffer
+;           (1st byte=max length, 2nd byte=current length, subsequent=data)
+;        DE=timeout in 1/10ths second (0=no timeout)
+
+NXINP:
+        ld      (zibuf),hl
+        call    initime
+        call    curon           ; enable cursor output
+        ld      de,str_inputhelp
+        call    set_opt_help    ; output editing keys prompt in the help line
+        xor     a
+        ld      (wrapped),a
+        ld      (inputkeypress),a
+        ld      hl,(lwx)        ; find cursor position in current window
+        ld      a,(cwin)
+        or      a
+        jr      nz,linei1
+        ld      hl,(uwx)
+linei1: ld      (inppos),hl     ; set starting position of input
+        ex      de,hl
+        call    prinat          ; set cursor position
+        ex      de,hl
+        ld      hl,(zibuf)      ; get input buffer parameters
+        call    ZXPK64
+        ld      (maxl),a        ; max length
+        inc     hl
+        call    ZXPK64
+        ld      (curp),a        ; store length as current position
+        ld      hl,actl
+        cp      (hl)            ; does actual length match from last time?
+        ld      (hl),a          ; store actual length
+        jr      nz,find_istart  ; on if not
+        ld      hl,cached_curp
+        cp      (hl)            ; is the cached curp within preloaded input?
+        jr      c,find_istart
+        ld      a,(hl)          ; if so, use the cached curp as we are
+        ld      (curp),a        ; resuming a timed input
+        ld      a,(actl)
+find_istart:
+        ld      hl,(inppos)     ; H=start Y, L=start X
+        ld      de,(mainwin_w)  ; E=width of main window
+find_istart_loop:
+        and     a
+        jr      z,got_istart_hl ; on once start of given text is found
+        sub     e               ; need to go up a line?
+        jr      c,find_istart_x ; on if not, to adjust X
+        dec     h               ; decrement Y
+        jr      find_istart_loop
+find_istart_x:
+        add     a,e             ; add back line width
+        ld      d,a
+        ld      a,l
+        sub     d               ; A=current X - given length
+        jr      nc,got_istart_ha; on if don't need to wrap to previous line
+        add     a,e             ; A=X position on previous line
+        dec     h               ; H=previous line
+got_istart_ha:
+        ld      l,a
+got_istart_hl:
+        ld      (inppos),hl     ; store start of input, including given
+input:
+        call    updln           ; update screen with current input
+no_op:
+        call    rchar1          ; Get character with timer
+        and     a
+        jr      z,input_ctrl    ; process "timeout" (0) as a control char
+        ld      hl,inputkeypress
+        set     0,(hl)          ; any other value means a key has been pressed
+        cp      ' '
+        jp      c,input_ctrl    ; process control characters
+        call    insert          ; Insert a simple character
+        jr      input
+
+
+; ***************************************************************************
+; * Cursor movement                                                         *
+; ***************************************************************************
+
+; Cursor left
+movlt:
+        ld      a,(curp)
+        dec     a               ; decrement current position
+        jp      p,set_curpos
+reject_move:
+        call    chime           ; bleep if was already at start
+        jr      no_op
+set_curpos:
+        ld      (curp),a        ; update the cursor position
+        jr      input
+
+; Cursor right
+movrt:
+        ld      a,(curp)
+        ld      hl,actl
+        cp      (hl)
+        jr      z,reject_move   ; just bleep if already at end
+        inc     a               ; otherwise increment current position
+        jr      set_curpos
+
+; Beginning of line
+bol:
+        ld      a,(curp)
+        and     a
+        jr      z,reject_move   ; just bleep if already at start
+        xor     a               ; set current position to start
+        jr      set_curpos
+
+; End of line
+eol:
+        ld      hl,(curp)       ; L=current position
+        ld      a,(actl)        ; A=actual number of characters
+        cp      l
+        jr      z,reject_move   ; just bleep if already at end
+        jr      set_curpos
+
+
+
+; ***************************************************************************
+; * Character deletion                                                      *
+; ***************************************************************************
+
+; Delete left
+delete:
+        ld      hl,curp
+        ld      a,(hl)
+        or      a               ; already at left of the line?
+        jr      z,reject_move   ; if so, just bleep
+        dec     (hl)            ; decrement cursor position
+; Delete right
+rdel:
+        ld      a,(curp)
+        ld      hl,actl
+        cp      (hl)            ; already at end of line?
+        jr      z,reject_move   ; if so, reject delete with a bleep
+        call    getppos         ; HL=Z-Machine address of char to delete
+        ld      d,h
+        ld      e,l
+        inc     de              ; DE=Z-Machine address of following character
+        ld      a,(curp)
+        ld      b,a
+        ld      a,(actl)
+        sub     b
+        dec     a               ; A=number of chars to shift back
+        jr      z,do_delete     ; on if none
+        ld      b,a
+delete_loop:
+        ex      de,hl
+        call    ZXPK64          ; get next char
+        ex      de,hl
+        call    ZXPOKE          ; copy back to previous position
+        inc     hl
+        inc     de
+        djnz    delete_loop     ; loop back for remaining input chars
+do_delete:
+        ld      hl,actl
+        dec     (hl)            ; decrement input size
+        jr      input
+
+
+; ***************************************************************************
+; * Line segment deletion                                                   *
+; ***************************************************************************
+
+; Delete to beginning of line
+del2bol:
+        ld      a,(curp)
+        and     a
+reject_move_z:
+        jr      z,reject_move   ; just bleep if no chars to delete
+        call    getppos         ; HL=Z-Machine address of current position
+        ld      de,(zibuf)
+        inc     de
+        inc     de              ; DE=Z-Machine address of input start
+        ld      c,0             ; C=accumulated new length
+        ld      a,(curp)
+        ld      b,a
+        ld      a,(actl)
+        sub     b
+        ld      b,a             ; B=number of chars to shift back to start
+        jr      z,do_del2bol    ; on if none
+del2bol_loop:
+        call    ZXPK64          ; get next char to shift
+        ex      de,hl
+        call    ZXPOKE          ; append to start
+        ex      de,hl
+        inc     hl
+        inc     de
+        inc     c               ; increment new length
+        djnz    del2bol_loop    ; loop to shift back more chars
+do_del2bol:
+        xor     a
+        ld      (curp),a        ; set current position to start
+        ld      a,c             ; store new length
+set_actl:
+        ld      (actl),a
+        jp      input
+
+; Delete to end of line
+del2eol:
+        ld      hl,(actl)       ; L=current input size
+        ld      a,(curp)        ; A=current position
+        cp      l
+        jr      z,reject_move_z ; just bleep if nothing more to delete
+        jr      set_actl        ; else set input size to current position
+
+
+; ***************************************************************************
+; * Character insertion                                                     *
+; ***************************************************************************
+
+insert:
+        ld      (inschar),a
+        ld      a,(actl)
+        ld      hl,maxl
+        cp      (hl)            ; already at max length?
+        jp      z,chime         ; if so, just bleep and exit
+        ld      hl,curp
+        cp      (hl)
+        jr      z,do_insert     ; if at end of input, just append the char
+        call    getppos         ; HL=Z-Machine address of current position
+        call    ZXPK64
+        ld      c,a             ; C=char at current position
+        ld      a,(curp)
+        ld      b,a
+        ld      a,(actl)
+        sub     b
+        inc     a
+        ld      b,a             ; B=input size-current position
+insert_loop:
+        call    ZXPK64
+        push    af              ; save the next char
+        ld      a,c
+        call    zxpoke          ; move previous character up
+        pop     af
+        ld      c,a             ; C=char just replaced
+        inc     hl
+        djnz    insert_loop     ; loop back to move up rest of input
+do_insert:
+        call    getppos         ; HL=Z-Machine address of current position
+        ld      a,(inschar)
+        call    ZXPOKE          ; store the new character
+        ld      hl,curp
+        inc     (hl)
+        ld      hl,actl
+        inc     (hl)
+        ret
+
+
+; ***************************************************************************
+; * Line input termination routines                                         *
+; ***************************************************************************
+
+; ENTER was pressed
+finish:
+        call    common_end      ; restore screen, pack input length in buffer
+                                ; leaves B=input length, HL=buffer Z-Addr + 1
+        inc     b
+        jr      lclp_start      ; ensure B=0 case is correctly handled
+lclp:
+        inc     hl
+        call    ZXPK64          ; get next char from buffer
+        push    hl
+        push    af
+        ld      l,a
+        call    cktschar        ; send to transcript if enabled
+        pop     af
+        pop     hl
+        call    lcase           ; force to lower-case
+        call    ZXPOKE          ; store back in buffer
+lclp_start:
+        djnz    lclp
+        ld      hl,(x_pos)      ; set final window position
+        call    set_winpos
+        call    out1_lf         ; force a CR/LF
+        ld      b,$0a           ; B=terminating character (VM wants LF)
+        scf
+        ret
+
+; Timeout
+timed0:
+        call    common_end      ; restore screen, pack input length in buffer
+        xor     a
+        ld      (windirty),a    ; mark windows as "clean"
+        ld      a,(cwin)
+        ld      (cached_cwin),a ; cache the current cwin
+        call    do_cr           ; perform CR/LF
+        call    do_lf
+        call    checkfeed       ; update inppos Y if LF performed a scroll
+        ld      hl,(x_pos)      ; set final window position
+        call    set_winpos
+        ld      a,(scrls)
+        dec     a
+        ld      (scrls),a       ; update lines to next "MORE"
+        call    m,more          ; do MORE if needed
+        ld      b,0             ; B=terminating character (0)
+        scf
+        ret
+
+; Common input end tasks
+common_end:
+        ld      a,255
+        ld      (cached_curp),a ; clear the cached curp
+        ld      a,(actl)
+        call    set_scrpos_a    ; move print position to after input chars
+        call    zap_help        ; remove the help line
+        call    curoff          ; disable cursor output
+        ld      hl,inputkeypress
+        bit     0,(hl)          ; did anything get pressed during the input?
+        call    nz,res_more     ; if so, reset scrolls to the next MORE prompt
+        ld      a,(actl)
+        ld      b,a             ; A=B=final input length
+        ld      hl,(zibuf)
+        inc     hl
+        call    ZXPOKE          ; store in buffer
+        ret
+
+
+; ***************************************************************************
+; * Timed input is about to be resumed                                      *
+; ***************************************************************************
+
+NXIRES:
+        ld      a,(curp)
+        ld      (cached_curp),a ; cache the current curp
+        ld      hl,(cached_cwin)
+        ld      a,(cwin)
+        cp      l
+        ret     nz              ; nothing to do if different window
+        cp      1               ; Fc=1 if cwin=0(upper); Fc=0 if cwin=1(lower)
+        adc     a,a             ; A=1 (bit 0) for upper, A=2 (bit 1) for lower
+        ld      hl,windirty
+        and     (hl)
+        ret     nz              ; nothing to do if window contents changed
+        ld      a,(scrls)
+        inc     a
+        ld      (scrls),a       ; undo the update made at last timeout
+        ld      hl,(inppos)     ; position for buffer contents to be reprinted
+        ; drop through to set position in current window and then exit
+
+set_winpos:
+        ld      a,(cwin)        ; update the appropriate window position
+        and     a
+        jr      z,set_winpos_u
+        ld      (lwx),hl
+        ret
+set_winpos_u:
+        ld      (uwx),hl
+        ret
+
+
+; ***************************************************************************
+; * Line input utility routines                                             *
+; ***************************************************************************
+
+; Get Z-Machine address of current position to HL
+getppos:
+        push    de
+        ld      de,(zibuf)
+        inc     de
+        inc     de              ; DE=start of buffer
+        ld      hl,(curp)
+        ld      h,0
+        add     hl,de           ; HL=address at current position
+        pop     de
+        ret
+
+; Update screen to reflect contents of input buffer.
+updln:
+        ld      de,(inppos)
+        call    prinat          ; set screen print position to input start
+        xor     a
+        ld      (linefed),a     ; reset linefed flag
+        ld      hl,(zibuf)
+        inc     hl
+        inc     hl
+        ld      a,(actl)
+        or      a
+        jr      z,updln3        ; skip if no chars in current input
+        ld      b,a
+updln1:
+        call    ZXPK64
+        inc     hl
+        push    bc
+        push    hl
+        call    anychar         ; output each char in current input
+        call    checkfeed       ; perform any required scroll
+        pop     hl
+        pop     bc
+        djnz    updln1
+updln3:
+        ld      a,(maxl)
+        ld      hl,actl
+        sub     (hl)            ; A=unused chars
+        or      a
+        jr      z,updln5        ; skip if no unused chars
+        ld      b,a
+updln4:
+        ld      a,' '
+        push    bc
+        call    opchar          ; output a space for all unused chars
+        call    checkfeed       ; perform any required scroll
+        pop     bc
+        djnz    updln4
+updln5:
+        ; drop through to set_scrpos
+set_scrpos:
+        ld      a,(curp)        ; A=cursor position within buffer
+set_scrpos_a:
+        ld      de,(inppos)     ; D=start Y, E=start X
+        ld      hl,(mainwin_w)  ; L=width of main window
+set_scrpos2:
+        add     a,e             ; add cursor position to X
+        jr      nc,set_scrpos3  ; okay if not >255
+        sub     e               ; otherwise undo addition
+        sub     l               ; and reduce buffer pos by screen width
+        inc     d               ; then increment Y
+        jr      set_scrpos2     ; loop back
+set_scrpos3:
+        cp      l               ; is new X position within screen width?
+        jr      c,set_scrpos4   ; okay if so
+        sub     l               ; else reduce X by screen width
+        inc     d               ; and increment Y
+        jr      set_scrpos3     ; loop back
+set_scrpos4:
+        ld      e,a
+        call    prinat          ; adjust screen print position
+        ret
+
+; Check if a linefeed occurred; if so, scroll and update inppos.
+checkfeed:
+        ld      a,(linefed)
+        and     a
+        ret     z               ; exit if no linefeed occurred
+        xor     a
+        ld      (linefed),a
+        ld      hl,(mainwin_h)  ; L=main window height
+        ld      a,(y_pos)
+        cp      l
+        ret     c               ; exit if still within window
+        dec     a
+        ld      (y_pos),a       ; else clamp to within window
+        call    scroll          ; scroll up
+        ld      hl,(inppos)     ; get stored input position
+        ld      a,(lwtop)
+        cp      h
+        ret     z               ; do nothing if already on top line of lower
+        dec     h               ; otherwise decrement to previous line
+        ld      (inppos),hl
+        ret
+
+
+; ***************************************************************************
+; * Debug utility routines                                                  *
+; ***************************************************************************
+
+NXILIV:
+        push    af
+        ld      a,(yil)
+        out     (254),a
+        inc     a
+        and     7
+        ld      (yil),a
+        call    wait_key
+        pop     af
+        ret
+
+
+; ***************************************************************************
+; * Messages                                                                *
+; ***************************************************************************
+
+str_more:
+        defb    %00000000       ; clear to normal
+        defb    %10110001,80+68 ; bold, reverse video, offset=64 in 2nd line
+        defm    "[MORE]"
+        defb    0
+
+str_inputhelp:
+        defm    %00010000       ; clear to inverse
+        defm    %10010001,2,"Movement: "
+        defm    %10110010,33,%10010010," left   "
+        defm    %10110010,34,%10010010," right     "
+        defm    %10110010,92,%10010010," home      "
+        defm    %10110010,93,%10010010," end"
+        defm    %10110001,60,"EXTEND",%10010000,"=help on/off "
+
+        defm    %10010001,80+2,"Deleting: "
+        defm    %10110000,"DELETE",%10010010,33,"  "
+        defm    %10110010,"GRAPH", %10010010,34,"  "
+        defm    %10110010,"BREAK", %10010010,33,%10010010,"start  "
+        defm    %10110000,"EDIT",  %10010010,34,%10010010,"end  "
+
+        defm    %10010001,80+51,"Colours: "
+        defm    %10110000,"INV", %10010000," ink "
+        defm    %10110000,"TRUE",%10010000," paper"
+
+        defb    0
+

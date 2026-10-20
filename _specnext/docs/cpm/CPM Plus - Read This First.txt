@@ -1,0 +1,107 @@
+CP/M Plus on the ZX Spectrum Next
+=================================
+
+
+Introduction
+============
+The ZX Spectrum Next supports running CP/M Plus (also known as CP/M 3.0),
+an operating system available from many microcomputers in the late 1970s and
+early 1980s.
+
+CP/M provides a command-line environment similar to DOS. A huge amount of
+software was available for it, including programming languages & compilers,
+word processors (such as the well-known WordStar), spreadsheets, databases,
+utilities, text-based games and much more.
+
+The Next runs CP/M Plus using a specially-written BIOS (basic input/output
+system) which gives it a 24x80 text-based terminal supporting full colour.
+It is run by selecting the CP/M option on the main menu.
+
+You can run any software that runs on CP/M-80, CP/M 2.2, CP/M 3.0 or CP/M Plus,
+but *not* CP/M-86 software (which requires an Intel x86 processor).
+
+Please note that graphical applications requiring GSX cannot be used at the
+moment, although support for these is under consideration. There is very
+little software requiring GSX, however: most CP/M software was text-based.
+
+
+Getting started
+===============
+The first time that you select the CP/M option from the NextZXOS menu system,
+a disk image file for CP/M's drive A: is automatically created, named
+C:/NEXTZXOS/CPM-A.P3D. The required CP/M system files are then imported to the
+image. Once this process has completed, you will be returned to the NextZXOS
+menu. The next time you select the CP/M option from the menu, it will
+take you straight into CP/M.
+
+
+Commands
+========
+CP/M is operated by typing commands at the prompt (A>). One of the most useful
+commands is:
+
+        DIR
+        DIR A:
+
+which shows a list of all the files on the current drive or the drive
+specified. Initially you will just have drive A: available, but more can be
+set up (drives A to P can be used) so that you can keep different programs
+on different drives.
+
+Any filename shown by DIR which ends in .COM is itself a command, and can be
+executed at the prompt. You will have noticed there are a lot of .COM files
+to try. Another useful one is:
+
+        HELP
+
+which provides help and information on all the standard commands and utilities
+provided with CP/M.
+
+There are also a number of commands specific to the ZX Spectrum Next. These
+include:
+
+        TERMINFO        An interactive demonstration of the terminal facilities
+                        provided on the Next
+
+        EXIT            Exits from CP/M and returns to NextZXOS
+
+        COLOURS         Changes the colour scheme
+
+        TERMSIZE        Changes the default terminal size (up to 32x80)
+
+        IMPORT          Imports files from your NextZXOS C: drive (or other
+                        FAT drives seen in the NextZXOS browser)
+
+        EXPORT          Exports files to your NextZXOS C: drive (or other)
+
+        ECHO            Sends text or ESCape sequences to the terminal
+
+        NEXTREG         Views or changes ZX Spectrum Next hardware registers
+                        (use at your own risk!)
+
+Typing the name of these commands will give some more information on how to
+use them.
+
+
+Further information
+===================
+There is a lot to learn about CP/M, and a lot you can do with it. Some useful
+places for further information are listed here.
+
+http://www.cpm.z80.de/
+
+Contains a lot of manuals, documentation and software. In particular,
+the CP/M 3 User Guide, Command Summary and Programmers' Manual:
+
+        http://www.cpm.z80.de/manuals/cpm3-usr.pdf
+        http://www.cpm.z80.de/manuals/cpm3-cmd.pdf
+        http://www.cpm.z80.de/manuals/cpm3-pgr.pdf
+
+http://classiccmp.org/cpmarchives/
+
+Links to many more useful sites, collections of software, manuals, magazines
+and much more.
+
+
+----
+Garry Lancaster, 29th September 2019

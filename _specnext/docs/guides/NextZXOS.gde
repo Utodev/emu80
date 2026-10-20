@@ -1,0 +1,531 @@
+@title NextZXOS Guide
+@author Garry Lancaster
+@version 1.07
+@copyright Copyright (C)2024 Garry Lancaster
+@date 2024/02/07
+
+@----------------------------------------------------------------------------
+@node MAIN
+@next MENUS
+@{r}NextZXOS Guide
+@{c}@{h1}NextZXOS
+
+@{i}NextZXOS@{ui} is the main operating system on your Next. This guide describes some
+of its features.
+
+@{"Menus" LINK MENUS}
+@{"Main menu options" LINK MAINMENU}
+@{"More menu options" LINK MOREMENU}
+@{"Interface 2 menu options" LINK IF2MENU}
+@{"Tools menu options" LINK TOOLSMENU}
+@{"NMI menu" LINK NMIMENU}
+@{"Configuration - autoexec.bas" LINK AUTOEXEC}
+@{"Configuration - colour schemes" LINK SCHEMES}
+@{"Configuration - menus" LINK MENUSCFG}
+@{"Configuration - file system options" LINK FORMATCFG}
+@----------------------------------------------------------------------------
+@node MENUS
+@prev MAIN
+@next MAINMENU
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Menus
+
+@{i}NextZXOS@{ui} is controlled using a set of menus, similar to those found on
+original 128K Spectrums. When the machine is first booted, the main menu is
+shown. Options menus for the @{i}NextBASIC@{ui} editor, @{i}Command Line@{ui} and @{i}Calculator@{ui}
+can be brought up by pressing the @{b}EDIT@{ub} key during a session.
+
+Within each menu, you can use the up/down cursor keys to move the highlight
+bar to the desired option, and @{b}ENTER@{ub} to select the option. Pressing @{b}SPACE@{ub}
+or @{b}BREAK@{ub} exits the current menu (or switches between the "@{i}main@{ui}" and "@{i}more@{ui}"
+menus).
+
+The left/right cursor keys can be used to change the speed at which programs
+will be run, shown at the top of the menu.
+
+Each menu option also has a @{i}shortcut@{ui} key shown in a different colour. Press
+the indicated key to immediately execute the option. You can also press the
+@{b}EXTEND@{ub} key to make the menu shortcuts more easily visible.
+
+You can also control the menus using a joystick or controller, as long as it
+is set up (in the firmware options) as a @{i}cursor@{ui}, @{i}Kempston 1@{ui} or @{i}MD 1@{ui} type.
+
+The menu system is also @{"customisable" LINK MENUSCFG}, allowing you to tailor it to your
+own requirements.
+@----------------------------------------------------------------------------
+@node MAINMENU
+@prev MENUS
+@next MOREMENU
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Main Menu
+
+@{h2}Browser
+The @{i}Browser@{ui} allows you to explore the contents of your SD card and launch
+programs. It has its own guide, available within it by pressing @{b}G@{ub}.
+
+@{h2}Command Line
+The @{i}Command Line@{ui} allows you to execute commands and see the results
+immediately on-screen. It is mainly intended for running dot commands, but any
+BASIC command can be entered. Press @{b}EDIT@{ub} to bring up its menu, allowing
+you to exit back to the main menu or read its own guide.
+
+@{h2}NextBASIC
+The @{i}NextBASIC@{ui} editor allows you to enter, edit and run BASIC programs.
+Press @{b}EDIT@{ub} to bring up its menu, allowing you to exit back to the main menu or
+read its own guide.
+
+@{h2}Calculator
+The @{i}Calculator@{ui} allows you to enter quick calculations and see the results
+immediately on-screen. Press @{b}EDIT@{ub} to bring up its menu, allowing you to exit
+back to the main menu or read its own guide.
+
+@{h2}Guide
+Brings up this guide.
+
+@{h2}More
+Switches to the @{"more menu" LINK MOREMENU}.
+@----------------------------------------------------------------------------
+@node MOREMENU
+@prev MAINMENU
+@next IF2MENU
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}More Menu
+
+@{h2}Tape Loader
+Allows you to load cassette-based software. You can choose the type of Spectrum
+the software is designed for, as well as additional options and controls. To
+load cassette software, connect a @{i}Spectrum +3@{ui} cassette lead to the EAR/MIC
+socket on the Next and connect the EAR cable at the other end to your
+cassette player. If your cassette player has a stereo headphone socket, you
+will need an adapter to convert the mono jack on the lead to a stereo jack.
+
+@{h2}Tape Tester
+If you have trouble loading cassette-based software, use this option to help
+adjust the volume to an appropriate level. When the tape you wish to load is
+playing, the coloured square on the volume indicator bar should move over
+towards the right-hand side of the screen. Press @{b}SPACE@{ub} or @{b}BREAK@{ub} to exit.
+
+@{h2}Interface 2
+Switches to the @{"Interface 2 menu" LINK IF2MENU}, for activating a @{i}Sinclair Interface 2@{ui}
+(or a clone such as the @{i}RAM Turbo@{ui} or @{i}Dandanator@{ui}).
+@{b}WARNING:@{ub} Do not plug/unplug any interfaces or cartridges whilst the Next is
+switched on.
+
+@{h2}CP/M
+@{i}CP/M@{ui} is a complete operating system for 8-bit computers with a huge amount
+of software available. This option allows you to set up and run @{i}CP/M Plus@{ui} for
+your Next. Further information can be found in @{i}c:/docs/cpm@{ui}.
+
+@{h2}48K BASIC
+Starts up your Next as if it was an original 48K Spectrum. Most NextZXOS
+features are unavailable in this mode, but the @{"NMI menu" LINK NMIMENU} and some dot commands
+can be used.
+
+@{h2}128K BASIC
+Starts up your Next as if it was an original 128K Spectrum. Most NextZXOS
+features are unavailable in this mode, but the @{"NMI menu" LINK NMIMENU} can be used.
+
+@{h2}ZX80 BASIC, ZX81 BASIC
+Starts up your Next as if it was an original ZX80 or ZX81, using emulators
+kindly provided by @{i}Paul Farrow@{ui}. Most NextZXOS features are unavailable
+in this mode, but the @{"NMI menu" LINK NMIMENU} can be used. Further information can be
+found at @{i}http://www.fruitcake.plus.com@{ui}.
+
+@{h2}More
+Switches back to the @{"main menu" LINK MAINMENU}.
+@----------------------------------------------------------------------------
+@node IF2MENU
+@prev MOREMENU
+@next TOOLSMENU
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Interface 2 Menu
+
+This menu allows you to start up ROM cartridges inserted in an attached
+@{i}Sinclair Interface 2@{ui} (or a clone such as the @{i}RAM Turbo@{ui} or @{i}Dandanator@{ui}).
+
+@{b}WARNING:@{ub} Do not plug/unplug any interfaces or cartridges whilst the Next is
+switched on.
+
+@{h2}48K Cart only
+Starts up a standard cartridge. The joystick ports on the @{i}Interface 2@{ui}
+will @{b}not@{ub} be activated. Instead, you can use the built-in joystick ports
+at the front of the Next, which will be configured as @{i}Sinclair@{ui} types.
+
+@{h2}48K Cart+joys
+Starts up a standard cartridge, and enables the @{i}Interface 2@{ui} joystick ports.
+The Next's own joystick ports will be configured as @{i}MD1@{ui}/@{i}MD2@{ui} types.
+
+@{h2}128K Cart only
+@{h2}128K Cart+joys
+Similar to the previous options, but starts the cartridge with the Spectrum in
+128K mode, needed to run 128K software that can be loaded on some custom ROM
+cartridges (such as @{i}Paul Farrow@{ui}'s @{i}ZXC4@{ui}, or the @{i}ZX Dandanator@{ui}).
+
+@{h2}Back
+Switches back to the @{"more menu" LINK MOREMENU}.
+@----------------------------------------------------------------------------
+@node TOOLSMENU
+@prev IF2MENU
+@next NMIMENU
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Tools Menu
+
+This menu contains a selection of tools to help setup and adjust your system.
+
+@{h2}Set Clock
+Allows the date and time on the built in real-time clock (RTC) to be set.
+
+@{h2}WIFI Setup
+Allows setting up your Next's ESP8266 WiFi module.
+
+@{h2}Updater
+When a new SD card distribution becomes available, this option will update
+your card if you have downloaded the appropriate update file (.DSU) from:
+@{i}https://www.specnext.com/latestdistro/@{ui}
+
+@{h2}Back
+Switches back to the @{"more menu" LINK MOREMENU}.
+@----------------------------------------------------------------------------
+@node NMIMENU
+@prev TOOLSMENU
+@next AUTOEXEC
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}NMI Menu
+
+Pressing the yellow @{b}NMI@{ub} button on the side of the Next interrupts the
+currently-running program and displays the NMI menu. (Note that the speed shown
+reflects whatever was running at the time the button was pressed. If a
+NextZXOS menu or the editor was in control, this will be 28MHz as the
+operating system runs at the maximum speed when possible.)
+
+Some options give access to the @{i}Browser@{ui} for saving or selecting files, but
+please note that many @{i}Browser@{ui} features (such as directory sorting, file
+copying etc) are not available when in the NMI menu. This is to avoid the risk
+of overwriting memory being used by the software that was in control when the
+NMI button was pressed.
+
+@{h2}Snapshot
+Allows you to take a snapshot of the currently-running program in @{i}.Z80@{ui} format.
+Note that this is only possible for 48K, 128K, ZX80 or ZX81 software.
+
+@{h2}Screenshot
+Gives access to a submenu allowing you to print or save the current screen or
+palette. Note that only the selected layer can be saved/printed, and this will
+not include any currently-visible sprites.
+
+@{h2}TAP files
+Provides options for changing the currently-selecting input and output @{i}.TAP@{ui} files.
+This allows providing an output tape for saving game positions, or changing
+the input tape for multi-load programs etc.
+
+@{h2}POKEs
+Allows selecting a file in the standard @{i}.POK@{ui} format to apply POKEs/cheats
+to the currently-running game. You can also manually enter POKEs here.
+
+@{h2}Debug tools
+Provides a submenu for examining or changing the state of the currently-running
+software.
+
+@{h2}Settings
+Provides a submenu for examining or changing currently-selected hardware
+options. Note that these are only changed temporarily and will be returned to
+the defaults when the Next is reset.
+
+@{h2}Keymap
+Shows keyboard mappings for the current mode, kindly provided by @{i}Richard
+Hallas@{ui}.
+
+@{h2}About
+Shows credits for contributors to NextZXOS.
+@----------------------------------------------------------------------------
+@node AUTOEXEC
+@prev NMIMENU
+@next SCHEMES
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Configuration - autoexec.bas
+
+You may wish to automatically start up your Next with your preferred options
+(such as colour schemes, screensaver timeout, editor mode etc) or always run
+the same software automatically at boot. This can be done simply by writing
+a @{i}NextBASIC@{ui} program and saving it to auto-run as @{b}c:/nextzxos/autoexec.bas@{ub}.
+
+Here is an example:
+@{b}
+        10 SPECTRUM SCREEN$ 0,1
+        20 SPECTRUM CHR$ 85
+        30 .editprefs --scheme dark
+        40 .browseprefs --scheme dark
+        50 PAPER 0:BORDER 0:INK 6
+        60 ERASE
+@{ub}
+
+(the @{b}ERASE@{ub} command is used to automatically delete the program after it has
+finished).
+
+Save this using:
+@{b}
+        SAVE "c:/nextzxos/autoexec.bas" LINE 10
+@{ub}
+@----------------------------------------------------------------------------
+@node SCHEMES
+@prev AUTOEXEC
+@next MENUSCFG
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Configuration - colour schemes
+
+Various different @{i}Editor@{ui} colour schemes can be selected according to
+your preferences. These affect the menu system as well as the @{i}NextBASIC@{ui@},
+@{i}Command Line@{ui} and @{i}Calculator@{ui} editors. (Note that the @{i}Browser@{ui} has its own
+independently-configurable colour schemes, which are detailed in its guide).
+
+You can also create your own colour schemes. Most schemes provide different
+colours for syntax-highlighting in the editors, although if you prefer you
+can use a scheme without this (eg, the @{i}zx128@{ui} scheme).
+
+The @{b}.EDITPREFS@{ub} dot command allows you to change to a predefined
+colour scheme, or to a colour scheme loaded from a file. To see a list of the
+predefined schemes, just type @{b}.EDITPREFS@{ub} at the command-line.
+
+Select a predefined scheme with the @{i}--scheme@{ui} option. For example,
+        @{b}.editprefs --scheme dark@{ub}
+switches to a colour scheme with a dark background.
+
+Select a scheme defined in a file (usually with the extension @{i}.ecs@{ui}) with
+the @{i}--scheme-file@{ui} option. For example:
+        @{b}.editprefs --scheme-file "c:/myschemes/vivid.ecs"@{ub}
+
+These commands are suitable for adding to your @{b}autoexec.bas@{ub} file, so that
+your preference is set every time the Next boots.
+
+You can also change colour schemes from within the @{i}Browser@{ui} by selecting a
+colour scheme file (with the @{i}.ecs@{ui} extension). Some samples are provided in
+the @{b}c:/demos/Colour Schemes/Editor@{ub} directory.
+
+@{h2}.ECS file format
+
+If you wish to define your own colour scheme, you can create a @{i}.ecs@{ui} file.
+This is a binary file (which could, for example be saved by @{b}SAVE..CODE@{ub}),
+containing the following values:
+
+@{i}Offset@{ui}  @{i}Data@{ui}
++0      attribute value: base colour scheme (background)
++1      attribute value: colour stripe black/red
++2      attribute value: colour stripe yellow/red
++3      attribute value: colour stripe yellow/green
++4      attribute value: colour stripe cyan/green
++5      attribute value: colour stripe cyan/black
++6      attribute value: highlighted info bar items
++7      attribute value: standard info bar items
++8      attribute value: highlighted menu text
++9      attribute value: background menu text
++10     attribute value: highlighted menu shortcuts
++11     attribute value: background menu shortcuts
++12     attribute value: highlighted menu shortcuts after EXTEND is pressed
++13     attribute value: background menu shortcuts after EXTEND is pressed
++14     attribute value: standard (L mode) cursor
++15     attribute value: extended (E mode) cursor
++16     attribute value: graphics (G mode) cursor
++17     attribute value: capitals (C mode) cursor
++18     attribute value: error marker cursor
++19     attribute value: line numbers
++20     attribute value: keywords
++21     attribute value: graphic/UDG characters
++22     attribute value: strings
++23     attribute value: comments
++24     attribute value: alphabetic characters
++25     attribute value: numeric characters
++26     attribute value: symbol characters
++27     attribute value: dot commands
++28     attribute value: reserved for future use
++29     attribute value: reserved for future use
++30     attribute value: reserved for future use
++31     attribute value: reserved for future use
+
++32..33 palette data: INK 0
++34..35 palette data: INK 1
++36..37 palette data: INK 2
++38..39 palette data: INK 3
++40..41 palette data: INK 4
++42..43 palette data: INK 5
++44..45 palette data: INK 6
++46..47 palette data: INK 7
++48..49 palette data: BRIGHT INK 0
++50..51 palette data: BRIGHT INK 1
++52..53 palette data: BRIGHT INK 2
++54..55 palette data: BRIGHT INK 3
++56..57 palette data: BRIGHT INK 4
++58..59 palette data: BRIGHT INK 5
++60..61 palette data: BRIGHT INK 6
++62..63 palette data: BRIGHT INK 7
++64..65 palette data: PAPER 0
++66..67 palette data: PAPER 1
++68..69 palette data: PAPER 2
++70..71 palette data: PAPER 3
++72..73 palette data: PAPER 4
++74..75 palette data: PAPER 5
++76..77 palette data: PAPER 6
++78..79 palette data: PAPER 7
++80..81 palette data: BRIGHT PAPER 0
++82..83 palette data: BRIGHT PAPER 1
++84..85 palette data: BRIGHT PAPER 2
++86..87 palette data: BRIGHT PAPER 3
++88..89 palette data: BRIGHT PAPER 4
++90..91 palette data: BRIGHT PAPER 5
++92..93 palette data: BRIGHT PAPER 6
++94..95 palette data: BRIGHT PAPER 7
+
+Note that all 6 attributes between +8..+12 (menu item colours) should usually
+be different to avoid strange behaviour when the menu highlight bar is moved.
+You can, however, have the same background AND highlight colour for different
+menu items.
+
+For example, if the value at +8 (highlighted menu text) is the same as the
+value at +10 (highlighted menu shortcuts), then the value at +9 (background
+menu text) must also be the same as the value at +11 (background menu
+shortcuts).
+
+Note that palette data is in the format: 1st byte:RRRGGGBB, 2nd byte:0000000B
+Note also that the palette data can be omitted, and the standard palette will
+be used.
+@----------------------------------------------------------------------------
+@node MENUSCFG
+@prev SCHEMES
+@next FORMATCFG
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Configuration - menus
+
+The menus shown by NextZXOS can be altered if you wish, using a simple
+configuration file. This allows you to remove items that you never need, add
+quick access to other things that you personally find useful, or simply
+rearrange the items in the order that you prefer.
+
+Menu configuration is controlled by the @{b}c:/nextzxos/enMenus.cfg@{ub} file. By
+default this file is not present on your SD card, so NextZXOS uses its
+own built-in menus.
+
+An example configuration file is, however, provided. This is located on your
+SD card as @{b}c:/nextzxos/enMenus-example.cfg@{ub}, and contains an exact
+copy of the default menu system. You can therefore edit this file to your
+requirements and rename it to @{b}c:/nextzxos/enMenus.cfg@{ub} in order to use
+your own customised menus.
+
+If you find that your menu is not working as expected, when you are in the main
+menu you can hold down @{b}SYMBOL-SHIFT@{ub} and press @{b}SPACE@{ub} to reload
+the standard built-in menu.
+
+@{h2}Menu format
+Each menu in the file consists of 3 or more lines.
+
+The first line is simply an equals sign followed by the @{i}menu id@{ui}, a number
+between 0 and 255.
+
+The second line is the text shown in the title bar of the menu.
+
+For example:
+        @{b}=100@{ub}
+        @{b}My Menu@{ub}
+
+Each further line describes one of the options provided by the menu. There must
+be between 1 and 10 such lines in each menu.
+
+@{h2}Menu option line format
+A menu option line consists of three sections: option name, action type and
+action details. These are separated by colons @{b}:@{ub} (although the colon
+between the action type and action details is optional). You can place an
+underline character in the option name to indicate that the character before
+the underline can be used as a @{i}shortcut@{ui} key to instantly select the
+menu option.
+
+        @{b}Type@{ub}    @{b}Action@{ub}                  @{b}Action details required@{ub}
+        i       internal action         internal action id (a number, 0..255)
+        m       switch menu             menu id (a number, 0..255)
+        b       execute NextBASIC       NextBASIC code
+        g       show guide              guide name
+
+Some example lines for each type of action are:
+
+        B_rowser:i:10
+        Command Line:i2
+        ZXZVM:b:cd"c:/games/Z-Machine/zxzvm":load"nxzxzvm.bas"
+        NextGuide:gNextGuide
+
+Note that the following characters inside NextBASIC code will be substituted:
+  @{b}@{ub}  replaced by c:/nextzxos/
+  @{b}`@{ub}  replaced by the current language code ("en" for English)
+
+@{h2}Menu ids
+The standard menu ids are listed below. You can include a menu with the same
+id in your @{b}enMenus.cfg@{ub} file and it will override the standard menu. If you
+don't include a particular menu in your file, the standard one will be used.
+
+        @{b}Menu id@{ub}     @{b}Standard menu@{ub}
+        0           Main menu
+        1           "More" menu
+        2           NextBASIC options menu
+        3           Calculator options menu
+        4           Command Line options menu
+        5           Interface 2 menu
+
+You can include as many other menus as you like, and link to them from other
+menus using the @{i}m@{ui} action. Future versions of NextZXOS might add further menus,
+so it is suggested using higher ids (eg 100+) for your own menus to avoid the
+possibility of unexpectedly overriding a menu in a new version of NextZXOS.
+
+@{h2}Internal actions
+The following internal actions are available:
+
+        @{b}Action id@{ub}   @{b}Internal function@{ub}
+        0            Start NextBASIC editor
+        1            Start Calculator
+        2            Start Command Line
+        3            Return to current editor (NextBASIC, Calculator
+                                               or Command Line)
+        4            Toggle between NextBASIC/Command Line
+        5            Cycle between 32/64/85 column modes
+        6            Toggle between upper/lower screen editing
+        7            Renumber NextBASIC program
+        8            Perform clear
+        9            Exit from editors to main menu
+        10           Start Browser
+        11           Toggle token keys
+        12           Toggle string tokens
+@----------------------------------------------------------------------------
+@node FORMATCFG
+@prev MENUSCFG
+@toc MAIN
+@{r}NextZXOS Guide
+@{c}@{h1}Configuration - file system options
+
+Some default filesystem-related behaviour can be configured using the special
+@{b}%FORMAT@{ub} integer variable.
+
+This is a 16-bit variable, with each bit controlling a particular behaviour.
+The default value when @{i}NextZXOS@{ui} starts up is 0. If you prefer
+different default settings, you can place a line such as the following in
+your @{"autoexec.bas" LINK AUTOEXEC} file:
+@{b}
+        10 %FORMAT=BIN 10
+@{ub}
+This sets bit 1 of the variable (store loader metadata in filenames) and leaves
+all other bits set to 0 (default behaviour).
+
+@{h2}%FORMAT bits
+The following behaviour occurs for each bit in @{b}%FORMAT@{ub}:
+
+        @{b}Bit@{ub}     @{b}Behaviour@{ub}
+        0       If set, suppresses automatic backup file (.BAK) creation
+        1       If set, loaders write metadata to filenames by default
+        2       If set, writes to the metadata cache are disabled
+
+Other bits are reserved for future use and should be left as zeroes.
+
+

@@ -9,11 +9,12 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, DSK,
-  Plus3FS, Icons, Spectrum;
+  Plus3FS, Icons, Spectrum, PathTitle;
 
 type
   TDiskBrowserWindow = class(TForm)
   private
+    FTitle: TPathTitle;                // the title, with the file's path
     FEmu: TEmulator;
     FDrive: Integer;
     FToolBar: TToolBar;
@@ -562,6 +563,7 @@ begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
   Caption := 'Disk browser';
+  FTitle := TPathTitle.Create(Self);
   Width := 640;
   Height := 400;
   Position := poMainFormCenter;
@@ -696,6 +698,7 @@ end;
 function TDiskBrowserWindow.WithDisk(AAction: Integer; Index: Integer; const Arg: string;
   const Data: TBytes): Boolean;
 var
+  Suffix: string;
   Disk: TDiskImage;
   FS: TPlus3Disk;
   I, Selected: Integer;
@@ -768,11 +771,12 @@ begin
           FList.Items.EndUpdate;
         end;
         FStatus.SimpleText := Format('%d files, %dK free', [FS.Count, FS.FreeBytes div 1024]);
+        if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
         if Disk.FileName <> '' then
-          Caption := Format('Disk browser - %s: %s', [Chr(Ord('A') + FDrive), ExtractFileName(Disk.FileName)])
+          FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]),
+            ExpandFileName(Disk.FileName), Suffix)
         else
-          Caption := Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]);
-        if Disk.Modified then Caption := Caption + ' (modified)';
+          FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
         FLastModified := Disk.Modified;
         Result := True;
       finally

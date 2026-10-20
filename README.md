@@ -16,11 +16,13 @@ also shown by Help > Documentation, F1).
 - [2. Keyboard](#2-keyboard)
 - [3. Menus and toolbar](#3-menus-and-toolbar)
 - [4. Settings](#4-settings)
+  - [Interface](#interface)
   - [ZX-Uno](#zx-uno)
   - [Video modes](#video-modes)
   - [ZX Spectrum Next](#zx-spectrum-next)
   - [pzx snapshots (.pzs)](#pzx-snapshots-pzs)
 - [5. Tape browser](#5-tape-browser)
+  - [TZX tapes](#tzx-tapes)
 - [6. Disk browser](#6-disk-browser)
 - [7. DivMMC and SD cards](#7-divmmc-and-sd-cards)
   - [SD card browser](#sd-card-browser)
@@ -67,7 +69,7 @@ also shown by Help > Documentation, F1).
   official distribution (not included: see [ZX Spectrum Next](#zx-spectrum-next)).
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
-- TAP tapes with fast loading or real-time loading, auto-load on open.
+- TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
 - SNA and Z80 (v1/v2/v3) snapshots, load and save; pzx's own .pzs snapshots of every model (the
   only kind for the ZX Spectrum Next and the ZX-Uno).
 - +3 disk drive (uPD765) with standard and extended DSK images, writable.
@@ -87,7 +89,7 @@ also shown by Help > Documentation, F1).
   tracks, 9 sectors). Optional drive B: (Options > Settings). Disk access runs
   at real drive speed unless Floppy > Fast floppy disk access is on.
 - Keyboard issue 2 or issue 3 (Settings > Miscellaneous), affecting EAR bit 6.
-- POKEs (Machine > POKE..., Ctrl+P): `35899,0 : 36000,201`, with the last 20
+- POKEs (Machine > POKE..., F9): `35899,0 : 36000,201`, with the last 20
   POKEs and the file they were used with.
 - Screenshots as .SCR, or PNG at 1x or 2x, with or without the border.
 - Black and white display; contention and ULA snow can be switched off.
@@ -117,7 +119,7 @@ Supported files:
 
 | File | What it is |
 |---|---|
-| `.tap` | tape images. Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
+| `.tap`, `.tzx` | tape images (TZX: see [TZX tapes](#tzx-tapes)). Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
 | `.sna` | snapshots (48K and 128K; on the ZX-Uno they switch to the 48K or 128K, as its ROM is the one its BIOS chose). |
 | `.z80` | snapshots, versions 1, 2 and 3. |
 | `.dsk` | +3 disk images (standard and extended). Opening one switches to the +3 if needed and boots it. |
@@ -176,10 +178,10 @@ stops when the pointer leaves the picture.
 | F6 | hard reset (Shift+F6 reset) |
 | F7 | tape browser |
 | F8 | play tape (Shift+F8 stop) |
+| F9 | POKE |
 | F11 | Adventure Debugger |
 | Shift+F11 | turbo (as fast as possible) |
 | F12 | debugger |
-| Ctrl+P | POKE |
 
 ## 3. Menus and toolbar
 
@@ -198,6 +200,11 @@ the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
 Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (real-time loading starts
 and stops the tape by itself) "SAVE writes to the tape" (SAVE adds its blocks to the inserted
 tape, or to a new blank one, instantly) and Record (REC).
+
+The tape plays at the CPU's pace: with the CPU faster than 1x (Settings > General, or a machine's
+own turbo: the ZX Spectrum Next's 7-28 MHz, the ZX-Uno's) real-time loading still works, and
+takes that many times less. A machine's own turbo ends with a reset or a change of model: the
+other models run at the speed setting.
 
 Record (REC, the red button on the toolbar and in the tape browser) records what the Spectrum
 sends to the cassette, as a real recorder would: the MIC output is decoded and every block saved
@@ -226,7 +233,8 @@ symbol files), Clear symbols and, at the bottom, Adventure Debugger (F11, see
 [Adventure Debugger](#11-adventure-debugger)).
 
 **Options**: Black and white display, Window size, Mute sound, Turbo speed (Shift+F11: as fast as
-possible) and Settings (everything else is in Settings).
+possible), Modern interface (dark; see [Interface](#interface)) and Settings (everything else is
+in Settings).
 
 **Help**: Documentation (F1, this text from README.md), License (the GNU GPL v3, from the
 `LICENSE` file) and About (pzx stands for Pascal ZX; it shows the release number, the build date
@@ -254,7 +262,7 @@ Options > Settings has five pages (sections of a page are boxes with a title):
 
 | Page | Contents |
 |---|---|
-| General | machine model, window size, black and white display, mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention is not applied above 1x), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
+| General | machine model, window size, interface (classic or modern, see [Interface](#interface)), black and white display, mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention is not applied above 1x), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
 | Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on). Hovering over one explains it. |
 | Storage | Tape: fast loading, auto play and SAVE to tape. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | ROMs | ROMs: the folder with the standard ROMs and, for each model, the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
@@ -269,7 +277,7 @@ others:
 
 | Section | Keys |
 |---|---|
-| `[General]` | `model`, `scale`, `bw`, `mute`, `volume`, `speed`, `saveonexit` |
+| `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `bw`, `mute`, `volume`, `speed`, `saveonexit` |
 | `[Machine]` | `contention`, `snow`, `romedit`, `ulaplus`, `timex`, `radastan`, `scanlines`, `joystick`, `issue`, `shiftkeys` |
 | `[Hardware]` | `turbosound`, `ay48`, `kmouse`, `divmmc`, `currah` |
 | `[TapeDisk]` | `fastload`, `autoplay`, `savetotape`, `fastdisk`, `driveb`, `floppynoise` |
@@ -280,6 +288,43 @@ others:
 
 The recent files, pokes and last folder are kept in sections of their own. A pzx.ini from an
 older version is read and rewritten with these keys.
+
+### Interface
+
+pzx has two interfaces with the same commands: **classic** (the menu bar, the toolbar and the
+status bar described above) and **modern** (dark, with palettes of big buttons). pzx starts in the
+modern one; the first time (no settings file yet) a warning says so for 5 seconds, with the button
+that changes to the classic one. The one in use is kept in pzx.ini (`[General] ui`) and can be
+changed at once, without restarting: with the half dark
+circle button (at the right end of the classic toolbar, left of the model in the modern header),
+Options > Modern interface, or Settings > General > Interface; or for a session with
+`--ui classic` or `--ui modern`.
+
+The modern interface (on Windows 10 and 11 its title bar is dark too):
+
+- **Header**: the menus as buttons (File, Machine, Tape, Floppy, SD, Debug, Options, Help: each
+  opens the same menu, dark, with its checks and shortcuts) and, on the right, the button back to
+  the classic interface and the model (click to change it: the models open under it). The keyboard shortcuts (F2, F9, F12...) work as in the classic one.
+- **Machine palette** (left): Open, Save (snapshot), Off/on (hard reset), Reset, NMI, Pause, Turbo,
+  POKE, Debug (the debugger) and Settings, with big buttons; Pause and Turbo are lit while on.
+- **Tape palette** (right): a cassette with the tape's name on its label and its progress (all the
+  tape starts on the left reel and passes to the right one as it plays; the hubs turn while it
+  plays; click it for the tape browser), the tape's name and block, Eject (puts in a tape: as File > Open,
+  for .tap and .tzx files only), Rewind, Play, Stop and Record, the tape browser and Fast loading (lit while
+  on).
+- **Media palette**: drives A: and B: and the SD card, with their LEDs and the files in them, and
+  buttons for the disk and SD card browsers.
+- **Bottom bar**: the zoom (1x to 4x, the one in use lit; a zoom too big for the screen isn't
+  shown, and can't be chosen in Options > Window size) and what the classic status bar says.
+
+The debuggers, the browsers and the other windows are the same in both interfaces, separate and
+not modal; with the modern one they are dark too (their lists, fields, drop-down lists (white on
+black), views, toolbars, tabs, check boxes, sliders and frames; their status bars and push
+buttons are the system's own and stay light). The colours of the debugger's views are turned
+round, keeping their hues; its mnemonics are bold white (light red for the undocumented ones,
+also bold white on the execution point's green line), the values being edited black on white,
+the Adventure Debugger's condacts bright white, the hints white on dark grey, and the
+documentation's links and headings light blue.
 
 ### ZX-Uno
 
@@ -367,12 +412,19 @@ into the `specnext` folder next to the program (it must have `machines/next` in 
 another folder in Settings > ROMs (`--nextdir`). When pzx is installed from a .deb or .rpm, the
 folder is `~/.config/pzx/specnext` (the one next to the program can't be written).
 
-Choosing the Next without the distribution shows where to put it and the machine stays as it
-was; with `--model zxnext` pzx says so and closes.
+Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
+starts a few steps, in one window that takes the interface's look: first whether to install it; then the
+download page (a link that opens in the browser: in "Full distribution downloads" the lightweight
+one is enough); then, with Next, the .zip file downloaded is chosen and unpacked into the folder
+(a distribution inside one folder of the zip is moved up) and checked. If it isn't a
+distribution, what was unpacked is deleted and it ends there; if it is, the Next starts at once
+(its SD card made with the usual size, without asking). Closing the window or Escape stops it at
+any step: the machine stays as it was, or with `--model zxnext` pzx closes.
 
 **SD card.** The first time the Next is used, pzx makes its SD card, `zxnext.img` next to pzx.ini
-(Settings > ROMs, `--nextcard`): 1 GB, FAT16, with the whole distribution (long file names
-included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
+(Settings > ROMs, `--nextcard`), asking its size first (FAT16: the sizes the distribution fits in
+with room to spare, up to 2 GB; 512 MB proposed; Cancel leaves the machine as it was), with the
+whole distribution (long file names included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
 keep theirs, and what NextZXOS saves on it is kept (pzx saves it when leaving the Next and when it
 closes, without asking). When a newer distribution is unpacked, pzx asks whether to make a new
 card from it; the old one is kept, renamed as `zxnext-YYYYMMDD-HHMM.img`. SD > New SD card with
@@ -422,7 +474,8 @@ works when NextZXOS lets it (NR `06` bits 3 and 4; NextZXOS turns the DRIVE butt
 default), as on the real machine; NR `02` makes them by software. The Multiface (its four types,
 NR `0A`, the +3 one by default) pages its 8K ROM and 8K RAM in over everything else at `0066`
 until RETN or its ports page it out; the NMI may be stackless (NR `C0` bit 3, as NextZXOS uses
-it).
+it: RETN then returns to the address in NR `C2`-`C3`; RETI, which interrupt handlers use, still
+returns to the one on the stack).
 
 **Copper.** It runs on its own clock (four steps a T-state, two for a MOVE), and WAIT holds it
 until its line and horizontal position (in 8-pixel steps) come, counted from the first line of
@@ -451,7 +504,11 @@ then the machine compressed with zlib in the order of `SnapIO` in `src/PzxSnap.i
 
 ## 5. Tape browser
 
-Tape > Tape browser (F7) lists the blocks of the tape: the current one is marked with `*` (`>`
+Tape > Tape browser (F7) lists the blocks of the tape, of any TZX kind (turbo data, tones,
+pulses, recordings, pauses, groups, loops, texts, archive info...), with the size and checksum of
+those with data (its window title shows the full path of the .tap or .tzx file, and "(modified)" if it has changes to save; a path too long for the title bar is
+cut at its start, "...\games\jsw.tap", so the file name always shows, as in the disk and SD card
+browsers): the current one is marked with `*` (`>`
 while playing) and highlighted (green while playing, yellow when stopped), and the status bar
 says where the tape is ("Playing block 3 of 10", "At the end of the tape"). Play at the end of
 the tape starts it again from the first block. The toolbar buttons (hover for a hint) play, stop,
@@ -459,13 +516,32 @@ rewind, play from the selected block (or double-click it), move the selected blo
 delete it (or press Del) and save the tape as a new .tap. At the bottom, choose fast loading or
 real-time loading: the same setting as Tape > Fast loading.
 
-Right-click a block and choose "Export block as binary..." to save the block's data (without the
+Right-click a block with data and choose "Export block as binary..." to save the block's data (without the
 flag byte and the checksum) to a file, by default named `blockN.bin`, where N is the block's
 position in the tape (`block1.bin`, `block18.bin`).
 
+### TZX tapes
+
+.tzx files (TZX up to version 1.20) open like .tap ones and play exactly as their blocks say:
+standard and turbo data (their own pilot, sync and bit lengths), pure tones, pulse sequences,
+pure data, direct recordings, CSW recordings (RLE and Z-RLE) and generalized data; pauses and
+"stop the tape" (Play goes on after it); groups, jumps, loops, call sequences, "stop the tape on
+a 48K" (on the 16K and 48K only) and the signal level; texts, messages, archive info, hardware
+type and custom info are shown in the tape browser. Old blocks of earlier versions, and unknown
+ones, are skipped; a file cut short keeps the blocks it has.
+
+Fast loading takes at once the blocks the ROM's loader can read (standard data, and turbo or
+pure data with the ROM's bit lengths). Anything else (turbo loaders, recordings...) plays in real
+time, as on a real cassette: after a block loaded at once, if what comes next is a signal the
+ROM can't read, the tape goes on playing by itself for the game's own loader.
+
+Tapes are saved as .tap (Save tape as, and in the tape browser), which keeps only the data
+blocks: with blocks from a .tzx that a .tap can't keep, pzx asks first.
+
 ## 6. Disk browser
 
-Floppy > Disk browser, or the 3" disk button on the toolbar, lists the files on a disk. Both are
+Floppy > Disk browser, or the 3" disk button on the toolbar, lists the files on a disk (its
+window title shows the drive and the full path of the disk image). Both are
 only available when there is a disk to browse: in drive A:, or in drive B: if it is connected.
 The browser opens on A: if it has a disk and on B: otherwise; the drive list at the top left
 offers the drives that have a disk (and switches by itself if a disk is ejected). It shows them
@@ -519,7 +595,7 @@ The SD menu:
 | Insert SD card image | any raw card image (.img, .mmc, .hdf...). Inserting the one already in is refused. |
 | New SD card | an empty card of 16 MB to 2 GB, with one FAT16 partition. |
 | New SD card with ESXDOS | the same, with the esxDOS SYS, BIN and TMP folders already copied: ready to boot. |
-| New SD card with the Next distribution | a 1 GB card with the whole ZX Spectrum Next distribution and a `config.ini` (see [ZX Spectrum Next](#zx-spectrum-next)). |
+| New SD card with the Next distribution | a card of the size chosen (as for the Next's own card) with the whole ZX Spectrum Next distribution and a `config.ini` (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | Save SD card | saves the changes into the image file it was loaded from. |
 | Save SD card as | saves the card, with its changes, as another image file (the dialog starts in the folder it was loaded from); that file is then the card. |
 | Eject SD card | |
@@ -537,7 +613,7 @@ on the real interface.
 ### SD card browser
 
 Shows the files and folders of the card (FAT12, FAT16 or FAT32, with or without a partition
-table): name (the long name if it has one; folders have a folder icon), size, for files with a +3DOS header (as esxDOS saves
+table; the window title shows the full path of the card image): name (the long name if it has one; folders have a folder icon), size, for files with a +3DOS header (as esxDOS saves
 BASIC) their type, start address or autostart line and length, date, attributes and 8.3 name.
 Double-click a folder to enter it (".." or the Up button to go back) and a file to export it. The
 toolbar: Up, Refresh, New folder, Import (from the PC, several files at once, with an optional
@@ -561,7 +637,7 @@ files are imported a progress bar shows, and pzx can't be used until it is over.
 
 ## 8. POKEs
 
-Machine > POKE (Ctrl+P) takes "address,value" pairs separated by ":", in decimal or in hex with
+Machine > POKE (F9) takes "address,value" pairs separated by ":", in decimal or in hex with
 $, e.g. `35899,0 : 36000,201`. The last 20 POKEs are listed with the name of the file they were
 used with (click one to use it, double-click to apply it). POKEs to ROM have no effect unless the
 settings allow changing the ROM.
@@ -798,7 +874,8 @@ an interrupt or by the tape traps are only seen as they happen, so those stop ju
 ### Watches
 
 Addresses whose two bytes are shown (and can be edited). Insert, the add watch toolbar button or
-right-click adds one (the address is asked as in Ctrl+G: hex, a register name or a label), Delete
+right-click adds one (the address is asked in its own window, written as in Ctrl+G: hex, a
+register name or a label; it keeps its own list of the last addresses watched), Delete
 removes the selected one. Right-click also saves them to a JSON file or loads them from one
 (replacing them); `--watches FILE` loads one at start.
 
@@ -978,8 +1055,8 @@ around) is not taken for the game running.
 
 ### Process
 
-The entries of a process (verb and noun, then their condacts with their address in grey and
-parameters in decimal; @ marks a flag holding the value). The green arrow marks the condact about
+The entries of a process (their number in the process, the first being 1, verb and noun, then
+their condacts with the parameters in decimal; @ marks a flag holding the value). The green arrow marks the condact about
 to run, and the process shown follows it; the box in the title shows another process. The texts
 of MES, MESSAGE, SYSMESS and DESC are shown in grey. Condacts shared by several entries (DRC does
 that) are shown in the entry being run.
@@ -1106,7 +1183,7 @@ can be carried.
 pzx [options] [file]
 ```
 
-A file (.tap, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
+A file (.tap, .tzx, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
 automatically. Options start with `-` or `--` and take their value as the next argument or after
 "=" (`--model=128k`). Options are applied in this order whatever their position: machine, files,
 symbols, breakpoints, typed keys.
@@ -1116,7 +1193,7 @@ symbols, breakpoints, typed keys.
 | `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext` (also `+2`, `+2b`, `+3`) |
 | `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > General) |
 | `--scale N` | window zoom 1 to 4 |
-| `--tape FILE` | insert a .tap without starting it (combine with `--keyin`) |
+| `--tape FILE` | insert a .tap or .tzx without starting it (combine with `--keyin`) |
 | `--disk FILE` | insert a .dsk in drive A: (switches to the +3 unless `--model` says otherwise); `--diska` is the same |
 | `--diskb FILE` | insert a .dsk in drive B: (connects drive B:) |
 | `--sym FILE` | load a symbol file (also `-s`); the breakpoints given on the command line can then use its symbols, both as addresses (`--bp MAIN`) and in conditions |
@@ -1146,6 +1223,7 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 
 | Option | Setting | Where |
 |---|---|---|
+| `--ui classic\|modern` | the interface (see [Interface](#interface)); modern if not given | General |
 | `--bw` | black and white display | General |
 | `--mute` | mute the sound | General |
 | `--volume N` | volume 0 to 100 | General |

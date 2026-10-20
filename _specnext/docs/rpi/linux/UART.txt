@@ -1,0 +1,10 @@
+REQUIRES: Core 3.00.00 or above
+
+pi peripheral enable
+nextreg 0xa0
+0 0 RXTX UART I2C1 0 0 SPI0
+ UART = 1 changes role of GPIO 14,15 (gpio output is disabled)
+ RXTX = 0 to connect Rx to GPIO 15, TX to GPIO 14 (for comm with pi hats)
+        1 to connect Rx to GPIO 14, TX to GPIO 15 (for comm with pi)
+ I2C1 = 1 changes role of GPIO 2,3 (gpio output is disabled)
+ SPI0 = 1 changes role of GPIO 7,8,9,10,11 (gpio output is disabled)

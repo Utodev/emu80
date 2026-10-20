@@ -1,0 +1,263 @@
+CHANGELOG for NextPi2 - See CHANGELOG1 for DietPi1 development
+
+Version 1.92D DietPi for Next
+ * Fixed malformed update for sjasmplus, now v1.20.3
+ * Fix invalid version string in nextpi-admin-uihelper
+ * Fix the decoder for `.piput`
+ * New CLIAPI `nextpi-console_resolution` - for easy mode changing on the Pi
+   HDMI
+ * New CLIAPI `nextpi-console_image` - for easy display of PNG, GIF and BMP 
+   images on Pi console
+ * New CLIAPI `nextpi-play_speech` - for easy consistent interface to the
+   Text-to-Speech API demo'ed as part of KS2 launch
+ * New JPEG decoder using SIMD NEON instructions - now 50% faster than
+   before
+ * New splashscreen after boot on NextPi console - for a slightly nicer
+   dual-head look for those with a second monitor attached to their next -
+   finally!  This logo has been hidden away in NextPi since before KS1GMs
+   shipped, and we're finally getting around to using it (Graphic Design 
+   Is My Passion!!!111!one1❕)
+
+Version 1.91D DietPi for Next
+ * Updated manual install docs after Pi Foundation removed
+   software from their own site.
+ * Fix invalid banner shown on attached monitor
+
+Version 1.90A DietPi for Next
+ * Boot-time USB patched moved to .PUP files
+ * nextpi-admin_pupexport added
+ * nextpi-admin-uihelper updated to v0.10A
+ * Fixed some unicode errors in python scripts
+ * Updated python and system package catalogs
+ * New pup format library added to pylibs
+
+Things that did not change since 1.83A DietPi for Next
+ * Final version of stock media licenses added for GM release
+ * Update z88dk prelease to final release
+ * Update nextpi-z88dk_switch environment management to handle non PR version
+ * Rewrite portions of the documentation with "less exclusionary" language
+ * Remove files exclusively used during image development
+
+Things that did not change since 1.82A DietPi for Next
+ * Updated sjasmplus to 1.20.2
+ * Added more legally required documentation to NextPi SD images.
+ * Lots more docs ported in, inc. information about "Overprovisioning"
+ * Update partitinoning scheme for Overprovisioning on KS2 SD cards.
+
+Things that did not change since 1.81A DietPi for Next
+ * Added more legally required documentation to NextPi SD images.
+
+Things that did not change since 1.80A DietPi for Next
+ * Update boot partition to recover lost space during progressive upgrades
+ * Clean up SD image of several files consuming excessive space during updates
+ * Reformat many docs to fit on 80col reader on Next native device
+
+Version 1.71A DietPi for Next
+ * Added second batch of music for media player.
+ * Updates of all legal documents as required for incompetetech.
+
+Version 1.70A DietPi for Next
+ * New APICLI for Stock Media Player
+ * Added first batch of music for media player. Apply to to be included!
+   Contact Xalior on the SpecNext Discord server ( https://zxn.gg/discord ) 
+   in #nextpi - and need to (at least) be no more restrictive than the
+   https://creativecommons.org/licenses/by-nc-nd/3.0/ licenced be considered -
+   sound effects, and more music wanted!
+
+Version 1.63A DietPi for Next
+ * Fixed a bug where every second use of nextpi-file_receive would time out
+ * Fixed issue and nextpi fingerprint generation to automatically use correct
+   version numbers
+ * Several debug additions to speed NextPi2 core system development
+ * Fixed several inaccuracies in the documentation, including licence terms
+
+Things that DIDNOT change since 1.62A - "Ogre Battle"
+ * Update build data in /boot and admin tools to maintain it
+
+Things that DIDNOT change since 1.61A
+ * New CLIAPI nextpi-play_stop to terminate all background audio jobs 
+
+Things that DIDNOT change since 1.60A 
+ * New test binaries to /NextZXOS - see /docs/NextZXOS-testing.txt
+ * New /docs/RelNotes for formal release notes - this is the first public
+   Alpha
+ * Fixed nextpi-file_transmit and nextpi-file_receive leaving SUP inconsist
+   on exit
+ * Fixed nextpi-file_transmit error handling for non-existent files
+ * Reformatted lots of docs to make reading on 80col screen easier
+ * /opt/nextpi/lib/media created.
+   
+Things that DIDNOT change since 1.54A 
+ * Fixed nextpi-z88dk_switch environment variable cleanup routines
+
+Things that DIDNOT change since 1.53A 
+ * New nextpi-cache option:
+    SPACE - returns the quantity of empty space left in the cache, in bytes
+    PURGE - finds and removes a single bucket, based upon reverse 
+    chronological order of access (i.e., the oldest buckets get removed 
+    first) 
+ * Fixed next-cache_file get now updates the bucket access time to make using
+   buckets so is "purge friendly" without explicitly having "touch" buckets
+ * Fixed a bunch of new typos in recently written docs
+
+Things that DID change since 1.52A 
+ * Broken - nextpi-z88dk_switch no longer works properly.  This needs to be 
+   reworked to handle the Z88DK environment variables properly on a RO SD card
+ 
+Things that DIDNOT change since 1.52A 
+ * Fixed newline at end of cache error codes breaking client readback
+
+Things that DIDNOT change since 1.51A 
+ * New nextpi-cache admin options:
+    ADMIN_INIT - used to turn an empty directory into a cache (if mounting to
+     an external USB drive - not yet suported, planned future usecase, or was
+     manually removed in error for any reason)
+    ADMIN_RESET - used to remove all the cache contents, and then recreate
+     it and the catalog, if it becomes corrupt beyond use, uses ADMIN_INIT to
+     recreate the cache instance
+
+Things that DIDNOT change since 1.50A 
+ * New NextPi CLIAPI commands:
+   nextp-z88dk_switch - use to setup a specific SDK varient
+   z88dk now setup by default, system will use 2.1 - see wiki for use details
+ * New nextpi-cache admin options:
+    ADMIN_WRITE_DISABLE and ADMIN_WRITE_ENABLE -- use with caution!
+ * New nextpi-cache_file CLI:
+    PUT, RENAME, DELETE and GET files from the cache
+ * Fixed Installation Type fingerprint
+
+Things that DIDNOT change since 1.40A 
+ * New nextpi-cache_file CLIAPI - adds file to a cache_bucket 
+      (other functions are stubs, currently)
+ 
+Things that DID change since 1.31A 
+ * Fixed return-codes for next-cache_bucket ==0 for success, >0 on failure
+ * em00k's NextBuild removed - in favour of upcoming rockdemon version
+ 
+Things that DIDNOT change since 1.31A 
+ * Fixed a bunch of typos in error messages
+ * Fixed some nextpi-cache_bucket CLIAPI naming inconsistencies
+
+Things that DIDNOT change since 1.30A 
+ * Fixed z88dk install size
+      all massively slimmed down to reduce SD card space from 4.1GB
+      to under 430MB, cumulative, for all four versions combined.
+
+Things that DIDNOT change since 1.22A 
+ * New z88dk github version included, this now means four different versions 
+   to pick from - for various binary size, bugfix, and feature reasons
+ 
+Things that DIDNOT change since 1.21A 
+ * New z88dk v2.0 & z88dk v1.99C included
+ 
+Things that DIDNOT change since 1.20A 
+ * New z88dk v2.1 included
+ 
+Things that DIDNOT change since 1.14A 
+ * New NextPi CLIAPI commands:
+   nextpi-file_transmit - download a file from the Pi to the Next
+   nextpi-file_receive - upload a file to the Pi from the Next
+ * Updated NextPi CLIAPI commands:
+   nextpi-file_stream - added commandline switches to handle new protocols,
+   when invoking without a switch it remains NextPi1 compatible
+ * New and Updated NextPi documentation for _LOTS_ of things
+    Items worthy of note:
+     Partitions.txt
+     cli_error_codes.txt 
+ * em00k's NextBuild included
+   
+Things that DIDNOT change since 1.13A 
+ * New Build system in use - part 1 - allows NextPi to be build on NextPi for
+   more reliable binary compilation, and testing
+ * Updated sc68 to binary packages to make building easier
+ * New Surpressed kernel bootlogs
+
+Things that DIDNOT change since Alpha 1.12A
+ * New MIDI Playback API now supports three modes LQ, MQ, and HQ - of various
+   CPU usage levels - based on sample-rate, allowing more complex MIDI files to
+   be supported without audible slowdown during playback
+
+Things that DIDNOT change since Alpha 1.11A
+ * MIDI Playback API
+ * New fluidsynth, GM & GS sound fonts
+ * New Freepats sound patches - a free patch set suitable for MIDI audio
+   synthesis.  It is not complete, nor comprehensive yet, and most, if not all
+   patches are in the old and limited GUS patch format.  It is, however, the 
+   sole DFSG-compliant patch set in existence so far
+ 
+Things that DIDNOT change since Alpha 1.10A
+ * New SD card scheme now 16GB with Extreme Over-Provisioning
+   (see INSTALL.txt)
+ * Updated sjasmplus to 1.18.2
+ * Updated debian base to 1.4.11
+ * Updated apt-transport-https 1.4.11
+ * Updated apt-utils 1.4.11
+ * Updated base-files to 9.9+rpi1+deb9u13
+ * Updated ca-certificates to 20200601~deb9u2
+ * Updated caca-utils to 0.99.beta19-2.1~deb9u2
+ * Updated curl to 7.52.1-5+deb9u14
+ * Updated e2fslibs to 1.43.4-2+deb9u2
+ * Updated e2fsprogs to 1.43.4-2+deb9u2
+ * Updated libapt-inst2.0 to 1.4.11
+ * Updated libapt-pkg5.0 to 1.4.11
+ * Updated libbsd0 to 0.8.3-1+deb9u1
+ * Updated libcaca0 to 0.99.beta19-2.1~deb9u2
+ * Updated libcomerr2 to 1.43.4-2+deb9u2
+ * Updated libcurl3 to 7.52.1-5+deb9u14
+ * Updated libcurl3-gnutls to 7.52.1-5+deb9u14
+ * Updated libdbus-1-3 to 1.10.32-0+deb9u1
+ * Updated libdns-export162 to 1:9.10.3.dfsg.P4-12.3+deb9u8
+ * Updated libexpat1 to 2.2.0-2+deb9u3
+ * Updated libflac8 to 1.3.2-2+deb9u1
+ * Updated libfreetype6 to 2.6.3-3.2+deb9u2
+ * Updated libglib2.0-0 to 2.50.3-2+deb9u2
+ * Updated libgnutls30 to 3.5.8-5+deb9u5
+ * Updated libgssapi-krb5-2 to 1.15-1+deb9u2
+ * Updated libidn11 to 1.33-1+deb9u1
+ * Updated libisc-export160 to 1:9.10.3.dfsg.P4-12.3+deb9u8
+ * Updated libjpeg62-turbo to 1:1.5.1-2+deb9u1
+ * Updated libk5crypto3 to 1.15-1+deb9u2
+ * Updated libkrb5-3 to 1.15-1+deb9u2
+ * Updated libkrb5support0 to 1.15-1+deb9u2
+ * Updated libldap-2.4-2 to 2.4.44+dfsg-5+deb9u8
+ * Updated libldap-common to 2.4.44+dfsg-5+deb9u8 all
+ * Updated liblz4-1 to 0.0~r131-2+deb9u1
+ * Updated libmagic-mgc to 1:5.30-1+deb9u3
+ * Updated libmagic1 to 1:5.30-1+deb9u3
+ * Updated libp11-kit0 to 0.23.3-2+deb9u1
+ * Updated libpython2.7-minimal to 2.7.13-2+deb9u5
+ * Updated libpython2.7-stdlib to 2.7.13-2+deb9u5
+ * Updated libsasl2-2 to 2.1.27~101-g0780600+dfsg-3+deb9u1
+ * Updated libsasl2-modules-db to 2.1.27~101-g0780600+dfsg-3+deb9u1
+ * Updated libsndfile1 to 1.0.27-3+deb9u1
+ * Updated libsqlite3-0 to 3.16.2-5+deb9u3
+ * Updated libss2 to 1.43.4-2+deb9u2
+ * Updated libssl1.0.2 to 1.0.2u-1~deb9u4
+ * Updated libssl1.1 to 1.1.0l-1~deb9u3
+ * Updated libtiff5 to 4.0.8-2+deb9u5
+ * Updated libwavpack1 to 5.0.0-2+deb9u3
+ * Updated libx11-6 to 2:1.6.4-3+deb9u4
+ * Updated libx11-data to 2:1.6.4-3+deb9u4
+ * Updated libx11-xcb1 to 2:1.6.4-3+deb9u4
+ * Updated login to 1:4.4-4.1+deb9u1
+ * Updated openssl to 1.1.0l-1~deb9u3
+ * Updated passwd to 1:4.4-4.1+deb9u1
+ * Updated perl-base to 5.24.1-3+deb9u7
+ * Updated python2.7 to 2.7.13-2+deb9u5
+ * Updated python2.7-minimal to 2.7.13-2+deb9u5
+ * Updated screen to 4.5.0-6+deb9u1
+
+Things that DIDNOT change since Alpha 1.02A
+ * New SD card new "Persistent Cache" partition
+ * New espeak-ng + datafiles
+ * Fixed Version formatting
+
+Things that DIDNOT change since Alpha 1.1a
+ * New Text to Speech support
+ * Updated SD card scheme now 8GB 
+
+Things that DIDNOT change since Beta 0.98
+ * Fixed a bug in nextpi-dongle_disable (thanks em00k)
+ * New support for faster, error correcting nextpi-file_send and 
+   nextpi-file_receive APIs (piput and piget to follow)
+ * Fixed LOTS of typos in the document that no-one reported now fixed

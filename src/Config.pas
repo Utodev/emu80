@@ -44,6 +44,7 @@ type
     DriveB: Boolean;              // second drive connected to the +3
     FloppyNoise: Boolean;         // the drive's sound at real speed
     SaveOnExit: Boolean;          // write the settings when pzx closes
+    ModernUI: Boolean;            // the modern interface (--ui modern), else the classic one
     SaveToTape: Boolean;          // SAVE adds blocks to the tape
     ScreenshotBorder: Boolean;
     TurboSound: Boolean;          // two AY chips (128K and later)
@@ -283,6 +284,7 @@ begin
   DriveB := False;
   FloppyNoise := True;
   SaveOnExit := True;
+  ModernUI := True;
   SaveToTape := True;
   ScreenshotBorder := True;
   TurboSound := False;
@@ -444,6 +446,8 @@ begin
   Scale := Ini.ReadInteger('General', 'scale', Scale);
   Volume := Ini.ReadInteger('General', 'volume', Volume);
   CpuSpeed := Ini.ReadInteger('General', 'speed', CpuSpeed);
+  S := LowerCase(Ini.ReadString('General', 'ui', ''));
+  if S = 'modern' then ModernUI := True else if S = 'classic' then ModernUI := False;
   S := LowerCase(Ini.ReadString('Machine', 'joystick', JOYSTICK_KEYS[Joystick]));
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do
     if S = JOYSTICK_KEYS[J] then Joystick := J;
@@ -485,6 +489,7 @@ begin
   Put('General', 'mute', ONOFF[not Sound]);
   Put('General', 'model', ModelKey(Model));
   Put('General', 'scale', IntToStr(Scale));
+  if ModernUI then Put('General', 'ui', 'modern') else Put('General', 'ui', 'classic');
   Put('General', 'volume', IntToStr(Volume));
   Put('General', 'speed', IntToStr(CpuSpeed));
   Put('Machine', 'joystick', JOYSTICK_KEYS[Joystick]);

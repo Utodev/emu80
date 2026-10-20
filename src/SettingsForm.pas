@@ -40,6 +40,7 @@ type
     FIssue2, FIssue3, FShiftNormal, FShiftSides: TRadioButton;
     FVolume, FSpeed: TTrackBar;
     FScale: TComboBox;
+    FUI: TComboBox;
     FRomModel: TComboBox;
     FRomLabels: array[0..3] of TLabel;
     FRomEdits: array[0..3] of TEdit;
@@ -125,6 +126,11 @@ begin
   AddLabel(Page, 'Window size:', Y + 4);
   FScale := AddCombo(Page, Y, 100);
   for S := 1 to 4 do FScale.Items.Add(Format('%dx', [S]));
+  Inc(Y, 36);
+  AddLabel(Page, 'Interface:', Y + 4);
+  FUI := AddCombo(Page, Y, 270);
+  FUI.Items.Add('Classic (menus and toolbar)');
+  FUI.Items.Add('Modern (dark)');
   Inc(Y, 40);
   FMonochrome := AddCheck(Page, 'Black and white display', Y);
   Inc(Y, 28);
@@ -615,6 +621,7 @@ begin
   FSpeed.Position := 0;
   while (1 shl FSpeed.Position) < S.CpuSpeed do FSpeed.Position := FSpeed.Position + 1;
   FScale.ItemIndex := S.Scale - 1;
+  FUI.ItemIndex := Ord(S.ModernUI);
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     for I := 0 to 3 do FRomFiles[M, I] := S.RomFiles[M, I];
   FRomModel.ItemIndex := Ord(S.Model);
@@ -667,6 +674,7 @@ begin
   S.Volume := FVolume.Position;
   S.CpuSpeed := 1 shl FSpeed.Position;
   S.Scale := FScale.ItemIndex + 1;
+  S.ModernUI := FUI.ItemIndex = 1;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     for I := 0 to 3 do S.RomFiles[M, I] := FRomFiles[M, I];
 end;

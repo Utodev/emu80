@@ -1,0 +1,35 @@
+# PLOTIT lite
+
+## Introduction
+PLOTIT-lite is a reduced function image editor, forked from it's bigger sibling
+PLOTIT.  PLOTIT lite gives you enough to get a taste of getting started with
+editing Layer2 (L2) images without adding any additional software to the base
+distro.  PLOTIT-lite is an exclusive version created for the NextZXOS SD cards,
+you can get the full version of PLOTIT, for free, from http://zxn.gg/plotit
+It adds more features, and allowing us to keep PLOTIT's update schedule fully
+decoupled from the release schedule of NextZXOS.
+
+## Controls
+PLOTIT is designed to be controlled by a mouse, it also has keyboard shortcuts
+ which may help speed up some workflows or certain kinds of detail work.
+
+|   **Key**   | **Use**
+|-------------|----
+|           q | Move mousepointer up one pixel
+|           a | Move mousepointer down one pixel
+|           o | Move mousepointer left one pixel
+|           p | Move mousepointer right one pixel
+| CapsShift+Q | Move mousepointer up eight pixels
+| CapsShift+A | Move mousepointer down eight pixel
+| CapsShift+O | Move mousepointer left eight pixel
+| CapsShift+P | Move mousepointer right eight pixel
+|           n | Left Mouse Button (Primary Action)
+|           m | Right Mouse Button (Secondary Action)
+
+The keyboard controls are intended as a suppliment to the mouse, and never as
+a total replacement for the mouse - therefore there's likely many features and
+functions that you can only do with the mouse.
+
+## First Public Release - v0.8.0, part of KS2 Gold Master
+## Second Public Release - v0.8.1, part of KS2 Zero Day Patch
+

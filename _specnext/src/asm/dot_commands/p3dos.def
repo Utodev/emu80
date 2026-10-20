@@ -1,0 +1,97 @@
+; ***************************************************************************
+; * +3DOS API definitions                                                   *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * +3DOS routine addresses                                                 *
+; ***************************************************************************
+
+DOS_INITIALISE          equ     $0100
+DOS_VERSION             equ     $0103
+DOS_OPEN                equ     $0106
+DOS_CLOSE               equ     $0109
+DOS_ABANDON             equ     $010c
+DOS_REF_HEAD            equ     $010f
+DOS_READ                equ     $0112
+DOS_WRITE               equ     $0115
+DOS_BYTE_READ           equ     $0118
+DOS_BYTE_WRITE          equ     $011b
+DOS_CATALOG             equ     $011e
+DOS_FREE_SPACE          equ     $0121
+DOS_DELETE              equ     $0124
+DOS_RENAME              equ     $0127
+DOS_BOOT                equ     $012a
+DOS_SET_DRIVE           equ     $012d
+DOS_SET_USER            equ     $0130
+DOS_GET_POSITION        equ     $0133
+DOS_SET_POSITION        equ     $0136
+DOS_GET_EOF             equ     $0139
+DOS_GET_1346            equ     $013c
+DOS_SET_1346            equ     $013f
+DOS_FLUSH               equ     $0142
+DOS_SET_ACCESS          equ     $0145
+DOS_SET_ATTRIBUTES      equ     $0148
+DOS_OPEN_DRIVE          equ     $014b
+DOS_SET_MESSAGE         equ     $014e
+DOS_REF_XDPB            equ     $0151
+DOS_MAP_B               equ     $0154
+
+DD_INTERFACE            equ     $0157
+DD_INIT                 equ     $015a
+DD_SETUP                equ     $015d
+DD_SET_RETRY            equ     $0160
+DD_READ_SECTOR          equ     $0163
+DD_WRITE_SECTOR         equ     $0166
+DD_CHECK_SECTOR         equ     $0169
+DD_FORMAT               equ     $016c
+DD_READ_ID              equ     $016f
+DD_TEST_UNSUITABLE      equ     $0172
+DD_LOGIN                equ     $0175
+DD_SEL_FORMAT           equ     $0178
+DD_ASK_1                equ     $017b
+DD_DRIVE_STATUS         equ     $017e
+DD_EQUIPMENT            equ     $0181
+DD_ENCODE               equ     $0184
+DD_L_XDPB               equ     $0187
+DD_L_DPB                equ     $018a
+DD_L_SEEK               equ     $018d
+DD_L_READ               equ     $0190
+DD_L_WRITE              equ     $0193
+DD_L_ON_MOTOR           equ     $0196
+DD_L_T_OFF_MOTOR        equ     $0199
+DD_L_OFF_MOTOR          equ     $019c
+
+
+; ***************************************************************************
+; * +3DOS Error codes                                                       *
+; ***************************************************************************
+
+rc_ready        equ     $00
+rc_wp           equ     $01
+rc_seek         equ     $02
+rc_crc          equ     $03
+rc_nodata       equ     $04
+rc_mark         equ     $05
+rc_unrecog      equ     $06
+rc_unknown      equ     $07
+rc_diskchg      equ     $08
+rc_unsuit       equ     $09
+
+rc_badname      equ     $14
+rc_badparam     equ     $15
+rc_nodrive      equ     $16
+rc_nofile       equ     $17
+rc_exists       equ     $18
+rc_eof          equ     $19
+rc_diskfull     equ     $1a
+rc_dirfull      equ     $1b
+rc_ro           equ     $1c
+rc_number       equ     $1d
+rc_denied       equ     $1e
+rc_norename     equ     $1f
+rc_extent       equ     $20
+rc_uncached     equ     $21
+rc_toobig       equ     $22
+rc_notboot      equ     $23
+rc_inuse        equ     $24

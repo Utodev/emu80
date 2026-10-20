@@ -67,6 +67,9 @@ var
 
 implementation
 
+uses
+  ModernUI;
+
 const
   TABLE_NAMES: array[TOpcodeTable] of string = ('Main', 'CB', 'ED', 'DD', 'FD');
   PREFIX: array[TOpcodeTable] of Byte = (0, $CB, $ED, $DD, $FD);
@@ -104,7 +107,7 @@ end;
 
 function MatchColor: TColor;
 begin
-  Result := RGBToColor(190, 220, 255);
+  Result := TC(RGBToColor(190, 220, 255));
 end;
 
 procedure ShowZ80Opcodes;
@@ -348,25 +351,25 @@ var
   Found: Boolean;
 begin
   C := FTabs.Canvas;
-  C.Brush.Color := clBtnFace;
+  C.Brush.Color := TC(clBtnFace);
   C.FillRect(FTabs.ClientRect);
-  C.Pen.Color := clGray;
+  C.Pen.Color := TC(clGray);
   C.Line(0, FTabs.Height - 1, FTabs.Width, FTabs.Height - 1);
   for T := Low(TOpcodeTable) to High(TOpcodeTable) do
   begin
     R := TabRect(T);
     Found := (FFind.Text <> '') and FHasMatch[T];
     if Found then C.Brush.Color := MatchColor
-    else if T = FTable then C.Brush.Color := clWindow
-    else C.Brush.Color := RGBToColor(225, 225, 225);
-    C.Pen.Color := clGray;
+    else if T = FTable then C.Brush.Color := TC(clWindow)
+    else C.Brush.Color := TC(RGBToColor(225, 225, 225));
+    C.Pen.Color := TC(clGray);
     if T = FTable then
       C.Rectangle(R.Left, R.Top, R.Right, R.Bottom + 1)   // open at the bottom
     else
       C.Rectangle(R.Left, R.Top + 2, R.Right, R.Bottom);
     C.Font := FTabs.Font;
     if T = FTable then C.Font.Style := [fsBold];
-    if Found then C.Font.Color := RGBToColor(0, 60, 200) else C.Font.Color := clWindowText;
+    if Found then C.Font.Color := TC(RGBToColor(0, 60, 200)) else C.Font.Color := TC(clWindowText);
     C.Brush.Style := bsClear;
     C.TextOut(R.Left + (R.Width - C.TextWidth(TABLE_NAMES[T])) div 2,
       R.Top + (R.Height - C.TextHeight(TABLE_NAMES[T])) div 2 + 1, TABLE_NAMES[T]);
@@ -458,19 +461,19 @@ begin
   end;
   Op := (ARow - 1) * 16 + ACol - 1;
   Txt := FTexts[FTable, Op];
-  if FMatch[FTable, Op] then C.Brush.Color := MatchColor else C.Brush.Color := clWindow;
+  if FMatch[FTable, Op] then C.Brush.Color := MatchColor else C.Brush.Color := TC(clWindow);
   C.FillRect(ARect);
   if Txt = '' then Exit;
   // The mnemonic on the first line, the operands (or "prefix") below
   Lines := CellLines(Txt, FSplit);
   if Pos('prefix', Txt) > 0 then
-    C.Font.Color := clGray
+    C.Font.Color := TC(clGray)
   else
   begin
     // Every instruction in bold; the undocumented ones in dark red
     C.Font.Style := [fsBold];
-    if FUndoc[FTable, Op] then C.Font.Color := RGBToColor(150, 0, 0)
-    else C.Font.Color := clWindowText;
+    if FUndoc[FTable, Op] then C.Font.Color := TC(RGBToColor(150, 0, 0))
+    else C.Font.Color := TC(clWindowText);
   end;
   H := C.TextHeight('Xg') - 1;
   C.Brush.Style := bsClear;

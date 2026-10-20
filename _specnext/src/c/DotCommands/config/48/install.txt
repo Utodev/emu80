@@ -1,0 +1,2 @@
+Copy CONFIG to c:/dot/extra
+Copy CONFIG.X to c:/dot/extra

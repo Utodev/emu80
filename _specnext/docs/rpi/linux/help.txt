@@ -1,0 +1,14 @@
+SUPPORT
+
+Currently all support and coordination is being handled via the SpecNext discord
+server https://discord.gg/eAsEdfb
+
+Before asking for support check https://github.com/StalePixels/NextPi/issues to 
+see if your problem is a known one
+
+When asking for support please have the following information handy:
+1) Core Version
+2) NextPi Version
+3) Raspberry Pi Version (eg, Pi0w, etc)
+4) Hardware & version (e.g. KS1 Devkit, nGo, MultiCore2, etc)
+

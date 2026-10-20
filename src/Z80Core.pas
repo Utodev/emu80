@@ -121,7 +121,9 @@ type
     { Accept a maskable interrupt if enabled. The caller is responsible for
       checking that /INT is still asserted. Returns True if accepted. }
     function Interrupt: Boolean;
-    procedure NMI;
+    { Accept an NMI; Stackless (the Next's NR C0 bit 3): SP goes down but
+      the return address isn't written to memory (the bus keeps it) }
+    procedure NMI(Stackless: Boolean = False);
     function GetR: Byte;
     function GetRegs: TZ80Regs;
     function GetAF: Word;
@@ -653,7 +655,7 @@ begin
   Result := True;
 end;
 
-procedure TZ80.NMI;
+procedure TZ80.NMI(Stackless: Boolean);
 begin
   if Halted then
   begin
@@ -663,7 +665,13 @@ begin
   IFF1 := False;
   Inc(R);
   Inc(T, 5);
-  Push(PC);
+  if Stackless then
+  begin
+    Dec(SP.W, 2);
+    Inc(T, 6);
+  end
+  else
+    Push(PC);
   Q := 0;
   PC.W := $0066;
 end;
@@ -1104,7 +1112,8 @@ begin
       begin
         IFF1 := IFF2;
         Pop(PC);
-        FBus.Retn;
+        // RETN (not RETI, ED 4D) ends an NMI
+        if Op <> $4D then FBus.Retn;
         WZ.W := PC.W;
       end;
     $46, $4E, $66, $6E: IM := 0;

@@ -1,0 +1,53 @@
+Further information about drives and CP/M
+=========================================
+
+
+CP/M on the ZX Spectrum Next cannot access the standard SD card drive C: (or
+other drives you may have due to having additional SD cards inserted, for
+example). This is because CP/M directly accesses disks at a low level, and is
+incompatible with FAT filesystems.
+
+Therefore, on the Next, CP/M runs from a disk image file. These can either
+be .P3D files (created by the .MKDATA dot command) or .DSK files (images of
+standard ZX Spectrum +3 disks).
+
+When you try to start CP/M for the first time, a disk image file for CP/M's
+drive A: is automatically created, named C:/NEXTZXOS/CPM-A.P3D. The required
+CP/M system files are then imported to the image. Once this process has
+completed, you will be returned to the NextZXOS menu. The next time you select
+the CP/M option from the menu, it will start up from the newly-initialised
+disk image.
+
+You can access multiple disk images at once in CP/M. To do this, simply
+create additional files with .MKDATA using the same naming scheme.
+
+eg. at the NextZXOS command line, type the following:
+
+        .mkdata "/nextzxos/cpm-b.p3d"
+        .mkdata "/nextzxos/cpm-e.p3d"
+
+When you next use CP/M, you will have drives A: B: and E: available.
+
+Note that you can have a drive C: in CP/M if you wish, but this is not the
+same as the C: drive used in NextZXOS.
+
+Up to 15 drive images can be used at once by CP/M, and they can be mapped to
+any drive A to P, simply by naming the files in any of these ways:
+
+        c:/nextzxos/cpm-X.p3d
+        c:/nextzxos/drv-X.p3d
+        c:/nextzxos/cpm-X.dsk
+        c:/nextzxos/drv-X.dsk
+
+(where 'X' is the drive letter, from A to P). If you have created multiple
+files referring to the same drive letter, CP/M will use the ones named
+"CPM-X" in preference to the ones named "DRV-X". It has no preference over
+.P3D or .DSK, so if there is a CPM-B.P3D and a CPM-B.DSK, then the first one
+in the directory will be used.
+
+Note that NextZXOS will also automatically mount these drive images when it
+starts up. You can view them in the Browser (press D to change drives) and
+copy files between them etc. NextZXOS will mount "DRV-X" files in preference
+to "CPM-X" files. You can also manually mount other disk images which
+don't follow the automatically-mounted naming scheme. To do this, just press
+ENTER on the .P3D or .DSK file in the Browser.

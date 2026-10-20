@@ -16,12 +16,21 @@ type
     ikRun, ikBreak, ikBreakpoint, ikCondition, ikClearBreakpoints, ikStepInto, ikStepOver,
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
-    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder, ikFolder);
+    ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder, ikFolder,
+    ikEject, ikTheme);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
-{ Fill an image list with all icons, in TIconKind order (index = Ord(kind)) }
-procedure LoadIcons(Images: TImageList);
+{ Fill an image list with all icons, in TIconKind order (index = Ord(kind)),
+  ASize pixels square (0: the toolbar's size) }
+procedure LoadIcons(Images: TImageList; ASize: Integer = 0);
+{ Draw the icons for a dark background (or not) and redraw every list loaded
+  so far that is still alive }
+procedure SetDarkIcons(Dark: Boolean);
+
+var
+  { The icons are being drawn for a dark background (the modern interface) }
+  DarkIcons: Boolean = False;
 
 implementation
 
@@ -367,6 +376,13 @@ begin
           D.Line(7.5, 7, 7.5, 13); D.Line(4.5, 10, 10.5, 10);
         end;
       end;
+    ikEject:
+      begin
+        // Eject: a triangle over a bar
+        D.Pen(DarkBlue); D.Fill(Blue);
+        D.Poly([2.5, 9.5, 8, 3, 13.5, 9.5]);
+        D.Rect(2.5, 11.5, 13.5, 14);
+      end;
     ikRecord:
       begin
         // REC: a red circle with a black border
@@ -386,8 +402,23 @@ begin
           D.Line(1.5, 3.5 + I * 3, 4, 3.5 + I * 3);
           D.Line(12, 3.5 + I * 3, 14.5, 3.5 + I * 3);
         end;
-        D.Pen(clBlack); D.Fill(DarkGrey); D.Rect(4, 2, 12, 15);
-        D.Pen(LightGrey); D.Fill(LightGrey); D.Circle(6, 4, 0.8);
+        if DarkIcons then
+        begin
+          // Lighter on a dark background, or it can't be seen
+          D.Pen(LightGrey, 1.2);
+          for I := 0 to 3 do
+          begin
+            D.Line(1.5, 3.5 + I * 3, 4, 3.5 + I * 3);
+            D.Line(12, 3.5 + I * 3, 14.5, 3.5 + I * 3);
+          end;
+          D.Pen(LightGrey); D.Fill(Grey); D.Rect(4, 2, 12, 15);
+          D.Pen(clWhite); D.Fill(clWhite); D.Circle(6, 4, 0.8);
+        end
+        else
+        begin
+          D.Pen(clBlack); D.Fill(DarkGrey); D.Rect(4, 2, 12, 15);
+          D.Pen(LightGrey); D.Fill(LightGrey); D.Circle(6, 4, 0.8);
+        end;
       end;
     ikZ80:
       begin
@@ -396,9 +427,18 @@ begin
         D.C.Font.Style := [fsBold];
         D.C.Font.Height := -D.S(8);
         D.C.Font.Quality := fqNonAntialiased;
-        D.C.Font.Color := DarkBlue;
+        if DarkIcons then D.C.Font.Color := clWhite else D.C.Font.Color := DarkBlue;
         D.C.Brush.Style := bsClear;
         D.C.TextOut((D.S(16) - D.C.TextWidth('Z80')) div 2, (D.S(16) - D.C.TextHeight('Z80')) div 2, 'Z80');
+      end;
+    ikTheme:
+      begin
+        // Half light, half dark: the interface's look
+        if DarkIcons then D.Pen(LightGrey, 1.2) else D.Pen(DarkGrey, 1.2);
+        D.Fill(clWhite);
+        D.Circle(8, 8, 6);
+        D.Fill(DarkGrey);
+        D.C.Chord(D.S(2), D.S(2), D.S(14), D.S(14), D.S(8), D.S(2), D.S(8), D.S(14));
       end;
     ikGoTo:
       begin
@@ -410,14 +450,88 @@ begin
   end;
 end;
 
-procedure LoadIcons(Images: TImageList);
+type
+  { The image lists loaded, to redraw them when the background changes }
+  TIconLists = class(TComponent)
+  public
+    Lists: TFPList;
+    Sizes: array of Integer;
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+    procedure Add(Images: TImageList; ASize: Integer);
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+  end;
+
+var
+  Loaded: TIconLists = nil;
+
+constructor TIconLists.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  Lists := TFPList.Create;
+end;
+
+destructor TIconLists.Destroy;
+begin
+  Lists.Free;
+  inherited Destroy;
+end;
+
+procedure TIconLists.Add(Images: TImageList; ASize: Integer);
+var
+  I: Integer;
+begin
+  I := Lists.IndexOf(Images);
+  if I < 0 then
+  begin
+    I := Lists.Add(Images);
+    SetLength(Sizes, Lists.Count);
+    Images.FreeNotification(Self);
+  end;
+  Sizes[I] := ASize;
+end;
+
+procedure TIconLists.Notification(AComponent: TComponent; Operation: TOperation);
+var
+  I, J: Integer;
+begin
+  inherited Notification(AComponent, Operation);
+  if Operation <> opRemove then Exit;
+  I := Lists.IndexOf(AComponent);
+  if I < 0 then Exit;
+  Lists.Delete(I);
+  for J := I to High(Sizes) - 1 do Sizes[J] := Sizes[J + 1];
+  SetLength(Sizes, Lists.Count);
+end;
+
+procedure DrawList(Images: TImageList; ASize: Integer); forward;
+
+procedure LoadIcons(Images: TImageList; ASize: Integer);
+begin
+  if Loaded = nil then Loaded := TIconLists.Create(Application);
+  Loaded.Add(Images, ASize);
+  DrawList(Images, ASize);
+end;
+
+procedure SetDarkIcons(Dark: Boolean);
+var
+  I: Integer;
+begin
+  if Dark = DarkIcons then Exit;
+  DarkIcons := Dark;
+  if Loaded <> nil then
+    for I := 0 to Loaded.Lists.Count - 1 do
+      DrawList(TImageList(Loaded.Lists[I]), Loaded.Sizes[I]);
+end;
+
+procedure DrawList(Images: TImageList; ASize: Integer);
 var
   Kind: TIconKind;
   Bmp: TBitmap;
   Painter: TPainter;
   Size: Integer;
 begin
-  Size := IconSize;
+  if ASize > 0 then Size := ASize else Size := IconSize;
   Images.Clear;
   Images.Width := Size;
   Images.Height := Size;

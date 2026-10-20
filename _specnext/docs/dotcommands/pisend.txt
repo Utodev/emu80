@@ -1,0 +1,18 @@
+.pisend is a simple tool to upload bas64 encoded files to nextpi.
+
+eg
+
+.pisend Robocop.UUE 
+
+will send the bas64 encoded file Robocop.UUE to the nextpi sd 
+
+you can also issues commands to the nextpi such as 
+
+.pisend -c nextpi-play_sid /mnt/dongle/monty.sid 
+
+would play the sid file monty from the /mnt/dongle folder
+
+.pisend -c chr$13 
+
+would send a return key press 
+

@@ -1,0 +1,6 @@
+HDMI on the Raspberry Pi
+
+The NextPi video output is configured for 720P
+The GPU is configured with 16M of RAM.
+The framebuffer is mapped to /dev/fb0 and is RW
+

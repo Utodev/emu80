@@ -141,7 +141,7 @@ type
     procedure MenuClick(Sender: TObject);
     procedure DrawCheck(X, Y: Integer; Ok: Boolean);
     procedure DrawArrow(X, Y: Integer);
-    function DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean): Integer;
+    function DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean; OnPC: Boolean = False): Integer;
   protected
     function HasOwnMenu: Boolean; override;
     procedure Paint; override;
@@ -303,6 +303,7 @@ type
     FRomIndex: Integer;       // ROM paged at 0000-3FFF (-1 = RAM)
     FWasPaused: Boolean;
     FHistory: TStringList;
+    FWatchHistory: TStringList;   // the addresses watched, apart from those gone to
     FCondText: array of string;     // breakpoint conditions, by address
     FPortLog: array of TPortAccess; // newest first
     FSlots: array[0..3] of Integer; // what is paged in each 16K slot
@@ -455,7 +456,7 @@ type
     procedure ToggleIFF(Which: Integer);
     procedure CycleIM;
     { Ask for an address (typed or from the last ones used). False if cancelled. }
-    function AskAddress(var Addr: Word): Boolean;
+    function AskAddress(var Addr: Word; ForWatch: Boolean = False): Boolean;
     { Called when a breakpoint stops the emulation. }
     procedure BreakHit;
     { After a stop: show the instruction that caused a memory or port
@@ -485,6 +486,9 @@ var
 procedure ShowDebugger(Emu: TEmulator);
 
 implementation
+
+uses
+  ModernUI;
 
 const
   {$IFDEF WINDOWS}
@@ -545,28 +549,28 @@ end;
 
 function BreakColor: TColor;
 begin
-  Result := RGBToColor(205, 40, 40);
+  Result := TC(RGBToColor(205, 40, 40));
 end;
 
 { Breakpoint that is switched off }
 function DisabledColor: TColor;
 begin
-  Result := RGBToColor(245, 205, 205);
+  Result := TC(RGBToColor(245, 205, 205));
 end;
 
 function PCColor: TColor;
 begin
-  Result := RGBToColor(200, 240, 200);
+  Result := TC(RGBToColor(200, 240, 200));
 end;
 
 function ChangedColor: TColor;
 begin
-  Result := RGBToColor(160, 0, 0);
+  Result := TC(RGBToColor(160, 0, 0));
 end;
 
 function MnemonicColor(OnBreak: Boolean): TColor;
 begin
-  if OnBreak then Result := RGBToColor(255, 235, 140) else Result := RGBToColor(0, 0, 200);
+  if OnBreak then Result := TC(RGBToColor(255, 235, 140)) else Result := TC(RGBToColor(0, 0, 200));
 end;
 
 function IsRegister(const S: string): Boolean;
@@ -727,7 +731,12 @@ begin
     FEditor.Font := Font;
     FEditor.OnKeyDown := @EditorKeyDown;
     FEditor.OnExit := @EditorExit;
+    // Its colours are set here, for the theme in use
+    FEditor.Tag := THEME_OWN_COLOURS;
   end;
+  // Black ink on white, in both themes
+  FEditor.Color := clWhite;
+  FEditor.Font.Color := clBlack;
   FEditSpot := Spot;
   FEditor.SetBounds(Spot.R.Left - 3, Spot.R.Top - 2, (Spot.Digits + 2) * FCharW + 6,
     Spot.R.Bottom - Spot.R.Top + 6);
@@ -921,7 +930,7 @@ end;
 procedure TDebugView.DrawFocus;
 begin
   if not Focused then Exit;
-  Canvas.Pen.Color := clHighlight;
+  Canvas.Pen.Color := TC(clHighlight);
   Canvas.Brush.Style := bsClear;
   Canvas.Rectangle(ClientRect);
   Canvas.Brush.Style := bsSolid;
@@ -1150,13 +1159,13 @@ begin
   Canvas.Pen.Width := 2;
   if Ok then
   begin
-    Canvas.Pen.Color := RGBToColor(0, 150, 0);
+    Canvas.Pen.Color := TC(RGBToColor(0, 150, 0));
     Canvas.Line(X, Y + S div 2, X + S div 3, Y + S);
     Canvas.Line(X + S div 3, Y + S, X + S, Y);
   end
   else
   begin
-    Canvas.Pen.Color := RGBToColor(220, 0, 0);
+    Canvas.Pen.Color := TC(RGBToColor(220, 0, 0));
     Canvas.Line(X, Y, X + S, Y + S);
     Canvas.Line(X + S, Y, X, Y + S);
   end;
@@ -1169,8 +1178,8 @@ var
 begin
   H := FLineH - 4;
   Canvas.Brush.Style := bsSolid;
-  Canvas.Brush.Color := RGBToColor(0, 120, 0);
-  Canvas.Pen.Color := clBlack;
+  Canvas.Brush.Color := TC(RGBToColor(0, 120, 0));
+  Canvas.Pen.Color := TC(clBlack);
   Canvas.Polygon([Point(X, Y), Point(X + H div 2 + 2, Y + H div 2), Point(X, Y + H)]);
   Canvas.Brush.Style := bsClear;
 end;
@@ -1178,7 +1187,7 @@ end;
 { Draw one instruction: mnemonic in blue, registers in bold, numbers and
   labels normal. A 16-bit operand with a label is shown by name, followed by
   its value in brackets in grey. Returns the X after the text. }
-function TDisasmView.DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean): Integer;
+function TDisasmView.DrawInstruction(X, Y: Integer; Addr: Word; OnBreak: Boolean; OnPC: Boolean): Integer;
 var
   Instr, Mnem, Tok, Lbl, Help, Undoc: string;
   Len, Operand, P, Start, V: Integer;
@@ -1186,7 +1195,7 @@ var
   TextColor: TColor;
   FirstOperand, IsFlow: Boolean;
 begin
-  if OnBreak then TextColor := clWhite else TextColor := clBlack;
+  if OnBreak then TextColor := TC(clWhite) else TextColor := TC(clBlack);
   Instr := DisassembleEx(Addr, @FOwnerWin.Peek, Len, Operand, Kind);
   Help := InstructionHelp(Instr);
   if Help <> '' then Help := Help + LineEnding + 'T-States: ' + InstructionTStates(Addr, @FOwnerWin.Peek);
@@ -1215,7 +1224,15 @@ begin
   Mnem := Copy(Instr, 1, P - 1);
   // Over the mnemonic: what the instruction does
   if Help <> '' then AddSpot(X, Y - 1, Length(Mnem), skDoc, 0, 0, 0, Help);
-  if Undoc = '' then X := DrawText(X, Y, Mnem, MnemonicColor(OnBreak), False)
+  if DarkTheme then
+  begin
+    // Dark: bold white (light red if undocumented), also on the green line
+    // of the execution point and on a breakpoint's
+    if OnBreak or OnPC then X := DrawText(X, Y, Mnem, clWhite, True)
+    else if Undoc <> '' then X := DrawText(X, Y, Mnem, RGBToColor(255, 125, 125), True)
+    else X := DrawText(X, Y, Mnem, clWhite, True);
+  end
+  else if Undoc = '' then X := DrawText(X, Y, Mnem, MnemonicColor(OnBreak), False)
   else if OnBreak then X := DrawText(X, Y, Mnem, RGBToColor(255, 225, 120), True)
   else X := DrawText(X, Y, Mnem, RGBToColor(150, 0, 0), True);
   IsFlow := (Mnem = 'JP') or (Mnem = 'JR') or (Mnem = 'CALL') or (Mnem = 'RET');
@@ -1255,7 +1272,7 @@ begin
   begin
     // The value the label stands for, in grey
     Inc(X, FCharW * 2);
-    if OnBreak then TextColor := RGBToColor(255, 205, 205) else TextColor := RGBToColor(150, 150, 150);
+    if OnBreak then TextColor := TC(RGBToColor(255, 205, 205)) else TextColor := TC(RGBToColor(150, 150, 150));
     X := DrawText(X, Y, '[', TextColor, False);
     AddSpot(X, Y - 1, 4, skInfo, Operand);
     X := DrawText(X, Y, IntToHex(Operand, 4), TextColor, False);
@@ -1277,7 +1294,7 @@ begin
   MeasureFont;
   Layout;
   ClearSpots;
-  Canvas.Brush.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
   Canvas.FillRect(ClientRect);
 
   // Room for labels of up to MAX_LABEL characters
@@ -1294,11 +1311,11 @@ begin
     if Active then Back := BreakColor
     else if IsPC then Back := PCColor
     else if BP <> 0 then Back := DisabledColor
-    else Back := clWhite;
+    else Back := TC(clWhite);
     Canvas.Brush.Style := bsSolid;
     Canvas.Brush.Color := Back;
     Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
-    if Active then TextColor := clWhite else TextColor := clBlack;
+    if Active then TextColor := TC(clWhite) else TextColor := TC(clBlack);
 
     // Gutter: breakpoint type and execution arrow
     if (BP and BP_EXEC) <> 0 then DrawText(2, Y + 1, 'E', TextColor, True)
@@ -1317,8 +1334,8 @@ begin
     begin
       AddSpot(GUTTER_W, Y, Min(Length(Lbl), MAX_LABEL), skLabel, L.Addr, 0, 0, Lbl);
       if Length(Lbl) > MAX_LABEL then Lbl := Copy(Lbl, 1, MAX_LABEL - 1) + '~';
-      if Active then DrawText(GUTTER_W, Y + 1, Lbl, clWhite, False)
-      else DrawText(GUTTER_W, Y + 1, Lbl, RGBToColor(0, 110, 110), False);
+      if Active then DrawText(GUTTER_W, Y + 1, Lbl, TC(clWhite), False)
+      else DrawText(GUTTER_W, Y + 1, Lbl, TC(RGBToColor(0, 110, 110)), False);
     end;
 
     // Address, then the instruction bytes (click to edit)
@@ -1335,7 +1352,7 @@ begin
         TextColor, False);
     end;
     Inc(X, FCharW * 13);
-    X := DrawInstruction(X, Y + 1, L.Addr, Active);
+    X := DrawInstruction(X, Y + 1, L.Addr, Active, IsPC);
 
     // Where a conditional jump at the execution point will go
     if IsPC then
@@ -1351,14 +1368,14 @@ begin
     // Breakpoint condition
     if (BP <> 0) and (FOwnerWin.ConditionText(L.Addr) <> '') then
     begin
-      if Active then TextColor := RGBToColor(255, 240, 150) else TextColor := RGBToColor(140, 90, 0);
+      if Active then TextColor := TC(RGBToColor(255, 240, 150)) else TextColor := TC(RGBToColor(140, 90, 0));
       DrawText(X + FCharW * 3, Y + 1, 'if ' + FOwnerWin.ConditionText(L.Addr), TextColor, False);
       AddSpot(0, Y, 3, skHint, 0, 0, 0, 'Condition: ' + FOwnerWin.ConditionText(L.Addr));
     end;
 
     if L.Addr = FSel then
     begin
-      Canvas.Pen.Color := clNavy;
+      Canvas.Pen.Color := TC(clNavy);
       if Focused then Canvas.Pen.Style := psSolid else Canvas.Pen.Style := psDot;
       Canvas.Brush.Style := bsClear;
       Canvas.Rectangle(GUTTER_W - 2, Y, ClientWidth - 1, Y + FLineH);
@@ -2018,15 +2035,15 @@ begin
     Y := 3 + R * (Cell + Gap);
     A := Word(FTop + R * FSpriteRowBytes);
     AddSpot(4, Y, 4, skInfo, A);
-    DrawText(4, Y, IntToHex(A, 4), clGray, False);
+    DrawText(4, Y, IntToHex(A, 4), TC(clGray), False);
     for C := 0 to Cols - 1 do
     begin
       X := X0 + C * (Cell + Gap);
-      Canvas.Pen.Color := RGBToColor(150, 170, 210);
+      Canvas.Pen.Color := TC(RGBToColor(150, 170, 210));
       Canvas.Brush.Style := bsSolid;
-      Canvas.Brush.Color := clWhite;
+      Canvas.Brush.Color := TC(clWhite);
       Canvas.Rectangle(X - 1, Y - 1, X + Cell + 1, Y + Cell + 1);
-      Canvas.Brush.Color := clBlack;
+      Canvas.Brush.Color := TC(clBlack);
       for B := 0 to 7 do
       begin
         V := FOwnerWin.Peek(Word(A + C * 8 + B)) xor FXor;
@@ -2076,7 +2093,7 @@ var
 begin
   MeasureFont;
   ClearSpots;
-  Canvas.Brush.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
   Canvas.FillRect(ClientRect);
   if FSprites then
   begin
@@ -2090,7 +2107,7 @@ begin
     Y := Row * FLineH;
     A := Word(FTop + Row * HEX_BYTES);
     AddSpot(4, Y, 4, skInfo, A);
-    DrawText(4, Y + 1, IntToHex(A, 4), clGray, False);
+    DrawText(4, Y + 1, IntToHex(A, 4), TC(clGray), False);
     for Col := 0 to HEX_BYTES - 1 do
     begin
       V := FOwnerWin.Peek(Word(A + Col)) xor FXor;
@@ -2098,26 +2115,26 @@ begin
       BP := FOwnerWin.BreakFlags(Word(A + Col));
       if (BP and (BP_READ or BP_WRITE)) <> 0 then
       begin
-        if (BP and BP_DISABLED) <> 0 then Back := RGBToColor(250, 230, 230)
-        else Back := RGBToColor(255, 185, 185);
+        if (BP and BP_DISABLED) <> 0 then Back := TC(RGBToColor(250, 230, 230))
+        else Back := TC(RGBToColor(255, 185, 185));
       end
-      else Back := clWhite;
+      else Back := TC(clWhite);
       X := 4 + FCharW * (6 + Col * 3);
-      if Back <> clWhite then
+      if Back <> TC(clWhite) then
       begin
         Canvas.Brush.Style := bsSolid;
         Canvas.Brush.Color := Back;
         Canvas.FillRect(X - FCharW div 2, Y, X + FCharW * 2 + FCharW div 2, Y + FLineH);
       end;
       AddSpot(X, Y, 2, skMemXorByte, V, 2, Word(A + Col));
-      DrawText(X, Y + 1, IntToHex(V, 2), clBlack, False);
+      DrawText(X, Y + 1, IntToHex(V, 2), TC(clBlack), False);
       X := AsciiX + Col * FCharW;
       AddSpot(X, Y, 1, skAscii, V, 2, Word(A + Col));
       if HasSel and (Word(A + Col) >= SelFirst) and (Word(A + Col) <= SelLast) then
-        Back := RGBToColor(190, 215, 255);    // selected
+        Back := TC(RGBToColor(190, 215, 255));    // selected
       if Word(A + Col) = FTextCursor then
-        Back := RGBToColor(120, 170, 255);    // typing position in the text column
-      if Back <> clWhite then
+        Back := TC(RGBToColor(120, 170, 255));    // typing position in the text column
+      if Back <> TC(clWhite) then
       begin
         Canvas.Brush.Style := bsSolid;
         Canvas.Brush.Color := Back;
@@ -2125,9 +2142,9 @@ begin
       end;
       // Not printable: a grey dot
       if (V >= 32) and (V < 127) then
-        DrawText(X, Y + 1, Chr(V), clBlack, False)
+        DrawText(X, Y + 1, Chr(V), TC(clBlack), False)
       else
-        DrawText(X, Y + 1, '.', clGray, False);
+        DrawText(X, Y + 1, '.', TC(clGray), False);
     end;
   end;
   DrawFocus;
@@ -2411,10 +2428,10 @@ var
 begin
   MeasureFont;
   ClearSpots;
-  Canvas.Brush.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
   Canvas.FillRect(ClientRect);
   if FOwnerWin.WatchCount = 0 then
-    DrawText(4, 2, 'Insert: add', clGray, False);
+    DrawText(4, 2, 'Insert: add', TC(clGray), False);
   for I := 0 to FOwnerWin.WatchCount - 1 do
   begin
     Y := I * FLineH;
@@ -2422,20 +2439,20 @@ begin
     if I = FSel then
     begin
       Canvas.Brush.Style := bsSolid;
-      Canvas.Brush.Color := RGBToColor(210, 225, 250);
+      Canvas.Brush.Color := TC(RGBToColor(210, 225, 250));
       Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
     end;
     AddSpot(4, Y, 4, skInfo, A);
-    DrawText(4, Y + 1, IntToHex(A, 4), clGray, False);
+    DrawText(4, Y + 1, IntToHex(A, 4), TC(clGray), False);
     AddSpot(4 + FCharW * 6, Y, 2, skMemByte, FOwnerWin.Peek(A), 2, A);
-    DrawText(4 + FCharW * 6, Y + 1, IntToHex(FOwnerWin.Peek(A), 2), clBlack, False);
+    DrawText(4 + FCharW * 6, Y + 1, IntToHex(FOwnerWin.Peek(A), 2), TC(clBlack), False);
     AddSpot(4 + FCharW * 9, Y, 2, skMemByte, FOwnerWin.Peek(Word(A + 1)), 2, Word(A + 1));
-    DrawText(4 + FCharW * 9, Y + 1, IntToHex(FOwnerWin.Peek(Word(A + 1)), 2), clBlack, False);
+    DrawText(4 + FCharW * 9, Y + 1, IntToHex(FOwnerWin.Peek(Word(A + 1)), 2), TC(clBlack), False);
     Lbl := FOwnerWin.SymbolFor(A);
     if Lbl <> '' then
     begin
       AddSpot(4 + FCharW * 13, Y, Length(Lbl), skLabel, A, 0, 0, Lbl);
-      DrawText(4 + FCharW * 13, Y + 1, Lbl, RGBToColor(0, 110, 110), False);
+      DrawText(4 + FCharW * 13, Y + 1, Lbl, TC(RGBToColor(0, 110, 110)), False);
       // Cut at the right: the free parts of the line show it whole as a hint
       if 4 + FCharW * (13 + Length(Lbl)) > ClientWidth - 4 then
         AddSpot(0, Y, ClientWidth div FCharW + 1, skHint, 0, 0, 0,
@@ -2601,10 +2618,10 @@ var
 begin
   MeasureFont;
   ClearSpots;
-  Canvas.Brush.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
   Canvas.FillRect(ClientRect);
   if FOwnerWin.BreakCount = 0 then
-    DrawText(4, 2, 'Insert: add', clGray, False);
+    DrawText(4, 2, 'Insert: add', TC(clGray), False);
   Box := FLineH - 6;
   for I := 0 to FOwnerWin.BreakCount - 1 do
   begin
@@ -2615,13 +2632,13 @@ begin
     if I = FSel then
     begin
       Canvas.Brush.Style := bsSolid;
-      Canvas.Brush.Color := RGBToColor(210, 225, 250);
+      Canvas.Brush.Color := TC(RGBToColor(210, 225, 250));
       Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
     end;
     // On/off box: click to switch
     Canvas.Brush.Style := bsSolid;
-    Canvas.Brush.Color := clWhite;
-    Canvas.Pen.Color := clGray;
+    Canvas.Brush.Color := TC(clWhite);
+    Canvas.Pen.Color := TC(clGray);
     Canvas.Rectangle(4, Y + 3, 4 + Box, Y + 3 + Box);
     if IsOn then
     begin
@@ -2631,7 +2648,7 @@ begin
       Canvas.Line(4 + Box div 2, Y + 1 + Box, 2 + Box, Y + 5);
       Canvas.Pen.Width := 1;
     end;
-    if IsOn then TextColor := clBlack else TextColor := clGray;
+    if IsOn then TextColor := TC(clBlack) else TextColor := TC(clGray);
     DrawText(8 + Box, Y + 1, BreakTypeName(Flags, E.Port), TextColor, True);
     Full := BreakTypeName(Flags, E.Port) + '  ';
     X := 8 + Box + FCharW * 8;
@@ -2658,14 +2675,14 @@ begin
         Full := Full + ' ' + Lbl;
         AddSpot(X + FCharW, Y, Min(Length(Lbl), 14), skLabel, E.Addr, 0, 0, Lbl);
         if Length(Lbl) > 14 then Lbl := Copy(Lbl, 1, 13) + '~';
-        X := DrawText(X + FCharW, Y + 1, Lbl, RGBToColor(0, 110, 110), False);
+        X := DrawText(X + FCharW, Y + 1, Lbl, TC(RGBToColor(0, 110, 110)), False);
       end;
     end;
     Cond := FOwnerWin.EntryCondition(E);
     if E.Hits >= 0 then Cond := Cond + Format('  (T=%d)', [E.Hits]);   // times reached so far
     if Cond <> '' then
     begin
-      X := DrawText(X + FCharW, Y + 1, 'if ' + Cond, RGBToColor(140, 90, 0), False);
+      X := DrawText(X + FCharW, Y + 1, 'if ' + Cond, TC(RGBToColor(140, 90, 0)), False);
       Full := Full + ' if ' + Cond;
     end;
     // Cut at the right: the box and the type (and any free part of the
@@ -2756,12 +2773,12 @@ var
 
   procedure Name(C: Integer; const S: string);
   begin
-    DrawText(Col(C), Y, S, clBlack, True);
+    DrawText(Col(C), Y, S, TC(clBlack), True);
   end;
 
   function ChangedOrBlack(Changed: Boolean): TColor;
   begin
-    if Changed and Have then Result := ChangedColor else Result := clBlack;
+    if Changed and Have then Result := ChangedColor else Result := TC(clBlack);
   end;
 
   { Register value: dark red if the last instruction changed it; click to edit }
@@ -2785,10 +2802,10 @@ var
   begin
     Name(C, RegName);
     PairValue(C + 4, Reg, V, Old);
-    DrawText(Col(C + 9), Y, '(', clGray, False);
+    DrawText(Col(C + 9), Y, '(', TC(clGray), False);
     AddSpot(Col(C + 10), Y, 4, skMemWord, Word16(V), 4, V);
-    DrawText(Col(C + 10), Y, IntToHex(Word16(V), 4), clGray, False);
-    DrawText(Col(C + 14), Y, ')', clGray, False);
+    DrawText(Col(C + 10), Y, IntToHex(Word16(V), 4), TC(clGray), False);
+    DrawText(Col(C + 14), Y, ')', TC(clGray), False);
   end;
 
   { Underlined: click to change }
@@ -2805,7 +2822,7 @@ var
 begin
   MeasureFont;
   ClearSpots;
-  Canvas.Brush.Color := clBtnFace;
+  Canvas.Brush.Color := TC(clBtnFace);
   Canvas.FillRect(ClientRect);
   R := FOwnerWin.Regs;
   P := FOwnerWin.Prev;
@@ -2849,7 +2866,7 @@ begin
   begin
     // Over a flag's name: what it means
     AddSpot(Col(7 + I * 2), Y, 1, skDoc, 0, 0, 0, FlagHelp(I));
-    DrawText(Col(7 + I * 2), Y, FLAG_NAMES[I + 1], clBlack, True);
+    DrawText(Col(7 + I * 2), Y, FLAG_NAMES[I + 1], TC(clBlack), True);
   end;
   Inc(Y, FLineH);
   for I := 0 to 7 do
@@ -2889,8 +2906,8 @@ begin
   Inc(Y, FLineH);
   BoxTop := Y;
   Canvas.Brush.Style := bsSolid;
-  Canvas.Brush.Color := clWhite;
-  Canvas.Pen.Color := clGray;
+  Canvas.Brush.Color := TC(clWhite);
+  Canvas.Pen.Color := TC(clGray);
   FStackBox := Rect(8, BoxTop, Col(15), BoxTop + FLineH * Rows + 6);
   FPortBox := Rect(Col(17), BoxTop, Col(36), BoxTop + FLineH * Rows + 6);
   Canvas.Rectangle(FStackBox);
@@ -2902,11 +2919,11 @@ begin
   for I := 0 to Rows - 1 do
   begin
     K := FStackOfs + I;
-    if K = 0 then DrawText(Col(1), Y, '>', clBlack, True);
+    if K = 0 then DrawText(Col(1), Y, '>', TC(clBlack), True);
     AddSpot(Col(3), Y, 4, skInfo, Word(R.SP + K * 2));
-    DrawText(Col(3), Y, IntToHex(Word(R.SP + K * 2), 4), clGray, False);
+    DrawText(Col(3), Y, IntToHex(Word(R.SP + K * 2), 4), TC(clGray), False);
     AddSpot(Col(9), Y, 4, skMemWord, Word16(Word(R.SP + K * 2)), 4, Word(R.SP + K * 2));
-    DrawText(Col(9), Y, IntToHex(Word16(Word(R.SP + K * 2)), 4), clBlack, False);
+    DrawText(Col(9), Y, IntToHex(Word16(Word(R.SP + K * 2)), 4), TC(clBlack), False);
     Inc(Y, FLineH);
   end;
   // Ports: address of the instruction, port, W (write) or R (read), value
@@ -2917,15 +2934,15 @@ begin
     K := FPortOfs + I;
     Access := FOwnerWin.PortLogEntry(K);
     // > marks the latest access (the list is newest first)
-    if K = 0 then DrawText(Col(17) + 3, Y, '>', clBlack, True);
+    if K = 0 then DrawText(Col(17) + 3, Y, '>', TC(clBlack), True);
     AddSpot(Col(18) + FCharW div 2, Y, 4, skInfo, Access.PC);
-    DrawText(Col(18) + FCharW div 2, Y, IntToHex(Access.PC, 4), clGray, False);
+    DrawText(Col(18) + FCharW div 2, Y, IntToHex(Access.PC, 4), TC(clGray), False);
     AddSpot(Col(24), Y, 4, skInfo, Access.Port);
-    DrawText(Col(24), Y, IntToHex(Access.Port, 4), clBlack, False);
+    DrawText(Col(24), Y, IntToHex(Access.Port, 4), TC(clBlack), False);
     if Access.Write then
-      DrawText(Col(29), Y, 'W', RGBToColor(0, 0, 200), True)
+      DrawText(Col(29), Y, 'W', TC(RGBToColor(0, 0, 200)), True)
     else
-      DrawText(Col(29), Y, 'R', RGBToColor(0, 130, 0), True);
+      DrawText(Col(29), Y, 'R', TC(RGBToColor(0, 130, 0)), True);
     AddSpot(Col(32), Y, 2, skInfo, Access.Value);
     DrawText(Col(32), Y, IntToHex(Access.Value, 2), ChangedOrBlack(Access.Step = FOwnerWin.Step), False);
     Inc(Y, FLineH);
@@ -2943,7 +2960,7 @@ begin
     else if Bank = NO_MEMORY then Text_ := '----'
     else if Bank < 0 then Text_ := 'ROM' + IntToStr(-1 - Bank)
     else Text_ := 'RAM' + IntToStr(Bank);
-    DrawText(Col(7 + I * 7), Y, IntToStr(I) + ':', clGray, False);
+    DrawText(Col(7 + I * 7), Y, IntToStr(I) + ':', TC(clGray), False);
     // Dark red if the last instruction paged something else in
     ValueColor := ChangedOrBlack((Bank <> PP.Slots[I]) or
       ((I = 0) and ((FOwnerWin.DivActive <> PP.DivActive) or
@@ -2972,9 +2989,9 @@ begin
     Inc(Y, FLineH);
     Name(0, 'DivMMC');
     if ((Ctl and $80) = 0) and ((Ctl and $40) <> 0) then Text_ := 'RAM3' else Text_ := 'EEPROM';
-    DrawText(Col(7), Y, '0000:', clGray, False);
+    DrawText(Col(7), Y, '0000:', TC(clGray), False);
     DrawText(Col(12), Y, Text_, ChangedOrBlack((((Ctl and $C0) = $40) <> ((OldCtl and $C0) = $40))), False);
-    DrawText(Col(19), Y, '2000:', clGray, False);
+    DrawText(Col(19), Y, '2000:', TC(clGray), False);
     AddSpot(Col(24), Y, 7, skDivBank, Ctl and $0F);
     Canvas.Font := Font;
     Canvas.Font.Style := [fsUnderline];
@@ -2987,21 +3004,21 @@ begin
     else ValueColor := clNone;
     if FOwnerWin.DivActive then
     begin
-      if ValueColor = clNone then ValueColor := RGBToColor(0, 130, 0);
+      if ValueColor = clNone then ValueColor := TC(RGBToColor(0, 130, 0));
       DrawText(Col(32), Y, 'in', ValueColor, True);
     end
     else
     begin
-      if ValueColor = clNone then ValueColor := clGray;
+      if ValueColor = clNone then ValueColor := TC(clGray);
       DrawText(Col(32), Y, 'out', ValueColor, True);
     end;
     Inc(Y, FLineH);
-    DrawText(Col(7), Y, 'CONMEM', clGray, False);
+    DrawText(Col(7), Y, 'CONMEM', TC(clGray), False);
     AddSpot(Col(14), Y, 1, skDivConmem, Ord((Ctl and $80) <> 0));
     ClickValue(14, IntToStr(Ord((Ctl and $80) <> 0)), ChangedOrBlack(((Ctl xor OldCtl) and $80) <> 0));
-    DrawText(Col(16), Y, 'MAPRAM', clGray, False);
+    DrawText(Col(16), Y, 'MAPRAM', TC(clGray), False);
     DrawText(Col(23), Y, IntToStr(Ord((Ctl and $40) <> 0)), ChangedOrBlack(((Ctl xor OldCtl) and $40) <> 0), False);
-    DrawText(Col(25), Y, 'automap', clGray, False);
+    DrawText(Col(25), Y, 'automap', TC(clGray), False);
     AddSpot(Col(33), Y, 3, skDivMapped, 0);
     ValueColor := ChangedOrBlack(FOwnerWin.DivMappedNow <> PP.DivMapped);
     if FOwnerWin.DivMappedNow then ClickValue(33, 'on', ValueColor) else ClickValue(33, 'off', ValueColor);
@@ -3013,20 +3030,20 @@ begin
   begin
     Inc(Y, FLineH);
     Name(0, 'ZX-Uno');
-    DrawText(Col(7), Y, 'BOOTM', clGray, False);
+    DrawText(Col(7), Y, 'BOOTM', TC(clGray), False);
     AddSpot(Col(13), Y, 1, skUnoBoot, FOwnerWin.UnoConf and 1);
     ClickValue(13, IntToStr(FOwnerWin.UnoConf and 1), ChangedOrBlack(((FOwnerWin.UnoConf xor PP.UnoConf) and 1) <> 0));
-    DrawText(Col(15), Y, 'MAPPER', clGray, False);
+    DrawText(Col(15), Y, 'MAPPER', TC(clGray), False);
     // A drop-down; grey when not in boot mode (dark red if just changed)
     AddSpot(Col(22), Y, 7, skUnoMapper, FOwnerWin.UnoMapper);
     Canvas.Font := Font;
     Canvas.Font.Style := [fsUnderline];
     if Have and (FOwnerWin.UnoMapper <> PP.UnoMapper) then Canvas.Font.Color := ChangedColor
-    else if (FOwnerWin.UnoConf and 1) = 0 then Canvas.Font.Color := clGray;
+    else if (FOwnerWin.UnoConf and 1) = 0 then Canvas.Font.Color := TC(clGray);
     Canvas.Brush.Style := bsClear;
     Canvas.TextOut(Col(22), Y, 'RAM' + IntToStr(FOwnerWin.UnoMapper) + ' ' + #$E2#$96#$BE);
     Canvas.Font := Font;
-    DrawText(Col(30), Y, 'LOCK', clGray, False);
+    DrawText(Col(30), Y, 'LOCK', TC(clGray), False);
     DrawText(Col(35), Y, IntToStr(FOwnerWin.UnoConf shr 7), ChangedOrBlack(((FOwnerWin.UnoConf xor PP.UnoConf) and $80) <> 0), False);
   end;
 end;
@@ -3066,6 +3083,7 @@ begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
   FHistory := TStringList.Create;
+  FWatchHistory := TStringList.Create;
   // Menu item hints show in the status bar
   Application.AddOnHintHandler(@AppHint);
   // Watches given on the command line
@@ -3212,6 +3230,7 @@ destructor TDebuggerWindow.Destroy;
 begin
   Application.RemoveOnHintHandler(@AppHint);
   FHistory.Free;
+  FWatchHistory.Free;
   inherited Destroy;
 end;
 
@@ -3698,7 +3717,7 @@ var
 begin
   A := 0;
   if WatchCount > 0 then A := FWatches[High(FWatches)];
-  if not AskAddress(A) then Exit;
+  if not AskAddress(A, True) then Exit;
   SetLength(FWatches, Length(FWatches) + 1);
   FWatches[High(FWatches)] := A;
   FWatchView.Invalidate;
@@ -4079,7 +4098,7 @@ begin
     FXorEdit.Font.Color := clRed;
     Exit;
   end;
-  FXorEdit.Font.Color := clDefault;
+  if DarkTheme then FXorEdit.Font.Color := clWhite else FXorEdit.Font.Color := clDefault;
   FHex.XorValue := V;
 end;
 
@@ -4129,7 +4148,7 @@ begin
   else Result := False;
 end;
 
-function TDebuggerWindow.AskAddress(var Addr: Word): Boolean;
+function TDebuggerWindow.AskAddress(var Addr: Word; ForWatch: Boolean): Boolean;
 var
   Dlg: TAddressDialog;
   Lbl: TLabel;
@@ -4137,18 +4156,24 @@ var
   A: Word;
   Typed: string;
   I: Integer;
+  History: TStringList;
 begin
   Result := False;
+  // Going to an address and watching one: each its own list
+  if ForWatch then History := FWatchHistory else History := FHistory;
   Dlg := TAddressDialog.CreateNew(Self, 0);
   try
-    Dlg.Caption := 'Go to address';
+    if ForWatch then Dlg.Caption := 'Add a watch' else Dlg.Caption := 'Go to address';
     Dlg.BorderStyle := bsDialog;
     Dlg.Position := poOwnerFormCenter;
     Dlg.ClientWidth := 420;
     Dlg.ClientHeight := 330;
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    Lbl.Caption := 'Address (hex, a register such as PC or HL, or a label):';
+    if ForWatch then
+      Lbl.Caption := 'Address to watch (hex, a register such as HL, or a label):'
+    else
+      Lbl.Caption := 'Address (hex, a register such as PC or HL, or a label):';
     Lbl.SetBounds(10, 10, 400, 18);
     Dlg.Edit := TEdit.Create(Dlg);
     Dlg.Edit.Parent := Dlg;
@@ -4156,12 +4181,15 @@ begin
     Dlg.Edit.Text := IntToHex(Addr, 4);
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    Lbl.Caption := 'Last addresses (click to use, double-click to go):';
+    if ForWatch then
+      Lbl.Caption := 'Last addresses watched (click to use, double-click to add):'
+    else
+      Lbl.Caption := 'Last addresses (click to use, double-click to go):';
     Lbl.SetBounds(10, 66, 400, 18);
     Dlg.List := TListBox.Create(Dlg);
     Dlg.List.Parent := Dlg;
     Dlg.List.SetBounds(10, 88, 400, 190);
-    Dlg.List.Items.Assign(FHistory);   // shared by the disassembly and memory views
+    Dlg.List.Items.Assign(History);   // shared by the disassembly and memory views
     Dlg.List.OnClick := @Dlg.ListClick;
     Dlg.List.OnDblClick := @Dlg.ListDblClick;
     BtnOK := TButton.Create(Dlg);
@@ -4184,6 +4212,8 @@ begin
     BtnPC.ShowHint := True;
     BtnPC.ModalResult := mrYes;
     BtnPC.SetBounds(10, 290, 100, 28);
+    BtnPC.Visible := not ForWatch;
+    if ForWatch then BtnOK.Caption := 'Add';
     Dlg.ActiveControl := Dlg.Edit;
     repeat
       case Dlg.ShowModal of
@@ -4205,10 +4235,10 @@ begin
   end;
   // Remember it as an address, most recent first
   Typed := IntToHex(A, 4);
-  I := FHistory.IndexOf(Typed);
-  if I >= 0 then FHistory.Delete(I);
-  FHistory.Insert(0, Typed);
-  while FHistory.Count > MAX_HISTORY do FHistory.Delete(FHistory.Count - 1);
+  I := History.IndexOf(Typed);
+  if I >= 0 then History.Delete(I);
+  History.Insert(0, Typed);
+  while History.Count > MAX_HISTORY do History.Delete(History.Count - 1);
   Addr := A;
   Result := True;
 end;

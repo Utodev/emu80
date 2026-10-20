@@ -243,7 +243,8 @@ begin
     FDivOn := (FZXReg[0] and 2) <> 0;
     Issue2 := (FZXReg[0] and 8) <> 0;
     SetZXUnoTiming;
-    SetSpeed(1 shl ((FZXReg[$0B] shr 6) and 3));
+    FNextSpeed := 1 shl ((FZXReg[$0B] shr 6) and 3);
+    SetSpeed(FUserSpeed);
     FUnoAutoLoad := -1;
     UpdatePaging;
   end

@@ -1,0 +1,74 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file
+
+
+; ***************************************************************************
+; * ZX Spectrum Next I/O module jump block.                                 *
+; ***************************************************************************
+; Names NX* correspond to equivalent ZX* names in in_zxzvm.inc.
+
+        org     ZJT
+
+        jp      NXINIT  ;Initialise, load story file
+        jp      NXEXIT  ;Deinitialise
+        jp      NXCLS   ;Clear screen
+        jp      NXPEEK  ;Read byte from Z-machine memory
+        jp      NXPOKE  ;Write byte to Z-machine memory
+        jp      NXPK64  ;Read byte from low 64k
+        jp      NXPKWD  ;Read word from Z-machine memory
+        jp      NXPKWI  ;Read word with auto increment
+        jp      NXFDOS  ;CP/M-like I/O functions
+        jp      NXIHDR  ;Initialise the header
+        jp      NXTMEM  ;Get top of available host memory
+        jp      NXERAW  ;Erase window
+        jp      NXZCHR  ;Output a ZSCII letter in HL.
+        jp      NXSWND  ;Split window
+        jp      NXUWND  ;Select window
+        jp      NXSTYL  ;Set text style
+        jp      NXSCUR  ;Set cursor position
+        jp      NXINP   ;Line input
+        jp      NXRCHR  ;Read character
+        jp      NXSCOL  ;Set colours
+        jp      NXSFNT  ;Set font
+        jp      NXRNDI  ;Get randomish number (eg, the computer's clock)
+        jp      NXGETX  ;Get cursor X position
+        jp      NXGETY  ;Get cursor Y position
+        jp      NXSTRM  ;Open or close stream in A
+        jp      NXERAL  ;Erase to EOL
+        jp      NXSND   ;Make a sound
+        jp      NXRST   ;Restart
+        jp      NXNAME  ;Get filename
+        jp      NXOPEN  ;Open file
+        jp      NXCLSE  ;Close file
+        jp      NXREAD  ;Read bytes
+        jp      NXWRIT  ;Write bytes
+        jp      NXRMEM  ;Read z-machine memory
+        jp      NXWMEM  ;Write z-machine memory
+        jp      NXVRFY  ;Verify the game file
+        jp      NXBFIT  ;Check if word in buffer will fit on screen.
+        ret
+        nop
+        nop             ;Relinquish the CPU, or rather don't.
+        jp      NXILIV  ;Alive debug point
+        ld      a,VMVER ;Return version
+        ret
+        ret             ;Update the screen. Not necessary.
+        nop
+        nop
+        jp      NXIRES  ;Prepare for timed input to be resumed.

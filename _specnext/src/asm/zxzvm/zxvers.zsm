@@ -1,0 +1,60 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2018-03-02, Garry Lancaster: Changed Spectrum version detection
+
+vers:
+;
+;Return Spectrum type by ROM count. Expects ROM 3 and RAM 0 are paged in.
+;
+;Returns H=0 for 16/48/+
+;	   1 for 128/+2
+;          2 for +3
+;
+	PUSH	AF
+	PUSH	BC
+	DI
+	LD	BC,07FFDH
+	XOR	A
+	OUT	(C),A		; start with ROM 0 (128K models)
+	LD	B,01FH
+	OUT	(C),A		; ensure ROM 0 (+3 models)
+	LD	HL,(0000H)
+	LD	A,04H
+	OUT	(C),A		; switch to ROM 2 (+3 models only)
+	LD	BC,(0000H)
+	AND	A
+	PUSH	HL
+	SBC	HL,BC
+	POP	HL
+	LD	BC,07FFDH
+	LD	A,10H
+	OUT	(C),A		; switch back to ROM 1 (128K) or ROM 3 (+3)
+	JR	NZ,ISP3		; must be +3 if different ROM 0/2 contents
+	LD	BC,(0000H)
+	SBC	HL,BC
+	JR	Z,VRSRET	; must be 48K if same ROM 0/1 contents (HL=0)
+	LD	H,01H		; H=1 for 128/+2
+VRSRET:
+	EI
+	POP	BC
+	POP	AF
+	RET
+ISP3:
+	LD	H,02H		; H=2 for +3/+2a
+	JR	VRSRET
+

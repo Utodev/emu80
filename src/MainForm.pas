@@ -8,8 +8,8 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, Models, Spectrum, Emulator, Config, Icons, PokeForm,
-  Pokes, ScreenCapture, DocForm;
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextWizard, Models, Spectrum, Emulator, Config, Icons, PokeForm,
+  Pokes, ScreenCapture, DocForm, ModernUI;
 
 type
   TMainWindow = class(TForm)
@@ -43,18 +43,34 @@ type
     FRecentSymbolsMenu: TMenuItem;
     FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
     FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
-    FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem: TMenuItem;
+    FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem: TMenuItem;
     FMonoItem: TMenuItem;
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
     FLastFile: string;          // last file opened, for the POKE history
     FStarted: Boolean;          // command line processed
     FStartNext: Boolean;        // the ZX Spectrum Next was the model last time
-    FNextFromCommandLine: Boolean;   // --model zxnext: pzx closes if it can't start
+    FNextFromCommandLine: Boolean;
+    FShowNotice: Boolean;            // first start: the modern interface's note
+    FNotice: TModernNotice;
+    FNoticeTimer: TTimer;   // --model zxnext: pzx closes if it can't start
     FFullerBits: Byte;
     FScaleItems: array[1..4] of TMenuItem;
     FKeyCount: array[0..39] of Integer;
     FDriveNmiItem: TMenuItem;
     FExtCount: array[0..15] of Integer;      // two-key keys (EXT_*) held
+    // The modern interface (MainModern.inc)
+    FModern: Boolean;
+    FModernMinHeight, FModernMinWidth: Integer;
+    FBigImages, FSmallImages: TImageList;
+    FMirror: TPopupMenu;
+    FMHeader, FMLeft, FMRight, FMBottom: TDarkPanel;
+    FMMachine, FMTape, FMMedia: TPaletteBox;
+    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMDiskBtn, FMSDBtn: TFlatButton;
+    FMZoom: array[1..4] of TFlatButton;
+    FMCassette: TCassette;
+    FMTapeLabel: TLabel;
+    FMMediaBox, FMStatusBox: TPaintBox;
+    FMediaNames: array[0..2] of string;
     FPCKeyDown: array[0..255] of Boolean;
     FPCKeyTime: array[0..255] of QWord;     // when each PC key went down
     FPendingUp: array[0..255] of QWord;     // delayed key-up due time, 0 = none
@@ -79,6 +95,8 @@ type
     procedure UpdateChecks;
     procedure ApplySettings;
     procedure SetScale(Scale: Integer);
+    procedure ScaleExtra(out ExtraW, ExtraH: Integer);
+    function ScaleFits(Scale: Integer): Boolean;
     function DisplayScale: Integer;
     procedure RenderBitmap;
     procedure FrameReady(Sender: TObject);
@@ -171,6 +189,20 @@ type
     function ConfirmTapeChanges: Boolean;
     procedure DoScale(Sender: TObject);
     procedure DoSettings(Sender: TObject);
+    procedure DoTapeInsert(Sender: TObject);
+    procedure BuildModern;
+    procedure ApplyStyle;
+    procedure DoToggleTheme(Sender: TObject);
+    procedure ShowNotice;
+    procedure NoticeEnd(Sender: TObject);
+    procedure PaintStripes(Sender: TObject);
+    procedure ModernMenuClick(Sender: TObject);
+    procedure MirrorItems(Src, Dst: TMenuItem);
+    procedure MirrorClick(Sender: TObject);
+    function MenuShortcut(Key: Word; Shift: TShiftState): Boolean;
+    procedure PaintModernMedia(Sender: TObject);
+    procedure PaintModernStatus(Sender: TObject);
+    procedure ModernTick;
     procedure DoAbout(Sender: TObject);
     procedure DoLicense(Sender: TObject);
     procedure DoDebugger(Sender: TObject);
@@ -192,7 +224,7 @@ type
     function ConfirmDiskChanges(Drive: Integer): Boolean;
     function PrepareNext: Boolean;
     procedure LeaveNext;
-    function MakeNextCardFile(const FileName: string): Boolean;
+    function MakeNextCardFile(const FileName: string; SizeMB: Integer = 0): Boolean;
     procedure DoNewNextCard(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
@@ -222,13 +254,20 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.sna;*.z80;*.dsk;*.nex;*.pzs|Tape images (*.tap)|*.tap|' +
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.sna;*.z80;*.dsk;*.nex;*.pzs|' +
+    'Tape images (*.tap;*.tzx)|*.tap;*.tzx|' +
     'Snapshots (*.sna;*.z80;*.pzs)|*.sna;*.z80;*.pzs|+3 disk images (*.dsk)|*.dsk|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
 
-{ --config FILE / --config-add FILE must be known before the settings load }
+var
+  { --ui on the command line ('' if not given): it is applied at once, and
+    the first-run question isn't asked }
+  CommandLineUI: string = '';
+
+{ --config FILE / --config-add FILE (and --ui) must be known before the
+  settings load }
 procedure ReadSettingsOptions;
 var
   I: Integer;
@@ -246,7 +285,12 @@ begin
     end;
     while (Arg <> '') and (Arg[1] = '-') do Delete(Arg, 1, 1);
     Arg := LowerCase(Arg);
-    if (Arg = 'config') or (Arg = 'config-add') then
+    if Arg = 'ui' then
+    begin
+      if (Value = '') and (I < ParamCount) then Value := ParamStr(I + 1);
+      CommandLineUI := LowerCase(Value);
+    end
+    else if (Arg = 'config') or (Arg = 'config-add') then
     begin
       if Value = '' then
       begin
@@ -296,6 +340,7 @@ end;
 constructor TMainWindow.Create(AOwner: TComponent);
 var
   Err: string;
+  FirstRun: Boolean;
 begin
   inherited CreateNew(AOwner, 0);
   Caption := 'pzx - ZX Spectrum emulator';
@@ -313,7 +358,13 @@ begin
   OnShow := @FormShow;
 
   ReadSettingsOptions;
+  FirstRun := not FileExists(Settings.FileName);
   Settings.Load;
+  // The interface: as the command line says, else the settings' (the
+  // modern one the first time, with a note on how to change it)
+  if (CommandLineUI = 'modern') or (CommandLineUI = 'classic') then
+    Settings.ModernUI := CommandLineUI = 'modern';
+  FShowNotice := FirstRun and Settings.ModernUI;
   RemoveStaleTempCards;
   Err := '';
   // The Next needs its distribution and its card: started as the 48K and
@@ -372,6 +423,7 @@ begin
   FDisplay.OnMouseDown := @DisplayMouseDown;
   FDisplay.OnMouseUp := @DisplayMouseUp;
   FDisplay.OnMouseLeave := @DisplayMouseLeave;
+  BuildModern;
 
   FKeyTimer := TTimer.Create(Self);
   FKeyTimer.Interval := 10;
@@ -397,6 +449,7 @@ begin
     end;
   end;
   ApplySettings;
+  ApplyStyle;
   SetScale(Settings.Scale);
   UpdateRecentMenu;
   UpdateRecentSymbolsMenu;
@@ -459,7 +512,7 @@ begin
   AddItem(TopItem, '-', nil);
   FPauseItem := AddItem(TopItem, '&Pause', @DoPause, ShortCut(VK_F4, []));
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_P, [ssCtrl]));
+  AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_F9, []));
 
   // The storage menus (Tape, Floppy, SD) between separators
   AddItem(FMenu.Items, '|', nil).Enabled := False;
@@ -555,6 +608,7 @@ begin
   end;
   FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
   FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
+  FModernItem := AddItem(TopItem, 'Mo&dern interface (dark)', @DoToggleTheme);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, 'S&ettings...', @DoSettings);
 
@@ -639,6 +693,7 @@ begin
   AddSeparator;
   AddButton(ikDebugger, 'Debugger (F12)', @DoDebugger);
   AddButton(ikSettings, 'Settings', @DoSettings);
+  AddButton(ikTheme, 'Switch to the modern interface (dark)', @DoToggleTheme);
 end;
 
 procedure TMainWindow.ApplySettings;
@@ -870,6 +925,7 @@ begin
   FModelPopupItems[M].Checked := True;
   FModelButton.Hint := 'Machine: ' + ModelInfo[M].Name + ' (click to change)';
   FFastLoadItem.Checked := Settings.FastLoad;
+  FModernItem.Checked := Settings.ModernUI;
   FAutoPlayItem.Checked := Settings.AutoPlayTape;
   FMuteItem.Checked := not Settings.Sound;
   FMonoItem.Checked := Settings.Monochrome;
@@ -887,26 +943,75 @@ begin
   FPauseButton.Down := FEmu.Paused;
   FTurboItem.Checked := FEmu.Turbo;
   FTurboButton.Down := FEmu.Turbo;
-  for S := 1 to 4 do FScaleItems[S].Checked := S = Settings.Scale;
+  for S := 1 to 4 do
+  begin
+    FScaleItems[S].Checked := S = Settings.Scale;
+    // A zoom too big for the screen can't be chosen
+    FScaleItems[S].Enabled := (S = 1) or ScaleFits(S);
+  end;
+  ModernTick;
+end;
+
+{ Space around the screen in the window: toolbar, status bar etc. (from
+  the live layout), or the modern palettes, header and bar }
+procedure TMainWindow.ScaleExtra(out ExtraW, ExtraH: Integer);
+begin
+  if FModern then
+  begin
+    // The palettes, header and bar around the screen are of fixed sizes
+    ExtraW := FMLeft.Width + FMRight.Width + 2 * FDisplay.BorderSpacing.Around;
+    ExtraH := FMHeader.Height + FMBottom.Height + 2 * FDisplay.BorderSpacing.Around;
+  end
+  else
+  begin
+    ExtraW := Max(0, ClientWidth - FDisplay.Width);
+    ExtraH := Max(FToolBar.Height + FStatus.Height, ClientHeight - FDisplay.Height);
+  end;
+end;
+
+{ The window at this zoom fits on its screen (with its frame and title,
+  as they really are once it is shown) }
+function TMainWindow.ScaleFits(Scale: Integer): Boolean;
+var
+  Work: TRect;
+  ExtraW, ExtraH, W, H, FrameW, FrameH: Integer;
+begin
+  ScaleExtra(ExtraW, ExtraH);
+  W := SCREEN_WIDTH * Scale + ExtraW;
+  H := SCREEN_HEIGHT * Scale + ExtraH;
+  if FModern then
+  begin
+    W := Max(W, FModernMinWidth);
+    H := Max(H, FModernMinHeight);
+  end;
+  if HandleAllocated and (Width > ClientWidth) and (Height > ClientHeight) then
+  begin
+    FrameW := Width - ClientWidth;
+    FrameH := Height - ClientHeight;
+  end
+  else
+  begin
+    FrameW := 16;
+    FrameH := 60;
+  end;
+  if Monitor <> nil then Work := Monitor.WorkareaRect else Work := Screen.WorkAreaRect;
+  Result := (W + FrameW <= Work.Right - Work.Left) and (H + FrameH <= Work.Bottom - Work.Top);
 end;
 
 procedure TMainWindow.SetScale(Scale: Integer);
 var
-  Work: TRect;
   ExtraW, ExtraH: Integer;
 begin
-  // Space taken by toolbar, status bar etc., measured from the live layout
-  ExtraW := Max(0, ClientWidth - FDisplay.Width);
-  ExtraH := Max(FToolBar.Height + FStatus.Height, ClientHeight - FDisplay.Height);
+  ScaleExtra(ExtraW, ExtraH);
   // Keep the window on screen: drop to the largest whole zoom that fits
-  Work := Screen.WorkAreaRect;
-  while (Scale > 1) and ((SCREEN_WIDTH * Scale + ExtraW + 40 > Work.Right - Work.Left) or
-    (SCREEN_HEIGHT * Scale + ExtraH + 80 > Work.Bottom - Work.Top)) do
-    Dec(Scale);
+  while (Scale > 1) and not ScaleFits(Scale) do Dec(Scale);
   Settings.Scale := Scale;
   WindowState := wsNormal;
   ClientWidth := SCREEN_WIDTH * Scale + ExtraW;
   ClientHeight := SCREEN_HEIGHT * Scale + ExtraH;
+  // The modern palettes need their height, whatever the zoom
+  if FModern and (ClientHeight < FModernMinHeight) then ClientHeight := FModernMinHeight;
+  if FModern and (ClientWidth < FModernMinWidth) then ClientWidth := FModernMinWidth;
 end;
 
 procedure TMainWindow.ResizeAfterShow(Data: PtrInt);
@@ -1053,11 +1158,20 @@ begin
   R.Top := (FDisplay.Height - FBitmap.Height) div 2;
   R.Right := R.Left + FBitmap.Width;
   R.Bottom := R.Top + FBitmap.Height;
-  FDisplay.Canvas.Brush.Color := clBlack;
+  // Around the picture: black, or (modern) the window's grey with a dark
+  // frame round the screen
+  if FModern then FDisplay.Canvas.Brush.Color := MUI_BACK else FDisplay.Canvas.Brush.Color := clBlack;
   FDisplay.Canvas.FillRect(0, 0, FDisplay.Width, Max(R.Top, 0));
   FDisplay.Canvas.FillRect(0, R.Bottom, FDisplay.Width, FDisplay.Height);
   FDisplay.Canvas.FillRect(0, R.Top, Max(R.Left, 0), R.Bottom);
   FDisplay.Canvas.FillRect(R.Right, R.Top, FDisplay.Width, R.Bottom);
+  if FModern then
+  begin
+    FDisplay.Canvas.Brush.Color := MUI_SCREEN_FRAME;
+    FDisplay.Canvas.Pen.Color := $00111111;
+    FDisplay.Canvas.Rectangle(R.Left - MUIScale(8), R.Top - MUIScale(8), R.Right + MUIScale(8),
+      R.Bottom + MUIScale(8));
+  end;
   // Same size as the target: no stretching or smoothing by the platform
   FDisplay.Canvas.Draw(R.Left, R.Top, FBitmap);
 end;
@@ -1110,6 +1224,7 @@ begin
   if FEmu.Spec.Speed > 1 then
     FStatus.Panels[1].Text := FStatus.Panels[1].Text + Format(' CPU x%d', [FEmu.Spec.Speed]);
   FStatus.Panels[2].Text := TapeText;
+  ModernTick;
 end;
 
 { Media present and busy, like the LEDs of a drive: lit while it is read or
@@ -1149,6 +1264,7 @@ begin
   begin
     FMediaState := State;
     FStatus.Invalidate;
+    if FModern then FMMediaBox.Invalidate;
   end;
 end;
 
@@ -1338,6 +1454,12 @@ end;
 
 procedure TMainWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
+  // The modern interface has no menu bar to take its shortcuts
+  if FModern and MenuShortcut(Key, Shift) then
+  begin
+    Key := 0;
+    Exit;
+  end;
   if (Key >= VK_F1) and (Key <= VK_F24) then Exit;    // leave function keys to the menu
   if (Key = VK_MENU) or (ssAlt in Shift) then Exit;
   Key := SidedKey(Key);
@@ -1437,11 +1559,14 @@ begin
   // Size again once the window has settled: the platform may have changed
   // the toolbar height or rescaled the window
   Application.QueueAsyncCall(@ResizeAfterShow, 0);
+  // The window exists now: its title bar can be made dark
+  SetDarkTitle(Self, FModern);
   // The command line can open windows (debugger, documentation), so it runs
   // once the main window exists
   if not FStarted then
   begin
     FStarted := True;
+    if FShowNotice then ShowNotice;
     Application.QueueAsyncCall(@StartUp, 0);
   end;
 end;
@@ -1546,9 +1671,9 @@ begin
   FEmu.Lock;
   try
     try
-      if Ext = '.tap' then
+      if (Ext = '.tap') or (Ext = '.tzx') then
       begin
-        FEmu.Spec.Tape.LoadTAP(FileName);
+        FEmu.Spec.Tape.LoadFile(FileName);
         // On the Next the tape is loaded from NextZXOS (LOAD "" or the Browser)
         if AutoStart and (FEmu.Spec.Model <> smZXNext) then FEmu.Spec.AutoLoad;
       end
@@ -1609,6 +1734,24 @@ begin
   Dlg := TOpenDialog.Create(Self);
   try
     Dlg.Filter := OPEN_FILTER;
+    Dlg.InitialDir := Settings.LastDir;
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if Dlg.Execute then OpenFile(Dlg.FileName);
+  finally
+    Dlg.Free;
+  end;
+end;
+
+{ A tape into the recorder (the modern interface's Eject): as File > Open,
+  for tapes only }
+procedure TMainWindow.DoTapeInsert(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Title := 'Insert a tape';
+    Dlg.Filter := 'Tape images (*.tap;*.tzx)|*.tap;*.tzx';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then OpenFile(Dlg.FileName);
@@ -1689,12 +1832,27 @@ end;
 { ZX Spectrum Next }
 
 function SaveCardInPlace(Emu: TEmulator; out Err: string): Boolean; forward;
+function AskSize(const Caption, Info: string; MinMB, DefaultMB: Integer; out SizeMB: Integer): Boolean; forward;
 
 { Make the Next's card from its distribution, showing that it is busy }
-function TMainWindow.MakeNextCardFile(const FileName: string): Boolean;
+{ The size of a new Next card: the distribution must fit, with room left
+  (FAT16: up to 2 GB) }
+function AskNextCardSize(out SizeMB: Integer): Boolean;
+var
+  Entries, DistroMB: Integer;
+begin
+  DistroMB := Integer(FolderSize(NextDistroDir, Entries) div (1024 * 1024)) + 1;
+  Result := AskSize('ZX Spectrum Next SD card', Format('A new card for the ZX Spectrum Next, ' +
+    'with its distribution (%d MB) and room for your files.', [DistroMB]),
+    DistroMB * 5 div 4 + 16, 512, SizeMB);
+end;
+
+function TMainWindow.MakeNextCardFile(const FileName: string; SizeMB: Integer): Boolean;
 var
   OldStatus: string;
 begin
+  // No size given: ask it
+  if (SizeMB = 0) and not AskNextCardSize(SizeMB) then Exit(False);
   Result := True;
   OldStatus := FStatus.Panels[2].Text;
   FStatus.Panels[2].Text := 'Making the ZX Spectrum Next SD card...';
@@ -1702,7 +1860,7 @@ begin
   Application.ProcessMessages;
   try
     try
-      MakeNextCard(NextDistroDir, FileName);
+      MakeNextCard(NextDistroDir, FileName, SizeMB);
       Settings.NextDistroId := NextCard.NextDistroId(NextDistroDir);
     except
       on E: Exception do
@@ -1723,27 +1881,30 @@ end;
 function TMainWindow.PrepareNext: Boolean;
 var
   Dir, Card, Id, Old: string;
+  Installed: Boolean;
   Vol: TFatVolume;
   Repaired: TStringList;
 begin
   Result := False;
   Dir := NextDistroDir;
+  // Not there (it can't come with pzx): the steps to download and install
+  // it; stopped, the machine stays as it was (or pzx closes, started on it)
+  Installed := False;
   if not NextDistroReady(Dir) then
   begin
-    // The folder ready to unpack the distribution into
-    if not DirectoryExists(Dir) then ForceDirectories(Dir);
-    if FNextFromCommandLine then Old := 'pzx closes now.' else Old := 'The machine stays as it was.';
-    MessageDlg('ZX Spectrum Next', Format('The ZX Spectrum Next needs its system distribution. ' +
-      'Download the latest one from %s and unpack it into the folder:' + LineEnding + LineEnding +
-      '%s' + LineEnding + LineEnding + '(it must have machines' + PathDelim + 'next in it).' +
-      LineEnding + LineEnding + '%s', [NEXT_DOWNLOAD_URL, Dir, Old]), mtInformation, [mbOK], 0);
-    Exit;
+    if not InstallNextDistro(Dir) then Exit;
+    Installed := True;
   end;
   Card := NextCardFile;
   Id := NextCard.NextDistroId(Dir);
   if not FileExists(Card) then
   begin
-    if not MakeNextCardFile(Card) then Exit;
+    // Just installed with the steps: straight on, the card of the usual size
+    if Installed then
+    begin
+      if not MakeNextCardFile(Card, NEXT_CARD_MB) then Exit;
+    end
+    else if not MakeNextCardFile(Card) then Exit;
   end
   else if (Settings.NextDistroId <> '') and (Settings.NextDistroId <> Id) then
   begin
@@ -1829,14 +1990,11 @@ var
   Dlg: TSaveDialog;
   FileName: string;
   InUse: Boolean;
+  SizeMB: Integer;
 begin
-  if not NextDistroReady(NextDistroDir) then
-  begin
-    MessageDlg('ZX Spectrum Next', Format('There is no ZX Spectrum Next distribution in %s. ' +
-      'Download the latest one from %s and unpack it there.', [NextDistroDir, NEXT_DOWNLOAD_URL]),
-      mtInformation, [mbOK], 0);
-    Exit;
-  end;
+  if not NextDistroReady(NextDistroDir) and not InstallNextDistro(NextDistroDir) then Exit;
+  // The size first, then the file (as for the DivMMC's new cards)
+  if not AskNextCardSize(SizeMB) then Exit;
   Dlg := TSaveDialog.Create(nil);
   try
     Dlg.Title := 'New SD card with the ZX Spectrum Next distribution';
@@ -1861,7 +2019,7 @@ begin
       FEmu.Unlock;
     end;
   end;
-  if not MakeNextCardFile(FileName) then Exit;
+  if not MakeNextCardFile(FileName, SizeMB) then Exit;
   // It is the Next's card from now on
   if SameFileName(FileName, ExtractFilePath(Settings.FileName) + 'zxnext.img') then Settings.NextCard := ''
   else Settings.NextCard := FileName;
@@ -1919,8 +2077,22 @@ procedure TMainWindow.DoModelButton(Sender: TObject);
 var
   P: TPoint;
 begin
-  P := FModelButton.ClientToScreen(Point(0, FModelButton.Height));
-  FModelMenu.PopUp(P.X, P.Y);
+  if Sender = FMModelBtn then
+  begin
+    // Modern: under the button, at the window's right edge, so it opens
+    // towards the left
+    // (a dark copy of the menu, as those of the header)
+    P := FMModelBtn.ClientToScreen(Point(FMModelBtn.Width, FMModelBtn.Height));
+    FMirror.Items.Clear;
+    MirrorItems(FModelMenu.Items, FMirror.Items);
+    FMirror.Alignment := paRight;
+    FMirror.PopUp(P.X, P.Y);
+  end
+  else
+  begin
+    P := FModelButton.ClientToScreen(Point(0, FModelButton.Height));
+    FModelMenu.PopUp(P.X, P.Y);
+  end;
 end;
 
 procedure TMainWindow.DoReset(Sender: TObject);
@@ -2044,7 +2216,7 @@ begin
     Dlg.DefaultExt := 'tap';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not Dlg.Execute then Exit;
+    if not ConfirmTapSave(FEmu) or not Dlg.Execute then Exit;
     FEmu.Lock;
     try
       FEmu.Spec.Tape.SaveTAP(Dlg.FileName);
@@ -2054,6 +2226,17 @@ begin
   finally
     Dlg.Free;
   end;
+end;
+
+{ The other interface (classic or modern), at once }
+procedure TMainWindow.DoToggleTheme(Sender: TObject);
+begin
+  Settings.ModernUI := not Settings.ModernUI;
+  // The first start's note is about the modern interface
+  if FNotice <> nil then NoticeEnd(nil);
+  ApplyStyle;
+  SetScale(Settings.Scale);
+  UpdateChecks;
 end;
 
 procedure TMainWindow.DoFastLoad(Sender: TObject);
@@ -2258,8 +2441,8 @@ begin
   end;
 end;
 
-{ Size of a new card, in MB }
-function AskCardSize(WithEsxdos: Boolean; out SizeMB: Integer): Boolean;
+{ Size of a new card, in MB: from those of MinMB or more, DefaultMB at first }
+function AskSize(const Caption, Info: string; MinMB, DefaultMB: Integer; out SizeMB: Integer): Boolean;
 const
   SIZES: array[0..7] of Integer = (16, 32, 64, 128, 256, 512, 1024, 2048);
 var
@@ -2268,15 +2451,24 @@ var
   Lbl: TLabel;
   Btn: TButton;
   I: Integer;
+  Choices: array of Integer;
 begin
   Result := False;
+  Choices := nil;
+  for I := 0 to High(SIZES) do
+    if SIZES[I] >= MinMB then
+    begin
+      SetLength(Choices, Length(Choices) + 1);
+      Choices[High(Choices)] := SIZES[I];
+    end;
+  if Choices = nil then Exit;
   Dlg := TForm.CreateNew(nil, 0);
   try
-    if WithEsxdos then Dlg.Caption := 'New SD card with ESXDOS' else Dlg.Caption := 'New SD card';
+    Dlg.Caption := Caption;
     Dlg.BorderStyle := bsDialog;
     Dlg.Position := poMainFormCenter;
     Dlg.ClientWidth := 360;
-    Dlg.ClientHeight := 130;
+    Dlg.ClientHeight := 142;
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
     Lbl.Caption := 'Size (FAT16):';
@@ -2285,33 +2477,46 @@ begin
     Combo.Parent := Dlg;
     Combo.Style := csDropDownList;
     Combo.SetBounds(140, 12, 120, 24);
-    for I := 0 to High(SIZES) do Combo.Items.Add(Format('%d MB', [SIZES[I]]));
-    Combo.ItemIndex := 3;
+    Combo.ItemIndex := 0;
+    for I := 0 to High(Choices) do
+    begin
+      Combo.Items.Add(Format('%d MB', [Choices[I]]));
+      if Choices[I] = DefaultMB then Combo.ItemIndex := I;
+    end;
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    if WithEsxdos then
-      Lbl.Caption := 'The card gets the ESXDOS SYS, BIN and TMP folders.'
-    else
-      Lbl.Caption := 'An empty card with one FAT16 partition.';
-    Lbl.SetBounds(10, 50, 340, 18);
+    Lbl.AutoSize := False;
+    Lbl.WordWrap := True;
+    Lbl.Caption := Info;
+    Lbl.SetBounds(10, 48, 340, 42);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
     Btn.Caption := 'OK';
     Btn.Default := True;
     Btn.ModalResult := mrOK;
-    Btn.SetBounds(190, 90, 75, 28);
+    Btn.SetBounds(190, 104, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
     Btn.Caption := 'Cancel';
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
-    Btn.SetBounds(275, 90, 75, 28);
+    Btn.SetBounds(275, 104, 75, 28);
     if Dlg.ShowModal <> mrOK then Exit;
-    SizeMB := SIZES[Combo.ItemIndex];
+    SizeMB := Choices[Combo.ItemIndex];
     Result := True;
   finally
     Dlg.Free;
   end;
+end;
+
+{ Size of a new DivMMC card, in MB }
+function AskCardSize(WithEsxdos: Boolean; out SizeMB: Integer): Boolean;
+begin
+  if WithEsxdos then
+    Result := AskSize('New SD card with ESXDOS', 'The card gets the ESXDOS SYS, BIN and TMP folders.',
+      16, 128, SizeMB)
+  else
+    Result := AskSize('New SD card', 'An empty card with one FAT16 partition.', 16, 128, SizeMB);
 end;
 
 procedure TMainWindow.DoSDNew(Sender: TObject);
@@ -2990,6 +3195,7 @@ begin
   end;
   if Settings.Model <> FEmu.Spec.Model then ChangeModel(Settings.Model);
   ApplySettings;
+  if Settings.ModernUI <> FModern then ApplyStyle;
   SetScale(Settings.Scale);
   UpdateChecks;
   RenderBitmap;    // black and white may have changed
@@ -3054,7 +3260,7 @@ var
       (Name = 'romdir') or (Name = 'rom') or (Name = 'divmmcrom') or
       (Name = 'zxunofirmware') or (Name = 'zxunoroms') or (Name = 'zxunocustomrom') or
       (Name = 'nextdir') or (Name = 'nextcard') or
-      (Name = 'shiftkeys') or (Name = 'breakpoints') or (Name = 'watches') or
+      (Name = 'shiftkeys') or (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
 
@@ -3262,6 +3468,13 @@ begin
         if RomIndex < 0 then
           Errors := Errors + '--rom "' + Value + '": expected MODEL,N,FILE (an existing file, ' +
             'N one of the model''s ROMs)' + LineEnding;
+      end
+      else if Arg = 'ui' then
+      begin
+        // Applied before the window was made (ReadSettingsOptions)
+        Value := LowerCase(Value);
+        if (Value <> 'classic') and (Value <> 'modern') then
+          Errors := Errors + 'Unknown --ui (classic or modern): ' + Value + LineEnding;
       end
       else if Arg = 'shiftkeys' then
       begin
@@ -3746,5 +3959,7 @@ procedure TMainWindow.DoLicense(Sender: TObject);
 begin
   ShowLicense;
 end;
+
+{$I MainModern.inc}
 
 end.

@@ -1,0 +1,327 @@
+CHANGELOG for NextPi1 - See CHANGELOG2 for DietPi2 development
+
+Version 0.99E DietPi for Next - Long, and stale - like last years baguette 🥖
+ * Fix a bug in nextpi-dongle_disable (thanks em00k)
+ * Add support for faster, error correcting nextpi-file_send and 
+   nextpi-file_receive APIs (piput and piget to follow)
+ * LOTS of typos in the document that no-one reported now fixed
+( This has been in limited testing since September 29, 2020 - released due to no
+  bugs reported)
+-Xalior, 28 May 2021
+
+Version 0.99D DietPi for Next - Always believe in your soul 🥇
+ * Added MD5 sums to builds assets for SMS validation
+ * Disable DietPi account -- use root account, password is still "dietpi"
+ * Fixed bug in df-h generation that was accidentally logging size of currently
+  attached PlusPacks and mounted memory
+
+Things that DIDNOT change since Beta 0.98
+ * Removed private test files, ready for GM - these will now live in the Media
+  PlusPack
+ * nextpi-admin_clean now defaults to RAM cleaner, all other options behind
+  flags
+ * nextpi-play_silence for when you kill a player, and want to send NULL to the
+  DAC (this is a hack. to be patched post GM)
+ * NextPi now writes the "last known localtime" to /boot on shutdown, allowing
+  you to set the clock at startup by editing this file, or store the last
+   "known time" or network time if Ethernet found
+ * Removed Terminex.nex, to prevent confusion
+ * Updated Terminex.snx, now handles "much bigger files", and uses
+  nextpi-file_stream system method to base64 decode the results. Thanks
+   David Saphier/emook!
+
+Things that DIDNOT change since Beta 0.97
+ * PlusPack builder now does nexted zips in nexted zips, so you need less
+  diskspace to extract and select pluspacks
+ * Docs and labeling tweaks, reading for GM
+ * Added nextpi-plus_activate, nextpi-plus_list, nextpi_plus-unlock and
+  nextpi-plus_lock
+ * nextpi-plus_list called upon SUPervisor startup
+ * Added 'pv' cli for rate limiting output over SUPervisor
+
+Things that DIDNOT change since Beta 0.96
+ * Dongle Plus Packs support - first experimental build
+ * Added pasmo
+ * Changed startup scripts to use nextpi-admin_clean not inline hacks
+ * Added support for autoexec.sh in "nextpi" folder on all persistant and Plus
+  Pack storage areas
+ * Added ntpdate (not ntpd)
+    _IF_ you have an Ethernet dongle on your PiZero NextPi will try to update
+     the softclock on "Last known good time" GMT
+
+Things that DIDNOT change since Alpha 0.95
+ * Added /opt/nextpi/EDITION for reporting size, and other features of active
+  image (eg 1RO, 1GB, Read Only ROOT)
+ * renamed docs/custom-packages to docs/custom-packages.txt
+ * added individual filelist for custom packages to generators :-o
+ * Fixed issue generator. Again.
+ * Added automatic release note generator to CI
+
+-Xalior, 29 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.98 DietPi for Next - Something strange is a foot at the circle K ⏳
+
+ Not a public release
+
+-Xalior, 29 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.97 DietPi for Next - Something for the weekend 🍸
+
+ Not a public release
+
+-Xalior, 28 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.96 DietPi for Next - Something to keep you company 🧸
+
+ Not a public release
+
+-Xalior, 28 Sept 2019
+        
+------------------------------------------------------------------------------
+Version 0.95 DietPi for Next - Yellow brick road 💛
+
+ Not a public release
+
+-Xalior, 28 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.94 DietPi for Next - Streams 🎏
+
+ * Updated Terminex, nextpi-file_stream, and docs to match
+ * Removed refs to NEXTCOM - again, some more - elsewhere
+ * SUP now starts in /ram, therefore making its default FS writable
+ * Added sjasmplus to CI servers, installed in /usr/bin by default
+ * Added package list generation to CI scripts, results now in
+  docs/custom-packages and docs/package-lists
+ * Added more rigorous SUPervisor restart loop
+ * Various CI "sanity" tests as we approach Gold Master
+
+-Xalior, 27 Sept 2019, again
+        
+------------------------------------------------------------------------------
+
+Version 0.93 DietPi for Next - Herpaderp 🤪
+
+Things that DID change since Alpha 0.92
+ * Locked core frequency clock, to increase serial stability
+ * Rewrote nextpi-file_stream so it uses standard packages
+ * Swapped encode for sharutils uudecode instead
+ * Added quick version of nextpi-dongle_* utils
+ * Added shell echo wrappers in form of nextpi-echo_* utils
+ * Removed sudo, and all refs to it from DietPi startup scripts
+
+Things that DIDNOT change since Alpha 0.92
+ * Removed refs to NEXTCOM
+ * Added fast client ram clean flag to next-admin_clean, no longer does packages
+ * Removed some pyc filedroppings (until happy with a better way to manage
+  this...)
+ * Added GNU/screen (called such to avoid confusion) - see multitasking.txt
+
+-Xalior, 27 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.92 DietPi for Next - Nuts and Bolts 🔧
+
+ Not a public release
+
+-Xalior, 26 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.91 DietPi for Next - Extra Padding 🍽
+
+Things that DID change since Alpha 0.90A
+ * Removed NEXTCOM - Terminex does _everything_ better. Praise em00k
+ * Redid the update-cleaner to remove more debian metadata
+ * Renamed packages.txt to debian-packages.txt
+ * Added python-packages.txt
+ * Added Framebuffer.txt for details about NextPi video out.
+ * Rewrote nextpi-file_stream to UUDecode output
+ * Removed (horrible, crashy, bloated) xboxdrv (can you guess what killed 0.90A? yet)
+ * Added python-input
+ * New CLI nextpi-input_xbox
+ * Rewrote help handler, Python and shell now use common URL generators, etc.
+ * Various tweaks to CI to help debug broken builds
+
+Things that DIDNOT change since Alpha 0.90A
+ * Updated Terminex, check docs
+ * Python virtualenv2.7 setup for ROM fs, can use dongle for envois, remember
+  not to use symlinks when creating ENVs due to FATfs limitations.
+ * SharUtils for more versatile options on file encoding, and update formats
+ * Removed another erroneous Packages.txt -- this one was coming from the CI
+ server :D
+ * You guessed it, more typos in the docs removed. Not all. Never all.
+ * Added some extra details about drive uses in the Pi, to Partitions.txt
+ * Updated CLI.txt with extra details about Dongle added to path search order
+ * Changed nextpi CLI search order, now goes: vRAM, Dongle, User Part, ROM
+ * Migrated .bashrc and .profile for SUPervisor and ~root into /opt/nextpi/lib,
+ and distro source
+ * Created /opt/nextpi/etc, and migrated critical files to it, and to distro
+ source
+ * Pruned some stale docs
+ * Source public on gitlab now
+ * Added image white-space truncation routine to comply with gold master
+ reqs@SMS
+ * Added xboxdrv interface
+ * Cleaned out lib and tools for timezone data and utils
+ * Update nextpi-admin_clean to remove packages flagged for uninstall
+
+-Xalior, 25 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.90A DietPi for Next - quick, like 🝁
+
+ Not a public release
+
+-Xalior, 23 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.90 DietPi for Next - I love it when a plan comes together... 🚬
+
+Things that DID change since Alpha 0.89B
+
+ * More CD tweaks (aka, errata and edge cases - this time MacOS ._ files)
+ * Added support for Lua(5.1) CLI, and the Lua compiler
+ * Added libao-common, libao4
+ * Added nextpi-play_sndh, and dependancies
+ * Swapped wrapCD with porg - all custom packages now use porg, see
+ https://github.com/StalePixels/csid-mod/tree/master/NextPi and
+ https://github.com/StalePixels/sc68/tree/master/NextPi for examples of the
+ CI/CD hooks required for your own package integration - proper documentation will follow
+ * Added missing bits to Changelog
+ * Added a /nextpi folder in the root of the Dongle to the search path, for 
+ persistent CLIs on a dongle :D (/mnt/dongle/nextpi)
+ * Added the first round of the func helpers, this handles compulsory URLs, and 
+ routes people to the wiki for help. Virtually no wiki pages yet exist :D
+ * Added /BAS to distro tar
+ * Fixed a bug in "nextpi-admin_clean --update" where it was logging dongle 
+ space to distro files
+
+-Xalior, 22 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.89C DietPi for Next - Robots! 🤖
+  
+Things that DID change since Alpha 0.89B
+
+ * Second attempt of "Continuous Delivery" in anticipation of NextPi buildfarm
+ * Renamed "Packages.txt" to "packages.txt" to stop Continuous Deployment 
+ server from duplicating it twice.
+ * Stopped ALSA Mixer erroring over no volume controls 
+ * Fleshed out Partitions.txt
+ * Added nextpi-play_sid, and dependancies
+
+-Xalior, 22 Sept 2019
+        
+------------------------------------------------------------------------------
+Things that DID NOT change since Alpha 0.89B
+
+ * Added Supervisor.txt
+ * Pruned more unused UIDs and GIDs
+ * Fixed bug where updater sometimes lost messages and never logged them, which 
+ could cause infinite update loop
+ * Removed WiFi Country specific tools
+ * Added SSH keys for release management
+ * CICD v1 scripts (in git)
+ * Added --update flag to nextpi-admin_clean
+ * Moved DTO sources to distro
+ * Removed old config files for packages not installed (speex, pulse, py35)
+ * Removed DTO compiler & libraspberrypi-bin 
+ * Added support.txt
+ * Added python pip for future install options
+
+-Xalior, 21 Sept 2019
+        
+------------------------------------------------------------------------------
+Version 0.89B DietPi for Next - *BUMP* 👊
+
+ * Private release
+
+-Xalior, 19 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.89A DietPi for Next - Can you hear it? 👂
+  
+Things that DID change since Alpha 0.89
+
+ * Added History.txt as brief route to how this image came about, technically.
+ * New packages: libsdl-sound1.2 -- WITHOUT the autoconfig stuff, should work 
+ for apps that don't try to detect soundcards
+ * nextpi-dongle-* merged into a single script
+ * nextpi updater now automatically installs a fresh update, via RAM, only once.
+ * /opt/nextpi/bin/func now used for common nextpi- related bash fuctions
+ * .bashrc for root user used to universally manage path overrides now
+ * Python now always defaults to UNBUFFERED=true
+ * /NextPi now uses BINDFS for more logical systemtool handling
+ * Python bindings for pigpio
+ * Removed GIT, added Fill Fat SSH and RSYNC instead.
+        ssh includes a number of preinstalled keys used for potential updates, 
+        please do not remove
+ * LRZSZ for error checked transfer Piside, Nextside to follow
+ * added Device Tree Overlay source to distro
+ * New CLI tools:
+        nextpi-admin_report     - system stats about drivespace
+        nextpi-dongle_update    - scanfor, and install updates from USB
+        nextpi-play_mp3
+        nextpi-play_mod
+        nextpi-file_stream      - drain STDIN for predefined number of bytes 
+                                  *UNTESTED
+ * a series of TEST ONLY files exist in /NextPi/tests -- no credit is claimed for these
+ * EXPERIMENTAL Debugging tool NEXTCOM.NXT
+
+-Xalior, 16 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 0.89 DietPi for Next - The Last Alpha? 🚨
+
+If you have been following the old version number scheme this "would have been" Alpha9 :)
+
+Things that DID NOT change since Alpha8
+
+ * We're still on Rasbian Stretch, and that is here to stay, the number of 
+ changes we would need to make to Rasbian Buster to make it fit with our 
+ constraints don't align with the time we have, or the resources we can burn, 
+ before Gold Master is due to SMS. Sorry.
+
+Things that DID change since Alpha 9
+
+ * Bluetooth is back, now routed via the MiniUART, but the software stack is 
+ missing -- this means that our image doesn't stop someone using the bluetooth 
+ module independently if they put in a Pi0w, but we've not using space for the 
+ software.
+ * FileSystem is now READ ONLY - use the nextpi-admin_* tools to manage this
+ * nextpi-* tools are overridable via RAM, or persistent via the internal user 
+ persistence 
+ * Dedicated /ram volatile drive exposed for NextPi use -- will be wiped every 
+ reboot
+ * I2S Sound(!!) - PWM sound now disabled, swapped for new DAC, managed via DTO
+ * SUPervisor reflects FS admin status - SUP> is RO, SUP# is RW
+ * .bashrc for root, and SUPervisor now includes nextpi-* for default, 
+ persistent, and temp
+
+-Xalior, 14 Sept 2019
+        
+------------------------------------------------------------------------------
+
+Version 8 of DietPi for Next
+
+Probably the last "Rasbian Stretch" release.
+First *EXPERIMENTAL* support for Pi Zero W - trades Bluetooth for Compatability
+
+-Xalior, 30 Aug 2019
+        
+------------------------------------------------------------------------------
+

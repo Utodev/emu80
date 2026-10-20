@@ -1,0 +1,59 @@
+@title Command Line Guide
+@author Garry Lancaster
+@version 1.03
+@copyright Copyright (C)2023 Garry Lancaster
+@date 2024/02/10
+@----------------------------------------------------------------------------
+@node MAIN
+@next OPTIONS
+@{c}@{h1}Command Line Guide
+
+The @{i}Command Line@{ui} is mainly intended for running file-related BASIC
+commands (such as @{b}CAT@{ub}, @{b}ERASE@{ub}, @{b}COPY@{ub}, @{b}MOVE@{ub} etc) and @{i}dot commands@{ui},
+but it can also be used to execute any other NextBASIC command.
+
+For details on available commands, please see the @{b}ZX Spectrum
+Next User Manual@{ub}. Further information (readable on PCs and Macs) can also
+be found on this SD card in @{b}/docs/nextzxos@{ub}.
+
+Available dot commands can be seen by typing:
+        @{b}cat "c:/dot/"@{ub}
+
+When entering a dot command, you must precede the name with a dot, eg:
+        @{b}.mem@{ub}
+
+Most dot commands require options and parameters, and usually provide their
+own help. This is most often seen simply by typing the dot command without
+any options, or with a @{b}-h@{ub} or @{b}--help@{ub} option. eg:
+        @{b}.editprefs@{ub}
+        @{b}.ls --help@{ub}
+
+The command line editor shows various syntax items (dot commands, strings etc)
+in different colours depending upon the currently-selected editor colour
+scheme. For more information on editor colour schemes, see the @{b}NextZXOS@{ub} guide,
+found on the main menu. Note that syntax-highlighting colours are currently
+only supported for 32-character editing mode.
+
+Pressing @{b}EDIT@{ub} brings up a @{"menu" LINK OPTIONS} for further options.
+@----------------------------------------------------------------------------
+@node OPTIONS
+@prev MAIN
+@toc MAIN
+@{r}Command Line Guide
+@{c}@{h1}Edit options menu
+
+The options menu provides further available actions. If you bring the menu up
+by mistake, press @{b}SPACE@{ub} or @{b}BREAK@{ub} to dismiss it and return to the Command Line.
+
+@{h2}NextBASIC
+Switches to the @{i}NextBASIC@{ui} editor.
+
+@{h2}32/64/85
+Cycles between 32/64/85 columns-per-line mode, allowing different amounts of
+information to be shown on screen.
+
+@{h2}Guide
+Brings up this guide.
+
+@{h2}Exit
+Exits the editor and returns to the main NextZXOS menu.

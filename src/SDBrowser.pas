@@ -11,13 +11,14 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Graphics, LCLType, Emulator,
-  FatFS, Plus3FS, Icons;
+  FatFS, Plus3FS, Icons, PathTitle;
 
 type
   TIndexArray = array of Integer;
 
   TSDBrowserWindow = class(TForm)
   private
+    FTitle: TPathTitle;                // the title, with the file's path
     FEmu: TEmulator;
     FToolBar: TToolBar;
     FImages: TImageList;
@@ -98,6 +99,7 @@ begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
   Caption := 'SD card browser';
+  FTitle := TPathTitle.Create(Self);
   Width := 820;
   Height := 460;
   Position := poMainFormCenter;
@@ -336,7 +338,7 @@ begin
         FStatus.SimpleText := Format('FAT%d   %d items   %s free of %s', [Vol.FatType,
           Length(FEntries), FormatFloat('#,##0', Vol.FreeBytes div 1024) + 'K',
           FormatFloat('#,##0', Vol.TotalBytes div 1024) + 'K']);
-        Caption := 'SD card browser - ' + ExtractFileName(FCardFile);
+        FTitle.SetTitle('SD card browser - ', ExpandFileName(FCardFile), '');
       finally
         Vol.Free;
       end;

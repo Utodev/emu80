@@ -1,0 +1,30 @@
+; ***************************************************************************
+; * Spectrum 48K standard addresses                                         *
+; ***************************************************************************
+
+GET_CHAR_r3             equ     $0018           ; get current character
+NEXT_CHAR_r3            equ     $0020           ; get next character
+BC_SPACES_r3            equ     $0030           ; allocate workspace
+CLS_r3                  equ     $0d6b           ; CLS (for layer 0)
+OUT_CODE_r3             equ     $15ef           ; digit output
+CHAN_OPEN_r3            equ     $1601           ; open channel to stream
+CALL_JUMP_r3            equ     $162c           ; execute routine at HL
+MAKE_ROOM               equ     $1655
+SET_MIN                 equ     $16b0
+OUT_SP_NO_r3            equ     $192a           ; numeric place output
+EACH_STMT_r3            equ     $198b           ; search statements
+RECLAIM_2               equ     $19e8           ; reclaim BC bytes at HL
+CLASS_01_r3             equ     $1c1f           ; class 01, variable to assign
+REPORT_2_r3             equ     $1c2e           ; "2 Variable not found"
+FREE_MEM_r3             equ     $1f1a           ; BASIC workspace memory
+PR_STRING_r3            equ     $203c           ; print string
+LOOK_VARS_r3            equ     $28b2           ; find variable
+STK_STO_S_r3            equ     $2ab2           ; store string on calc stack
+LET_r3                  equ     $2aff           ; LET
+ALPHANUM_r3             equ     $2c88           ; test if char is alphanumeric
+STACK_A_r3              equ     $2d28           ; push A to calculator stack
+PRINT_FP_r3             equ     $2de3           ; print floating-point number
+STACK_NUM_r3            equ     $33b4           ; stack floating-point number
+LDIR_RET_r3             equ     $33c3           ; address of LDIR, RET
+REPORT_A_r3             equ     $34e7           ; "A Invalid argument"
+CHAR_SET_r3             equ     $3d00           ; address of charset

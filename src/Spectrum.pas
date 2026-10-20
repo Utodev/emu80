@@ -124,7 +124,7 @@ type
     NextReg: array[0..255] of Byte;
     NextSram: array of TBank;         // the Next's first 256K of SRAM
     NextBootOn: Boolean;
-    MfNmi, MfOn, MfInvisible, DivNmiButton: Boolean;
+    MfNmi, MfOn, MfInvisible, DivNmiButton, NmiStackless: Boolean;
     CopperPC, CopperClk, CopperDue: Integer;
     CopperStopped, CopperRestarted: Boolean;
     NextSel, PortDFFD: Byte;
@@ -178,7 +178,10 @@ type
     FNextSel: Byte;
     FNextMMU: array[0..7] of Byte;          // 8K page per slot, 255 = ROM
     FPortDFFD: Byte;
-    FNextSpeed: Integer;                    // 1, 2, 4, 8 (NR 07: 3.5 to 28 MHz)
+    { The machine's own turbo, 1, 2, 4 or 8 (the Next's NR 07, the ZX-Uno's
+      SCANDBLCTRL: 3.5 to 28 MHz), on top of the speed setting; 1 for the
+      other models }
+    FNextSpeed: Integer;
     FUserSpeed: Integer;                    // the speed setting
     FNextSpecial: Boolean;                  // +3 all-RAM paging in use
     { The first 256K of the Next's SRAM, in 16K banks: 0-3 the ROMs, 4 the
@@ -244,6 +247,7 @@ type
     FMfNmi: Boolean;                        // its NMI is in progress (until RETN or its ports)
     FMfOn: Boolean;                         // its ROM and RAM paged in at 0000-3FFF
     FMfInvisible: Boolean;                  // its enable port doesn't page it in
+    FNmiStackless: Boolean;                 // the next RETN returns to NR C2-C3
     FContentionOn: Boolean;              // setting: apply memory/I/O contention
     FContend: Boolean;                   // contention applies now (setting and 1x speed)
     FSnowOn: Boolean;                    // setting: ULA snow
@@ -438,6 +442,7 @@ type
     procedure GenerateAudio;
     procedure AddAY(Chip: Integer; const Lv: array of Single; Gain: Single; var L, R: Single);
     procedure TapeTrap;
+    procedure TapeTrapRest;
     procedure CheckTraps;
     { RST 8 with the DivMMC: remember the game files esxDOS opens }
     procedure NoteEsxdosCall;
@@ -516,8 +521,7 @@ type
     procedure RequestNMI;
     { The ZX Spectrum Next's DRIVE button: the DivMMC's NMI }
     procedure DriveNMI;
-    { Play the tape from now (Tape.Play takes the time in the frame, not
-      the CPU's T-states, which differ at other speeds) }
+    { Play the tape from now (the tape runs in CPU T-states: see TapeEdge) }
     procedure PlayTape;
     { The Next's firmware started another machine's core (its slot, 8-31):
       pzx emulates the Next's only, so the Next starts again; -1 if not }
@@ -996,6 +1000,8 @@ begin
   if not IsNext then FDiv.NextEntries := False;
   BuildContention;
   FTape.ClockHz := FInfo.ClockHz;
+  // TZX's "stop the tape if in 48K mode"
+  FTape.StopIf48K := FModel in [sm16K, sm48K];
   FFDC.ClockHz := FInfo.ClockHz;
   UpdateContend;
   Reset(True);
@@ -1029,7 +1035,17 @@ begin
   FTimexPort := 0;
   FZXUnoReg := 0;
   FZXReg[$40] := 0;
-  if IsZXUno then ZXUnoBoot(Hard);
+  // A machine's own turbo goes with a reset (the Next and the ZX-Uno set
+  // theirs again); the speed setting stays
+  FNextSpeed := 1;
+  SetSpeed(FUserSpeed);
+  if IsZXUno then
+  begin
+    ZXUnoBoot(Hard);
+    // Its turbo register survives a soft reset (a hard one clears it)
+    FNextSpeed := 1 shl ((FZXReg[$0B] shr 6) and 3);
+    SetSpeed(FUserSpeed);
+  end;
   if IsNext then NextReset(Hard);
   FCpu.Reset(Hard);
   FCpu.T := 0;
@@ -1076,8 +1092,8 @@ procedure TSpectrum.PlayTape;
 begin
   // With fast loading, a moment of silence first: the ROM's loader, if it
   // is waiting, goes back to LD-START (056C) and takes the block at once
-  if FastLoad then FTape.Play(U(FCpu.T) + FInfo.ClockHz div 10)
-  else FTape.Play(U(FCpu.T));
+  if FastLoad then FTape.Play(FCpu.T + FInfo.ClockHz div 10 * FSpeed)
+  else FTape.Play(FCpu.T);
 end;
 
 procedure TSpectrum.DriveNMI;
@@ -1245,6 +1261,7 @@ begin
   Result.MfNmi := FMfNmi;
   Result.MfOn := FMfOn;
   Result.MfInvisible := FMfInvisible;
+  Result.NmiStackless := FNmiStackless;
   Result.CopperPC := FCopperPC;
   Result.CopperClk := FCopperClk;
   Result.CopperDue := FCopperDue;
@@ -1296,6 +1313,7 @@ begin
   FMfNmi := S.MfNmi;
   FMfOn := S.MfOn;
   FMfInvisible := S.MfInvisible;
+  FNmiStackless := S.NmiStackless;
   FCopperPC := S.CopperPC;
   FCopperClk := S.CopperClk;
   FCopperDue := S.CopperDue;
@@ -1475,9 +1493,11 @@ end;
 
 function TSpectrum.ActiveAY: TAY8912;
 begin
+  // The Next keeps the chip chosen when TurboSound is switched off ("frozen",
+  // turbosound.vhd); it can only be changed with TurboSound on
   case FAYChip of
-    1: if TurboOn then Result := FAY2 else Result := FAY;
-    2: if TurboOn and IsNext then Result := FAY3 else Result := FAY;
+    1: if TurboOn or IsNext then Result := FAY2 else Result := FAY;
+    2: if IsNext then Result := FAY3 else Result := FAY;
   else
     Result := FAY;
   end;
@@ -1890,7 +1910,7 @@ begin
     for Row := 0 to 7 do
       if (HighByte and (1 shl Row)) = 0 then Result := Result and KeyRow(Row);
     Result := Result or $A0;
-    FTape.AdvanceTo(U(T));
+    FTape.AdvanceTo(T);
     if FTape.Playing then
     begin
       if not FTape.Level then Result := Result and not $40;
@@ -2481,6 +2501,8 @@ begin
   end;
   BuildContention;
   FTape.ClockHz := FInfo.ClockHz;
+  // TZX's "stop the tape if in 48K mode"
+  FTape.StopIf48K := FModel in [sm16K, sm48K];
   UpdateContend;
 end;
 
@@ -2533,9 +2555,11 @@ begin
       end;
     $0B:
       begin
-        // SCANDBLCTRL: bits 6-7 the CPU speed (3.5, 7, 14, 28 MHz)
+        // SCANDBLCTRL: bits 6-7 the CPU speed (3.5, 7, 14, 28 MHz), on top
+        // of the speed setting
         FZXReg[$0B] := Value;
-        SetSpeed(1 shl ((Value shr 6) and 3));
+        FNextSpeed := 1 shl ((Value shr 6) and 3);
+        SetSpeed(FUserSpeed);
       end;
     $0E:
       begin
@@ -2861,9 +2885,12 @@ begin
   AddEvent(T, 0, 0, Level);
 end;
 
+{ The tape runs in CPU T-states, so that its pulses keep their length for
+  the ROM's loader at any CPU speed (it just plays faster); the sound is in
+  frame T-states }
 procedure TSpectrum.TapeEdge(T: Integer; Level: Boolean);
 begin
-  UpdateBeeper(T);
+  UpdateBeeper(U(T));
 end;
 
 function BeeperValue(Level: Byte): Single; inline;
@@ -2894,6 +2921,8 @@ procedure TSpectrum.AddAY(Chip: Integer; const Lv: array of Single; Gain: Single
 var
   CL, CR, Mono: Single;
 begin
+  // TurboSound off: only the chip chosen last is heard
+  if not TurboOn and (Chip <> FAYChip) then Exit;
   if (FNextReg[$09] and ($20 shl Chip)) <> 0 then
   begin
     Mono := (Lv[0] + Lv[1] + Lv[2]) * 0.5 * Gain;
@@ -2929,8 +2958,18 @@ var
   Mix: array[0..1] of Single;
 begin
   TPerSample := FInfo.ClockHz / SAMPLE_RATE;
-  Two := TurboOn and HasAY;
-  Three := Two and IsNext;
+  // The Next always runs its three chips (only the selected one is heard
+  // with TurboSound off); TurboSound elsewhere adds the second
+  if IsNext then
+  begin
+    Two := HasAY;
+    Three := HasAY;
+  end
+  else
+  begin
+    Two := TurboOn and HasAY;
+    Three := False;
+  end;
   // Floppy drive noise: only with the drive at real speed
   Drive := FloppyNoise and FInfo.HasFDC and FFDC.Timed and
     ((FFDC.Disk(0) <> nil) or (FFDC.Disk(1) <> nil));
@@ -2941,7 +2980,11 @@ begin
     Spinning := FFDC.Motor;
     Reading := FFDC.HeadActive;
   end;
-  if Three then AYGain := 0.2 else if Two then AYGain := 0.25 else AYGain := 0.35;
+  // One chip heard (the Next with TurboSound off too) is as loud as before
+  if IsNext and not TurboOn then AYGain := 0.35
+  else if Three then AYGain := 0.2
+  else if Two then AYGain := 0.25
+  else AYGain := 0.35;
   if FCurrahOn then
   begin
     FCurrah.ClockHz := FInfo.ClockHz;
@@ -3130,9 +3173,15 @@ var
   Addr: Word;
 begin
   // Where a playing tape is now, so the right block is taken
-  FTape.AdvanceTo(U(FCpu.T));
+  FTape.AdvanceTo(FCpu.T);
   Block := FTape.TakeBlockForTrap;
-  if Block = nil then Exit;
+  if Block = nil then
+  begin
+    // The next block is one the ROM can't read (turbo data, from a .tzx):
+    // it plays in real time
+    if not FTape.Playing and (FTape.Current < FTape.Count) then FTape.Play(FCpu.T);
+    Exit;
+  end;
   Ok := False;
   Len := FCpu.DE.W;
   N := 0;
@@ -3166,6 +3215,68 @@ begin
     FCpu.F := FCpu.F and not FLAG_C;
   // Return through the RET at the end of LD-BYTES
   FCpu.PC.W := $05E2;
+  // Turbo data next (a .tzx): the tape goes on, for the game's own loader
+  if FTape.NextNeedsRealTime then FTape.Play(FCpu.T);
+end;
+
+{ Fast loading switched on while the ROM loads a block in real time: the
+  rest of it at once. At LD-MARKER (05C8), about to read a byte: the flag (B
+  = B0; A' holds the one wanted) or data (B = B2; H holds the parity so far).
+  DE data bytes are left, then the parity byte; IX is where the next goes,
+  F' carry says load (or verify). }
+procedure TSpectrum.TapeTrapRest;
+var
+  Block: TTapeBlock;
+  Pos, Len, N: Integer;
+  Parity, B: Byte;
+  Ok, Loading: Boolean;
+  Addr: Word;
+begin
+  FTape.AdvanceTo(FCpu.T);
+  Block := FTape.TakeBlockBeingRead(Pos);
+  if Block = nil then Exit;
+  Loading := (FCpu.F_ and FLAG_C) <> 0;
+  Ok := True;
+  Parity := FCpu.HL.H;
+  if FCpu.BC.H = $B0 then
+  begin
+    // The flag byte, still to be read
+    Ok := (Pos < Length(Block.Data)) and (Block.Data[Pos] = FCpu.A_);
+    if Ok then Parity := Block.Data[Pos];
+    Inc(Pos);
+  end;
+  Len := FCpu.DE.W;
+  N := 0;
+  while Ok and (N < Len) do
+  begin
+    if Pos >= Length(Block.Data) then
+    begin
+      Ok := False;
+      Break;
+    end;
+    B := Block.Data[Pos];
+    Addr := Word(FCpu.IX.W + N);
+    Parity := Parity xor B;
+    if Loading then
+      WriteMem(Addr, B, FCpu.T)
+    else if Peek(Addr) <> B then
+    begin
+      Ok := False;
+      Break;
+    end;
+    Inc(N);
+    Inc(Pos);
+  end;
+  // The parity byte: everything xor'ed together gives 0
+  if Ok then Ok := (Pos < Length(Block.Data)) and ((Parity xor Block.Data[Pos]) = 0);
+  FCpu.IX.W := Word(FCpu.IX.W + N);
+  FCpu.DE.W := Word(FCpu.DE.W - N);
+  if Ok then
+    FCpu.F := FCpu.F or FLAG_C
+  else
+    FCpu.F := FCpu.F and not FLAG_C;
+  FCpu.PC.W := $05E2;
+  if FTape.NextNeedsRealTime then FTape.Play(FCpu.T);
 end;
 
 { SA-BYTES (04C2): A = flag, IX = start, DE = length. Store the block on the
@@ -3243,9 +3354,21 @@ begin
       // (the trap stops it), so Play doesn't turn it into real-time loading
       if FastLoad and (FTape.Current < FTape.Count) then
         TapeTrap;
+    $0580:
+      // LD-LEADER, reading a pilot tone in real time, and fast loading has
+      // just been switched on: the block at once (the stack is as at 056C)
+      if FastLoad and FTape.Playing and (Peek($0580) = $06) and (Peek($0581) = $9C) then
+        TapeTrap;
+    $05C8:
+      // LD-MARKER, about to read a byte in real time (from LD-DEC or
+      // LD-SYNC), and fast loading has just been switched on: the rest at once
+      if FastLoad and FTape.Playing and (Peek($05C4) = $1B) and (Peek($05C5) = $08) and
+         (Peek($05C6) = $06) and (Peek($05C7) = $B2) and (Peek($05C8) = $2E) and (Peek($05C9) = $01) and
+         ((FCpu.BC.H = $B0) or (FCpu.BC.H = $B2)) then
+        TapeTrapRest;
     $0556:
       if not FastLoad and AutoPlayTape and not FTape.Playing and (FTape.Current < FTape.Count) then
-        FTape.Play(U(FCpu.T));
+        FTape.Play(FCpu.T);
   end;
 end;
 
@@ -3759,13 +3882,23 @@ begin
   if FNMIRequest then
   begin
     FNMIRequest := False;
-    // The Next's stackless NMI (NR C0 bit 3): the return address in NR C2-C3
-    if IsNext and ((FNextReg[$C0] and 8) <> 0) then
+    // The Next keeps the return address in NR C2-C3; with the stackless NMI
+    // (NR C0 bit 3) only there, and the first RETN returns to it
+    if IsNext then
     begin
-      FNextReg[$C2] := FCpu.PC.L;
-      FNextReg[$C3] := FCpu.PC.H;
+      if FCpu.Halted then
+      begin
+        FNextReg[$C2] := Byte(FCpu.PC.W + 1);
+        FNextReg[$C3] := Word(FCpu.PC.W + 1) shr 8;
+      end
+      else
+      begin
+        FNextReg[$C2] := FCpu.PC.L;
+        FNextReg[$C3] := FCpu.PC.H;
+      end;
+      FNmiStackless := (FNextReg[$C0] and 8) <> 0;
     end;
-    FCpu.NMI;
+    FCpu.NMI(IsNext and FNmiStackless);
     Exit;
   end;
   if IntActive and FCpu.IFF1 and FCpu.Interrupt then Exit;
@@ -3805,13 +3938,13 @@ begin
     if FCopperDue <> MaxInt then FCopperDue := Max(0, FCopperDue - FInfo.FrameT * 4);
     FCopperRestarted := False;
   end;
-  FTape.AdvanceTo(FInfo.FrameT);
+  FTape.AdvanceTo(FrameLength);
   GenerateAudio;
 
   if FRecorder.Active then FRecorder.Idle(FCpuTBase + FrameLength);
   Inc(FCpuTBase, FrameLength);
   Dec(FCpu.T, FrameLength);
-  FTape.EndFrame(FInfo.FrameT);
+  FTape.EndFrame(FrameLength);
   if FPendingSpeed <> FSpeed then
   begin
     // Keep the position within the frame when the clock changes

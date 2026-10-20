@@ -1,0 +1,16 @@
+.boot by David Saphier / emook 2019
+
+.boot will allow you to switch personalities from NextZXOS or esxdos.
+
+Usage .boot or .boot [n] n=mode
+
+Running .boot on its own will read your current config.ini and list
+on screen allowing you to pick the mode you want to reboot in to.
+
+This rewrites your config.ini, so always have a backup.
+
+place the file inside c:\dot\ and c:\bin\
+
+Enjoy!
+
+19/01/2019

@@ -1,0 +1,167 @@
+The PLUS PACK for the ZX Next is the software that supports the addons
+like Real Time Clock (RTC), Accelerator/Second HDMI Screen (PI0), Network
+with the ESP8266, UART serial driver and the I2C bus needed for them.
+
+(c) Tim Gilberts / Infinite Imaginations and the ZX Next project
+
+10 Feb 2020
+-----------
+
+Pushed Alpha 10 to repro - missed somehow last year was still Alpha 7 (the
+DRV and SYS for Alpha7 are still here in case of an issue - copy over the ones
+in NextZXOS directory).  Alpha 10 actuall updated to allow enable/disable IRQ
+
+Updated version of Tony Hoyle WIFI.BAS included called WIFI2.BAS!
+
+30 Sep 2019
+-----------
+
+Updated some documents to point at the support for DietPI image on the PI now
+from xalior which utilises the second UART for communication.
+
+27 May 2019
+-----------
+
+Updated UART DOT command to allow sending EOT for use with 4G modems like one
+from ActiveConsult.  It also supports a -f command on start to 'find' an ESP
+that has an unusual serial speed set.  Source code now included
+
+ESPAT Alpha 10 should also be included which has a number of changes to support
+buffers on the network and a few bug fixes, plus a few new ones...
+
+13 Feb 2019
+-----------
+
+RTC subsystem has been updated to 3.4 with the addition of returning HL under
+NextZXOS with H=actual seconds (as API only returns DOS std 2 second resolution)
+with L as 100ths if supported - or 255 if not.  Some bugs fixed in RTCACK.SYS.
+Seperated ESXDOS support (RTC.SYS - based on RTCSIG in SYS) and NextZXOS where
+both RTCSIG and RTCACK have been updated to support the new features. RTCACK is
+now the default RTC.SYS in NextZXOS - if you experience any issues try swapping
+back to RTCSIG.SYS renamed to RTC.SYS in NextZXOS first.
+
+Also split the Readme into RTC and I2C for clarity in Docs.
+
+18 August 2018
+--------------
+
+Updated UART.DRV ready for support of 2Mb with TBU>52 digital filter on UART
+Source is now supplied for review.  Corrects a bug in setting Registry on IRQ
+This is provided for users of the UART other than for an ESP so will get
+limited support moving forward - the version of TERMINAL.BAS/BIN will not
+get further updates but, is still preferred over .UART for complex activities
+e.g. getting a list of WiFi hotspots in busy areas which can overwhelm .UART
+
+Includes ESPAT Alpha7 which implements and updates the API previously documented
+supports output buffering.  ESPTERM.BAS is a working terminal in BASIC using
+the ESP driver for connecting to a remote TCP port as in the connect string
+- which you need to change to something useful in your environment.
+ESPHTTP.BAS allows you see how an HTML web page can be fetched using the system
+- no rendering engine is available so it is pretty raw.
+
+Updated the pluspack-autoexec.bas this file can be put in place to allow
+drivers to be autoloaded on power up.  Just take the REM away from any you
+want to use.  Holding ENTER during boot will bring up a menu so you can
+select individual drivers or just press SPACE to boot without any.
+
+Removed PI twin screen demo software as cores no longer support functionality
+ready for release.
+
+1 August 2018
+-------------
+
+Added in updated Mouse Driver for Wheel support and changes to ps2mode
+
+Included preview copy of the IRQ driven ESP Alpha5 with the document for
+the API rewrite for Alpha6 only - play with the former plan for the latter.
+
+.ps2mode DOT command has been added to BIN to allow you to change the PS2 port
+mode from Keyboard to Mouse mode.
+
+27 July 2018
+------------
+
+Note that after Core 47 the TKPI software is not supported as the new SPI
+interface has been added for the accelerator.  Demo software to follow.
+The dual screen demo has been left in here though as it will work with the
+previous release cores.  It will be removed in time for production.
+
+
+20 July 2018
+------------
+
+Updated BASIC programs to use NextZXOS directory for driver installs
+UART.DRV updated due to bug in memory allocation when not using base memory
+
+22 June 2018
+------------
+
+Updated the PI0 directory to allow PI0W to be used as well as PI0
+TWINSSCREEN.BAS in the PI folder can be used as a good test.
+
+Updates to the Mouse driver to include acceleration on the X axis which
+can be experimented with NXMOUSET.BAS which is a sprite only Timex Hi Res
+test program.
+
+
+19 June 2018
+------------
+Fixed IUDEMO.BAS line 190 should be PRINT ... AT 23,0 now co-ords have changed
+
+Added RTCSIG.SYS and RTCACK.SYS so if you get problems with RTC.SYS in the
+NextOS directory you can swap between the two driver types.  If you do not have
+an RTC then RTCACK.SYS has been reported to produce valid dates occasionaly!
+
+If you are using TBU .34 and higher at 115200 baud you should not get any
+timouts on the UART.DRV as the hardware buffer is now 512 bytes so can cope
+with a single skipped frame due to disabled interrupts.  Large disk access will
+still cause problems if packets are being received as the interrupts can be
+disabled for longer periods.
+
+
+1 June 2018
+-----------
+
+An updated copy of .BMPLOAD from Mr Bagley to allow the PI dual screen demo to
+work without crashing as the BASIC has grown in size.
+
+
+1 May 2018
+----------
+
+Added a copy of the Alpha version of an IRQ handled UART driver that supports
+BASIC streams etc.  Note that this will be replaced with a full ESP network
+stream driver but, for the moment this can be used to get at the ESP and
+other serial connected devices from BASIC in a very simplistic fashion.
+
+There is a BASIC program that is a simple terminal (need to run at 14MHz) that
+allows you to see how to use it with a full README for the driver in the docs
+directory.  You can find the BASIC in 'demos/uart' called IUDEMO.BAS
+
+The .UART program is still supported for ESXDOS use of the UART (and still works
+in NextOS) but, there is now an initial copy of that code as a terminal to
+use with the IRQ UART driver so very little data loss. That program is also in
+the DEMO directory called TERMINAL.BAS with its TERMINAL.BIN code file. This
+also supports immediate mode as well as line mode which was asked for to support
+other ESP firmware than the standard AT. It is much more usable than .UART for
+larger amounts of text - including things like the list of returned wifi
+hot spots!
+
+
+2 April 2018
+------------
+This includes support for the .31 TBU with new UART speed setting method for
+higher speeds so the .UART program has been updated to support that.
+
+There is also a correction on the MOUSE.DRV (and its source code) to fix
+an error on setting Sprite and Pattern numbers where only 0-31 were allowed
+
+This also inlcudes the working Raspberry PI commit that allows the PI to
+display the ULA screen.  This will only work in 48K BASIC as NextOS uses
+7Mhz and 14Mhz a lot which causes the second screen to appear corrupt.
+
+The BACKON and BACKOFF dot commands which have been ommitted until now are
+included again to support the PI dual screen demo.
+
+Limited support for ESXDOS is also provided where possible (e.g. RTC.SYS)
+

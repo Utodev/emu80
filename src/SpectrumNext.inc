@@ -163,6 +163,7 @@ begin
   FMfNmi := False;
   FMfOn := False;
   FMfInvisible := True;
+  FNmiStackless := False;
   FDiv.NmiButton := False;
   FNexOpen := False;
   FNexData := nil;
@@ -657,23 +658,25 @@ begin
     FMfInvisible := True;
 end;
 
-{ RETN: the end of an NMI; the Multiface and the DivMMC (if its button
-  mapped it) let go, and a stackless NMI returns to NR C2-C3 }
+{ RETN: the end of an NMI; the Multiface and the DivMMC's automatic
+  mapping let go, and the first RETN after a stackless NMI returns to NR
+  C2-C3 }
 procedure TSpectrum.Retn;
 begin
   if not IsNext then Exit;
-  if (FNextReg[$C0] and 8) <> 0 then FCpu.PC.W := FNextReg[$C2] or (FNextReg[$C3] shl 8);
+  // Only the first RETN after a stackless NMI
+  if FNmiStackless then FCpu.PC.W := FNextReg[$C2] or (FNextReg[$C3] shl 8);
+  FNmiStackless := False;
   FMfNmi := False;
   if FMfOn then
   begin
     FMfOn := False;
     NextUpdatePaging;
   end;
-  if FDiv.NmiButton then
-  begin
-    FDiv.NmiButton := False;
-    FDiv.Mapped := False;
-  end;
+  // RETN ends the DivMMC's automatic mapping too (the Multiface leaves
+  // with RETN after using esxDOS); CONMEM stays as port E3 says
+  FDiv.NmiButton := False;
+  FDiv.Mapped := False;
 end;
 
 const

@@ -1,0 +1,874 @@
+@title Nextramon Manual
+@author Simon N Goodwin
+@version 2.2
+@copyright 1982-2023 Simon N Goodwin, CC-BY-NC-SA version 4 licence
+@date 2023/10/16
+
+@index INDEX
+
+@-------------------------------------------------------------------------------
+@node MAIN
+@next FEATURES
+@toc INDEX
+
+@{c}Nextramon Hypertext Manual
+
+@{c}Written by Simon N Goodwin
+
+@{c}@{b}Nextramon - semi-intelligent disassembler and memory monitor@{ub}
+@{c}@{b}============================================================@{ub}
+
+@{h1}Overview
+Nextramon.bas is a program to decode and display the contents of Spectrum Next 
+memory. It can show numeric data in decimal or hexadecimal and ASCII text in
+memory, but its main use is to decode machine-code and its greatest advantage
+over all the many Z80 code disassemblers in circulation is that it recognises
+many Spectrum and Next-specific extensions to the Zilog instruction set which
+others ignore or are confused by.
+
+Its main snag is that it is written in BASIC, so it's not very fast, even at
+28 MHz. However this does make it easy to extend (witness all the custom 
+Nextras) and relatively easy to read, if you're interested in how binary data
+is encoded and can be decoded into mnemonic text.
+
+Nextramon.bas and its condensed companion NextDis.bas are in your distro in
+the apps/dev/Nextramon subdirectory.
+
+Follow this link for an overview of Nextramon's @{" Commands " LINK COMMANDS}.
+
+
+@-------------------------------------------------------------------------------
+@node FEATURES
+@toc INDEX
+@next COPYRIGHT
+@prev MAIN
+@{h1}Features
+Nextramon is a development and investigation tool written in NextBASIC. It
+reads ROM or RAM and decodes the contents, either as Z80 assembly-language
+ (mnemonic machine code), ZX 40-bit floating point language - used for much 
+of the BASIC runtime code, and by native ZX compilers - and ASCII text or
+numbers  wherever you  point it, to your screen or printer.  It supports 
+input and output in both decimal and hexadecimal and output can be 
+@{ " redirected to a file " LINK FILING}.
+
+Nextramon has been customised for Next, to make it capable of disassembling
+all the Z80n instructions including Nextras like MUL, all of Sinclair's
+Floating Point Calculator (FPC) language codes, accesses to System Variables
+directly addressed or by indexing the IY register, error report tokens, and
+Interface 1, GDOS and Unidos hook codes. 
+
+Memory areas can also be displayed as text or in the form of tables of hex or
+decimal numbers. The meaning of any byte value depends on context.
+
+The display scrolls continuously till a key is pressed. ENTER halts output and
+returns to the main menu. SPACE pauses output till another key is pressed.
+
+Follow this link for an overview of Nextramon's @{" Commands " LINK COMMANDS}.
+
+For more about the semi-intelligent disassembler, @{" click here. " LINK DIS}.
+
+@-------------------------------------------------------------------------------
+@node COPYRIGHT
+@toc INDEX
+@prev FEATURES
+@next HISTORY
+
+@{h1}Copyright
+Nextramon is Copyright @( 1982 - 2023 by Simon N Goodwin. The latest version
+is always available from: 
+
+@{i}http://simon.mooli.org.uk/nextech@{ui}
+
+Nextramon is released under the CC-BY-NC-SA version 4 Licence, documented at:
+
+@{i}https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode@{ui}
+
+In brief, this encourages you to modify and share the program, provided you
+credit the original author Simon N Goodwin, but only permits this on a non-
+commercial basis. Follow the link for specific requirements, and contact the
+author if you wish to negotiate some other terms, which are usually allowed.
+
+@{h1}Thanks
+Thanks to Matt Davies for implementing NextGuide and Remy Sharp for spotting 
+some errors in my first version of this document and creating the online viewer
+and editor here:
+
+@{i}https://zx.remysharp.com/tools/gde/@{ui}
+
+Line 5740 is from page 16 of the book "40 best machine code routines" by John 
+Hardman and Andrew Hewson. Lines like that deserve a credit all of their own!
+
+@-------------------------------------------------------------------------------
+@node HISTORY
+@prev COPYRIGHT
+@next SYSVARS
+@toc INDEX
+
+@{h1}How Nextramon grew up
+Nextramon is a major update and bugfix for Spectramon, a Z80 disassembler
+written in ZX BASIC, first published in ZX Computing magazine. 
+
+Simon wrote the original on his new Spectrum in 1982, in a three-day marathon
+attempt to get to grips with keyword entry and adapt from Apple and TRS-80
+BASIC.
+
+The original program was documented and listed in the April/May and June/July
+1983 issues of ZX Computing, and later sold on cassette by Argus Press 
+Software. Just for good measure, Argus also ran it, over nine pages, in the
+Spring 1984 issue of Personal Software magazine. An extended version for Sam
+Coupe appeared in issue 33 of the Sam Supplement disc magazine.
+
+After a preview on the Spectrum Next facebook group, the full Next release
+appeared in the patch download for the original Spectrum Next firmware in
+March 2020, and has been updated since.
+
+The rendering of embedded floating-point constants in FPC code has been 
+tidied again in the release 2020:5.
+
+Update 2020:6 knows about 182 of the @{" System Variables " LINK SYSVARS} stored in 
+memory between 23552 TO 23733, and can use their symbolic names instead of 
+numbers in the disassembly, making it easier to see what compiled code and ROM 
+routines are doing.
+
+Update 2020:7 fixes an error in the line entering FPC code which was wrongly
+showing as RST 56 rather than RST 40 (or RST 28H for those with extra fingers).
+
+Update 2020:8 shows RAMTOP and free memory on the menu and is a little shorter.
+
+Update 2023:1 is shorter and faster due to increased use of NextBASIC features.
+
+Update 2023:3 relies upon NextBASIC 2.08 and requires that version or later. 
+
+@-------------------------------------------------------------------------------
+@node DIS
+@prev HISTORY
+@toc COMMANDS
+@next SYSVARS
+
+@{h1}Command D, the disassembler
+The disassembler is the main feature of Nextramon. It decodes memory contents 
+as if they were Z80 machine-code instructions, also taking account of the extra 
+instructions unique to Next's Z80n processor, the @{" Floating point calculator " LINK FPC} 
+language used in ZX ROMs and compiler output, and @{ " hook codes " LINK HOOKS} and 
+@{" report codes " LINK REPORTS} embedded in Spectrum code to make error messages and 
+jumps to other ROM routines more concise and consistent.
+
+See @{" this page " LINK SYSVARS} for further ways the output of Nextramon is 
+customised to make the purpose of Spectrum code which interacts with the 
+operating  system easier to follow.
+
+To disassemble the code at the start of the ROM, type the command:
+
+@{b}    D0@{ub}
+
+D1F23 disassembles the Z80 code of the BASIC RETURN command, followed by code 
+that implements PAUSE - note the HALT instruction at address 1F3DH which pauses 
+the processor till an external interrupt is detected, usually as a new display
+frame starts to be output.
+
+D36A0 disassembles the floating-point calculator routine which calculates the 
+remainder after division by using multiplication, division, INT, and subtraction 
+- similar to the ZX BASIC LET r=n-INT (n/d)*d where n is the nominator (on top) 
+and d the denominator in the division n/d, and r is the remainder. But a bit 
+faster. There is a specific instruction in the Floating Point Calculator 
+language to do this quicker still.
+
+For a block of FPC code which is not preceded by a RST instruction, use the F 
+command rather than D, e.g:
+
+    @{b}F344C@{ub}
+
+which disassembles the start of the series generator subroutine. This is used by 
+the ARCTAN routine, among other things, here:
+
+    @{b}D37E2@{ub}
+
+Follow the listing into ASN, ACS, SQR and exponentiation routines. F373D shows
+part of the logarithm routine, while F2DE4 shows how floating point numbers are
+written, and F23C6 exposes the inner workings of the code to draw arcs. These
+are explained in substantial detail in Ian Logan's ROM disassembly book, which
+is cited in the @{" Floating point calculator page " LINK FPC} of this guide.
+
+@-------------------------------------------------------------------------------
+@node SYSVARS
+@prev HISTORY
+@toc DIS
+@next ADDRESSES
+
+@{h1}System variables
+Just after the default display memory, ZX BASIC and NextBASIC  store a table of 
+values that record the state and control the behaviour of the BASIC interpreter. 
+Spectrum programs often read or write these, using the Z80 equivalent of PEEK 
+and POKE, the memory LD instructions, and if you know the names and purposes of 
+these special addresses it's much easier to understand what the code is doing.
+
+Nextramon knows about 182 of the System Variables stored in memory from 23552 
+to 23733 and can use their symbolic names instead of numbers in the disassembly, 
+making it easier to see what compiled code and ROM routines are doing.
+
+Since you may be disassembling code that overwrites the system data or pages 
+other memory to those addresses, there is a new option in the main menu to 
+enable or disable this special interpretation of certain addresses and 
+index offsets - type S to toggle whether or not System variable names are 
+shown in the disassembly when corresponding addresses or offsets are
+encountered.
+
+@{b}How system variables are found@{ub}
+System Variables are identified by Nextramon in two contexts. The Spectrum 
+ROM expects the IY register to point into the system variables, specifically 
+at address 23610 (5C3AH) which holds ERRNR, the error report code. The 
+interrupt routine which polls the keyboard at the start of each display 
+field relies on this, which is why the Next manual says machine code called 
+from BASIC must preserve that value. The same assumption is made in many 
+places  in the Spectrum ROM and system-friendly programs, so Nextramon checks 
+the offsets associated with code references to the IY register and substitutes 
+symbolic names if the offsets fall within the range of System Variables 
+documented in all the Spectrum Manuals. Rarely-used extras added in the ZX 
+printer buffer (before the original system variables) are not detected as 
+they fall out of the 8-bit signed range accessible via IY.
+
+Often the ROM uses IY to access system variables, but sometimes it uses the 
+16-bit addresses directly, e.g. when transferring values between memory and 
+the HL register. To cater for this, Nextramon checks 16-bit addresses used 
+in load and store instructions and if they fall into the relevant range it 
+substitutes names for numbers then as well, as long as the 'S' option is 
+enabled in the menu. Since the symbolic values are offsets relative to 
+address 23610, for compatibility with indexing IY, an extra symbolic constant 
+SV is added to the absolute value; to reassemble code that uses either indexed 
+or direct addressing, equate SV to 23610 in your assembler.
+
+@{h1}Mnemonic names
+The mnemonic names are essentially those used in Spectrum manuals and Ian 
+Logan's ROM disassembly, except that underscores are omitted as not all 
+assemblers support them, and the names are unambiguous without them; when 
+names differ between ZXOS versions the Next label is generally used. Next's 
+STIMEOUT is an outlier (Sinclair labels were six bytes at most) but it just 
+fits the array. Many of the system variables occupy multiple bytes, so in 
+the case  of word pointers the label is used for the first (low order) byte 
+and the same label with +1 appended appears if the second byte is accessed.
+KSTATE is similar so what Logan calls KSTATE4 is KSTATE+4 in the disassembly.
+
+The large tables of stream pointers and calculator workspace are specially 
+handled to show the internal structure; for instance the 30 byte workspace is 
+shown as six five-byte memory areas, labelled MEM0 to MEM5 matching references 
+to those in the Floating Point Calculator language. Those labels point to the 
+exponent of each value. Suffixes +1 to +4 refer to the mantissa bytes, e.g. 
+MEM5+4 is the label of the last byte of workspace. Streams use 38 bytes, with a 
+pair for each channel number from #-3 to #15. Negative streams are prefixed
+with M instead of the minus sign as most assemblers treat'-' as an operator.
+
+Streams accessible to BASIC use corresponding positive numbers in the internal 
+labels, e.g. STRM15+1 for the last byte of the last stream pointer.
+
+@-------------------------------------------------------------------------------
+@node ADDRESSES
+@prev SYSVARS
+@next COMMANDS
+@toc COMMANDS
+
+@{h1}Selecting the numeric base
+Nextramon can use decimal (base 10) or hexadecimal (base 16) format for numeric 
+displays. The @{b} B @{ub} command switches between those
+two options. Subsequent output uses the base shown in the main menu.
+
+@{h1}Memory addressing
+Nextramon can access any memory that the Z80 processor can address.
+
+Addresses range from 0 to 65535, with the range 0 to 16383 normally occupied by 
+ROM and the range 49152 to 65535 frequently switched between 16K sections of 
+the Spectrum Next's extended memory to allow more than the standard 64K to be 
+accessed. Nextramon does not page memory itself, except implicitly as the BASIC 
+interpreter works.
+
+Addresses are entered after the appropriate command letter for the data to be 
+viewed, and may be entered in decimal or hexadecimal. For instance C000 is the 
+hexadecimal equivalent of 49152.
+
+Nextramon tries to identify the base by looking for digits and letters in the 
+address supplied, so 1900 will be treated as decimal but 1A00 is implicitly hex. 
+Add a H suffix or $ prefix if the hex address contains no letters, to avoid 
+ambiguity, e.g:
+
+    @{b}D3406H@{ub}
+
+  or 
+
+    @{b}D$3406@{ub}
+
+both do the same thing, the LOC_MEM subroutine, whereas 
+
+    @{b}D3406@{ub}
+
+disassembles a completely different part of the ROM associated with temporary 
+PRINT attributes.
+
+
+@-------------------------------------------------------------------------------
+@node COMMANDS
+@prev ADDRESSES
+@next FPC
+@toc INDEX
+
+@{h1}Nextramon commands
+The main menu offers the following single-character commands which determine the
+information Nextramon will extract. Most of them are followed by a 
+@{" numeric address " LINK ADDRESSES} indicating which part of memory reading is 
+to start from.
+
+@{b} A <address> @{ub} @{" ASCII character memory dump " LINK TEXT}
+
+@{b} B @{ub} Numeric Base Selection, toggles @{" Hex or Decimal "  LINK ADDRESSES} output
+
+@{b} D <address> @{ub} @{" Disassemble Z80n machine code " LINK DIS}
+
+@{b} F <address> @{ub} @{" Floating point calculator decode " LINK FPC}
+
+@{b} N <address> @{ub} @{" Numeric dump of memory " LINK NUMERIC}
+
+@{b} P @{ub} Printer output echo,  @{" toggle on and off " LINK COMPATIBILITY}
+
+@{b} Q @{ub} Return to ZXNextOS BASIC
+
+@{b} S @{ub} System variable decoding, @{" toggle on and off " LINK SYSVARS}
+
+Code disassembly normally starts with the D command. It will then 
+automatically switch to FPC mode when a RST 40 instruction is encountered, 
+just as the operating system would. 
+
+The F command is only needed if you know that the corresponding address contains
+FPC rather than Z80 code - for instance, a routine which is directly used by 
+other FPC code embedded in the Z80 instruction stream, like that at F$37A1
+
+@-------------------------------------------------------------------------------
+@node FPC
+@prev COMMANDS
+@toc COMMANDS
+@next COMPATIBILITY
+
+@{h1}Floating Point Calculator code
+In order to fit a lot of code into a small space, ZX BASIC uses a custom 
+interpreted command language known as Floating Point Calculator (FPC) code which 
+is embedded in the normal Z80 instruction stream and detected and decoded 
+automatically as BASIC runs. This scheme was introduced for the ZX-81 and 
+extended for the ZX Spectrum. It is extensively used in the Spectrum Next 
+ROMs, so without a way to decode FPC instructions it's not possible to 
+follow the detailed workings of Next's firmware.
+
+Nextramon can disassemble FPC code as readily as it can Z80 instructions,
+and it generally switches between the two codes as it scans memory without 
+need for intervention by the user. Embedded 40-bit floating-point and 
+17-bit integer values are converted to decimal for display, with the 
+corresponding bytes of hexadecimal data displayed alongside.
+
+Nextramon automatically switches between Z80N and FPC machine language 
+byte encodings after a RST 40 instruction which warns the Spectrum to 
+expect FPC code. But sometimes FPC code is entered directly via a 
+branch from other FPC code. 
+
+The F menu option allows you to start disassembly in FPC mode, whereas 
+D defaults to Z80n instructions. Besides the original Spectrum ROM,
+FPC code is often used in code generated by ZX compilers that support 
+Sinclair's five-byte floating point format. 
+
+@{h2}Floating point calculator instructions
+Apart from the jump instructions, which are followed by a signed byte 
+relative offset, and 52 "StackData" which unpacks the following 
+literal value to the top of the stack, the following instructions 
+implicitly access values on the calculator stack and often store a 
+result there, e.g. FPC code 4, "multiply" multiplies the top two 
+values on the the stack, removing them in the process, and puts the 
+product at the new top of the stack, in place of the operands. Many 
+of the instructions implement BASIC instructions, e.g. 42 "ABS" 
+strips the sign from the top stack entry, 28 "CODE" replaces a 
+stacked string with the numeric code of its first character.
+
+The 'Next-' prefixed instructions rely on FOR-loop values being 
+at fixed offsets in the calculator area. The 'Num-' and 'Str-' 
+groups typically compare two numeric or string values and stack 
+true or false depending upon the  results of the comparison, but 
+16 "Str-AND-Num" returns either the string or a null string 
+depending upon whether or not the value at the top of the stack 
+is logically true.
+
+The 'further reading' section at the end of this page points to 
+books which explain the more specialised FPC instructions. Opcodes 
+62 to 128 are not defined. Opcodes from 129 to 158 are followed by 
+a corresponding number of literal values for use in the 62 
+"SeriesCalc" compound operation; the ROM only uses a few of these 
+possibilities, but Nextramon disassembles them all.
+
+ 0  "Jump-true"     Byte relative offset
+ 1  "Exchange"
+ 2  "Delete"        Removes top value from stack
+ 3  "Subtract"
+ 4  "Multiply"
+ 5  "Division"
+ 6  "To-power"      Implements the ^ operator
+ 7  "OR"
+ 8  "Num-AND-Num"
+ 9  "Num-less/eq"
+10  "Num-more/eq"
+11  "Next-notEq"
+12  "Num-more"
+13  "Num-less"
+14  "Next-equal"
+15  "Addition"
+16  "Str-AND-Num"
+17  "Str-less/eq"
+18  "Str-more/eq"
+19  "Str-notEq"
+20  "Str-more"
+21  "Str-less"
+22  "Strs-equal"
+23  "Strs-concat"
+24  "VAL$"
+25  "USR$"
+26  "Read#-in$"     Stream character input
+27  "Negate"        Flips the sign of a number
+28  "CODE"
+29  "VAL"
+30  "LEN"
+31  "SIN"
+32  "COS"
+33  "TAN"
+34  "ASN"
+35  "ACS"
+36  "ATN"
+37  "LN"
+38  "EXP"
+39  "INT"
+40  "SQR"
+41  "SGN"
+42  "ABS"
+43  "PEEK"
+44  "IN"
+45  "USR"
+46  "STR$"
+47  "CHR$"
+48  "NOT"
+49  "Duplicate"     Pushes copy of top value
+50  "N-modulo-M"    Remainder after division
+51  "Jump"          Byte relative offset
+52  "Stack-data"
+53  "Dec-Jr-Nz"     Byte relative offset
+54  "LessThan0"
+55  "MoreThan0"
+56  "END-CALC"      Return to Z80 from FPC
+57  "GetArgument"
+58  "Truncate"
+59  "FP-calc-2"
+60  "E-to-Float"
+61  "Re-stack"
+
+129 "Series 1"      Followed by one constant
+..
+159 "Series 30"     Followed by 30 FP constants
+
+160 "Stack 0.0"
+161 "Stack 1.0"
+162 "Stack 0.5" 
+163 "Stack PI/2"
+164 "Stack 10.0"
+
+192-223 Get MEM0-MEM31
+
+224-255 Set MEM0-MEM31
+
+Only a dozen of the codes above 191 are used in the Spectrum ROM, to read or 
+write from any of six floating point storage slots known as MEM0 to MEM5. The 
+ROM and FPC language allow up to 32 such slots if the address in system-variable 
+MEMBOT (at 23698) is changed to point to a large enough area (MEM31 would 
+occupy bytes 156 to 160 of this area) comprising 32 five-byte slots.
+
+@{h2}Further reading
+Nine Tiles - who wrote the original ZX ROMs for Sinclair - never documented 
+their FPC language, but it was reverse-engineered and explained in two books 
+published by Melbourne House:
+
+Understanding Your Spectrum, 1982, by Ian Logan:
+
+@{i}https://spectrumcomputing.co.uk/entry/2000400/Book/
+Understanding_Your_Spectrum@{ui}
+
+The Complete Spectrum ROM Disassembly, 1983, by Ian Logan and Frank O'Hara:
+
+@{i}https://spectrumcomputing.co.uk/entry/2000076/Book/
+The_Complete_Spectrum_ROM_Disassembly@{ui}
+
+A short example and explanation of the FPC in use on the ZX Spectrum Next 
+is documented here:
+
+@{i}http://simon.mooli.org.uk/nextech/z80n/index.html#Inkey
+
+@-------------------------------------------------------------------------------
+@node COMPATIBILITY
+@prev FPC
+@next BUGS
+@toc INDEX
+
+@{h1}Compatibility
+@{h2}Printer output
+Nextramon supports the Alphacom and ZX printers, and possibly other printers 
+which are compatible with NextBASIC, as long as they use the printer in such 
+a way that LPRINT and LLIST work normally.
+
+Even if your printer is not directly supported, Nextramon can write its output 
+to a text file for any other program to load, edit or print subsequently. 
+See @{" this link " LINK FILING} for details.
+
+@{h2}Screen display
+Nextramon uses Timex 2068 hires mode (Layer 1,2) for a 64-column display. For 
+this to work, Timex must be switched on in Next's early startup menu.
+
+@{h2}Crash recovery
+Nextramon should not stop with an error in normal use. It has been tested with 
+many combinations of code and data to ensure that it should cope with arbitrary 
+memory contents. But if it does halt with a BASIC error message, you can return 
+to the main menu with your configuration (numeric base, printer output, etc) 
+intact by typing GO TO 300. To restore the program to its default state,
+and reload the disassembler DATA tables, just type RUN and press Enter.
+
+If you find an apparent bug in Nextramon and wish to help others avoid it, 
+or have suggestions for a compatible improvement, please follow @{" this link " LINK BUGS}.
+
+@{h2}Memory access
+Nextramon uses most of the memory available to BASIC and is too large to fit 
+in a single bank. This is problematic if you want to disassemble code in the
+top 16K where most paging occurs, so a cut-down version that fits entirely 
+below address 49152 is also supplied - this is NextDis.bas, and sacrifices the
+text and numeric views and some annotation features (but not the extra Z80n 
+instructions) to allow room for 16K of code above it in memory. As any Next 
+RAM page can be read from that address, this allows any code in the system 
+to be examined by setting NEXTREG 86 and 87 to select the appropriate 8K page, 
+numbered from 0 to 223, at address $C000 or $E000 respectively. A new menu
+option M in NextDIS maps a chosen 16K bank (0..111) to addresses 49151 to 65535. 
+
+
+
+@-------------------------------------------------------------------------------
+@node BUGS
+@prev COMPATIBILITY
+@next FILING
+@toc INDEX
+
+@{h1}Reporting bugs
+If you find an error and want to report it, you can contact the author at the 
+email address linked at the start of his home page http://simon.mooli.org.uk
+
+Please check the @{ " compatibility " LINK COMPATIBILITY} notes here before filing a bug report.
+
+Please provide enough information and context to allow the bug to be reproduced. 
+This is essential before most bugs can be fixed.
+
+In particular, say which version of NextZXOS and NextBASIC you are using, and 
+check that the current official release of the Next system shows the same
+ problem. Interim versions from github are barely tested and therefore cannot 
+be supported.
+
+@-------------------------------------------------------------------------------
+@node FILING
+@prev BUGS
+@next HOOKS
+@toc INDEX
+
+@{h1}Output to a file
+Since the printer output uses stream #3, you can redirect Next's output to any 
+file by quitting Nextramon, opening a file on the desired path and connecting 
+it to stream 3, then restarting Nextramon without reloading, and telling it 
+to 'print':
+
+@{b}Q @{ub}@{i}(at Nextramon's main menu)@{ui}
+@{b}OPEN #3,"O>Disassembly.txt"
+GO TO 300
+P @{ub}@{i}(at Nextramon's main menu)@{ui}
+
+Then enter whichever command or sequence of commands generates the output you 
+want to print. All output intended for the printer will go to the file. To 
+finish and revert, quit back to BASIC and type
+
+@{b}CLOSE #3@{ub}
+
+This will write out the last part of the file and reset stream 3 to use the 
+printer (if any) as usual and previously.
+
+
+@-------------------------------------------------------------------------------
+@node REPORTS
+@prev FILING
+@next HOOKS
+@toc DIS
+
+@{h1}Report codes
+Report codes are single-byte values placed in memory after a RST 8
+instruction. The Spectrum operating system interprets these as
+an instruction to terminate the program with a report message that
+corresponds to the byte value. Codes are numbered from -1 and
+displayed after adding 1, so that the 'dummy' report OK needs no
+code. After report code 9 BASIC shows codes from 10 upwards as
+letters of the alphabet. Here is a list of the 28 report codes
+defined by Sinclair, using the abbreviated descriptions which
+Nextramon uses to save memory. 
+
+-1 "OK
+ 0 "NEXT/FOR"
+ 1 "VarNotFound"
+ 2 "Subscript"
+ 3 "Out of mem"
+ 4 "Screen full"
+ 5 "Overflow"
+ 6 "No GO SUB"
+ 7 "End of file"
+ 8 "STOP"
+ 9 "InvArgument"
+ A "NotInteger"
+ B "Nonsense"
+ C "BREAK I/O"
+ D "Out of DATA"
+ E "BadFilename"
+ F "No room"
+ G "INPUT STOP"
+ H "No NEXT"
+ I "Invalid I/O"
+ J "InvalColour"
+ K "BREAK CONT"
+ L "Bad RAMTOP"
+ M "Lost"
+ N "Bad stream"
+ O "No DEF"
+ P "Parameter"
+ Q "TapeLoading"
+
+Hence Q Tape Loading error, etc.
+
+@{h2}Other reports
+The full text of all of these messages is stored in the original Spectrum ROM 
+between addresses 1392H and 1536H, and also listed in Appendix B of the Next 
+manual. Note that some of those, defined for the 128 BASIC PLAY command, have 
+lower-case codes and no corresponding report code value. Some even later 
+additions are Next-specific reports with no numeric or letter code. Nextramon
+can't detect those as they don't use Sinclair's RST 8 output mechanism.
+
+@{h2}Other codes
+Sinclair used codes greater than 26 for a quite distinct purpose, as a 
+concise way to call code in the Interface 1 ROM. A similar approach was 
+followed by Miles Gordon Technology (MGT) when they implemented not only the 
+Interface 1 microdrive commands but also disc-specific extras in their +D 
+and Disciple peripherals. These 'hook codes' are listed on @{" the next page " LINK HOOKS} 
+of this guide.
+ 
+
+@-------------------------------------------------------------------------------
+@node HOOKS
+@prev REPORTS 
+@next TEXT
+@TOC DIS
+
+@{h1}Hook codes
+Hook codes are values placed in memory after a RST 8 instruction which provide 
+a concise way to call system ROM routines.
+
+They are similar to @{" report " LINK REPORTS} codes but use higher values. 
+The Spectrum operating system interprets these as instructions to call routines 
+in an expansion ROM  (e.g. Interface 1, Swift Disc, Opus Discovery, MGT +D or 
+Disciple, or a peripheral supporting EsxDOS, including the Next's FPGA. Hence 
+they may occur in any Z80 program which makes direct use of these peripherals.
+ 
+Hook codes are redirected to appropriate routines regardless of the ROM version,
+so that they can be used reliably even when the ROM contents change and routines 
+have to be moved around in memory.
+
+The first set of these codes, with values from 27 to 48, was defined by Sinclair 
+and is implemented by many compatible interfaces. Codes 51 to 71 are defined by 
+MGT's GDOS and may be differently interpreted on other systems. Codes from 72 
+to 84 are interpreted by Nextramon as defined by the Spectrum add-on Unidos 
+- unless you tweak line 4570 to correspond to some other system.
+
+Here's the current list of hook codes Nextramon recognises:
+
+@{h2}Sinclair Interface 1 hook codes
+27 "CONS_IN"
+28 "CONS_OUT"
+29 "BCHAN_IN"
+30 "BCHAN_OUT"
+31 "PRT_OUT"
+32 "KBD_TEST"
+33 "SEL_DRIVE"
+34 "OP_TEMP_M"
+35 "CLOSE_M2"
+36 "ERASE"
+37 "READ_SEQ"
+38 "WR_RECD"
+39 "RD_RANDOM"
+40 "RD_SECTOR"
+41 "RD_NEXT"
+42 "WR_SECTOR"
+43 "OP_TEMP_M"
+44 "DEL_M_BUF"
+45 "OP_TEMP_N"
+46 "CLOSE_NET"
+47 "GET_PACK"
+48 "SEND_PACK"
+49 "NEWVARS"
+50 "SHADOW"
+
+The last pair of those is documented in Andy Pennell's 1983 book 
+Master Your ZX Microdrive published by Sunshine Books:
+
+@{i}https://spectrumcomputing.co.uk/entry/2000235/Book/Master_Your_ZX_Microdrive@{ui}
+
+The others correspond to the Spectrum Shadow ROM Disassembly book 
+by Gianluca Carri, published by Melbourne House in 1985. See:
+
+@{i}https://spectrumcomputing.co.uk/entry.php?id=2000371@{ui}
+
+These are the additional hook codes specific to MGT interfaces and DOSes:
+
+@{h2}MGT G(+)DOS hook codes
+51 "HXFER"
+52 "OpenMap"
+53 "OpenFile"
+54 "SaveByte"
+55 "SaveBlock"
+56 "CloseMap"
+57 "PrintByte"
+58 "SmallDump"
+59 "GetFile"
+60 "LoadByte"
+61 "LoadBlock"
+62 "WriteSector"
+63 "ReadSector"
+64 "ResetSeek0"
+65 "Erase"
+66 "LargeDump"
+67 "Catalogue"
+68 "LoadSector"
+69 "SaveSector"
+70 "Streams"
+71 "Patch"
+
+@{h2}UniDOS specific hook-codes
+72 "LoadFile"
+73 "VerifyFile"
+74 "Merge"
+75 "SaveFile"
+76 "OpenFile"
+77 "POINT"
+78 "Flush"
+79 "CloseFile"
+80 "ClearChans"
+81 "RenameFile"
+82 "MoveStream"
+83 "MoveFile"
+84 "SelectPath"
+
+The best source of information about Unidos, GDOS and MGT-specific hook codes is
+FORMAT, the magazine of the Independent Disciple/Plus D User Group INDUG.
+
+@-------------------------------------------------------------------------------
+@node TEXT
+@prev HOOKS 
+@toc COMMANDS
+@next NUMERIC
+
+@{h1}ASCII Text display
+The 'A' command reads memory and displays text in ASCII code, the character set 
+tabulated in Appendix A of the Next manual.
+
+ASCII stands for American Standard Code for Information Interchange, dating from
+the 1970s. Previous computers, from IBM and others, used different character 
+codes and often failed to put even the digits and letters in order. The ZX-80 
+used a custom code, without lower case letters, to save ROM space.
+
+Nextramon's text display shows two columns: 
+
+The first column is the address of the first byte of the following data, 
+in @{" hex or decimal " LINK ADDRESSES} depending on the B 'base' menu option.
+
+The second column shows the ASCII characters corresponding to 32 consecutive 
+bytes in memory. As ASCII only defines codes 32 to 127 (and 127 is a 
+non-printing DEL character, interpreted by Sinclair as a copyright sign) 
+codes below 32 are displayed as dots - otherwise they could be interpreted 
+as control codes, screwing up the colour or layout of the display - and 
+codes greater than 127 have 128 subtracted by clearing their top bit, to 
+render them legible as text. 
+
+This is convenient as many text tables in the ZX ROM set the top bit of 
+the last character of each message, to mark the end without wasting
+a byte with an explicit termination character.
+
+@{h2}Examples
+
+To see this in action, try the commands:
+
+    @{b}A1392H@{ub}
+
+    @{b}A9A2@{ub}
+
+    @{b}A$96@{ub}
+
+to view the error reports, cassette messages and keywords in ROM, respectively.
+
+The boundaries between entries can be seen by using the @{" numeric dump option N " LINK NUMERIC}
+and looking for codes greater or equal than than 128 or 80H.
+
+@{h2}Adjusting column widths
+Unlike the original Spectramon, Nextramon formats the line to use more than 32 
+columns to make better use of wide printers. Adjust the loop at line 7000 and 
+step in 7040 to make the tabulation wider or narrower to suit your data and 
+printer.
+
+@-------------------------------------------------------------------------------
+@node NUMERIC
+@prev TEXT
+@toc COMMANDS
+@next INDEX
+
+@{h1}Byte numeric display
+Nextramon's numeric display shows two columns:
+
+The first is the address, in decimal or hex depending upon previous toggling 
+of the @{" B " LINK ADDRESSES} command.
+
+The second block shows the numeric values of 16 bytes from that address 
+onwards, also in either hex or decimal.
+
+@{h2}Adjusting column widths
+Unlike the original Spectramon, Nextramon formats the line to use more than 
+32 columns to make better use of wide printers.
+Adjust the ranges set in lines 7500 and 7530 to make the tabulation 
+narrower or wider to suit your data and printer.
+
+@{h2}Multibyte values
+Note that 16-bit values in Z80 memory are usually stored low-byte first,
+so the value 49154, $C002, is stored in two bytes in the order 02H, C0H. 
+
+The main exceptions to this 'little endian' convention, chosen to speed up 
+carry propagation in multibyte arithmetic, are the way line numbers are 
+stored at the start of each ZX BASIC line, where having the most 
+significant byte first speeds up scanning, and when programming Next's 
+blitter, which is modelled on the original big-endian Amiga implementation 
+and counts the same way.
+
+@-------------------------------------------------------------------------------
+@node INDEX
+@{r}Nextramon Guide
+@{c}@{h1}Subject Index
+
+@{h1}Alphabetical index of NextGuide pages in this document
+@{" Address specification " LINK ADDRESSES}
+@{" Bug reports and feature requests " LINK BUGS}
+@{" Command summary " LINK COMMANDS}
+@{" Compatibility, displays and printers " LINK COMPATIBILITY}
+@{" Copyright and Thanks" LINK COPYRIGHT}
+@{" Disassembly " LINK DIS}
+@{" Features " LINK FEATURES}
+@{" File output " LINK FILING}
+@{" Floating Point Calculator " LINK FPC}
+@{" History " LINK HISTORY}
+@{" Hook codes " LINK HOOKS}
+@{" Numeric display " LINK NUMERIC}
+@{" Overview " LINK MAIN}
+@{" Report codes " LINK REPORTS}
+@{" System variables " LINK SYSVARS}
+@{" Text display " LINK TEXT}
+

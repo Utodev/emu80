@@ -104,6 +104,9 @@ function ParseInline(const S: string): TMdAtoms;
 
 implementation
 
+uses
+  ModernUI;
+
 const
   BASE_SIZE = 10;
   HEADING_SIZES: array[1..4] of Integer = (20, 16, 13, 11);
@@ -113,6 +116,20 @@ const
   RULE_COLOR = $D8D8D8;
   FIND_BACK = $60E8FF;
   HEADING_COLOR = $503010;
+  // The dark theme's: lighter, to be read on dark grey
+  LINK_DARK = $FFC678;       // #78C6FF
+  HEADING_DARK = $FFDCA8;    // #A8DCFF
+
+{ Links and headings: blue, or (dark theme) light blue }
+function ThemeLink: TColor;
+begin
+  if DarkTheme then Result := LINK_DARK else Result := LINK_COLOR;
+end;
+
+function ThemeHeading: TColor;
+begin
+  if DarkTheme then Result := HEADING_DARK else Result := HEADING_COLOR;
+end;
 
 function MdAnchor(const Heading: string): string;
 var
@@ -682,8 +699,8 @@ var
       W := Widths[K];
       if Emit then
       begin
-        if msLink in Atoms[K].Style then Col := LINK_COLOR
-        else if msCode in Atoms[K].Style then Col := CODE_COLOR
+        if msLink in Atoms[K].Style then Col := ThemeLink
+        else if msCode in Atoms[K].Style then Col := TC(CODE_COLOR)
         else Col := AColor;
         // A space inside code (or a link) is part of the coloured run
         if Atoms[K].Space and (K > First) and (Atoms[K - 1].Style * [msCode, msLink] <> []) and
@@ -783,26 +800,26 @@ begin
           Size := HEADING_SIZES[Bk^.Level];
           if B > 0 then Inc(Y, LineH);
           FAnchors.AddObject(Bk^.Anchor, TObject(PtrInt(Y)));
-          Inc(Y, WrapAtoms(Bk^.Atoms, X, Y, W, Size, True, HEADING_COLOR, True));
+          Inc(Y, WrapAtoms(Bk^.Atoms, X, Y, W, Size, True, ThemeHeading, True));
           if Bk^.Level <= 2 then
           begin
             Inc(Y, 3);
-            AddItem(miLine, Rect(X, Y, X + W, Y + 1), '', [], 0, RULE_COLOR);
+            AddItem(miLine, Rect(X, Y, X + W, Y + 1), '', [], 0, TC(RULE_COLOR));
             Inc(Y, 2);
           end;
           Inc(Y, Gap);
         end;
       mbPara:
-        Inc(Y, WrapAtoms(Bk^.Atoms, X, Y, W, BASE_SIZE, False, clBlack, True) + Gap);
+        Inc(Y, WrapAtoms(Bk^.Atoms, X, Y, W, BASE_SIZE, False, TC(clBlack), True) + Gap);
       mbBullet, mbNumber:
         begin
           Cx := X + Bk^.Level * Indent;
           if Bk^.Kind = mbNumber then Bullet := Bk^.Number
           else if Bk^.Level > 0 then Bullet := #$E2#$80#$93     // en dash for nested items
           else Bullet := #$E2#$80#$A2;
-          AddItem(miText, Rect(Cx + LineH div 3, Y, Cx + Indent, Y + LineH), Bullet, [], BASE_SIZE, clBlack);
+          AddItem(miText, Rect(Cx + LineH div 3, Y, Cx + Indent, Y + LineH), Bullet, [], BASE_SIZE, TC(clBlack));
           Inc(Y, WrapAtoms(Bk^.Atoms, Cx + Indent, Y, W - (Cx - X) - Indent, BASE_SIZE, False,
-            clBlack, True));
+            TC(clBlack), True));
           // Items of a list are closer together than paragraphs
           if (B < High(FBlocks)) and (FBlocks[B + 1].Kind in [mbBullet, mbNumber]) then Inc(Y, 3)
           else Inc(Y, Gap);
@@ -811,15 +828,15 @@ begin
         begin
           SetFont(C, [msCode], BASE_SIZE - 1);
           H := C.TextHeight('Ag') + 1;
-          AddItem(miBox, Rect(X, Y, X + W, Y + Bk^.Lines.Count * H + Gap), '', [], 0, CODE_BACK);
+          AddItem(miBox, Rect(X, Y, X + W, Y + Bk^.Lines.Count * H + Gap), '', [], 0, TC(CODE_BACK));
           for R := 0 to Bk^.Lines.Count - 1 do
             AddItem(miText, Rect(X + Gap, Y + Gap div 2 + R * H, X + W, Y + Gap div 2 + (R + 1) * H),
-              Bk^.Lines[R], [msCode], BASE_SIZE - 1, clBlack);
+              Bk^.Lines[R], [msCode], BASE_SIZE - 1, TC(clBlack));
           Inc(Y, Bk^.Lines.Count * H + Gap + Gap);
         end;
       mbRule:
         begin
-          AddItem(miLine, Rect(X, Y + Gap, X + W, Y + Gap + 1), '', [], 0, RULE_COLOR);
+          AddItem(miLine, Rect(X, Y + Gap, X + W, Y + Gap + 1), '', [], 0, TC(RULE_COLOR));
           Inc(Y, 2 * Gap + 1);
         end;
       mbTable:
@@ -870,24 +887,24 @@ begin
             RowH := LineH;
             for Col := 0 to Cols - 1 do
               RowH := Max(RowH, WrapAtoms(Bk^.Cells[R][Col], 0, 0, ColW[Col] - 2 * Gap, BASE_SIZE,
-                False, clBlack, False));
+                False, TC(clBlack), False));
             Inc(RowH, Gap);
-            if R = 0 then AddItem(miBox, Rect(X, Y, X + Avail, Y + RowH), '', [], 0, CODE_BACK);
+            if R = 0 then AddItem(miBox, Rect(X, Y, X + Avail, Y + RowH), '', [], 0, TC(CODE_BACK));
             Cx := X;
             for Col := 0 to Cols - 1 do
             begin
               WrapAtoms(Bk^.Cells[R][Col], Cx + Gap, Y + Gap div 2, ColW[Col] - 2 * Gap, BASE_SIZE,
-                False, clBlack, True);
+                False, TC(clBlack), True);
               Inc(Cx, ColW[Col]);
             end;
-            AddItem(miLine, Rect(X, Y, X + Avail, Y + 1), '', [], 0, RULE_COLOR);
+            AddItem(miLine, Rect(X, Y, X + Avail, Y + 1), '', [], 0, TC(RULE_COLOR));
             Inc(Y, RowH);
           end;
-          AddItem(miLine, Rect(X, Y, X + Avail, Y + 1), '', [], 0, RULE_COLOR);
+          AddItem(miLine, Rect(X, Y, X + Avail, Y + 1), '', [], 0, TC(RULE_COLOR));
           Cx := X;
           for Col := 0 to Cols do
           begin
-            AddItem(miLine, Rect(Cx, TableTop, Cx + 1, Y + 1), '', [], 0, RULE_COLOR);
+            AddItem(miLine, Rect(Cx, TableTop, Cx + 1, Y + 1), '', [], 0, TC(RULE_COLOR));
             if Col < Cols then Inc(Cx, ColW[Col]);
           end;
           Inc(Y, Gap + 1);
@@ -954,7 +971,7 @@ var
   R: TRect;
   Found: Boolean;
 begin
-  Canvas.Brush.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
   Canvas.FillRect(ClientRect);
   for I := 0 to High(FItems) do
   begin
@@ -976,13 +993,13 @@ begin
           Canvas.Font.Color := FItems[I].Color;
           if Found then
           begin
-            Canvas.Brush.Color := FIND_BACK;
+            Canvas.Brush.Color := TC(FIND_BACK);
             Canvas.FillRect(R);
           end
           else if (msCode in FItems[I].Style) and (FItems[I].Size = BASE_SIZE) then
           begin
             // Inline code on a grey background
-            Canvas.Brush.Color := CODE_BACK;
+            Canvas.Brush.Color := TC(CODE_BACK);
             Canvas.FillRect(R);
           end;
           Canvas.Brush.Style := bsClear;

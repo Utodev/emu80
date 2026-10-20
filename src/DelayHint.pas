@@ -84,7 +84,8 @@ begin
   FTimer.Enabled := False;
   P := Mouse.CursorPos;
   if (FText = '') or not PtInRect(FArea, P) then Exit;
-  if FWindow = nil then FWindow := THintWindow.Create(Self);
+  // The application's kind (dark in the dark theme)
+  if FWindow = nil then FWindow := HintWindowClass.Create(Self);
   R := FWindow.CalcHintRect(HINT_WIDTH, FText, nil);
   // Below the spot, kept on the screen
   OffsetRect(R, P.X, FArea.Bottom + 2);

@@ -1,0 +1,87 @@
+#The NextPi Supervisor
+
+##Overview
+
+The Supervisor is the interface between the Pi and the Next, for primary control.
+
+It turns the serial comms on the Next UART into Standard Input/Output on the Pi,
+ so your "coprocessor routines" need not worry about baud configuration, or
+ opening serial ports, permissions or locking -- if you read from STDIN, it
+ will be trying to get bytes out of the next UART, if you print to STDOUT, 
+ you're writing into the UART for reading upon the next. It does this by using
+ the old "serial terminal" configuration setup from BITD, like a remote BBS, or
+ telnet'ing to something far away, except this one is in your Next.
+
+The supervisor is the default process listing on /dev/ttyAMA0 (the serial 
+ console on NextPi) and upon connection, after you hit enter, hopefully the
+ supervisor will respond with
+
+	'SUP> '
+
+This means the SUPervisor (see what I did there) is waiting for your commands.
+
+Depending on the sophistication of your terminal app 'Tab to Auto Complete' may
+ work. You can try this by typing "nextpi-"and hitting TAB twice. If it works
+ you will be presented with a long list of commands starting with "nextpi-",
+ these are your (documented*) interface between the NextPi and the 8bit world. 
+
+You should explore the documentation for these nextpi- commands before going
+ too wild with them, some of them can be quite destructive!  However, to help
+ you prevent this NextPi's operating system is Read Only form by default. You
+ can tell that by the ">" in the supervisor prompt. The ">" means "Read Only"
+ if that is ever replaced by a "#" that means you are in Read Write mode, and
+ damage is possible.  These "admin" modes should never be used in normal
+ operations, only system repair, and while developing nextpi.  You can toggle
+ these modes (with care) using nextpi-admin_[enable|disable] commands.
+
+* You can, of course, do many things, it's a bash terminal running as root,
+ but that's beyond the scope of this document.
+
+##Developing for the Supervisor on the Next.
+
+UART comms on the next are outside of the scope of this document, but once you
+ have your UART routed to the Pi, and the speed matched (currently 115,000)
+ you can begin to issue commands to the supervisor.
+
+First, "drain" the UART of any waiting bytes, if you're a newly executed
+ command the chance of anything useful "waiting for you" is next to none -
+ terminal app may be the exception here. This is because there could be some
+ junk bytes left in the FIFO buffer in theory, so make sure that's all cleaned
+ up first.
+
+Next, to confirm NextPi is ready sending 0x13 is the same as hitting Enter, and
+ you should see the SUP prompt return.  It is advised to do this at the start
+ of any "transaction" between the Next and the Pi, to confirm the Supervisor is
+ not still executing a different command or that the pi is still booting. 
+
+Now you can send ASCII commands as if being typed, followed by enter, and ^C
+ will terminate the CLI.
+
+Here is an example, simple, transaction - it presumed the file in question has
+ (by some prior means) already been transferred to NextPi, and during the
+ transfer it was requested with namespace "tests" and flagged for persistent
+ storage.  You can read more about Persistent storage in the Partitions
+ documentation:
+NEXT > PI		'\13'
+NEXT < PI		'SUP> '
+NEXT > PI		'nextpi-play_sid /PCache/tests/monty.sid\13'
+NEXT < PI	(any output from the CLI is now sent to the Next)
+NEXT > PI		'\03'
+NEXT < PI	(any trailing bytes from the CLI)
+NEXT < PI		'SUP> '
+
+* It is left as an exercise to the developer as to handle readonly mode. It is
+ presumed, and intended, that it Pi should remain in RO mode (admin disabled)
+ at almost all times, for default operation. This is intended, as the name
+ implies, for administration of NextPi only.
+
+## File Operations
+
+These are handled via dedicated CLI tools on both the Next, and NextPi. Storage
+ is split into three types, Volatile, Persistent, and System ROM, and these
+ have namespaces (working directories), you can read more about these in the
+ Partition documentation, and for how to interact, see nextpi-file_* and 
+ nextpi-cache_* documentation on the wiki for details.
+
+
+

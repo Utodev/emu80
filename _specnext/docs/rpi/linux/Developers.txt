@@ -1,0 +1,52 @@
+Development Environments
+========================
+
+The (current) default available packages are in packages.txt.
+
+Python2.7 is "promised" for the final install.
+xboxdrv linux interface will be present.
+
+Special Package Requests will be considered. Please contact me on Discord in the
+ #nextpi channel and tag me.
+
+How To Make "Your Linux" like nextPi linux.
+
+This is about making _your_ linux compatible with Next software written for
+ NextPi Linux. It does not concern itself with Linux housekeeping, your exact
+ variety of Linux, hardening, or preventing system failure like corrupt 
+ filesytem from reboots, etc.
+
+ * The following directories are expected to exist - the main filesystem
+   does NOT have to be RO on your personal distro:
+     /ram
+     /NextPi
+     /PCache
+
+ * The contents of the /opt/nextpi are available, "somewhere" at the same 
+   paths on your distro, and the items in /opt/nextpi/bin are in $PATH.
+ 
+ * Scripts in /opt/nextpi/bin all behave as expected - please edit these to 
+   suit your distro.  nextpi-admin_* can be "stubbed out" - you won't need 
+   these, these scripts admin the nextpi distro changes itself, not the generic
+   Linux pi environment. The only exception to this is probably 
+   nextpi-admin_report, this may still be useful/used by tools on the Next that
+   are looking to report the status of the Pi.
+
+ * /opt/nextpi/supervisor/supervisor has replaced your default GETTY on 
+   /dev/ttyS0@115200 (ttyAMA0 on most SBCs) - the supervisor script reflects the
+   RW status of the / filesystem, based on /dev/root - this may not work on your
+   setup, but as long as it does not error, this should not matter -- there are 
+   currently no tools on the next that use the admin status of the filesystem, 
+   so RO or RW should not make any difference to the next side.
+
+ * A package environment analagous to the contents of /docs/package-lists are
+   installed on your system.
+   
+One final note
+--------------
+The /tools folder, in the root in this repo, will go some way to helping you
+ create a compatible filesystem - but could also turn your SSD into Jam.  It's
+ advised you read this script before running it, especially as it runs as root.
+ 
+ Pull requests to these scripts will be entertained, as long as they don't break
+ the internal development system we use to maintain NextPi ;-)

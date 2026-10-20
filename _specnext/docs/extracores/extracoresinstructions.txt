@@ -1,0 +1,173 @@
+How to install and use additional cores
+---------------------------------------
+Author:  Garry Lancaster & Phoebus Dokos (Cleanup)
+Date:	 2020-04-21
+License: CC BY-NC-SA
+Version: 1.3
+
+Changelog
+---------
+2020-04-21: 1.0 Initial version
+2020-04-27: 1.1 Minor Update
+2020-05-01: 1.2 Clarification of the 'userfile'  option
+2022-06-03: 1.3 Support for Multicore on KS2 A7 to follow
+
+Introduction
+------------
+From v1.26, the firmware supports multiple additional cores installed in the
+Next's Flash memory, in slots 8..31 (slots 0..7 are reserved for anti-brick
+and standard Next cores).
+
+This system works for KS1 based machines with the original Spartan 6 FPGA. Due to
+the upgrade to the Artix 7 for KS2 we have disabled this functionality temporarily
+for KS2 machines until a method for safely handling cores for different FPGAs is
+introduced.
+
+
+Adding cores to the SD card
+---------------------------
+
+To make an additional core available to the firmware:
+
+1. Create a new subdirectory with an appropriate name under the "machines"
+   directory on the SD card. For example, a BBC Master core might best be
+   housed in a directory called "machines/bbcmaster".
+
+2. Copy the core into the newly-created directory, naming it as core.bit.
+
+3. Optionally, create a text file named core.cfg in the same directory.
+   Add the following line to give the core a more descriptive name in the
+   firmware:
+     name=BBC Master
+
+   (If this step is omitted, the firmware will use the directory name as the
+   core name).
+
+
+Flashing and running cores
+--------------------------
+
+When you have added at least one additional core to the "machines" directory,
+you can press "C" during a hard reset operation to start the additional cores
+module in the firmware.
+
+This will bring up a list of the currently installed cores for slots 8..31.
+Navigate using the up, down, left, right cursor keys.
+
+To install a core in a particular slot (or to erase a core from a slot)
+press SPACE. This will then list all currently-uninstalled cores found in the
+"machines" directory. Navigate to the desired core and press ENTER to flash it,
+or press SPACE to erase the current slot.
+
+To run a core, navigate to the slot containing the desired core and press
+ENTER. This will start the core. If the core.bit file has been changed since
+the core was last flashed (an asterisk will be shown next to the slot number
+in this case) you will be asked if you want to upgrade it first.
+
+
+Running a core from NextBASIC
+-----------------------------
+
+A new dot command, .CORE, is provided to allow you to start a core from within
+NextBASIC. For example, use .CORE BBCMA~1 (see note below) to start the core in
+the "machines/bbcmaster" directory (provided it has been installed to your Next's
+flash memory).
+
+
+IMPORTANT NOTE!
+---------------
+If the core folder you chose is a long name, you will need to use an 8.3 
+compliant (short) name to start it with .CORE. For differences between long and
+short names refer to Chapter 20 of the ZX Spectrum Next User Manual.
+
+Additional core configuration facilities
+========================================
+
+Core authors may take advantage of some additional facilities that the firmware
+provides, allowing resource files (such as ROMs or initialisation programs)
+to be loaded into SRAM before the core is started.
+
+Core configuration is controlled by the core.cfg file for each core. This is
+a plain text file. Each line may be a comment (preceded by ; ) or one of the
+following:
+
+name=CORE NAME
+; Sets the displayed name of the core in the firmware cores module
+; (if not present, the directory name containing the core is used)
+; eg
+;    name=Acorn BBC Master
+
+resource=FILE,PAGE
+; Loads a resource file (eg a required ROM or core initialisation program)
+; into SRAM beginning at the 16K SRAM page specified. The file must be
+; in the "machines/corename" directory.
+; Any number of resource files may be specified.
+; eg
+;    resource=boot.rom,20
+
+userfile=SUBDIR,DESCRIPTION,PAGE,FLAGS,OFFSET
+; Requests the user to select a file to be loaded into SRAM. The files
+; to be chosen from are located in the "machines/corename/SUBDIR" directory
+; and the user will be asked to select a "DESCRIPTION".
+;
+; The selected file will be loaded into SRAM beginning at the 16K SRAM page
+; specified in PAGE.
+;
+; FLAGS & OFFSET are optional parameters.
+;
+; If FLAGS bit 0 is set, then the user is forced to select a file; if not,
+; then they may opt to not select a file (by pressing SPACE).
+;
+; If FLAGS bit 1 is set, then the file is not loaded into SRAM. Instead,
+; the selected filename is written to the SRAM page selected at the optional
+; offset given by OFFSET.
+;
+; Any number of user files may be specified.
+;
+; eg
+;    userfile=GAMEROMS,game,30,1
+;
+; NOTE: The example above will FORCE the loading ANY ROM present in the direc-
+;       tory GAMEROMS found under the core subdirectory you're loading into
+;       SRAM page 30 on. Moreover upon core selection it will display the 
+;       message: Press ENTER to select game and will not allow the core to
+;       boot until the user selects it. "game" is just the message that will
+;       be displayed for the file selection prompt for files present into 
+;       GAMEROMS and NOT THE ACTUAL filename. 
+
+config=PAGE,OFFSET
+; If this option is present, the firmware will write some configuration
+; information into the SRAM page selected at the optional offset.
+;
+; The first 16 bytes contain generic configuration information (taken from
+; the Next's config.ini) that the core  may optionally take into account
+; when starting:
+;  +0           video timing mode (0..7)
+;  +1           scandoubler (0=off, 1=on)
+;  +2           frequency (0=50Hz, 1=60Hz)
+;  +3           PS/2 mode (0=keyboard, 1=mouse)
+;  +4           scanline weight (0=off, 1=75%, 2=50%, 3=25%)
+;  +5           internal speaker (0=disabled, 1=enabled)
+;  +6           HDMI sound (0=disabled, 1=enabled)
+;  +7..15       RESERVED
+;
+; The next 16 bytes indicate whether the first 16 "userfile" options resulted
+; in a file being selected. For each byte, 0 means "not selected" and 1 means
+; "selected".
+;
+; The next 32 bytes contain the null-terminated path of the core
+; (eg "/MACHINES/CORENAME",0)
+;
+; The next 192 bytes are reserved for future use.
+;
+; eg
+;    config=32
+
+
+SRAM Page Numbers
+-----------------
+The SRAM page numbers provided in the core.cfg file may be between 0 and 31,
+corresponding to the first 512K of SRAM.
+Note that pages 16, 18 and 21 should NOT be selected as this RAM is used by
+the firmware.
+

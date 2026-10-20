@@ -1,0 +1,602 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file, based on p3dep.zsm
+
+
+; ***************************************************************************
+; * ZX Spectrum Next-specific routines.                                     *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * Definitions                                                             *
+; ***************************************************************************
+
+ram0l           equ     0*2+0
+ram0u           equ     0*2+1
+ram2l           equ     2*2+0
+ram2u           equ     2*2+1
+ram5l           equ     5*2+0
+ram5u           equ     5*2+1
+
+min_core_ver    equ     $201c   ; needs 2.0.28+
+
+hdraddr         equ     $e000   ; header gets paged into MMU7
+
+;Spectrum system variables:
+BANKM           equ     $5b5c   ; Memory paging latch
+OLDHL           equ     $5b52   ; Temporary HL stash during paging routines
+BANKIO          equ     $7ffd   ; I/O port for memory paging
+ERR_SP          equ     $5c3d   ; error return
+CHANS           equ     $5c4f   ; address of channel information
+CURCHL          equ     $5c51   ; current channel
+
+
+; ***************************************************************************
+; * Strings and data                                                        *
+; ***************************************************************************
+
+str_load_prompt:
+                defm    "Navigate with cursor keys, ENTER, EDIT and D",23,0,0
+                defm    "Press ENTER to select .SAV file, SPACE to abort    "
+                defb    $ff
+
+str_save_prompt:
+                defm    "Navigate with cursor keys, ENTER, EDIT and D",23,0,0
+                defm    "Press ENTER to overwrite .SAV file, SPACE for new  "
+                defb    $ff
+
+str_newname_prompt:
+                ; clear 2 bottom lines
+                defm    22,22,0," ",23,0,0," ",23,0,0,22,22,0
+                defm    "Enter new filename:",' '+$80
+str_newname_prompt_end:
+
+str_filetype_sav:
+                defm    4,"SAV:",$ff
+
+; NOTE: ".sav" must not precede namebuf as it would fool the extension check
+namebuf:
+                defs    51*2-1-(str_newname_prompt_end-str_newname_prompt)
+namebuf_end:
+                defs    5       ; additional 5 bytes to append ".SAV",$ff
+
+str_dotsav:
+                defm    ".sav"
+str_dotsav_end:
+
+errstr_badpeek:
+                defm    "Invalid ZM addr: "
+esbp_addr:
+                defm    "000000",' '+$80
+
+signon:
+                include in_ver.inc
+                defb    cr,127,'1998-9,2006,2016'
+                defb    ' by John Elliott'
+                defb    cr,'ZX Spectrum Next module by Garry Lancaster, 2019-2021'
+                defb    cr,cr
+                defb    'Story file: $'
+
+str_loadok:
+                defm    cr,cr,"Story loaded - press a key to start$"
+
+str_crcr:
+                defb    cr,cr+$80
+
+story:          defw    0       ; Address of story filename
+cache_next:     defb    0       ; next cache buffer to use
+cacheL_h:       defb    0       ; mid byte of Z-M addr in RAM0L cache buffer
+cacheL_e:       defb    0       ; high byte of Z-M addr in RAM0L cache buffer
+cacheU_h:       defb    0       ; mid byte of Z-M addr in RAM0U cache buffer
+cacheU_e:       defb    0       ; high byte of Z-M addr in RAM0U cache buffer
+saved_althl:    defw    0       ; H'L' for BASIC
+
+
+; ***************************************************************************
+; * Read a Next register                                                    *
+; ***************************************************************************
+
+; Reads the Next register in the byte following the call instruction,
+; returning its contents in A.
+read_nextreg:
+        ex      (sp),hl
+        ld      a,(hl)          ; A=register number
+        inc     hl              ; step past inline parameter
+        ex      (sp),hl
+        push    bc
+        ld      bc,next_reg_select
+        out     (c),a           ; select register
+        inc     b
+        in      a,(c)           ; read it
+        pop     bc
+        ret
+
+
+; ***************************************************************************
+; * Read/write in first 64K of Z-Machine memory                             *
+; ***************************************************************************
+
+; Write byte A to HL (first 64K only).
+NXPOKE:
+        push    hl
+        push    af
+        ld      a,h
+        and     $e0             ; A = H7 H6 H5 00 00 00 00 00
+        rlca
+        rlca
+        rlca                    ; A = 00 00 00 00 00 H7 H6 H5 = 8K chunk id
+        push    hl
+        ld      hl,bankids
+        addhl_a
+        ld      a,(hl)          ; A=bank id
+        pop     hl
+        nxtrega nxr_mmu7        ; page in bank to MMU7
+        ld      a,h
+        or      $e0
+        ld      h,a             ; HL=offset within MMU7
+        pop     af
+        ld      (hl),a          ; store byte
+        pop     hl
+        scf                     ; success
+        ret
+
+; Read byte A at HL (first 64K only).
+NXPK64:
+        push    hl
+        ld      a,h
+        and     $e0             ; A = H7 H6 H5 00 00 00 00 00
+        rlca
+        rlca
+        rlca                    ; A = 00 00 00 00 00 H7 H6 H5 = 8K chunk id
+        push    hl
+        ld      hl,bankids
+        addhl_a
+        ld      a,(hl)          ; A=bank id
+        pop     hl
+        nxtrega nxr_mmu7        ; page in bank to MMU7
+        ld      a,h
+        or      $e0
+        ld      h,a             ; HL=offset within MMU7
+        ld      a,(hl)          ; A=byte
+        pop     hl
+        scf                     ; success
+        ret
+
+
+; ***************************************************************************
+; * Read any address in Z-Machine memory                                    *
+; ***************************************************************************
+
+; Read byte at EHL to A.
+NXPEEK:
+        push    hl
+        call    get_zmaddr      ; address the byte at HL
+        ld      a,(hl)          ; A=byte
+        pop     hl
+        ret                     ; exit with success/fail from get_zmaddr
+
+; Read word at EHL to BC.
+NXPKWD:
+        push    hl
+        call    get_zmaddr      ; address the byte at HL
+        jr      nc,peekw_fail
+        ld      b,(hl)          ; B=first byte
+        inc     hl
+        bit     7,h             ; is second byte still within MMU7?
+        jr      z,peekw_2nd     ; on if not
+peekw_2nd_do:
+        ld      c,(hl)          ; C=second byte
+        pop     hl
+        scf                     ; success
+        ret
+peekw_2nd:
+        pop     hl              ; EHL=Z-Machine address again
+        push    hl
+        push    de
+        inc     hl              ; calc EHL=Z-Machine address + 1
+        ld      a,h
+        or      l
+        jr      nz,peekw_2ndaddr
+        inc     e               ; EHL=Z-Machine address + 1
+peekw_2ndaddr:
+        call    get_zmaddr      ; address the byte at HL
+        pop     de
+        jr      c,peekw_2nd_do  ; back to fetch if successful
+peekw_fail:
+        pop     af              ; discard stacked items
+        and     a               ; fail
+        ret
+
+; Read word at EHL to BC, auto-incrementing EHL.
+NXPKWI:
+        call    NXPKWD          ; read word to BC
+;       ret     nc              ; exit if error occurred (doesn't matter)
+        inc     l               ; increment EHL
+        jr      nz,ipeekw_nowrap1
+        inc     h
+        jr      nz,ipeekw_nowrap1
+        inc     e
+ipeekw_nowrap1:
+        inc     l               ; increment EHL again and exit
+        ret     nz              ; exit with success (INCs don't affect carry)
+        inc     h
+        ret     nz
+        inc     e
+        ret
+
+
+; ***************************************************************************
+; * Subroutines to locate any address in Z-Machine memory                   *
+; ***************************************************************************
+
+; Page in memory containing the Z-Machine address EHL, returning actual
+; physical address in HL.
+; Exits with Fc=1 for success, Fc=0 for failure
+get_zmaddr:
+        ld      a,e
+        cp      8
+        jr      nc,peek_error   ; error if address >= 512K
+        ld      a,h
+        and     $e0
+        or      e               ; A = H7 H6 H5 00 00 E2 E1 E0
+        rlca
+        rlca
+        rlca                    ; A = 00 00 E2 E1 E0 H7 H6 H5 = 8K chunk id
+        push    hl
+        ld      hl,bankids
+        addhl_a
+        ld      a,(hl)          ; A=bank id
+        pop     hl
+        and     a
+        jr      z,docache256    ; if not in bank, get to cache at MMU7 top
+        nxtrega nxr_mmu7        ; page in bank to MMU7
+        ld      a,h
+        or      $e0
+        ld      h,a             ; HL=offset within MMU7
+        scf                     ; success
+        ret
+
+peek_error:
+        ld      c,e
+        ld      de,esbp_addr
+        call    sphex6
+        ld      hl,errstr_badpeek
+        and     a               ; failure
+        ret
+
+; There are 2 x 256-byte cache buffers, at the top of RAM0L and RAM0H
+; respectively, so that PEEKW can use the same test to check if the 2nd byte
+; is available whether reading from an 8K bank or one of the 256-byte buffers.
+
+docache256:
+        ld      a,(cacheL_h)
+        cp      h
+        jr      nz,notcacheL
+        ld      a,(cacheL_e)
+        cp      e
+        jr      nz,notcacheL
+        xor     a               ; cache buffer in RAM0L
+usecache_a:
+        nxtrega nxr_mmu7        ; page in cache bank
+        ld      h,$ff           ; HL=address within top 256 bytes
+        scf                     ; success
+        ret
+notcacheL:
+        ld      a,(cacheU_h)
+        cp      h
+        jr      nz,notcached
+        ld      a,(cacheU_e)
+        cp      e
+        ld      a,1             ; cache buffer in RAM0U
+        jr      z,usecache_a
+notcached:
+        push    bc
+        push    de
+        push    hl
+        push    ix
+        ld      b,e
+        ld      c,h             ; BC=high word of address
+        ld      a,(cache_next)
+        xor     1
+        ld      (cache_next),a  ; update next cache buffer to use
+        jr      nz,fillcacheU
+if (cacheL_e != (cacheL_h+1))
+.ERROR cacheL_e must follow cacheL_h
+endif
+        ld      (cacheL_h),bc
+;       xor     a               ; cache buffer in RAM0L (not needed; A=0)
+        jr      fillcache_a
+fillcacheU:
+if (cacheU_e != (cacheU_h+1))
+.ERROR cacheU_e must follow cacheU_h
+endif
+        ld      (cacheU_h),bc
+;       ld      a,1             ; cache buffer in RAM0U (not needed; A=1)
+fillcache_a:
+        push    af              ; save cache buffer bank
+        nxtrega nxr_mmu5        ; page in buffer at $bf00
+        ld      d,0
+        ld      l,0
+        ld      b,FILENO
+        call    dodos
+        defw    DOS_SETPOS      ; set file position to EH0
+        jr      nc,fillcache_err
+        ld      b,FILENO
+        ld      c,7             ; page unimportant
+        ld      de,256
+        ld      hl,$bf00
+        call    dodos
+        defw    DOS_READ        ; read 256 bytes to cache buffer
+        jr      nc,fillcache_err
+        nxtregn nxr_mmu5,ram2u  ; re-page RAM2U into mmu5
+        pop     af
+        nxtrega nxr_mmu7        ; page cache buffer bank into mmu7
+        pop     ix              ; restore registers
+        pop     hl
+        pop     de
+        pop     bc
+        ld      h,$ff           ; HL=address within top 256 bytes
+        scf                     ; success
+        ret
+
+; NOTE: dodos returns HL=fatal error message if Fc=0
+fillcache_err:
+        nxtregn nxr_mmu5,ram2u  ; re-page RAM2U into mmu5
+        pop     bc              ; discard cache buffer bank
+        pop     ix              ; restore registers
+        pop     bc              ; (discarding HL to preserve error message)
+        pop     de
+        pop     bc
+        ret                     ; exit with error condition
+
+
+; ***************************************************************************
+; * Page header in                                                          *
+; ***************************************************************************
+
+headerin:
+        ld      a,(bankids)
+        nxtrega nxr_mmu7        ; page in first story bank to MMU7
+        ret
+
+
+; ***************************************************************************
+; * Return top of memory available to VM module                             *
+; ***************************************************************************
+
+NXTMEM:
+        ld      hl,$bfff        ; see memory map in nextzxzvm.zsm
+        ret
+
+
+; ***************************************************************************
+; * Enter a filename                                                        *
+; ***************************************************************************
+; Entry: A=0 means "load" prompt, A=1 means "save as" prompt.
+; Exit:  HL=filename (will be passed to NXOPEN)
+
+NXNAME:
+        push    af
+        call    save_tilemap            ; save tilemap and disable it
+        ld      de,str_load_prompt
+        pop     af
+        push    af
+        and     a                       ; Fz=1 for load
+        jr      z,name_useprompt
+        ld      de,str_save_prompt
+name_useprompt:
+        ld      hl,str_filetype_sav     ; acceptable filetypes (.SAV)
+        xor     a                       ; no special capabilities
+        call    dodos
+        defw    IDE_BROWSER             ; invoke the Browser
+        pop     bc                      ; B=0 for load, 1 for save
+        jr      nc,name_abort           ; if error occurred, abort load/save
+        jr      z,name_use_de           ; use LFN in DE if a .SAV was selected
+        ld      a,b
+        and     a                       ; Fz=1 for load
+        jr      z,name_abort            ; abort if load & name not provided
+        xor     a
+        call    dodos
+        defw    IDE_MODE                ; query the current mode
+        ld      (CURCHL),ix             ; make the mode window current
+        ld      hl,str_newname_prompt
+        ld      e,$80                   ; bit7-terminated string
+        call    dodos_ram0_noerr
+        defw    IDE_WINDOW_STRING       ; output prompt string
+        ld      hl,namebuf
+        push    hl
+        ld      a,namebuf_end-namebuf
+        ld      e,0
+        call    dodos_ram0_noerr
+        defw    IDE_WINDOW_LINEIN       ; get the user's input
+        pop     hl
+        ld      a,e
+        and     a
+        jr      z,name_abort            ; abort if empty input
+        push    hl
+        addhl_a                         ; HL=character following input
+        push    hl
+        ld      b,4                     ; check 4 extension characters
+        ld      de,str_dotsav_end
+        ex      de,hl                   ; HL=after required ext, DE=after input
+name_checkext_loop:
+        dec     de                      ; back up to previous chars
+        dec     hl
+        ld      a,(de)
+        set     5,a                     ; make user character lower-case
+        cp      (hl)                    ; check if matches
+        jr      nz,name_append_sav      ; if not, move on to append .sav
+        djnz    name_checkext_loop
+        pop     hl                      ; restore address following input
+        jr      name_gotext             ; and go to append terminator
+name_append_sav:
+        pop     de                      ; DE=address following input
+        ld      hl,str_dotsav
+        ld      bc,4
+        ldir                            ; append ".sav"
+        ex      de,hl                   ; HL=address following ".sav"
+name_gotext:
+        ld      (hl),$ff                ; append $ff-terminator
+        ld      a,15
+        call    dodos_ram0_noerr
+        defw    IDE_STREAM_CLOSE        ; close the window channel
+        pop     de                      ; DE=namebuf
+name_use_de:
+        push    de                      ; save name to return
+        call    restore_tilemap         ; restore tilemap and re-enable
+        pop     hl                      ; HL=name to return
+        scf                             ; success
+        ret
+name_abort:
+        call    restore_tilemap         ; restore tilemap and re-enable
+        and     a                       ; fail
+        ret
+
+
+; ***************************************************************************
+; * Chime an error                                                          *
+; ***************************************************************************
+
+chime:
+        push    af
+        push    bc
+        push    de
+        push    hl
+        ld      de,$e00
+        ld      hl,chimebf
+        ld      bc,$fffd
+chime_loop:
+        ld      a,(hl)
+        out     (c),e
+        ld      b,$bf
+        out     (c),a
+        ld      b,$ff
+        inc     hl
+        inc     e
+        dec     d
+        jr      nz,chime_loop
+        pop     hl
+        pop     de
+        pop     bc
+        pop     af
+        ret
+
+chimebf:
+        defw    $1a6,$14f,$11a
+        defb    0,$78,$10,$10,$10,0,8,0,0
+
+
+; ***************************************************************************
+; * Initialise I/O module                                                   *
+; ***************************************************************************
+
+NXINIT:
+        ld      (story),de
+        call    read_nextreg    ; get core version
+        defb    nxr_corever
+        ld      b,a
+        call    read_nextreg    ; get core sub-version
+        defb    nxr_coresubminor
+        ld      c,a
+        ld      hl,min_core_ver-1
+        and     a
+        sbc     hl,bc
+        jr      c,init_coreokay ; okay if >= minimum version
+        rst     8
+        defb    82              ; "Not implemented" error
+                                ; (tilemap not supported)
+init_coreokay:
+        exx
+        ld      (saved_althl),hl; save H'L' for return to BASIC
+        exx
+        nxtregn nxr_turbo,turbo_max     ; 28MHz
+        call    sel48           ; ensure RAM0 is paged
+        call    init80          ; initialise the 80-column screen driver
+        call    erall           ; clear the screen
+        ld      a,1
+        ld      (cfont),a       ; set current font
+        xor     a
+        ld      (lwy),a         ; show signon at top regardless of Z version
+        ld      de,signon
+        call    print1          ; sign on
+        ld      hl,(story)
+ps_loop:
+        ld      a,(hl)
+        cp      $ff             ; print story name (FF-terminated)
+        jr      z,ps_loop_end
+        push    hl
+        call    out1_a
+        pop     hl
+        inc     hl
+        jr      ps_loop
+ps_loop_end:
+        ld      hl,(story)
+        call    st_open         ; load the story file
+        ret     nc
+        ld      de,str_loadok   ; show success
+        call    print1
+        call    wait_key        ; wait for a keypress
+        call    ZXCLS
+        scf
+        ret
+
+
+; ***************************************************************************
+; * De-initialise I/O module                                                *
+; ***************************************************************************
+; If carry set: de-initialise and return.
+; If carry clear: show fatal error string HL, de-initialise and terminate
+;                 program (do not return).
+
+NXEXIT:
+        push    af
+        push    hl
+        call    st_close        ; close the story and deallocate memory
+        ex      de,hl           ; DE=any fatal error message from st_close
+        push    af
+        pop     bc              ; BC=error condition from st_close
+        pop     hl
+        pop     af
+        jr      nc,zxerr        ; on if we already had a fatal error
+        ex      de,hl           ; restore any fatal error message from st_close
+        push    bc
+        pop     af              ; restore error condition from st_close
+        jr      c,zxret         ; finish gracefully if there wasn't one
+zxerr:
+        ld      sp,(ERR_SP)     ; reset stack to error return
+        ld      a,$ff
+        ld      (ERR_NR),a      ; clear BASIC error code ("OK")
+        push    hl
+        ld      de,str_crcr
+        call    print7          ; leave at least 1 empty line
+        pop     de
+        call    print7          ; display error/finished message
+        call    wait_key        ; wait for a keypress
+zxret:
+        call    deinit80        ; de-initialise the 80-column screen driver
+        call    sel48           ; ensure RAM0 is paged
+        exx
+        ld      hl,(saved_althl); restore H'L' for return to BASIC
+        exx
+        ld      a,2
+        call    CHAN_OPEN_r3    ; open channel to stream 2 (screen)
+        ld      a,14
+        rst     $10             ; clear layer 1,1 screen
+        ret
+

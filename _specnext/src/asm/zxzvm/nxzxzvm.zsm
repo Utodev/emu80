@@ -1,0 +1,104 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file
+
+
+; ***************************************************************************
+; * ZXZVM build for ZX Spectrum Next.                                       *
+; ***************************************************************************
+
+; Memory map:
+; $e000-$ffff   mmu7    R0U/R7U/story   (R0U used to save tilemap temporarily
+;                                        and to save the part of BASIC prog
+;                                        overwritten by tiledefs)
+; $c000-$dfff   mmu6    R0L/R7L
+;                       layout for R0L: font3_emphasis($dd00 --> $dfff)
+;                                       font3_normal  ($da00 --> $dcff)
+;                                       font1_accentem($d780 --> $d9ff)
+;                                       font1_accent  ($d500 --> $d77f)
+;                                       font1_emphasis($d200 --> $d4ff)
+;                                       font1_normal  ($cf00 --> $d1ff)
+;                                       NextIO module ($c000 --> $ceff)
+; $a000-$bfff   mmu5    RAM2 (upper)    ZXZVM data (stacks etc)
+; $8000-$9fff   mmu4    RAM2 (lower)    ZXZVM module
+; $6000-$7fff   mmu3    RAM8 (lower)    ZXZVM module  ($7000 --> $7fff)
+;                                       NextIO module ($6800 --> $6fff)
+;                                       BASIC prog,SP ($6000 --> $67ff)
+; $4000-$5fff   mmu2    RAM5 (lower)    BASIC prog    ($5ccb --> $5fff)
+;                                       sysvars etc   ($5b00 --> $5cca)
+;                                       screen        ($5400 --> $5aff)
+;                                       tilemap/screen($4000 --> $53ff)
+; $2000-$3fff   mmu1    ROM (upper)
+; $0000-$1fff   mmu0    ROM (lower)
+
+; MMU5 is used temporarily by the screen driver for access to tile definitions
+; and when reading/writing Z-Machine memory to/from a file.
+
+; MMU6/7 contains RAM7 when making +3DOS/IDEDOS/NextZXOS calls, and RAM0
+; at most other times. However, MMU7 may be mapped to an allocated bank
+; containing story data for access by the IO or VM modules.
+
+; BASIC program puts Next into layer 1,1 mode so that RAM5 upper is normally
+; paged out, and can be used to store the tile definitions for the char set.
+
+; Story file data is loaded into allocated 8K MMU banks and paged in to MMU7
+; as required. Therefore, the RAMdisk (RAM 1,3,4,6) is still available.
+
+        include in_zxzvm.inc    ; Shared definitions
+        include nxdefs.inc      ; ZX Spectrum Next definitions
+        include nxmacros.inc    ; ZX Spectrum Next macros
+
+        ; Lower half of the NXIO module, in MMU3 ($6800-$6fff)
+        include nxjpblk.zsm     ; ZX Spectrum Next I/O module jump block
+        include nxp3dos.zsm     ; ZX Spectrum Next disk-related routines
+        include nxdep.zsm       ; ZX Spectrum Next-specific routines
+
+if ($ > VMORG)
+.WARNING Lower half of NXIO module overwrites VM module
+endif
+
+        ; VM module & data is located here ($7000-$bfff)
+        org     VMORG
+        incbin  nxvm.bin
+
+if ($ > $c000)
+.WARNING VM module overwrites upper half of NXIO module.
+endif
+
+        ; Upper half of the NXIO module, in MMU6 ($c000-$d3ff)
+        org     $c000
+
+        ; Data required to be at known addresses for POKEing from BASIC.
+mainwin_s:
+        defb    2               ; starting tile row for main window
+mainwin_h:
+        defb    26              ; height (in rows) of main window
+mainwin_o:
+        defb    0               ; starting tile column for main window
+mainwin_w:
+        defb    80              ; width of main window
+
+        ; Remaining NXIO module code.
+        include nxio.zsm        ; ZX Spectrum Next I/O module (main)
+        include nx80.zsm        ; ZX Spectrum Next 80-column screen driver
+        include nxinput.zsm     ; ZX Spectrum Next input routines
+        include in_wrhex.inc    ; Shared utility code
+
+if ($ > font1_normal)
+.WARNING Upper half of NXIO module overwrites font data
+endif

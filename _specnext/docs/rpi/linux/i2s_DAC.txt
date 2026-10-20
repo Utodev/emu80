@@ -1,0 +1,20 @@
+REQUIRES: Core 3.00.11 or above
+
+pi i2s audio control
+nextreg 0xa2 default 0
+ENL ENR INOUT MUTEL MUTER SLAVE EAR ENL,ENR
+ 00 : i2s off
+ 01 : i2s is mono source right
+ 10 : i2s is mono source left
+ 11 : i2s is stereo
+ INOUT
+ 0 : (hats) PCM_DOUT to pi, PCM_DIN from pi
+ 1 : (pi) PCM_DOUT from pi, PCM_DIN to pi
+ MUTEL = 1 to mute left side
+ MUTER = 1 to mute right side
+ SLAVE = 1 to use external sck, ws
+ EAR = 1 to direct i2s audio to ear input of port 0xfe
+
+pi i2s clock divider
+netreg 0xa3 default 11
+clock divider = 538461 / SampleRateHz - 1

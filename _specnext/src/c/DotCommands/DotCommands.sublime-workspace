@@ -1,0 +1,1020 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"uint",
+				"uint8_t"
+			],
+			[
+				"note",
+				"noteStep"
+			],
+			[
+				"runtiemP",
+				"RuntimePatchBank"
+			],
+			[
+				"patch",
+				"patchStep"
+			],
+			[
+				"Tool",
+				"ToolPatchBank"
+			],
+			[
+				"GB_VOICE_NOI",
+				"GB_VOICE_NOISE_VALUE"
+			],
+			[
+				"Runtime",
+				"RuntimePatch"
+			],
+			[
+				"size",
+				"sizeof"
+			],
+			[
+				"run",
+				"runtimeData"
+			],
+			[
+				"g_control",
+				"g_controlNoise"
+			],
+			[
+				"num",
+				"numRefs"
+			],
+			[
+				"uin",
+				"uint8_t"
+			],
+			[
+				"esxdos_f_",
+				"esxdos_f_write"
+			],
+			[
+				"int",
+				"int16_t"
+			],
+			[
+				"ui",
+				"uint16_t"
+			],
+			[
+				"FreeSeq",
+				"FreeSeqRef"
+			],
+			[
+				"EDITOP_",
+				"EDITOP_MOVE"
+			],
+			[
+				"in",
+				"int8_t"
+			],
+			[
+				"DrawSeq",
+				"DrawSequence"
+			],
+			[
+				"ball",
+				"balloc_free"
+			],
+			[
+				"MEMPOO",
+				"MEMPOOL_NOTE_STEPS_1"
+			],
+			[
+				"MEMPOOL_",
+				"MEMPOOL_RUNTIME_SEQ"
+			],
+			[
+				"g_Cu",
+				"g_CurPatchIndex"
+			],
+			[
+				"err",
+				"errorCode"
+			],
+			[
+				"DrawText",
+				"DrawText64"
+			],
+			[
+				"g_CurPat",
+				"g_CurPatch"
+			],
+			[
+				"g_comman",
+				"g_transportCommandData"
+			],
+			[
+				"g_con",
+				"g_control_StepRecord"
+			],
+			[
+				"Quanti",
+				"QuantiseTime"
+			],
+			[
+				"DrawTe",
+				"DrawText64"
+			],
+			[
+				"DrawHex",
+				"DrawHex4x8"
+			],
+			[
+				"Quantise",
+				"QuantiseDuration"
+			],
+			[
+				"u",
+				"uint8_t"
+			],
+			[
+				"Acc",
+				"AccumTime"
+			],
+			[
+				"g_controla",
+				"g_controlArpRetrigger"
+			],
+			[
+				"AudioO",
+				"AudioOut8"
+			],
+			[
+				"VOICE_DE",
+				"VOICE_DEBUG_1"
+			],
+			[
+				"_Song",
+				"_SongPosBeat"
+			],
+			[
+				"TRACK_C",
+				"TRACKS_CX"
+			],
+			[
+				"g_Song",
+				"g_SongLoopShift"
+			],
+			[
+				"g_song",
+				"g_SongLoopStart"
+			],
+			[
+				"g_CurP",
+				"g_CurPatch"
+			],
+			[
+				"TRACK_",
+				"TRACKS_CY"
+			],
+			[
+				"zx_",
+				"zx_border"
+			],
+			[
+				"Del",
+				"DelayBuffer"
+			],
+			[
+				"tran",
+				"transpose0"
+			],
+			[
+				"arpeg",
+				"arpeggioData"
+			],
+			[
+				"Arpeggio",
+				"Arpeggio"
+			],
+			[
+				"delay",
+				"delayed"
+			],
+			[
+				"de",
+				"defb"
+			],
+			[
+				"ver",
+				"version"
+			],
+			[
+				"uint8",
+				"uint8_t"
+			],
+			[
+				"SQ",
+				"SQUEEZE_RUNTiME_DATA"
+			],
+			[
+				"__",
+				"__z88dk_fastcall"
+			],
+			[
+				"MusicDriver",
+				"MusicDriverPlay"
+			],
+			[
+				"control_Del",
+				"control_DelayMix"
+			],
+			[
+				"control_De",
+				"control_DelayFeedback"
+			],
+			[
+				"control_Dela",
+				"control_DelayFeedback"
+			],
+			[
+				"control_Delay",
+				"control_DelayTime"
+			],
+			[
+				"zx_c",
+				"zx_cls"
+			],
+			[
+				"zx_sc",
+				"zx_cxy2saddr"
+			],
+			[
+				"UIFLAG_is",
+				"UIFLAG_isEdit2"
+			],
+			[
+				"GB_VOICE_VOL",
+				"GB_VOICE_VOL_TRIM"
+			],
+			[
+				"PUSH_",
+				"PUSH_INITCODE_BANK"
+			],
+			[
+				"GB_PATCH_",
+				"GB_PATCH_TREMOLO"
+			],
+			[
+				"ADSR_STAGE_",
+				"GB_ADSR_STAGE_R"
+			],
+			[
+				"GB_AD",
+				"GB_ADSR_HOLD_DUR"
+			],
+			[
+				"GB_PATCH_VIB_",
+				"GB_PATCH_VIB_ADD"
+			],
+			[
+				"n",
+				"neg"
+			],
+			[
+				"SCR",
+				"SCR_ADDR"
+			],
+			[
+				"SC",
+				"SCR_SIZE"
+			],
+			[
+				"N",
+				"NumRowsCount"
+			],
+			[
+				"ENME",
+				"ENEMY_DATA_SIZE"
+			],
+			[
+				"ENEM",
+				"ENEMY_DATA_Y"
+			],
+			[
+				"S",
+				"SPRITE_CLEAR_SIZE"
+			],
+			[
+				"SpriteClear",
+				"SpriteClearTableNum"
+			],
+			[
+				"Spr",
+				"SpriteClearTableCur"
+			],
+			[
+				"restore",
+				"restoreSpriteBackgrounds"
+			],
+			[
+				"Sp",
+				"SpriteClearTableCur"
+			],
+			[
+				"spri",
+				"sprites"
+			],
+			[
+				"SAVE",
+				"SAVE_SPRITE"
+			],
+			[
+				"drawSp",
+				"drawSpriteChunk"
+			],
+			[
+				"GARI_SCALE_",
+				"GARI_SCALE_SHIFT"
+			],
+			[
+				"clos",
+				"closest_i\tdefault"
+			],
+			[
+				"legato.",
+				"legato.on_note\tdefault"
+			],
+			[
+				"notes",
+				"notes_held_count\tdefault"
+			],
+			[
+				"layer_",
+				"layer_index2\tdefault"
+			],
+			[
+				"sw",
+				"swap1\tdefault"
+			],
+			[
+				"round",
+				"roundrobin\tdefault"
+			]
+		]
+	},
+	"buffers":
+	[
+		{
+			"file": "build.sh",
+			"settings":
+			{
+				"buffer_size": 6754,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "Makefile",
+			"settings":
+			{
+				"buffer_size": 22409,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "mmap-dot.inc",
+			"settings":
+			{
+				"buffer_size": 5025,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "mmap.inc",
+			"settings":
+			{
+				"buffer_size": 1351,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "mmapdot.inc",
+			"settings":
+			{
+				"buffer_size": 0,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "zpragma.inc",
+			"settings":
+			{
+				"buffer_size": 1174,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "zpragmadot.inc",
+			"settings":
+			{
+				"buffer_size": 69,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "NextDAWDotCommand.c",
+			"settings":
+			{
+				"buffer_size": 6540,
+				"line_ending": "Unix"
+			}
+		}
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+		[
+			[
+				[
+					"Packages/User/C64-6502.sublime-build",
+					""
+				],
+				[
+					"Packages/User/C64-BASIC.sublime-build",
+					""
+				]
+			],
+			[
+				"Packages/User/C64-6502.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					""
+				],
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					"Run"
+				],
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					"Build and Run"
+				]
+			],
+			[
+				"Packages/z80asm/z80asm.sublime-build",
+				""
+			]
+		],
+		[
+			[
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					""
+				],
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					"Run"
+				],
+				[
+					"Packages/z80asm/z80asm.sublime-build",
+					"Build and Run"
+				],
+				[
+					"Packages/User/C64-6502.sublime-build",
+					""
+				],
+				[
+					"Packages/User/C64-BASIC.sublime-build",
+					""
+				]
+			],
+			[
+				"Packages/z80asm/z80asm.sublime-build",
+				""
+			]
+		]
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 392.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"",
+				"Package Control: Install Package"
+			]
+		],
+		"width": 485.0
+	},
+	"console":
+	{
+		"height": 143.0,
+		"history":
+		[
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/ArrangerEditorEditOps.c.lis",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicData.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/PianoRoll.c.asm",
+		"/Users/biasillo/z88dk-2017-12-14/include/_DEVELOPMENT/clang/arch/zx/esxdos.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/sccz80/adt/p_list.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/sccz80/alloc/balloc.h",
+		"/Users/biasillo/Downloads/ELITE OBJECTS.DAT",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/_MusicEditorLink.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_Main.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_Rendering.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_PatchEditor.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_NoteEditor.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_ArrangerEditor.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_MusicPlayer.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_SpriteData.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_ToolMusicData.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_FontData.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicData.asm.m4",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/EXAMPLES/zxn/dot-command/strings/strings.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/DebugCodeC.c",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/alloc/balloc/z80/asm_balloc_reset.asm",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/EXAMPLES/zxn/dot-command/extract/extract.c",
+		"/Applications/zesarux.app/Contents/MacOS/media/spectrum/esxdos_handler/0.8.6_TBBLUE/SONG.DAW",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/p_list.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/p_forward_list.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/b_vector.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/b_array.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/bv_priority_queue.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicEditorSprites.c",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/z80/asm_p_list_push_front.asm",
+		"/Volumes/NEXT-SD/tbblue/config.ini",
+		"/Volumes/NEXT-SD/tbblue/config.ini.VGA",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/z80/__p_list_empty_add.asm",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/z80/asm_p_list_insert.asm",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/z80/asm_p_list_remove.asm",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/c/sccz80/p_list_remove_callee.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/Makefile",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MixerEditor.c",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/c/sccz80/p_list_insert_after_callee.asm",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/sdcc/adt/p_list.h",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/z80/asm_p_list_insert_after.asm",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/w_vector.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/zcc_opt.def",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/p_forward_list_alt.h",
+		"/Users/biasillo/z88dk-2018-03-04/libsrc/_DEVELOPMENT/adt/p_list/c/sccz80/p_list_insert_after.asm",
+		"/Users/biasillo/z88dk-2018-03-04/include/adt/w_array.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/GraphicsData.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/FixedBlockAllocator.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/FixedBlockAllocator.c",
+		"/Users/biasillo/z88dk-2018-03-04/doc/memoryallocation.txt",
+		"/Users/biasillo/z88dk-2018-03-04/include/balloc.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/sys/types.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/clang/stdint.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/clang/ctype.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/clang/unistd.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/_DEVELOPMENT/sccz80/alloc.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/alloc.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/alloc/balloc.h",
+		"/Users/biasillo/z88dk-2018-03-04/include/alloc/malloc.h",
+		"/Users/biasillo/z88dk-2018-03-04/ext/UNIXem/src/dirent.c",
+		"/Users/biasillo/z88dk-2018-03-04/include/X11/Xlib.h",
+		"/Users/biasillo/z88dk-2018-03-04/build.sh",
+		"/Users/biasillo/z88dk-2018-03-04/include/alloc/obstack.h",
+		"/Volumes/HD2Dev/ZXSpectrum/TBBLue Cores/TBBLUE-v0.8b/sources/mouse/mouse.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/TBBLue Cores/TBBLUE-v0.8b/sources/mouse/mouse_drv.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_MusicData.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicData.z80",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/Graphics/Aseprite/test.json",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/_MusicEditor__BANK_050.bin",
+		"/Applications/zesarux.app/Contents/MacOS/media/spectrum/esxdos_handler/0.8.6_TBBLUE/FontData.bin",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/_MusicEditor_PAGE_100_fontData.bin",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/NextDAW/FontData.bin",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileListBank03.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileListBank04.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileListBank01.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_Bank_4_C000.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/CompileList.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_ArrangerEditorPage.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_NoteEditorPage.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_Bank_6_2000.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/ZXNextRegs.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicEditorSprites.c.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/arch/zx/esxdos/z80/asm_esxdos_f_chdir.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/arch/zx/esxdos/c/sdcc_ix/esxdos_f_chdir_fastcall.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/arch/zx/esxdos/c/sdcc_ix/esxdos_f_chdir.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/env/file/z80/__ENV_FILENAME.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/target/zxn/config/config_esxdos.m4",
+		"/Users/biasillo/z88dk-2017-12-14/include/_DEVELOPMENT/sccz80/arch/zx/esxdos.h",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/target/zxn/config_zxn_public.inc",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/target/zx/config/config_esxdos.m4",
+		"/Users/biasillo/Downloads/player (2).asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/PianoRoll.h",
+		"/Volumes/NEXT-SD/tbblue/timing.ini",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/input/zx/z80/asm_in_test_key.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/input/zx/z80/asm_in_inkey.asm",
+		"/Users/biasillo/Downloads/player (1).asm",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MidiEditor.h",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/target/zx/driver/terminal/zx_01_input_kbd_inkey/zx_01_input_inkey_iterm_msg_getc.asm",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/input/cpm/c/sccz80/in_test_key.asm",
+		"/Volumes/SD FAT16/help.bat",
+		"/Volumes/SD FAT16/readme.txt",
+		"/Volumes/SD FAT16/autoexec.bat",
+		"/Volumes/SD FAT16/kmare.bat",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/ArrangerEditor.c.lis",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicPlayerArpeggio.sym",
+		"/Users/biasillo/z88dk-2017-12-14/include/_DEVELOPMENT/clang/arch/zxn/esxdos.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/compileList_Bank_4_E000.lst",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/SpriteData.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/SpriteData.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicPlayerCBank.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/UIKnob.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/UILevels.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/UILevels.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/UISwitch.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/ZXNextSprite.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/MusicEditorSprites.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/ZEsarUX/ay38912.c",
+		"/Users/biasillo/z88dk-2017-12-14/libsrc/_DEVELOPMENT/arch/zx/misc/z80/asm_zx_border.asm",
+		"/Volumes/HD2Dev/ZXSpectrum/FLASHAIR/CONFIG",
+		"/Volumes/HD2Dev/ZXSpectrum/FLASHAIR/edited/CONFIG",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/ZEsarUX/FAQ",
+		"/Users/biasillo/.zesaruxrc",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/ZEsarUx/cpu.c",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/ZEsarUX/DEVELOPMENT",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/ZEsarUX/ACKNOWLEDGEMENTS",
+		"/Users/biasillo/z88dk-2017-12-14/include/_DEVELOPMENT/clang/input/input_zx.h",
+		"/Users/biasillo/z88dk-2017-12-14/include/_DEVELOPMENT/clang/arch/zx.h",
+		"/Volumes/HD2Dev/ZXSpectrum/Projects/MusicEditor/PatchEditor.h"
+	],
+	"find":
+	{
+		"height": 39.0
+	},
+	"find_in_files":
+	{
+		"height": 101.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"selected": 7,
+			"sheets":
+			[
+				{
+					"buffer": 0,
+					"file": "build.sh",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6754,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/ShellScript/Bash.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 7,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "Makefile",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 22409,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Makefile/Makefile.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "mmap-dot.inc",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 5025,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 5,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "mmap.inc",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1351,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.sublime-syntax",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "mmapdot.inc",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 0,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "zpragma.inc",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 1174,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "zpragmadot.inc",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 69,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/HTML/HTML.sublime-syntax"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "NextDAWDotCommand.c",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6540,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/User/Stino/Arduino.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				}
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 26.0
+	},
+	"input":
+	{
+		"height": 31.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.exec":
+	{
+		"height": 350.0
+	},
+	"output.find_results":
+	{
+		"height": 288.0
+	},
+	"pinned_build_system": "Packages/z80asm/z80asm.sublime-build",
+	"project": "DotCommands.sublime-project",
+	"replace":
+	{
+		"height": 48.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 500.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"",
+				"/Volumes/HD2Dev/ZXSpectrum/Projects/3D/3D.sublime-workspace"
+			]
+		],
+		"width": 380.0
+	},
+	"select_symbol":
+	{
+		"height": 89.0,
+		"last_filter": "ToolPatch",
+		"selected_items":
+		[
+			[
+				"ToolPatch",
+				"ToolPatch"
+			]
+		],
+		"width": 392.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": true,
+	"show_tabs": true,
+	"side_bar_visible": true,
+	"side_bar_width": 280.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

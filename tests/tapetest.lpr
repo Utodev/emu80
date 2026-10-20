@@ -10,12 +10,12 @@ program tapetest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Models, Spectrum;
+  SysUtils, Models, Spectrum, Tape;
 
 var
   Sp: TSpectrum;
   Err, Snap: string;
-  I, T: Integer;
+  I, J, T: Integer;
   PC: Word;
   Failures: Integer = 0;
 
@@ -56,6 +56,68 @@ begin
     Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F), 'Play with fast loading loads at once');
     Check(not Sp.Tape.Playing, 'fast loading stops the tape');
 
+    // A model's own turbo doesn't stay: after the Next at 28 MHz, a 128K
+    // runs at the speed setting (1x)
+    Sp.NextFirmwareBoot := True;
+    Sp.SetModel(smZXNext);
+    Sp.SetNextRegister($07, 3);
+    Frames(2);
+    Sp.SetModel(sm128K);
+    Frames(2);
+    Check(Sp.Speed = 1, Format('after the Next at 28 MHz the 128K runs at x%d', [Sp.Speed]));
+
+    // Real-time loading at CPU speed 2x: the tape keeps pace with the CPU
+    // (its pulses as long as the ROM expects) and loads in half the time
+    Sp.SetModel(sm128K);
+    Sp.SetSpeed(2);
+    Sp.FastLoad := False;
+    Sp.AutoPlayTape := True;
+    Sp.Tape.LoadTAP(IncludeTrailingPathDelimiter(ParamStr(2)) + 'test48.tap');
+    Sp.AutoLoad;
+    Frames(4000);
+    Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F), 'real-time loading at 2x on the 128K');
+    Sp.SetSpeed(1);
+
+    // Fast loading switched on while the tape loads in real time: the rest
+    // at once, from a pilot tone (the first block's) and from the middle of
+    // the last block's data
+    for J := 0 to 1 do
+    begin
+      Sp.SetModel(sm48K);
+      Sp.FastLoad := False;
+      Sp.Tape.LoadTAP(IncludeTrailingPathDelimiter(ParamStr(2)) + 'test48.tap');
+      Sp.AutoLoad;
+      if J = 0 then
+      begin
+        Frames(150);
+        Check(Sp.Peek($8401) = 0, 'nothing loaded yet in the first pilot tone');
+      end
+      else
+      begin
+        I := 0;
+        while not ((Sp.Tape.Current = Sp.Tape.Count - 1) and (Sp.Tape.State = tsData)) and (I < 20000) do
+        begin
+          Sp.RunFrame;
+          Inc(I);
+        end;
+        Frames(10);
+        Check(Sp.Tape.State = tsData, 'real-time loading reaches the last block''s data');
+      end;
+      Check(Sp.Tape.Playing, 'the tape plays in real time');
+      Sp.FastLoad := True;
+      Frames(150);
+      Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F) and not Sp.Tape.Playing and
+        (Sp.Tape.Current = Sp.Tape.Count),
+        Format('fast loading switched on in real time (%s) loads the rest at once',
+          [Copy('pilotdata', 1 + J * 5, 5)]));
+    end;
+
+    Sp.FastLoad := True;
+    Sp.SetModel(sm48K);
+    Sp.Tape.LoadTAP(IncludeTrailingPathDelimiter(ParamStr(2)) + 'test48.tap');
+    Sp.AutoLoad;
+    Frames(300);
+
     // A .pzs snapshot of the 48K with the game: saved, reset, loaded back
     Snap := GetTempDir + 'tapetest.pzs';
     Frames(50);
@@ -80,6 +142,6 @@ begin
   finally
     Sp.Free;
   end;
-  if Failures = 0 then WriteLn('Tape fast loading after Play, .pzs of the 48K and 128K: all passed')
+  if Failures = 0 then WriteLn('Tape fast loading after Play, real-time loading at 2x, .pzs of the 48K and 128K: all passed')
   else Halt(1);
 end.

@@ -1,0 +1,296 @@
+NOTE: This information is taken directly from TERMINFO.COM which you can
+      run by typing TERMINFO at the CP/M prompt.
+
+
+ZX Spectrum Next BIOS Terminal Information
+==========================================
+
+This program provides information on the terminal facilities provided by the
+BIOS on the ZX Spectrum Next.
+
+On the ZX Spectrum Next, the EXTEND key functions as a control (CTRL) key,
+so to press CTRL-S (for example), hold down the EXTEND key and press the S key.
+You can also hold down CAPS SHIFT and SYMBOL SHIFT together, instead of EXTEND.
+
+A few keys have special meanings to this program:
+
+CTRL-A (Cursor left)   Reset the terminal and show the previous screen
+CTRL-F (Cursor right)  Reset the terminal and show the next screen
+CTRL-C                 Exit the program
+
+Any other key pressed whilst this program is active will be sent directly to the
+terminal, allowing you to type control codes or escape sequences and see the
+effects that they have.
+
+By default, the terminal provided is 24 lines by 80 columns, which is suitable
+for most CP/M software. If desired you can change the terminal size using the
+TERMSIZE.COM program to anything up to 32 lines by 80 columns.
+
+Many CP/M applications need to be configured (via an INSTALL.COM program or
+similar) so that they can control the terminal correctly. The ZX Spectrum Next
+emulates most features of the Zenith Z-19 terminal, so choose one of the
+following terminal types if possible:
+
+       Zenith Z-19
+       Heathkit H-19
+       DEC VT52
+
+Similar terminals or later models in the same series (eg Zenith Z-29, DEC VT100)
+can also be tried.
+
+If no suitable selection is available, you may need to manually specify the
+features requested by the software. This program should help you determine what
+control codes and escape sequences to use.
+
+You can try out the codes in this program to better understand their effects.
+For example, to try the sequence
+
+        ESC E
+
+(clear & home) press the BREAK key followed by a capital E. Pressing cursor left
+or cursor right will always reset the terminal and change to the next/previous
+screen.
+
+
+Keyboard mappings
+=================
+
+The special keys provided by the ZX Spectrum Next are mapped as described here.
+Some mappings are particularly helpful at the CP/M command line (or when
+software uses the CP/M line editor), and these uses are also shown.
+
+Special Key     Mapping         CP/M command line / line editor
+-----------     -------         -------------------------------
+BREAK                          ESC (can be used to type an escape sequence)
+EDIT           CTRL-W          recall last command (if used at start of line)
+TRUE VIDEO     CTRL-S          stop screen scrolling (CTRL-Q resumes scrolling)
+INV. VIDEO     CTRL-I          TAB
+CAPS LOCK                      Turns on/off caps lock (not passed to software)
+GRAPH          CTRL-G          delete character under cursor
+DELETE         CTRL-H          delete previous character
+EXTEND         CTRL key
+Cursor left    CTRL-A          left
+Cursor right   CTRL-F          right
+Cursor up      CTRL-E          start new line without submitting command
+Cursor down    CTRL-X          delete to start of line
+
+The keymappings may also be helpful in some software packages. For example,
+in WordStar the cursor keys correspond to left & right by one word, and to
+up & down by one line.
+
+
+Terminal features
+=================
+
+The terminal displays characters using font files, which are in the standard
+768-byte Spectrum character set format. You can replace these with your own
+fonts if you wish. The files are located in the c:/nextzxos/cpm/system
+directory in NextZXOS:
+       NORMAL.FNT      standard font
+       UNDER.FNT       underlined font
+       ITALIC.FNT      italicised font
+       ITAL_UND.FNT    italicised & underlined font
+       GRAPHICS.FNT    special Z19/H19 graphics characters
+
+The terminal responds to the following ASCII control characters, all of which
+can be typed directly with the keyboard:
+CTRL-G (GRAPH)         BEL (ASCII 7), alert/bell
+CTRL-H (DELETE)        BS  (ASCII 8), backspace
+CTRL-I (INV. VIDEO)    TAB (ASCII 9), tab
+CTRL-J                 LF  (ASCII 10), line feed
+CTRL-M (ENTER)         CR  (ASCII 13), carriage return
+CTRL-X                 CAN (ASCII 24), cancel current escape sequence
+       (BREAK)         ESC (ASCII 27), used to start escape sequences
+       (CTRL-DELETE)   DEL (ASCII 127), delete forwards
+
+Most terminal facilities are accessed using ESCape sequences.
+
+
+Zenith Z-19 escape sequences
+============================
+
+The following Zenith Z-19 escape sequences are supported, many of which are
+also common to the DEC VT52 and other terminals.
+
+In the lists of sequences, ESC means the character code ASCII 27. The case of
+letters is important. Note that sequences involving lower-case letters cannot
+be directly typed at the command line because CP/M Plus automatically
+converts all user input to upper case before executing it. To work around this
+limitation, the ECHO.COM utility is provided.
+
+Sequence       Effect
+--------       ------
+ESC @          enter insert mode
+ESC A          cursor up
+ESC B          cursor down
+ESC C          cursor right
+ESC D          cursor left
+ESC E          clear & home screen
+ESC F          enter graphics mode (affects ASCII 94..126)
+ESC G          leave graphics mode
+ESC H          cursor home
+ESC I          reverse index (move cursor up, scrolling if necessary)
+ESC J          erase from cursor to end of screen
+ESC K          erase from cursor to end of line
+ESC L          insert line
+ESC M          delete line
+ESC N          delete character under cursor
+ESC O          leave insert mode
+
+ESC Y l c      set cursor position to line l, column c (1,1 is top-left)
+               (l and c are ASCII characters: add 32 to the desired value)
+               eg to set cursor to line 1, column 50: ESC Y ! R
+
+ESC b          erase from cursor to start of screen
+ESC j          save cursor position
+ESC k          restore cursor position
+ESC l          erase entire line
+ESC n          send cursor position report to input (in form ESC Y l c)
+ESC o          erase from cursor to start of line
+ESC p          enter reverse video mode
+ESC q          leave reverse video mode
+ESC v          enable end-of-line wrapping
+ESC w          disable end-of-line wrapping
+ESC x 1        enable 25th-line support (only reachable by ESC Y l c)
+ESC x 5        suppress cursor
+ESC y 1        disable 25th-line support
+ESC y 5        enable cursor
+ESC z          reset terminal to default modes
+
+
+Additional +3 escape sequences
+==============================
+
+Some additional escape sequences used by Locomotive's version of CP/M for the
+ZX Spectrum +3 are also supported. These are:
+
+Sequence       Effect
+--------       ------
+ESC d          erase from cursor to start of screen
+ESC e          enable cursor blob
+ESC f          disable cursor blob
+ESC r          enter underline mode
+ESC u          leave underline mode
+
+
+ZX Spectrum Next - specific escape sequences
+============================================
+
+The following additional escape sequences are specific to the ZX Spectrum Next:
+
+Sequence        Effect
+--------        ------
+
+ESC S n         set background colour (n is an ASCII digit from '0' to '7')
+                eg for a blue background: ESC S 1
+
+ESC S R r g b   redefine current ZX background colour to the RGB value
+                (r,g,b are ASCII digits from '0' to '7')
+                eg redefine background colour to grey: ESC S R 1 1 1
+
+ESC T n         set foreground colour (n is an ASCII digit from '0' to '7')
+                eg for yellow text: ESC T 6
+ESC T R r g b   redefine current ZX foreground colour to the RGB value
+                (r,g,b are ASCII digits from '0' to '7')
+                eg redefine foreground colour to orange: ESC S R 7 4 1
+
+ESC U           enter italics mode
+ESC V           leave italics mode
+ESC W           make current colours the defaults, and 'wash' the screen
+
+
+ANSI support
+============
+
+A number of ANSI sequences are also supported by the terminal. In these
+sequences, 1 or 2 parameters may be provided, labeled 'n' and 'm'.
+
+Such parameters are any sequence of ASCII digits 0 to 7, eg '23'. Parameters
+are always optional and if not provided, a default of 0 is used (unless stated
+otherwise).
+
+Sequence        Effect
+--------        ------
+ESC c           reset terminal to default modes
+ESC [ 'n' A     move cursor up n lines (default 1)
+ESC [ 'n' B     move cursor down n lines (default 1)
+ESC [ 'n' C     move cursor right n columns (default 1)
+ESC [ 'n' D     move cursor left n columns (default 1)
+ESC [ 'n' E     move cursor to start of n-th following line (default 1)
+ESC [ 'n' F     move cursor to start of n-th preceding line (default 1)
+ESC [ 'n' G     move cursor to n-th column of current line (default 1)
+
+ESC [ 'n';'m' H move cursor to n-th line and m-th column (defaults 1)
+
+ESC [ 'n' J     erase: if n=0, from cursor to end of screen
+                       if n=1, from cursor to start of screen
+                       if n=2 or 3, entire screen
+
+ESC [ 'n' K     erase: if n=0, from cursor to end of line
+                       if n=1, from cursor to start of line
+                       if n=2, entire line
+
+ESC [ 'n' L     insert n lines (default 1)
+ESC [ 'n' M     delete n lines (default 1)
+ESC [ 'n' @     insert n characters (default 1)
+ESC [ 'n' P     delete n characters (default 1)
+
+ESC [ 'n';'m' f move cursor to n-th line and m-th column (defaults 1)
+
+ESC [ 'n' h     set mode: if n=4, turn on insert mode
+                          if n=7, turn on autowrap mode
+
+ESC [ 'n' l     reset mode: if n=4, turn off insert mode
+                            if n=7, turn off autowrap mode
+
+ESC [ s         save cursor position
+ESC [ u         restore cursor position
+ESC [ z         reset terminal
+
+ESC [ 'n' m     select graphic rendition specified by mode n
+                       if n=0: normal (reset all effects)
+                       if n=3: italics on
+                       if n=4: underline on
+                       if n=7: reverse video on
+                       if n=23: italics off
+                       if n=24: underline off
+                       if n=27: reverse video off
+                       if n=30: foreground colour black
+                       if n=31: foreground colour red
+                       if n=32: foreground colour green
+                       if n=33: foreground colour yellow
+                       if n=34: foreground colour blue
+                       if n=35: foreground colour magenta
+                       if n=36: foreground colour cyan
+                       if n=37: foreground colour white
+                       if n=40: background colour black
+                       if n=41: background colour red
+                       if n=42: background colour green
+                       if n=43: background colour yellow
+                       if n=44: background colour blue
+                       if n=45: background colour magenta
+                       if n=46: background colour cyan
+                       if n=47: background colour white
+
+
+ANSI compatibility mode
+=======================
+
+Some ANSI sequences clash with standard escape sequences provided with the
+Zenith Z-19. If you have an application that requires the ANSI meaning for
+these sequences, you can enter ANSI compatibility mode.
+
+The following sequences enter or leave ANSI compatibility mode:
+
+Sequence       Effect
+--------       ------
+ESC <          enter ANSI compatibility mode
+ESC [ ? 2 h    leave ANSI compatibility mode
+
+When in ANSI compatibility mode, these sequences have the following meanings:
+
+Sequence       Effect
+--------       ------
+ESC D          move cursor down 1 line, scrolling if necessary
+ESC E          move cursor to start of next line, scrolling if necessary
+ESC M          move cursor up 1 line, scrolling if necessary

@@ -1,0 +1,2 @@
+zcc +zxn -D_IDE_MODE_ -v -startup=30 -clib=sdcc_iy -SO3 --max-allocs-per-node200000 --opt-code-size cstack.c readme.c -o more -pragma-include:zpragma.inc -subtype=dot-n -Cz"--clean" -create-app
+rem move more dot\

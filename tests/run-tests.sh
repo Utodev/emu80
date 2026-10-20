@@ -91,6 +91,12 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/tapetest.lpr" > "$BU
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/tapetest" "$ROOT/roms" "$ROOT/tests/daad"
 
+# TZX tapes (1.20): every block, the pulses of each signal, flow control,
+# and the DAAD Ready test game as TZX with fast and real-time loading
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/tzxtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/tzxtest" "$ROOT/roms" "$ROOT/tests/daad"
+
 # ZX-Uno: its real BIOS and ROMs (zxuno folder), then loading a tape
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/zxunotest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }

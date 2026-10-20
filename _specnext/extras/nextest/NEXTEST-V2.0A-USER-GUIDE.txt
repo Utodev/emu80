@@ -1,0 +1,123 @@
+
+NEXTEST V2.0A USER GUIDE
+
+
+ Welcome
+
+NEXTEST is a test application for the ZX Spectrum Next. It automatically checks the SRAM and SD card transfer bus allowing the user to verify the input devices manually. The duration of the test is left to user discretion and may range from minutes to several hours of soak testing.
+
+
+ Requirements
+
+The application runs under NextZXOS hosted on ZX Spectrum Next compatible hardware. NextZXOS v2.1 or above and core v3.00.00 or above are required. NEXTEST is compatible with all CPU speeds and video mode configurations.
+
+The application detects the system memory, expecting one or two megabytes.
+
+The SD card that launched NEXTEST.NEX should be kept in the system throughout the test as the application continuously streams data.
+
+A mouse is recommended but not essential. 
+
+
+ Configuration
+
+The startup system turbo speed is set to 28Mhz but drops to 3.5Mhz if the expansion bus is enabled. User configuration for machine timing, video mode, and refresh rate are respected. The NMI Multiface function and shortcut key for the turbo speed are disabled when NEXTEST is running.
+
+For convenience, NEXTEST configures both joystick ports for Mega Drive mode to test multi-button gamepads.
+
+A reset or power-off is required to exit NEXTEST. The application treats the SD card as read-only, meaning none of the card's contents are modified.
+
+
+ Startup
+
+Several quick checks complete during startup. They include a data and address bus check, a cyclic redundancy check (CRC) on the main application, and verification of the operating system, core version, SD card, video mode, and machine identity. 
+
+The application relocates into the 16K memory bank shared with the ULA before proceeding to the main test screen. 
+
+ULA memory is shadowed in FPGA BRAM, thus providing an extra layer of protection to the application should it encounter a system with unstable SRAM.
+
+The application's CRC status should read 'pass', as a fail indicates NEXTEST is corrupt, leading to unreliable test results.
+
+
+ Display
+
+The application test status, results, and controls are presented on a 640x256 screen. The current system information is written at the top of the display using a large font, with the remaining information displayed using a smaller default font. All text is visible in one of two colours. Green indicates 'pass', and red indicates 'fail'.
+
+A multi-colour graphic of a ZX Spectrum Next is visible in the centre of the screen. 
+
+The application displays a stop screen after a fatal error. Each stop screen has a black background with a single error message in a bold white font. A reset or power-off is required to exit this state. A list of fatal error messages can be found at the end of this document.
+
+
+ Navigation
+
+A mouse is needed to change the CPU turbo speed, refresh rate, and machine timing. A helpful tooltip is displayed in the top-left of the screen when the mouse pointer encounters an area of interest. The left and right mouse buttons cycle through the parameters of an area of interest should it be configurable.
+
+Warnings are displayed in the tooltip text if a mode is locked. Please note that the 3.5Mhz CPU speed is displayed as '3MHZ'.
+
+
+ Automatic tests
+
+NEXTEST executes background tasks allowing the user to test the input devices without interrupting the automatic tests. The system tasks are as follows;
+
+ 1) SRAM bit inversion write/verify.
+ 2) DMA write/verify.
+ 3) SD card read/verify.
+ 4) Real-time clock (RTC) poll using NextZXOS API.
+
+The background tests loop forever, taking variable time to complete one cycle relating to the CPU turbo speed. The current 8K memory bank, SD card block, and RTC status are updated in real-time.
+
+The 8k bank ID is displayed in the space at the right of the screen when a memory error occurs. There is no distinction between an error from CPU or DMA access; however, the relevant task updates its status to 'fail'.
+
+Due to limited screen space, memory errors above and including bank 95 will display as '95' at the bottom-right of the screen.
+
+The SD card CRC check is disabled when the CPU is at 3.5Mhz.
+
+
+ Manual tests
+
+The input status of the keyboard, mouse, joystick, and board buttons are displayed in real-time. The user should interpret input status to determine if devices are functioning correctly.
+
+The Kempston joystick port input is displayed as '1' when pressed or the relevant first letter of the button/direction when depressed. The letters 'SACBUDLR' relate to buttons; START, A, C, B, and directions; UP, DOWN, LEFT, and RIGHT.
+
+The Kempston mouse port input is displayed as X/Y coordinates with the scroll wheel and button status. The X value ranges from 0 to 319, and the Y value from 0 to 255. The scroll wheel is a single-digit hexadecimal value that ranges from 0 to F. The mouse button status displays '1' when pressed and the first letter of the relevant button when depressed. The letters 'LMR' relate to mouse buttons; LEFT, MIDDLE, and RIGHT.
+
+The mouse pointer may not be visible at the edges of the display.
+
+Keys flash until pressed. The I/O port number for each key group is displayed.
+
+All keys, including the extended and shifted combinations, are translated and displayed on the ZX Spectrum Next graphic. Key colours change in real-time from white to red to show input. A stuck key will remain displayed in red.
+
+The 3.5mm onboard speaker jack outputs a looping audio track streamed from the SD card to indicate the hardware is functioning correctly. The audio signal should also be heard on all HDMI-connected display devices capable of outputting sound when configured correctly.
+
+It is usual for the audio to glitch when changing the refresh rate and machine timing.
+
+
+ Fatal errors
+
+CORE V.3.00.00 OR ABOVE REQUIRED: The application was launched on an older incompatible core.
+
+NEXTZXOS 2.01 OR ABOVE REQUIRED: The application was launched from an older version of NextZXOS.
+
+ESXDOS API ERROR: The application was run on a platform that did not fully support ESXDOS.
+
+NEX LOAD ERROR: An incompatible version of the .NEX dot command was detected.
+
+FILE ERROR: An error occurred accessing data from the application's .NEX file.
+
+FILE FRAGMENTATION ERROR: The application's .NEX file is fragmented.
+
+DISK FILEMAP ERROR: An error occurred attempting to access the NextZXOS API to obtain file allocation data.
+
+SD CARD STREAM ERROR: An error occurred communicating with the SD card device.
+
+SD CARD NOT READY: The SD card containing the application's .NEX file was fully or partially removed from the socket.
+
+DATA BUS ERROR: A catastrophic error was detected during the startup verification of the SRAM's data bus.
+
+ADDRESS BUS ERROR: A catastrophic error was detected during the startup verification of the SRAM's address bus.
+
+
+ Credits
+
+Design and development by Kev Brady.
+'Humanoids', written and produced by Kev Brady.
+(c)2023 9bitcolor.

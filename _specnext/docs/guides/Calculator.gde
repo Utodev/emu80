@@ -1,0 +1,53 @@
+@title Calculator Guide
+@author Garry Lancaster
+@version 1.03
+@copyright Copyright (C)2023 Garry Lancaster
+@date 2024/02/10
+@----------------------------------------------------------------------------
+@node MAIN
+@next OPTIONS
+@{c}@{h1}Calculator Guide
+
+The @{i}Calculator@{ui} allows you to quickly and easily perform calculations.
+
+You can enter any numeric (floating-point or integer) expression. This may be
+as simple as just 2 numbers and an operator, or as complex as you like, using
+any NextBASIC functions and variables.
+
+eg:@{b}
+        3*9
+        sin (pi/4)
+        %a(1)<<2
+@{ub}
+
+When you press @{b}ENTER@{ub} the expression is evaluated and the answer is
+displayed on the following line. You can use the answer in a further expression
+by typing directly after it. Alternatively, press @{b}ENTER@{ub} to start a
+new line and begin entering a new expression.
+
+The calculator editor shows various syntax items (numbers, symbols etc)
+in different colours depending upon the currently-selected editor colour
+scheme. For more information on editor colour schemes, see the @{b}NextZXOS@{ub} guide,
+found on the main menu. Note that syntax-highlighting colours are currently
+only supported for 32-character editing mode.
+
+Pressing @{b}EDIT@{ub} brings up a @{"menu" LINK OPTIONS} for further options.
+@----------------------------------------------------------------------------
+@node OPTIONS
+@prev MAIN
+@toc MAIN
+@{r}Calculator Guide
+@{c}@{h1}Edit options menu
+
+The options menu provides further available actions. If you bring the menu up
+by mistake, press @{b}SPACE@{ub} or @{b}BREAK@{ub} to dismiss it and return to the Calculator.
+
+@{h2}32/64/85
+Cycles between 32/64/85 columns-per-line mode, allowing different amounts of
+information to be shown on screen.
+
+@{h2}Guide
+Brings up this guide.
+
+@{h2}Exit
+Exits the editor and returns to the main NextZXOS menu.

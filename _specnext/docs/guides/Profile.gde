@@ -1,0 +1,427 @@
+@title NextBASIC Profile Driver Manual
+@author Simon N Goodwin
+@version 1.2
+@copyright 2021-2023 Simon N Goodwin, CC-BY-NC-SA version 4 licence
+@date 2023/04/29
+
+@index INDEX
+
+@-------------------------------------------------------------------------------
+@node MAIN
+@next FILES
+@toc INDEX
+
+@{c}NextBASIC Profile Driver Hypertext Manual
+
+@{c}Written by Simon N Goodwin
+
+@{h1}Overview
+NextBASIC Profile device driver
+
+The Stochastic Profiler is a NextZXOS driver which tells you which lines
+of a NextBASIC program are taking the most time, without requiring any 
+modifications to the program. It is implemented as a Next device driver so 
+it can use the processor hardware interrupt in a system-friendly way,
+and access banks of memory to keep track of every program line without 
+using any memory allocated to BASIC. Six new DRIVER @{" commands and variants "  LINK COMMANDS} 
+allow the profile data to be read or reset, in bulk or line by line, as the 
+program runs or afterwards. 
+
+This guide explains how to use the profiler, how it works, what it can 
+teach you about the performance of short and long programs, and how to
+develop similar utilities on your Next. The profile driver and its support 
+files are in the Tools/dev/Profiler distro subdirectory.
+
+Latest update: 29th April 2023.
+
+@-------------------------------------------------------------------------------
+@node FILES
+@toc INDEX
+@next INSTALLATION
+@prev MAIN
+@{h1}Main Files
+Profile.drv - the driver 
+ProfileDemo.bas - simple example 
+
+The only file you NEED to use the driver to profile your NextBASIC programs
+is Profile.drv. The demo is a short example, discussed in the @{" tutorial " LINK TUTORIAL} 
+section, which you can use to try out the driver and compare its measurements 
+on your own Next.
+
+If you're impatient, skip over to the @{" installation " LINK INSTALLATION} page. 
+
+If you want to know how the driver works, modify it or use it as a basis for 
+writing a new driver that can be entirely built on Next itself, read the 
+@{" implementation " LINK IMPLEMENTATION} page of this guide, then look at the following files:
+
+@{h2}Driver source and the current Z80 version of Zeus
+Profile.god - source for Zeus 
+Profile.bas - the Driver compiler 
+Profile.asm - ASCII Z80 source 
+
+Profile.god is the assembler source, tokenised to save memory and speed 
+assembly. It can be assembled with the latest Next-friendlier version of 
+the assembler bundled with NextZXOS in the Tools/Dev/Zeus folder. 
+Profile.bas includes the simple IDE for Zeus (ZEUS.bas) modified for
+this particular project, and a compiler (also customised) which builds 
+the driver initialisation structure around the assembler output and 
+writes out the complete driver as a headerless file ready to be installed. 
+
+Profile.asm corresponds to the .god source for Zeus, and can be loaded 
+into any other Z80 assembler that supports ASCII source files. It uses
+standard Z80 mnemonics but you may need to tweak some of the directives 
+like ENT and ORG to suit eccentric assemblers. For more about Zeus on Next,
+visit Simon's Zeus-support page at
+@{i}http://simon.mooli.org.uk/nextech/z80n/@{ui}
+
+@-------------------------------------------------------------------------------
+@node INSTALLATION
+@toc INDEX
+@next IMPLEMENTATION
+@prev FILES
+@{h1}Installation
+The driver can be added to the system with the usual NestBASIC command:
+
+  .install profile.drv
+
+Beware that the current release version of this dot command may crash 
+NextZXOS if the driver file is not found or BASIC memory is almost full; 
+2K free is safe, PRINT 65536-USR 7962 as usual to check how many bytes 
+are free. If you mistakenly try to install the driver twice, an 
+explanatory message appears. 
+
+To remove the driver, to load another or a fresh version, type: 
+
+  .uninstall profile.drv 
+
+This will release the memory banks and remove the interrupt. 
+NextZXOS currently supports up to four drivers at any one time. 
+
+@{h2}Overhead
+There is a slight, barely measurable, overhead of running the driver. 
+Between 40 and 50 instructions are executed by the driver each frame 
+while a BASIC program is running, but only four or eight when it's 
+stopped or running a direct command. To put these two thousand
+instructions a second in context, the Z80n can execute between one 
+and five million (for a byte memory copy or byte addition respectively) 
+when running at 28 MHz. 
+
+@{h2}Caveats
+
+ * Drivers interrupt the BASIC program at the same point in a display 
+ frame - the interval while the screen image is being generated, from
+ top to bottom, tens of times per second - so if your software is 
+ frame-locked and very fast (looping every frame, without fail) it
+ may always and only count the line of the PAUSE 1 or SPRITE CONTINUE 
+ statement! This is a consequence of the way ZX interrupts are tied to 
+ display refresh timing. Temporarily remove the frame lock for fair 
+ proportional counts for every line. 
+
+ * The driver counts lines not statements. Split lines if you want to 
+ know which particular statements take the most time. 
+
+ * The profile counts are not exact and may vary between runs. Large 
+ counts are statistically reliable, small ones might vary by a few
+ units either way. Often an unexpectedly low count for one line will 
+ be balanced by a higher count for the one after, e.g. for a 
+ GO SUB/RETURN pair or the start and end of a loop.
+ Run the test several times for greater confidence, or let the driver 
+ add up the times for several runs. If you add lines or variables to 
+ the program this will affect the results. They are also likely to 
+ vary whenever NextBASIC is updated - that's one reason the profiler 
+ will remain useful even if certain aspects are sped-up in future. 
+
+ * Commands that disable interrupts, like BEEP and LOAD, will not 
+   record the time they spend monopolising the processor. 
+
+ * If a program ends with STOP, that line will remain 'current' for 
+ the interpreter but the  driver will stop counting till it's running 
+ again. But if BASIC halts with an error, the driver may infer that the 
+ error-line is still running and accumulate an ever-increasing count
+ for that line, until a new valid line is seen when the program is 
+ CONTINUEd or re-started. 
+
+ * The profiler tracks only line numbers, not bank or statement numbers
+ (which would take a lot more memory). A version that profiles only 
+ code in a specific bank has been requested by Matt Langley and may 
+ follow if people pester me (politely) about it.
+
+@-------------------------------------------------------------------------------
+@node IMPLEMENTATION
+@toc INDEX
+@next COMMANDS
+@prev INSTALLATION
+@{h1}Implementation
+The Profile device driver is an example for Spectrum Next system 
+developers as much as it is a utility for NextBASIC programmers. 
+
+This part of the documentation is for them. Read on to @{" Driver Commands " LINK COMMANDS} if 
+you're currently only interested in profiling your own BASIC programs. 
+
+Crucially for those who value the immediacy of native development, this 
+example shows how to build a NextZXOS driver without needing another 
+computer. Source is included for the native Zeus assembler (in Tools/Dev/Zeus 
+on the distribution SD) plus a NextBASIC 'Driver compiler' which acts as a 
+simple IDE for Zeus, removing the need for a second assembler source file by 
+converting the relocatable .DRY PLUS3DOS file output from Zeus into a .DRV 
+configured to bind to the system, accessing interrupts and extra memory. 
+It provides a standard and consistent way to index allocated RAM banks in 
+Next or DivMMC address space, beyond the default 64K. 
+
+The Profile driver allocates three 8K banks, as it needs 19,998 bytes to
+count how many times each of the possible 9,999 program line numbers is 
+active when the Frame interrupt occurs (48 to 60 times a second depending
+on display settings). Less than half of the third bank is used. The last 
+4.5K is cleared but then untouched. Extra pages can be added, e.g. to 
+store statement numbers, bigger counts or higher line numbers. If line 
+numbers up to 16,383 were to be permitted it's only necessary to replace 
+3 with 4 in the source and increase the constant 9999 used to validate 
+line numbers passed as the third DRIVER parameter. 
+
+Each count uses two bytes and is clamped to a maximum of 65,535, which 
+would be reached in about 20 minutes if the same line was running all t
+hat time. This is the highest value supported by the DRIVER command 
+(which uses Z80 register pairs to pass parameters in and out). 
+
+@-------------------------------------------------------------------------------
+@node COMMANDS
+@toc INDEX
+@next TUTORIAL
+@prev IMPLEMENTATION
+@{h1}Driver Commands
+Three driver commands are supported, 0, 1 and 2. Command 0 has three 
+variants. The driver uses CODE "%" as its identifying character, 
+allocated to it by Garry Lancaster. The relevance of percentages is 
+obvious. You can put 37 in place of the constant CODE "%", and if you 
+know ASCII off by heart I hardly needed to tell you that. I had to look
+it up, so I've used the character representation in examples here. 
+
+DRIVER CODE "%",0,0 clears the counts for all line numbers (1..9999)
+
+DRIVER CODE "%",0,N clears the count for line N only 
+    (useful if it reaches the limit 65535 in a long soak test or after
+    an error). 
+
+DRIVER CODE "%",0,N TO C reads the count for line N to C, then resets 
+    that count for line N to zero. This is useful when collating 
+    profiles on the fly. C is 0 if the line has not been running
+    when the frame interrupt occurs since the last DRIVER 0 command. 
+
+DRIVER CODE "%",1,N TO C reads the count for line N without changing
+    it.  This is the usual way to read one count for a specific line
+    number as a program runs. To convert it to a percentage, divide 
+    it into the total count for all lines and multiply by 100. 
+
+DRIVER CODE "%",2,S TO B returns the 8K bank number allocated to one 
+    of the three slots in which the profiler stashes line counts. Slots 
+    are numbered from 1 to 3. Slot 1 contains counts, as consecutive 
+    16-bit words, for line numbers 8192 upwards. Slot 2 tracks lines
+    4096 to 8191, and Slot 3 records counts for lower line numbers,
+    1..4095, to suit 8K Next MMU bank addressing. The first word in 
+    slot 3, which would correspond to the invalid line number 0, is 
+    reserved, to keep the addressing simple. 
+
+If you are in a hurry, load ProfileDemo.bas next. This auto-runs a 
+short benchmark program and then displays the number of times each 
+line was executing when the profiler cut in. Run it a few times, 
+from line 4000, to see how the counts vary between runs, depending
+on exactly when BASIC is interrupted. 
+
+Add lines or variables at the start to see how this affects results. 
+The speed of BASIC depends more on context than the source lines 
+themselves. You'll have to read the rest of this guide to fully 
+understand why, and the consequences. One of them is the need for, 
+and existence of, this driver. 
+
+There are some other examples and useful commands in the Profile.bas 
+and ProfileDemo.bas sources. PROC ClearCounts() is a wrapper for 
+DRIVER CODE "%",0,0. PROC ShowCounts(%m) displays the non-zero counts 
+and corresponding line numbers for lines up to the parameter value, 
+so PROC ShowCounts(4999) excludes line numbers from 5000 upwards from
+its summary. 
+
+Since the fastest lines are at the start of any program, they're the
+ones we're often most interested in. Alter the range of the FOR loop
+you can home in on any contiguous group of lines, such as those of a 
+particular PROC. Add a STEP if you've renumbered your program with LINE. 
+
+PROC TellCounts() in Profile.bas uses DRIVER CODE "%",2 to find the 
+driver's data banks, each with room for thousands of counts. Thus it 
+can scan all 9999 line counts, wherever they are banked in memory, 
+and print them to the screen. It may take a few seconds, but
+illustrates a way to read thousands of values without multiple DRIVER
+calls. As it has to make the count pages accessible to BASIC and the 
+Z80, it needs 8K above the CLEAR address. 
+
+TellCounts() normally uses the top 8K but can use any MMU bank above
+RAMTOP, conveniently if you already have graphics or similar data up
+there. By converting the 8K bank number into a 16K page the BANK DPEEK 
+function could be used to read individual values or blocks of them
+without encroaching directly upon the precious 64K directly addressable
+by the Z80n. 
+
+Higher slot numbers could be used if more banks were allocated. 
+Otherwise this command reads progressively earlier bytes of the 512 
+reserved in system memory for each driver, e.g. DRIVER CODE "%",2,512 TO B
+sets B to the first byte of the DRIVER's object code, usually a JR 
+opcode. This illustrates, as a side effect of the necessary bank lookup, 
+a way to PEEK within the 2K of protected memory reserved for drivers. 
+
+Processor registers are scarce resources on a Z80 and the driver saves
+register addresses in BC and previous MMU setup in DE, swapping the old DE
+into HL in PAGER, the routine which prepares for memory management. All 
+routines that call PAGER must exit via the label DONE, which restores 
+not only the bank mapping but the contents of the NextReg address
+register, in case the interrupt comes just after a program sets this and 
+before it gets a chance to read the corresponding register value. DEFB is
+used to invoke the Z80n extra instruction NEXTREGA, which was added after
+Zeus tokens were all defined. The rest is all standard 1970s Z80 assembly
+language (in fact almost all of it would run on the earlier 8080). 
+
+Slot numbers cannot correspond directly to banks because the .install
+command takes account of banks already in use before finding fresh ones 
+requested for the driver. The banks might be in any order, or non-
+contiguous. The table labelled HIGHSTREET (the once-traditional place to
+find banks), at the end of the driver binary object, is used in the FINDL 
+Z80n subroutine to look up bank numbers by slot,  and access the required
+8K page and offset within it. 
+
+This scheme can be extended to any number of banks; the current approach
+supports up to 128K, indexed via HL as 65,536 words; larger records or a 
+24-bit index allow more than 16 banks to be linearly addressed that way, 
+e.g. a megabyte of 16-byte records in 128 banks. Use power-of-two record 
+sizes, or allocate padding at the end of banks, to avoid records spanning
+multiple banks. 
+
+@-------------------------------------------------------------------------------
+@node TUTORIAL
+@toc INDEX
+@next COPYRIGHT
+@prev COMMANDS
+@{h1}Tutorial
+
+This section shows how to use the driver to profile large and small programs, 
+and the effects of context on the speed of BASIC. The exact counts on your Next 
+will vary, depending on the display output setup (I used VGA 4) and CPU speed 
+(I picked 28 MHz) and ZXOS version (2.06) but the proportions should correspond,
+unless you've added lines or variables to the test program. 
+
+ProfileDemo.bas starts with the source of Kilobaud/PCW Benchmark 7, commonly 
+used to compare 1980s BASIC interpreters, often wildly misleading when 
+extrapolated to 'real programs' rather than tiny contrived examples. The demo 
+auto-starts at line 4000 and assumes the driver has already been loaded (it is
+unaffected by NEW or LOAD). To help get consistent results it clears the profile
+counts with PROC ClearCounts(), clears the variables with CLEAR (so only the
+ones used in the test affect the timings) then calls the test with GO SUB to 
+the first line, as adding any lines before would also slow things down. 
+
+@{h2}Benchmark 7 - no earlier lines or variables
+Program line                   Profile count
+100 REM Benchmark 7                  0
+110 PRINT "S"                        0
+120 LET K=0                          0
+130 DIM M(5)                         0
+140 LET K=K+1                       14
+150 LET A=K/2*3+4-5                 68
+160 GO SUB 230                      16
+170 FOR L=1 TO 5                    55
+180 LET M(L)=A                     124
+190 NEXT L                         138
+200 IF K<1000 THEN GO TO 140        30
+210 PRINT "E"                        0
+220 STOP                             0
+230 RETURN                           3
+
+The next thing I tried, without adding any lines or variables, was to convert
+the benchmark to use NextBASIC integer variables. These are preallocated to 
+fixed memory locations so the lines that refer to variable names run faster,
+even in this small example, and calculations run faster because only positive
+whole numbers are considered.
+ 
+@{h2}Here's Benchmark 7%, the integer remix:
+Program line                     Count
+100 REM Benchmark 7                0
+110 PRINT "S"                      0
+120 LET %K=0                       0
+130 DIM M(5)                       0
+140 LET %K=%K+1                   11
+150 LET %A=%K/2*3+4-5             19
+160 GO SUB %230                   19
+170 FOR %L=1 TO 5                 30
+180 LET %M(%L)=%A                 64
+190 NEXT %L                       62
+200 IF %K<1000 THEN GO TO %140    25
+210 PRINT "E"                      0
+220 STOP                           0
+230 RETURN                         3
+
+As expected, the arithmetic lines 150 and 160 run almost three times faster,
+as they have half the precision (16-bit rather than 32 for digits and 8 for 
+the binary place) and don't bother with decimals, exponents, overflow checking 
+or even negative numbers. But if speed is of the essence and your values are 
+whole numbers 0..65535, who cares? 
+
+Note that the result of line 150 will be very different for odd values of %K, 
+as integer division discards the remainder. 
+
+The three statements of the FOR loop run twice as fast with integer variables
+- and far more so as the program grows in lines or number of variables assigned
+earlier - but the range, step and array size is limited (the DIM is ignored as 
+%M is preallocated, but left in to avoid changing the line lookup overhead) 
+and jumping out of the loop will cause a memory leak. Integers can't be used
+to slice strings either (at the time of writing, April 2023) so there are
+many cases when the snags outweigh the benefits. 
+
+The other surprise was that the GO SUB and GO TO lines take more time in the 
+integer version, even though the number of lines to search is unchanged. 
+The more digits after % in the line number, the greater this overhead, but 
+even single-digit line numbers 1..9 are retarded; without the per cent 
+prefix the line number is preconverted to 16-bit binary, hidden in six 
+invisible bytes within the stored program, much closer to the way BASIC 
+needs it. In this case, the digits are just for humans to read, skipped 
+over while the program runs, and the performance of integer conversions
+was improved in NextZXOS 2.07 after this test took place. 
+
+@-------------------------------------------------------------------------------
+@node COPYRIGHT
+@toc INDEX
+@prev FEATURES
+@next INDEX
+
+@{h1}Copyright
+This Profiler and the related programs listed in this guide are Copyright 
+(c) 2021 - 2023 by Simon N Goodwin. 
+
+The latest version is always available from: 
+
+@{i}http://simon.mooli.org.uk/nextech@{ui}
+
+The profiler is released under the CC-BY-NC-SA version 4 Licence, documented at:
+
+@{i}https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode@{ui}
+
+In brief, this encourages you to modify and share the program, provided you 
+credit the original author Simon N Goodwin, but only permits that on a 
+non-commercial basis. Follow the link for specific requirements, and 
+contact the author if you wish to negotiate some other terms, which are 
+usually allowed.
+
+@{h1}Thanks
+Thanks to Matt Langley for testing the profiler, Matt Davies for implementing 
+NextGuide, and Remy Sharp creating the online viewer and editor here:
+
+@{i}https://zx.remysharp.com/tools/gde/@{ui}
+
+@-------------------------------------------------------------------------------
+@node INDEX
+@{r}Profiler Guide
+@{c}@{h1}Subject Index
+
+@{h1}Index of pages in this document
+@{" Introduction " LINK MAIN}
+@{" Installation instructions " LINK INSTALLATION}
+@{" Implementation notes " LINK IMPLEMENTATION}
+@{" Command summary " LINK COMMANDS}
+@{" Tutorial " LINK TUTORIAL}
+@{" Driver, compiler, source files and examples " LINK FILES}
+@{" Copyright and Thanks " LINK COPYRIGHT}

@@ -1,0 +1,1035 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file, partly based on zx64.zsm
+
+
+; ***************************************************************************
+; * ZX Spectrum Next 80-column screen driver                                *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * Definitions                                                             *
+; ***************************************************************************
+
+tile_map        equ     $4000   ; tile map, mapped to MMU2 as usual
+tile_defs       equ     $1d00   ; offset of tile definitions within RAM5
+tile_height     equ     32      ; height of tilemap
+tile_width      equ     80      ; width of tilemap (in tiles)
+tile_stride     equ     80*2    ; stride of tilemap
+
+font3_tileoff   equ     96      ; tile id of first char in font3
+accent_tileoff  equ     192     ; tile id of first char in accents
+
+cr              equ     $0d
+lf              equ     $0a
+
+; ZX Font load addresses
+font1_normal    equ     $cf00
+font1_emphasis  equ     $d200
+font1_accent    equ     $d500
+font1_accentem  equ     $d780
+font3_normal    equ     $da00
+font3_emphasis  equ     $dd00
+
+; System variables
+ATTRULA         equ     $5b61
+BORDCR          equ     $5c48
+
+
+; ***************************************************************************
+; * Data                                                                    *
+; ***************************************************************************
+
+saved_BORDCR:   defb    0       ; system BORDER colour
+wrapped:        defb    0       ; Did the last character cause a line wrap?
+linefed:        defb    0       ; Did a LF occur?
+curflg:         defb    0       ; 0=cursor disabled, <>0=cursor enabled
+x_pos:          defb    0       ; current X position
+y_pos:          defb    0       ; current Y position
+helpflg:        defb    $ff     ; $ff=help enabled, $00=help disabled
+
+; Current attribute for tilemap characters:
+; Bits 7..4 are the palette offset, used to select the appropriate
+; colour translations.
+;       bit 7=cursor (inverts the sense of bit 4)
+;       bit 6=emphasis (italic or underline)
+;       bit 5=bold (ink is made bright)
+;       bit 4=reverse video (ink/paper are swapped in palette)
+;       bit 3=0 (mirror X off)
+;       bit 2=0 (mirror Y off)
+;       bit 1=0 (rotate off)
+;       bit 0=bit 8 of tileid
+cur_attr:       defb    0
+
+; The current colours for the tilemap.
+tilemap_colours:
+                defs    6               ; 3 x 2-byte colours
+
+tilemap_index_ink:
+                defb    0               ; current index for ink (black)
+tilemap_index_paper:
+                defb    7               ; current index for paper (white)
+
+tilemap_default_ink:
+                defb    0               ; default index for ink (black)
+tilemap_default_paper:
+                defb    7               ; default index for paper (white)
+
+; Translation tables between IBM and ZX colours:
+; TODO We are currently only using the standard ZX colours so don't support
+;      the shades of grey.
+;       Colour  ZX      IBM
+;       Current TODO    0
+;       Default TODO    1
+;       Black   0       2
+;       Blue    1       6
+;       Red     2       3
+;       Magenta 3       7
+;       Green   4       4
+;       Cyan    5       8
+;       Yellow  6       5
+;       White   7       9
+;       L Grey  TODO    10
+;       M Grey  TODO    11
+;       D Grey  TODO    12
+ibm2zx:         defb    0,0             ; NOTE: 0,1 don't exist
+                defb    0,2,4,6,1,3,5,7
+zx2ibm:         defb    2,6,3,7,4,8,5,9
+
+
+; ***************************************************************************
+; * Tilemap palette definitions                                             *
+; ***************************************************************************
+; Tile definitions are 4 bits per pixel, so there are 16 possible colour
+; entries for each pixel. Only 4 actual colour values appear in the tile
+; definitions, as follows:
+;       0: PAPER in standard font, PAPER in emphasis font
+;       1: INK   in standard font, PAPER in emphasis font
+;       2: PAPER in standard font, INK   in emphasis font
+;       3: INK   in standard font, INK   in emphasis font
+; Actual colours that can appear on screen at any one time are:
+;       PAPER (offset 0)
+;       INK (offset 1)
+;       BRIGHT INK (for bold) (offset 2)
+; Therefore, for each of the possible 16 palettes (selected by the attribute
+; for the tile), we have a definition containing 4 x 2-bit colour offsets:
+
+palette_defs:
+; Palette %0000 (no cursor, standard font, not bold, normal video):
+        defb    %00010001               ; paper,ink,paper,ink
+; Palette %0001 (no cursor, standard font, not bold, reverse video):
+        defb    %01000100               ; ink,paper,ink,paper
+; Palette %0010 (no cursor, standard font, bold, normal video):
+        defb    %00100010               ; paper,bright ink,paper,bright ink
+; Palette %0011 (no cursor, standard font, bold, reverse video):
+        defb    %10001000               ; bright ink,paper,bright ink,paper
+; Palette %0100 (no cursor, emphasis font, not bold, normal video)
+        defb    %00000101               ; paper,paper,ink,ink
+; Palette %0101 (no cursor, emphasis font, not bold, reverse video)
+        defb    %01010000               ; ink,ink,paper,paper
+; Palette %0110 (no cursor, emphasis font, bold, normal video)
+        defb    %00001010               ; paper,paper,bright ink,bright ink
+; Palette %0111 (no cursor, emphasis font, bold, reverse video)
+        defb    %10100000               ; bright ink,bright ink,paper,paper
+; Palette %1000 (cursor, standard font, not bold, normal video):
+        defb    %01000100               ; ink,paper,ink,paper
+; Palette %1001 (cursor, standard font, not bold, reverse video):
+        defb    %00010001               ; paper,ink,paper,ink
+; Palette %1010 (cursor, standard font, bold, normal video):
+        defb    %10001000               ; bright ink,paper,bright ink,paper
+; Palette %1011 (cursor, standard font, bold, reverse video):
+        defb    %00100010               ; paper,bright ink,paper,bright ink
+; Palette %1100 (cursor, emphasis font, not bold, normal video)
+        defb    %01010000               ; ink,ink,paper,paper
+; Palette %1101 (cursor, emphasis font, not bold, reverse video)
+        defb    %00000101               ; paper,paper,ink,ink
+; Palette %1110 (cursor, emphasis font, bold, normal video)
+        defb    %10100000               ; bright ink,bright ink,paper,paper
+; Palette %1111 (cursor, emphasis font, bold, reverse video)
+        defb    %00001010               ; paper,paper,bright ink,bright ink
+
+
+; ***************************************************************************
+; * Colour definitions                                                      *
+; ***************************************************************************
+
+tilemap_colour_table:
+        defb    %00000000,0     ; black
+        defb    %00000010,1     ; blue
+        defb    %10100000,0     ; red
+        defb    %10100010,1     ; magenta
+        defb    %00010100,0     ; green
+        defb    %00010110,1     ; cyan
+        defb    %10110100,0     ; yellow
+        defb    %10110110,1     ; white
+        defb    %00100100,1     ; bright black (using a dark grey)
+        defb    %00000011,1     ; bright blue
+        defb    %11100000,0     ; bright red
+        defb    %11100111,1     ; bright magenta
+                                ; The "proper" colour for bright magenta
+                                ; clashes with the already-defined default
+                                ; transparency ($e3), so $e7 is used instead.
+        defb    %00011100,0     ; bright green
+        defb    %00011111,1     ; bright cyan
+        defb    %11111100,0     ; bright yellow
+        defb    %11111111,1     ; bright white
+
+
+; ***************************************************************************
+; * Externally-referenced utility routines                                  *
+; ***************************************************************************
+
+; Output char A, interpreting control codes.
+opchar:
+        exx                     ; save all registers
+        call    pr80
+        exx
+        ret
+
+; Output char A, treating all characters as printable.
+anychar:
+        exx                     ; save all registers
+        call    pr80a
+        exx
+        ret
+;
+; Set print position to E=x, D=y, limiting to within the main window
+prinat:
+        push    af
+        push    de
+        push    hl
+if (win_wc != (win_hc+1))
+.ERROR win_wc must follow win_hc
+endif
+        ld      hl,(win_hc)     ; H=width, L=height
+        ld      a,e
+        cp      h
+        jr      c,prina1        ; okay if x within window
+        ld      a,h
+        dec     a
+        ld      e,a             ; clamp x to maximum
+prina1:
+        ld      a,d
+        cp      l
+        jr      c,prina2        ; okay if y within window
+        ld      a,l
+        dec     a
+        ld      d,a             ; clamp y to maximum
+prina2:
+        ld      l,e             ; L=x
+        ld      h,d             ; H=y
+if (y_pos != (x_pos+1))
+.ERROR y_pos must follow x_pos
+endif
+        ld      (x_pos),hl      ; update print position
+        pop     hl
+        pop     de
+        pop     af
+        ret
+
+; Enable cursor placement.
+curon:  push    af
+        ld      a,$ff
+        ld      (curflg),a
+        pop     af
+        ret
+
+; Disable cursor placement.
+curoff:
+        push    af
+        xor     a
+        ld      (curflg),a
+        pop     af
+        ret
+
+; Place or remove the cursor (if enabled).
+putcur:
+        ld      a,(curflg)
+        or      a
+        ret     z
+if (y_pos != (x_pos+1))
+.ERROR y_pos must follow x_pos
+endif
+        ld      hl,(x_pos)      ; L=(x_pos), H=(y_pos)
+        ld      a,(mainwin_o)
+        add     a,l
+        ld      l,a             ; L=absolute tile column
+        ld      d,tile_stride
+        ld      a,(mainwin_s)   ; A=start line of main window
+        add     a,h             ; A=absolute line number
+        ld      e,a
+        mul_de                  ; DE=stride*line
+if ((tile_map&$ff) != 0)
+.ERROR tile_map must be 256-byte aligned
+endif
+        add     hl,hl           ; L=x*2
+        ld      h,tile_map/$100
+        add     hl,de           ; HL=tile_map+(stride*line)+(x*2)
+        inc     hl              ; address of attribute byte
+        ld      a,(hl)
+        xor     $80             ; flip the cursor attribute bit
+        ld      (hl),a
+        ret
+
+
+; ***************************************************************************
+; * Set text style                                                          *
+; ***************************************************************************
+; Entry: A=style, bit 0=reverse video
+;                 bit 1=bold (we do bright)
+;                 bit 2=emphasis (we do italic or underline)
+; If A=0, all styles are cleared.
+; Otherwise, the style bits are ORed into the current style.
+
+NXSTYL:
+        ld      hl,(cur_attr)   ; L=current attribute
+        and     a
+        jr      z,reset_styles  ; on to clear styles if A=0
+        and     7               ; mask style bits
+        swapnib                 ; swap to palette offset nibble
+        or      l               ; merge in to current attributes
+do_style:
+        ld      (cur_attr),a
+        scf
+        ret
+reset_styles:
+        ld      a,l
+        and     %10001111       ; clear style bits in current attribute
+        jr      do_style
+
+
+; ***************************************************************************
+; * Clear screen                                                            *
+; ***************************************************************************
+
+NXCLS:
+        ld      bc,$0101        ; reset colours to defaults
+        call    NXSCOL_internal
+        ld      b,tile_height
+cls_loop:
+        push    bc
+        dec     b
+        call    zapln_abs
+        pop     bc
+        djnz    cls_loop
+        ret                     ; exit with success from zapln_abs
+
+
+; ***************************************************************************
+; * Help line routines                                                      *
+; ***************************************************************************
+
+; Display message(s) at DE in help lines.
+; The first byte is the starting attribute, to which the entire help area
+; is first cleared.
+; Following is the message in ASCII text (32-127 only), null-terminated.
+; A byte with bit 7 set is processed as follows:
+;   the current attribute is changed to the byte (with bits 7,1,0 cleared)
+; If bit 1 of the byte was also set, then:
+;   switch between font1 and font3
+; If bit 0 of the byte was also set, then:
+;   the position is set to the following byte (0-79=upper line, 80-159=lower)
+
+set_opt_help:
+        ld      a,(helpflg)
+        and     a
+        jp      z,zap_help      ; clear it away if not enabled
+set_help:
+        ld      a,(de)
+        push    de
+        call    fill_help       ; fill the help area with the initial attrib
+        call    get_help_address; HL=address
+        ld      b,$e0           ; B=standard font offset (-32)
+        pop     de
+        ld      a,(de)
+        inc     de
+        ld      c,a             ; C=starting attrib
+set_help_loop:
+        ld      a,(de)          ; get next char
+        inc     de
+        and     a
+        ret     z               ; exit at null terminator
+        bit     7,a             ; if bit 7 is set, this is attrib etc
+        jr      nz,set_help_attribs
+        add     a,b             ; convert to 0..95 (std font), 96..191 (font3)
+        ld      (hl),a          ; else store char
+        inc     hl
+        ld      (hl),c          ; and attribute
+        inc     hl
+        jr      set_help_loop
+set_help_attribs:
+        push    hl
+        ld      l,a
+        and     %01111100
+        ld      c,a             ; C=new attribute
+        bit     1,l             ; switch between font1 & font3?
+        jr      z,set_help_samefont
+        ld      a,b             ; switch char offset between -32 (%11100000)
+        xor     %10100000       ; and 96-32=64 (%01000000)
+        ld      b,a
+set_help_samefont:
+        bit     0,l             ; change position?
+        pop     hl
+        jr      z,set_help_loop
+        call    get_help_address
+        ld      a,(de)          ; get new position
+        inc     de
+        addhl_a
+        addhl_a                 ; HL=address for new position
+        jr      set_help_loop
+
+; Get start address of the help area
+get_help_address:
+if (mainwin_h != (mainwin_s+1))
+.ERROR mainwin_h must follow mainwin_s
+endif
+        ld      hl,(mainwin_s)  ; L=mainwin_s, H=mainwin_h
+        ld      a,h
+        add     a,l             ; A=start line of help
+        ex      de,hl           ; save DE
+        ld      d,tile_stride
+        ld      e,a
+        mul_de                  ; DE=offset of help within tilemap
+        ex      de,hl           ; restore DE
+        addhl_N tile_map        ; HL=address
+        ret
+
+; Erase/fill the help area
+zap_help:
+        xor     a
+fill_help:
+        ld      e,a             ; save fill byte
+if (mainwin_h != (mainwin_s+1))
+.ERROR mainwin_h must follow mainwin_s
+endif
+        ld      hl,(mainwin_s)  ; L=mainwin_s, H=mainwin_h
+        ld      a,h
+        add     a,l
+        ld      b,a             ; B=first help line
+        ld      a,e             ; A=fill byte
+        push    bc
+        call    fill_line
+        pop     bc
+        inc     b               ; B=second help line
+        jp      fill_line
+
+
+; ***************************************************************************
+; * Tilemap scrolling and clearing routines                                 *
+; ***************************************************************************
+; Scroll lower window up.
+
+scroll:
+        ld      a,(lwtop)
+        ld      d,a
+        ld      a,(mainwin_s)   ; A=start line of main window
+        add     a,d
+        ld      e,a             ; E=absolute line
+        ld      a,d             ; A=line within main window again
+        ld      d,tile_stride
+        mul_de                  ; DE=stride*start line
+        ld      hl,tile_map
+        add     hl,de
+        ex      de,hl           ; DE=address of first line to overwrite
+        ld      hl,tile_stride
+        add     hl,de           ; HL=address of subsequent line
+scroll_loop:
+        push    hl
+        ld      hl,(mainwin_h)  ; L=main window height
+        dec     l
+        cp      l               ; is destination the bottom line?
+        pop     hl
+        jr      nc,clear_at_de  ; on to erase it if so
+        ld      bc,tile_stride
+        ldir                    ; copy 1 line
+        inc     a
+        jr      scroll_loop     ; back for more
+clear_at_de:
+        ld      a,(cur_attr)    ; fill with current attribute
+        and     %01110000       ; ignoring cursor bit
+        ex      de,hl           ; HL=address
+        ld      b,tile_width
+fill_b_at_hl:
+        ld      (hl),0          ; char=0 (space)
+        inc     hl
+        ld      (hl),a          ; attrib
+        inc     hl
+        djnz    fill_b_at_hl    ; rest of characters
+        scf                     ; success
+        ret
+
+; Erase screen line B (relative to main window if entering at zapln;
+; absolute if entering at zapln_abs, zap_chars or fill_line).
+; Enter at fill_line to fill with attrib A.
+
+zapln:
+        ld      a,(mainwin_s)   ; A=start line of main window
+        add     a,b
+        ld      b,a             ; B=absolute line number
+zapln_abs:
+        ld      a,(cur_attr)    ; fill with current attribute
+fill_line:
+        ld      e,b             ; E=line number
+        ld      b,tile_width    ; whole line to erase
+        ld      l,0             ; from the start
+zap_chars:
+if ((tile_map&$ff) != 0)
+.ERROR tile_map must be 256-byte aligned
+endif
+        ld      h,tile_map/$100 ; HL=tile_map+start offset
+        ld      d,tile_stride
+        mul_de                  ; DE=stride*line
+        add     hl,de           ; HL=address to fill from
+        jr      fill_b_at_hl
+
+
+; ***************************************************************************
+; * Erase from cursor in current window to end of line                      *
+; ***************************************************************************
+
+NXERAL:
+        ld      a,(cwin)
+        or      a
+        jr      z,eralupper             ; on if upper window
+        ld      hl,windirty
+        set     1,(hl)                  ; mark lower window as dirty
+        ld      hl,(lwx)                ; else HL=lower window coords
+        jr      eral2
+eralupper:
+        ld      hl,windirty
+        set     0,(hl)                  ; mark upper window as dirty
+        ld      hl,(uwx)                ; HL=upper window coords
+eral2:
+        ld      a,(mainwin_s)
+        add     a,h
+        ld      e,a                     ; E=absolute line, L=x
+        ld      a,(mainwin_w)           ; A=main window width
+        sub     l
+        ld      b,a                     ; B=chars to erase (1..mainwin_w)
+        ld      a,(mainwin_o)
+        add     a,l
+        ld      l,a                     ; L=absolute tile column
+        add     hl,hl                   ; L=x*2=start offset
+        jr      zap_chars
+
+
+; ***************************************************************************
+; * Colour conversion routines                                              *
+; ***************************************************************************
+
+; Get B=default ink, C=default paper, mapped to IBM colours
+get_ibm_defaults:
+        ld      a,(tilemap_default_paper)
+        call    xlat_zx2ibm
+        ld      c,b
+        ld      a,(tilemap_default_ink)
+        call    xlat_zx2ibm
+        ret
+
+; Translate B = HL[A]
+xlat_ibm2zx:
+        ld      hl,ibm2zx
+        jr      xlat
+xlat_zx2ibm:
+        ld      hl,zx2ibm
+xlat:
+        inc     a
+xlat_loop:
+        ld      b,(hl)
+        inc     hl
+        dec     a
+        jr      nz,xlat_loop
+        ret
+
+
+; ***************************************************************************
+; * Set screen colours                                                      *
+; ***************************************************************************
+; Set IBM colour scheme: B=foreground, C=background
+; TODO Currently we can only support a single colour scheme on screen at one
+;      time.
+;      Therefore this routine should only currently be called by NXCLS, since
+;      we reset colour support bits in the game header.
+; TODO Colours 10-12 are shades of grey which we aren't currently supporting.
+;
+; Notes on potential future colour support
+; ----------------------------------------
+; This would be possible if a proposed optional feature is added to the Next
+; tilemap hardware, where the attribute can be changed to have a 7-bit
+; palette offset (with bit 0 still high bit of tileid), and colour information
+; in the tile definitions changed to use only a single bit. Ideally, in this
+; mode tile definitions would be 8-pixels to a byte to make it easier to fit
+; 512 tile defs into the available RAM, although this is not essential.
+;
+; To support this we would no longer have cursor, inverse, emphasis and bold
+; bits in the attribute:
+;
+;  Cursor/inverse can both be handled by choosing the palette offset with the
+;  reverse colours.
+;
+;  Emphasis is handled by having a separate set of tile definitions for
+;  emphasized characters. This would require a total of 261*2=522 definitions,
+;  but only 512 are available. Solutions are:
+;    (i) special-case characters which don't need emphasizing (eg SPACE,
+;        underline) or that are never used (ie pound symbol at ASCII 96 in
+;        font 1) and remap others;
+;    (ii) don't provide font3 in emphasized (probably doesn't make much
+;         sense anyway).
+;
+;  Bold requires some palette entries. 11x11=121 combinations are needed for
+;  standard colours, although 11 of these could be eliminated by printing a
+;  SPACE in a combination with the appropriate paper colour and any ink.
+;  This leaves a total of 128-110=18 available combinations with BRIGHT.
+;  These can be dynamically allocated, with garbage collection used whenever
+;  we run out (and ignore bold for the character if this still results in no
+;  available palette entry).
+
+NXSCOL:
+        scf
+        ret
+NXSCOL_internal:
+        push    bc
+        ld      a,b
+        and     a
+        jr      z,retain_ink            ; 0=don't change the colour
+        cp      10
+        jr      nc,retain_ink           ; 10-254 undefined, 255=use current
+        cp      1
+        jr      nz,set_ibm_ink          ; 2-9=IBM colour
+        ld      a,(tilemap_default_ink) ; 1=use default colour
+        jr      set_zx_ink
+set_ibm_ink:
+        call    xlat_ibm2zx             ; translate foreground to ZX ink
+        ld      a,b
+set_zx_ink:
+        call    tilemap_set_ink         ; store
+retain_ink:
+        pop     bc
+        ld      a,c
+        and     a
+        jr      z,retain_paper          ; 0=don't change the colour
+        cp      10
+        jr      nc,retain_paper         ; 10-254 undefined, 255=use current
+        cp      1
+        jr      nz,set_ibm_paper        ; 2-9=IBM colour
+        ld      a,(tilemap_default_paper);1=use default colour
+        jr      set_zx_paper
+set_ibm_paper:
+        call    xlat_ibm2zx             ; translate background to ZX paper
+        ld      a,b
+set_zx_paper:
+        call    tilemap_set_paper       ; store
+retain_paper:
+        call    tilemap_setpalette      ; update the palettes
+        scf
+        ret
+
+
+; ***************************************************************************
+; * Tilemap save/restore                                                    *
+; ***************************************************************************
+
+; Save and disable the tilemap.
+save_tilemap:
+        call    swap_tilemap            ; swap data into RAM0U
+        ; drop through to disable_tilemap
+
+disable_tilemap:
+        ld      a,(saved_BORDCR)
+        ld      (BORDCR),a
+        rrca
+        rrca
+        rrca
+        out     (254),a                 ; set border appropriately
+        nxtregn nxr_tilemap_ctrl,0      ; disable the tilemap
+        ret
+
+; Restore and enable the tilemap.
+restore_tilemap:
+        call    swap_tilemap            ; swap data from RAM0U
+        ; drop through to init_tilemap
+
+; Enable tilemap.
+enable_tilemap:
+        ld      a,(BORDCR)
+        ld      (saved_BORDCR),a
+        call    tilemap_setpalette      ; set the border back to match palette
+        nxtregn nxr_tilemap_ctrl,%11000011
+                                        ; enable, 80x32, 512 tiles, over ULA
+        ret
+
+; Swap tilemap memory with the bottom 5K of memory in RAM0U.
+swap_tilemap:
+        ld      hl,tile_map
+        ld      de,$a000
+        ld      bc,tile_height*tile_stride
+swap_data:
+        nxtregn nxr_mmu5,ram0u          ; page RAM0U into MMU5
+swap_data_loop:
+        ld      a,(de)                  ; get the byte in RAM0U
+        ldi                             ; copy from RAM5L to RAM0U
+        dec     hl
+        ld      (hl),a                  ; place the RAM0U byte in RAM5L
+        inc     hl
+        jp      pe,swap_data_loop       ; back for more
+        nxtregn nxr_mmu5,ram2u          ; remap RAM2U into MMU5
+        ret
+
+
+; ***************************************************************************
+; * BASIC program section save/restore                                      *
+; ***************************************************************************
+; Since we require >8K tile defs, the first 24 overwrite a section of BASIC
+; program at the top of RAM5L. Therefore, this section is saved and restored
+; into the top 768 bytes of RAM0U.
+
+swap_basprog:
+        ld      hl,$4000+tile_defs
+        ld      de,$bd00
+        ld      bc,$300
+        jr      swap_data
+
+
+; ***************************************************************************
+; * Tilemap setup routines                                                  *
+; ***************************************************************************
+
+; De-initialise 80-column driver.
+deinit80:
+        call    swap_basprog            ; restore BASIC program section
+        jr      disable_tilemap         ; disable tilemap and exit
+
+
+; Initialise 80-column driver.
+init80:
+        call    read_nextreg            ; check memory in MMU3
+        defb    nxr_mmu3
+        cp      ram5u                   ; should NOT be RAM5U, as tiledefs
+        jr      nz,mode_okay            ; will be stored there
+        rst     8
+        defb    94                      ; "Invalid mode" error
+mode_okay:
+        call    swap_basprog            ; make room for first 24 tiledefs
+        nxtregn nxr_mmu5,ram5u          ; map RAM5U into MMU5 ($a000..$bfff)
+        push    ix
+        ld      hl,font1_normal
+        ld      de,font1_emphasis
+        ld      ix,$4000+tile_defs
+        ld      c,24
+        call    tiledefs_generate       ; create first 24 tiledefs for font1
+        ld      hl,font1_normal+24*8
+        ld      de,font1_emphasis+24*8
+        ld      ix,$a000+((tile_defs+(24*8*4))&$1fff)
+        ld      c,72
+        call    tiledefs_generate       ; create remaining tiledefs for font1
+        ld      hl,font3_normal
+        ld      de,font3_emphasis
+        ld      ix,$a000+((tile_defs+(font3_tileoff*8*4))&$1fff)
+        ld      c,96
+        call    tiledefs_generate       ; create tiledefs for font3
+        ld      hl,font1_accent
+        ld      de,font1_accentem
+        ld      ix,$a000+((tile_defs+(accent_tileoff*8*4))&$1fff)
+        ld      c,69
+        call    tiledefs_generate       ; create tiledefs for accents
+        pop     ix
+        nxtregn nxr_mmu5,ram2u          ; remap RAM2U into MMU5
+        ld      a,(ATTRULA)
+        ld      e,a
+        rrca
+        rrca
+        rrca
+        and     7
+        ld      d,a                     ; D=current Layer 1,1 PAPER setting
+        ld      a,e
+        and     7
+        ld      e,a                     ; E=current Layer 1,1 INK setting
+        call    tilemap_set_default_ink_and_paper
+        call    NXCLS                   ; clear the map
+        nxtregn nxr_tilemap_base,tile_map/$100
+        nxtregn nxr_tiledefs_base,tile_defs/$100
+        nxtregn nxr_tilemapx_msb,0      ; tilemap offset, x high
+        nxtregn nxr_tilemapx_lsb,0      ; tilemap offset, x low
+        nxtregn nxr_tilemapy,0          ; tilemap offset, y
+        nxtregn nxr_clip_index,%00001000; reset tilemap clip index
+        nxtregn nxr_clip_tilemap,0      ; set to defaults (unclipped)
+        nxtregn nxr_clip_tilemap,159
+        nxtregn nxr_clip_tilemap,0
+        nxtregn nxr_clip_tilemap,255
+        nxtregn nxr_transp_tilemap,$0f  ; set default transparency colour index
+        call    enable_tilemap          ; set palette and enable tilemap
+        ld      a,(mainwin_h)           ; initialise scrset5 screen defs
+        ld      (win_hc),a
+        ld      (win_hu+1),a
+        ld      a,(mainwin_w)
+        ld      (win_wc),a
+        ld      (win_wu+1),a
+        ret
+
+
+; Generate tile definitions for a font.
+; Entry: HL=normal font, in standard ZX format
+;        DE=emphasis font, in standard ZX format
+;        IX=destination of tile definitions
+;        C=characters (96 for main font, 69 for accented chars)
+
+tiledefs_generate:
+tiledefs_chargen_loop:
+        ld      b,8                     ; 8 pixel rows
+tiledefs_rowgen_loop:
+        push    bc
+        ld      a,(de)
+        inc     de
+        push    de
+        ld      d,a                     ; D=pixel row from emphasis font
+        ld      e,(hl)                  ; E=pixel row from normal font
+        inc     hl
+        push    hl
+        ld      b,4                     ; 4 pairs of pixels per row
+tiledefs_pairgen_loop:
+        push    bc
+        xor     a
+        rl      d                       ; next bit from emphasis font
+        adc     a,a                     ; A=%E (emphasis bit)
+        rl      e                       ; next bit from normal font
+        adc     a,a                     ; A=%EN (emphasis bit, normal bit)
+                                        ; ie: A=00 (emph paper, norm paper)
+                                        ; ie: A=01 (emph paper, norm ink)
+                                        ; ie: A=10 (emph ink, norm paper)
+                                        ; ie: A=11 (emph ink, norm ink)
+        add     a,a
+        add     a,a                     ; shift left pixel into bits 3..2
+        rl      d                       ; merge bits from right pixel,
+        adc     a,a                     ; shifting up left pixel bits
+        rl      e
+        adc     a,a                     ; A=%00LL00RR
+        ld      (ix+0),a                ; store in definition
+        inc     ix
+        pop     bc
+        djnz    tiledefs_pairgen_loop   ; back for remaining pixels in row
+        pop     hl
+        pop     de
+        pop     bc
+        djnz    tiledefs_rowgen_loop    ; back for remaining rows in char
+        dec     c
+        jr      nz,tiledefs_chargen_loop; back for remaining chars
+        ret
+
+; Cycle the INK or PAPER to the next value
+tilemap_cycle_ink:
+        ld      de,$0001
+        jr      tilemap_cycle_inkpaper
+tilemap_cycle_paper:
+        ld      de,$0100
+tilemap_cycle_inkpaper:
+        ld      hl,(tilemap_index_ink)
+if (tilemap_index_paper != (tilemap_index_ink+1))
+.ERROR tilemap_index_paper must follow tilemap_index_ink
+endif
+tilemap_cycle_again:
+        add     hl,de                   ; adjust to next index
+        res     3,h                     ; mask paper to 0..7
+        res     3,l                     ; mask ink to 0..7
+        ld      a,h
+        cp      l
+        jr      z,tilemap_cycle_again   ; don't allow matching values
+        ex      de,hl
+tilemap_set_default_ink_and_paper:
+        ld      a,e
+        ld      (tilemap_default_ink),a
+        call    tilemap_set_ink
+        ld      a,d
+        ld      (tilemap_default_paper),a
+        call    tilemap_set_paper
+        ; drop through to tilemap_setpalette
+
+; Set the tilemap palette.
+
+tilemap_setpalette:
+        ld      a,(tilemap_index_paper)
+        out     (254),a                 ; set border to current paper colour
+        rlca
+        rlca
+        rlca
+        ld      (BORDCR),a              ; set as current system border colour
+        nxtregn nxr_palette_control,%00110000   ; select tilemap palette 0
+        ld      hl,palette_defs
+        ld      bc,$1000                ; 16 palette defs, first at index 0
+tilemap_setpal_loop:
+        ld      a,c
+        nxtrega nxr_palette_index       ; select start index of palette
+        add     a,16                    ; adjust start index for next palette
+        ld      c,a
+        push    bc
+        ld      c,(hl)                  ; C=palette definition
+        inc     hl
+        ld      b,4                     ; 4 colours per palette
+tilemap_setcol_loop:
+        ld      a,c
+        rlca
+        rlca                            ; get next colour offset to bits 0..1
+        ld      c,a
+        and     %11
+        ld      de,tilemap_colours
+        add     a,a                     ; 2-byte entries
+        addde_a
+        ld      a,(de)
+        inc     de
+        nxtrega nxr_palette_value9      ; set RRRGGGBB
+        ld      a,(de)
+        nxtrega nxr_palette_value9      ; set low B bit
+        djnz    tilemap_setcol_loop     ; next colour in palette def
+        pop     bc
+        djnz    tilemap_setpal_loop     ; next palette def
+        ret
+
+
+; ***************************************************************************
+; * Colour selection routines                                               *
+; ***************************************************************************
+
+tilemap_set_ink:
+        ld      (tilemap_index_ink),a
+        push    af
+        call    tilemap_get_colour_value; BC=9-bit ink colour
+        ld      (tilemap_colours+2),bc
+        pop     af
+        add     a,8                     ; adjust to bright
+        call    tilemap_get_colour_value; BC=9-bit bright ink colour
+        ld      (tilemap_colours+4),bc
+        ret
+
+tilemap_set_paper:
+        ld      (tilemap_index_paper),a
+        call    tilemap_get_colour_value; BC=9-bit paper colour
+        ld      (tilemap_colours),bc
+        ret
+
+tilemap_get_colour_value:
+        ld      hl,tilemap_colour_table
+        add     a,a                     ; 2-byte entries
+        addhl_a
+        ld      c,(hl)
+        inc     hl
+        ld      b,(hl)                  ; BC=9-bit colour value
+        ret
+
+
+; ***************************************************************************
+; * Character output routines                                               *
+; ***************************************************************************
+
+; Output character A and update position
+; (enter at pr80a to ignore control characters).
+pr80:
+        cp      $0d
+        jr      z,do_cr
+        cp      $0a
+        jr      z,do_lf
+        cp      $07
+        jp      z,chime
+        cp      ' '
+        ret     c
+        cp      $e0
+        ret     nc
+pr80a:
+        call    opc80           ; output the character
+        ld      a,(x_pos)
+        inc     a
+        ld      (x_pos),a       ; increment x position
+        ld      hl,(mainwin_w)  ; L=window width
+        cp      l
+        ret     c               ; finished if more space on line
+        ld      (wrapped),a     ; signal "wrapped" flag
+        xor     a
+        ld      (x_pos),a
+        ; fall through to do_lf
+
+; NOTE: LF does not automatically scroll here; this is done via CHECKFEED.
+do_lf:
+        ld      a,(y_pos)
+        inc     a
+        ld      (y_pos),a       ; increment y position
+        ld      (linefed),a     ; signal a LF occurred
+        ret
+
+do_cr:
+        xor     a
+        ld      (x_pos),a
+        ret
+
+; Output character A to the tilemap.
+opc80:
+        ld      b,0             ; prepare for BC=char
+        cp      128
+        jr      nc,opc80_trans  ; chars > 128 need translation
+        cp      96
+        jr      nz,opc80_notbt  ; should be ` but normally pound in ZX charset
+        ld      a,$27           ; replace with '
+opc80_notbt:
+        sub     ' '             ; place in range 0..95
+        jr      nc,opc80_charok ; on unless control char (0..31)
+opc80_undefined:
+        ld      a,'?'-' '       ; use ? for undefined chars
+opc80_charok:
+        ld      c,a             ; BC=character code (0..95)
+        ld      a,(cfont)
+        cp      3
+        jr      nz,opc80_gottileid
+        ld      a,font3_tileoff
+        addbc_a                 ; adjust tileid for font3
+opc80_gottileid:
+if (y_pos != (x_pos+1))
+.ERROR y_pos must follow x_pos
+endif
+        ld      hl,(x_pos)      ; L=(x_pos), H=(y_pos)
+        ld      a,(mainwin_o)
+        add     a,l
+        ld      l,a             ; L=absolute tile column
+        ld      a,(mainwin_s)
+        add     a,h
+        ld      e,a             ; E=absolute line
+        ld      d,tile_stride
+        mul_de                  ; DE=stride*line
+if ((tile_map&$ff) != 0)
+.ERROR tile_map must be 256-byte aligned
+endif
+        add     hl,hl           ; L=x*2
+        ld      h,tile_map/$100
+        add     hl,de           ; HL=tile_map+(stride*line)+(x*2)
+        ld      (hl),c          ; set tileid (bits 7..0)
+        inc     hl
+        ld      a,(cur_attr)
+        or      b               ; OR in bit 8 of tileid
+        ld      (hl),a          ; set attribute to current settings
+        ret
+
+; 32-character extra character translations
+; Non-standard ASCII characters are translated, so any standard
+; Spectrum font may be used.
+
+opc80_trans:
+        sub     155             ; 127..154 undefined
+        jr      c,opc80_undefined
+        cp      224-155         ; 224..255 undefined
+        jr      nc,opc80_undefined
+        ld      c,a
+        ld      a,accent_tileoff
+        addbc_a                 ; index into accented chars
+        jr      opc80_gottileid

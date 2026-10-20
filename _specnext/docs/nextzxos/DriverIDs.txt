@@ -1,0 +1,50 @@
+NextZXOS Driver IDs
+===================
+
+Each NextZXOS driver has an ID in the range 0-127 (0x00-0x7F). A driver
+normally requires a unique ID in order to distinguish it from others.
+
+However, some types of driver (noted in the table with *) are generic. These
+share the same interface at the DRIVER command (or M_DRVAPI & IDE_DRIVER calls)
+but can support different external hardware.
+
+For example, all printer drivers share the same driver ID "P". The user can
+install the particular driver supporting their printer hardware interface, but
+applications can use the "P" driver without needing to know which particular
+printer interface driver has been installed. (Please see the example printer
+driver in c:/src/asm/sample_prt).
+
+Other generic driver classes may be added in future (for example, for MIDI
+interfaces).
+
+When writing a new driver, please request an ID from Garry Lancaster, via
+Facebook or email (garrylancaster@gmail.com).
+
+NOTE: ASCII letters are normally reserved for drivers that provide a streams
+      & channels interface.
+
+
+Hex     Dec     ASCII   Driver
+===     ===     =====   ======
+00      0             * Keyboard
+01      1               "Border" example                        Garry Lancaster
+08      8               Interrupt slot handler                  Simon N Goodwin
+
+25      37      %       Profiler                                Simon N Goodwin
+
+31      49      1       AYFX player                             Remy Sharp
+32      50      2       NDR player (NextDAW)                    Gari Biasillo
+33      51      3       PT3 6-channel player                    David Saphier
+34      52      4       (reserved)                              David Saphier
+
+4E      78      N       ESP AT Network                          Tim Gilberts
+50      80      P     * Printer
+54      84      T       Tilemap                                 Simon N Goodwin
+55      85      U       UART                                    Tim Gilberts
+58      88      X     * AUX (CP/M-compatible) [TBD]
+
+7D      125             Game input                              Paulo Silva
+7E      126             Mouse                                   Tim Gilberts
+7F      127             PT3 player                              David Saphier
+
+(no id)               * RTC (esxDOS-compatible)                 Tim Gilberts

@@ -1,0 +1,557 @@
+;    ZXZVM: Z-Code interpreter for the Z80 processor
+;    Copyright (C) 1998-9,2006,2016  John Elliott <seasip.webmaster@gmail.com>
+;
+;    This program is free software; you can redistribute it and/or modify
+;    it under the terms of the GNU General Public License as published by
+;    the Free Software Foundation; either version 2 of the License, or
+;    (at your option) any later version.
+;
+;    This program is distributed in the hope that it will be useful,
+;    but WITHOUT ANY WARRANTY; without even the implied warranty of
+;    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;    GNU General Public License for more details.
+;
+;    You should have received a copy of the GNU General Public License
+;    along with this program; if not, write to the Free Software
+;    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+; 2019-05-17, Garry Lancaster: New file, based on zxp3dos.zsm
+
+
+; ***************************************************************************
+; * ZX Spectrum Next disk-related routines                                  *
+; ***************************************************************************
+
+
+; ***************************************************************************
+; * Definitions                                                             *
+; ***************************************************************************
+
+; +3DOS/IDEDOS/NextZXOS function addresses
+DOS_OPEN                equ     $0106
+DOS_CLOSE               equ     $0109
+DOS_ABANDON             equ     $010c
+DOS_READ                equ     $0112
+DOS_WRITE               equ     $0115
+DOS_BYTE_READ           equ     $0118
+DOS_SETPOS              equ     $0136
+
+IDE_STREAM_OPEN         equ     $0056
+IDE_STREAM_CLOSE        equ     $0059
+IDE_STREAM_IN           equ     $005c
+IDE_STREAM_OUT          equ     $005f
+
+IDE_BROWSER             equ     $01ba
+IDE_BANK                equ     $01bd
+IDE_WINDOW_LINEIN       equ     $01c3
+IDE_WINDOW_STRING       equ     $01c6
+IDE_MODE                equ     $01d5
+
+FILENO          equ     $0c     ; Arbitrary number from 0 to 15 for Z-code
+                                ; file. +3 BASIC uses 0-2.
+SAVENO          equ     $0b     ; File number for save file
+
+CHAN_OPEN_r3    equ     $1601   ; ROM open channel to stream routine
+
+
+; ***************************************************************************
+; * Data                                                                    *
+; ***************************************************************************
+
+activea:        defb    0       ; activity indicator
+tsflag:         defb    0       ; Transcripting on or off?
+story_file:     defb    0       ; story file open
+dosram0:        defb    0       ; temporarily set to 1 to use RAM 0 in seldos
+
+; MMU bankids for up to 512K of story file (64 x 8K banks).
+; If a bank is not allocated, the id is 0.
+bankids:
+                defs    64
+
+
+; ***************************************************************************
+; * Utility function to call +3DOS                                          *
+; ***************************************************************************
+; This takes an inline word parameter, the +3DOS routine address.
+; A second variant is available, for routines requiring RAM0 paged instead
+; of RAM7.
+
+dodos_ram0_noerr:
+        push    af
+        ld      a,1
+        ld      (dosram0),a     ; flag RAM 0 to be used in seldos
+        pop     af
+        ; drop through to dodos
+dodos:
+        ld      (OLDHL),de
+        ex      (sp),hl
+        ld      e,(hl)
+        inc     hl
+        ld      d,(hl)
+        inc     hl
+        ex      (sp),hl
+        ld      (dosjmp + 1),de
+        ld      de,(OLDHL)
+        call    seldos
+dosjmp: call    0
+        call    sel48
+        push    af
+        ld      a,(dosram0)
+        and     a
+        jr      z,docheckerr
+        xor     a
+        ld      (dosram0),a     ; clear one-shot flag
+        pop     af
+        ret                     ; exit, no error to check for
+
+docheckerr:
+        pop     af
+        ret     c
+        pop     hl              ; HL=address after call
+        push    hl
+        push    af              ; Error no.
+        ld      de,p3retm
+        call    sphex4          ; 4-digit hex
+        pop     af
+        push    af              ; Error no.
+        ld      l,a
+        ld      h,0
+        ld      de,p3eno
+        call    spdec2          ; 2-digit
+        ld      hl,p3der        ; fatal error message
+        pop     af
+        ret
+
+;One message (not really very informative)
+p3der:  defb    '(ret='
+p3retm: defb    '0000) +3DOS error '
+p3eno:  defb    '00000',' '+$80
+
+
+; ***************************************************************************
+; * Bank-switching code to take us to/from the +3DOS environment            *
+; ***************************************************************************
+
+seldos: push    af
+        push    bc
+        ld      a,(bankm)
+        res     4,a
+        ld      c,a
+        ld      a,(dosram0)     ; check one-shot RAM0 usage
+        and     a
+        ld      a,c
+        jr      nz,selram0      ; on for RAM0 case
+        or      7               ; select RAM 7
+selmem_end:
+        ld      bc,bankio
+        di
+        ld      (bankm),a
+        out     (c),a
+        ei
+        pop     bc
+        pop     af
+        ret
+
+sel48:  push    af
+        push    bc
+        ld      a,(bankm)
+        set     4,a
+selram0:
+        and     $f8             ; select RAM 0
+        jr      selmem_end
+
+
+; ***************************************************************************
+; * Open & close savefile                                                   *
+; ***************************************************************************
+
+NXOPEN:
+        ld      a,b
+        or      a               ; 0=open 1=creat
+        ld      b,SAVENO
+        jr      z,p3opnr
+        ld      de,0204h        ; Create new
+        ld      c,2             ; Write mode
+        jr      p3opnc
+
+p3opnr:
+        ld      c,1             ; Read mode
+        ld      de,2            ; Open if it exists
+p3opnc:
+        call    dodos
+        defw    DOS_OPEN
+        ret
+
+NXCLSE:
+        ld      b,SAVENO
+        call    dodos
+        defw    DOS_CLOSE
+        ret     c
+        call    dodos
+        defw    DOS_ABANDON
+        ret
+
+
+; ***************************************************************************
+; * Read/write savefile                                                     *
+; ***************************************************************************
+; Entry:        HL=address of data
+;               BC=length
+
+NXREAD:
+        ld      a,b
+        or      c
+        scf
+        ret     z
+        ld      d,b
+        ld      e,c             ; DE = length
+        ld      b,SAVENO
+        ld      c,0             ; RAM 0 (unimportant; addresses < $c000)
+        call    dodos
+        defw    DOS_READ
+        ret
+
+NXWRIT:
+        ld      a,b
+        or      c
+        scf
+        ret     z
+        ld      d,b
+        ld      e,c             ; DE = length
+        ld      b,SAVENO
+        ld      c,0             ; RAM 0 (unimportant; addresses < $c000)
+        call    dodos
+        defw    DOS_WRITE
+        ret
+
+
+; ***************************************************************************
+; * Read/write Z-Machine memory to savefile                                 *
+; ***************************************************************************
+; Entry:        HL=Z-machine address
+;               BC=length
+
+NXRMEM:
+        ld      a,b
+        or      c
+        scf
+        ret     z               ; success if nothing to read
+        ld      d,b
+        ld      e,c             ; DE=length to read
+rmem_loop:
+        push    hl
+        push    de
+        call    blkadd          ; HL=start (paged in MMU5), DE=size
+        push    de
+        ld      b,SAVENO
+        ld      c,0             ; unimportant, address < $c000
+        call    dodos
+        defw    DOS_READ        ; read the data
+        pop     bc              ; BC=bytes read in this block
+        jr      nc,rwmem_err
+        pop     hl              ; HL=total bytes to transfer
+        and     a
+        sbc     hl,bc           ; HL=bytes left to transfer
+        jr      c,rwmem_done    ; (shouldn't happen)
+        jr      z,rwmem_done    ; end of transfer if HL=0
+        ex      de,hl           ; DE=bytes left to transfer
+        pop     hl
+        add     hl,bc           ; HL=updated Z-machine address
+        jr      rmem_loop       ; back for more
+rwmem_done:
+        nxtregn nxr_mmu5,ram2u  ; re-page RAM2U at $a000
+        pop     de              ; discard Z-Machine address
+        scf                     ; success
+        ret
+rwmem_err:
+        nxtregn nxr_mmu5,ram2u  ; re-page RAM2U at $a000
+        pop     de              ; discard parameters
+        pop     de
+        ret
+
+NXWMEM:
+        ld      a,b
+        or      c
+        scf
+        ret     z               ; success if nothing to write
+        ld      d,b
+        ld      e,c             ; DE=length to write
+wmem_loop:
+        push    hl
+        push    de
+        call    blkadd          ; HL=start (paged in MMU4), DE=size
+        push    de
+        ld      b,SAVENO
+        ld      c,0             ; unimportant, address < $c000
+        call    dodos
+        defw    DOS_WRITE       ; write the data
+        pop     bc              ; BC=bytes written in this block
+        jr      nc,rwmem_err
+        pop     hl              ; HL=total bytes to transfer
+        and     a
+        sbc     hl,bc           ; HL=bytes left to transfer
+        jr      c,rwmem_done    ; (shouldn't happen)
+        jr      z,rwmem_done    ; end of transfer if HL=0
+        ex      de,hl           ; DE=bytes left to transfer
+        pop     hl
+        add     hl,bc           ; HL=updated Z-machine address
+        jr      wmem_loop       ; back for more
+
+
+; ***************************************************************************
+; * Address chunk of Z-Machine in memory                                    *
+; ***************************************************************************
+; Entry:        HL=Z-machine address
+;               DE=requested size
+; Exit:         HL=physical address (mapped into MMU5)
+;               DE=available size (less than or equal to requested size)
+
+blkadd:
+        ld      a,h
+        and     $e0             ; A= H7 H6 H5 00 00 00 00 00
+        rlca
+        rlca
+        rlca                    ; A= 00 00 00 00 00 H7 H6 H5 = 8K chunk id
+        push    hl
+        ld      hl,bankids
+        addhl_a
+        ld      a,(hl)          ; A=bankid
+        pop     hl
+        nxtrega nxr_mmu5        ; page into MMU5 at $a000
+        ld      a,h
+        and     $1f
+        or      $a0
+        ld      h,a             ; HL=address, remapped into MMU4
+        push    hl
+        ld      b,h
+        ld      c,l
+        ld      hl,$c000
+        and     a
+        sbc     hl,bc           ; HL=max length available (1-8192)
+        sbc     hl,de           ; is DE>HL?
+        jr      nc,blk_gotsize  ; if not, use DE
+        add     hl,de           ; re-form max length available
+        ex      de,hl           ; and replace DE with it
+blk_gotsize:
+        pop     hl              ; HL=address within MMU4
+        ret
+
+
+; ***************************************************************************
+; * Transcript functions                                                    *
+; ***************************************************************************
+
+ts_open:
+        scf                     ; nothing to do (VM sets FLAGS2)
+        ret
+
+ts_close:
+        scf                     ; nothing to do (VM sets FLAGS2)
+        ret
+
+cktschar:
+        push    hl
+        ld      hl,11h          ; FLAGS2 bit 0
+        call    ZXPK64
+        pop     hl
+        bit     0,a             ; check transcript flag
+        scf
+        ret     z
+ts_char:
+        ld      a,(cwin)
+        or      a
+        scf
+        ret     z
+        push    ix
+        push    hl
+        ld      a,3
+        call    CHAN_OPEN_r3    ; open channel to stream 3 (printer)
+        pop     hl
+        ld      a,l
+        ld      hl,(ERR_SP)
+        push    hl              ; save current ERR_SP
+        ld      hl,ts_char_err
+        push    hl
+        ld      (ERR_SP),sp     ; set up trap for any BASIC error generated
+        rst     10h             ; print character
+        pop     hl              ; discard error trap
+ts_char_end:
+        ld      a,2
+        call    CHAN_OPEN_r3    ; open channel to stream 2 (screen)
+        pop     hl
+        ld      (ERR_SP),hl     ; restore ERR_SP
+        pop     ix
+        scf
+        ret
+
+; If an error occurs, disable the transcript and continue
+ts_char_err:
+        ld      hl,11h          ; FLAGS2
+        call    ZXPK64
+        res     0,a             ; turn off transcript flag
+        ld      hl,11h
+        call    ZXPOKE
+        jr      ts_char_end
+
+
+; ***************************************************************************
+; * Open story file                                                         *
+; ***************************************************************************
+
+st_open:
+        ld      b,FILENO
+        ld      c,05h           ; Open read-only
+        ld      de,2            ; Open if exists, else complain
+        call    dodos
+        defw    DOS_OPEN
+        ret     nc
+        ld      a,1             ; Mark story file as open
+        ld      (story_file),a
+        ld      hl,bankids
+        ld      b,8             ; must always allocate the full first 64K
+st_open_alloc_loop:
+        call    allocate_bank   ; obtain an 8K bankid
+        ret     nc              ; exit if allocate failed
+        inc     hl              ; increment to next pointer
+        djnz    st_open_alloc_loop
+        call    st_reload       ; load up to the first 64K of the file
+        ret     nc              ; exit if error occurred
+        ret     z               ; or if no more data
+        ld      b,64-8          ; load up to a maximum of 64 banks (512K)
+st_load_to_bank_loop:
+        call    allocate_bank   ; obtain an 8K bankid
+        jr      nc,st_load_done ; on if couldn't get another one
+        call    load_bank       ; load from the file
+        ret     nc              ; exit if error occurred
+        ret     z               ; or if no more data
+        djnz    st_load_to_bank_loop
+st_load_done:
+        scf                     ; success, as at least 64K is preloaded
+        ret
+
+
+; ***************************************************************************
+; * Reload story file                                                       *
+; ***************************************************************************
+; Reloads the first 64K of data from the story file. The data above this is
+; never dynamic and does not need to be reloaded.
+
+st_reload:
+        ld      b,FILENO
+        ld      de,0
+        ld      hl,0
+        call    dodos
+        defw    DOS_SETPOS
+        ret     nc
+        ld      b,8             ; load up to 8x8K=first 64K of file
+        ld      hl,bankids
+st_reload_loop:
+        call    load_bank
+        ret     nc              ; exit if error occurred
+        ret     z               ; or if no more data
+        djnz    st_reload_loop
+        ret
+
+
+; ***************************************************************************
+; * Allocate an 8K bank                                                     *
+; ***************************************************************************
+; Entry:        HL=address within bankids to store allocated bank
+; Exit(f):      Fc=0, A=error
+; Exit(s):      Fc=1
+;               HL,BC are preserved
+
+allocate_bank:
+        push    hl
+        push    bc
+        ld      a,'.'
+        call    out1_a          ; show progress with dots
+        ld      hl,$0001        ; allocate next available ZX 8K bank
+        call    dodos
+        defw    IDE_BANK
+        pop     bc
+        jr      c,allocate_okay
+        pop     de              ; discard pointer (retain fatal message addr)
+        ret                     ; exit with error
+allocate_okay:
+        pop     hl
+        ld      (hl),e          ; store bank id
+        ret                     ; exit with success
+
+
+; ***************************************************************************
+; * Load 8K from the file into next allocated bankid                        *
+; ***************************************************************************
+; Entry:        HL=address within bankids of bank to use
+; Exit(f):      Fc=0, A=error
+; Exit(s):      Fc=1
+;               Fz=1 if EOF detected
+;               Fz=0 if further data to read
+;               HL=HL+1
+;               BC is preserved
+
+load_bank:
+        ld      a,(hl)          ; get bankid
+        nxtrega nxr_mmu5        ; page at $a000
+        inc     hl              ; increment pointer to next
+        push    bc
+        push    hl
+        ld      b,FILENO
+        ld      hl,$a000
+        ld      de,$2000
+        call    dodos
+        defw    DOS_READ        ; read 8K to bank
+        nxtregn nxr_mmu5,ram2u  ; re-page RAM2U at $a000
+        jr      c,read_full
+        cp      25
+        jr      z,read_okay     ; on with Fz=1 if EOF
+        pop     bc              ; discard pointer (retain fatal message addr)
+        pop     bc              ; restore original BC
+        and     a               ; Fc=0, error
+        ret
+read_full:
+        xor     a
+        inc     a               ; Fz=0, read without EOF
+read_okay:
+        pop     hl              ; restore pointer into bankids
+        pop     bc              ; restore original BC
+        scf                     ; success
+        ret
+
+
+; ***************************************************************************
+; * Close story file                                                        *
+; ***************************************************************************
+
+st_close:
+        ld      a,(story_file)
+        and     a
+        scf
+        ret     z               ; nothing to do if no story file open
+        ld      hl,bankids
+        ld      b,64
+st_close_dealloc_loop:
+        ld      a,(hl)          ; A=bank id to deallocate
+        ld      (hl),0          ; clear it
+        inc     hl              ; increment to next pointer
+        and     a               ; exit loop if A=0, ie unallocated
+        jr      z,st_close_dealloc_end
+        ld      e,a             ; E=bankid
+        push    hl
+        push    bc
+        ld      hl,$0003        ; free ZX 8K bank
+        call    dodos
+        defw    IDE_BANK
+        pop     bc
+        pop     de              ; don't overwrite any fatal error message
+        ret     nc              ; exit if free failed
+        ex      de,hl           ; HL=pointer
+        djnz    st_close_dealloc_loop
+st_close_dealloc_end:
+        xor     a
+        ld      (story_file),a  ; mark story file closed
+        ld      b,FILENO
+        call    dodos
+        defw    DOS_CLOSE
+        ret                     ; exit with any error from DOS_CLOSE
+

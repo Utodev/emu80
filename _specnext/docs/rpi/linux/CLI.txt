@@ -1,0 +1,48 @@
+NextPi Custom commands
+
+NextPi has a series of custom commands to do tasks specific to itself, this
+series of documented and supported functions will continue to work on all
+supported NextPi versions.  Other community created distributions which wish to
+be compatible with NextPi's CLI API should replicate the functionality and names
+of these commands. The default commands all start with nextpi- and a full list
+can be found at https://wiki.specnext.dev/Pi:CLI
+
+The commands all start with nextpi-, and are spread between a number locations.
+
+ * /opt/nextpi/bin              *1
+ * /NextPi/nextpi               *2
+ * /PCache/nextpi/bin           *1
+ * /PlusPack/Developer/nextpi   *3
+ * /PlusPack/Media/nextpi       *3
+ * /PlusPack/Runtime/nextpi     *3
+ * /PlusPack/User/nextpi        *3
+ * /mnt/dongle/nextpi           *4
+ * /ram/nextpi                  *5
+
+ -- they are searched in reverse order (i.e., /ram/nextpi first)
+
+*1 is READ ONLY by default, these are our system commands, and "builtin" - these are the ones that clients interacting
+ with the Pi over UART can "depend upon" - this is the core "nextpi CLI API".
+
+*2 is READ WRITE by default, these are stored in the user persistent partition, games can (after managing diskspace)
+ store their own files here, these will persist between reboots - if a game wants to install a persistent extension to
+ NextPi this is where the entrypoint should live. (Anticipated empty space: 40M usable)
+
+*3 is READ WRITE by default, these are the filesystem images mounted from PlusPacks (Anticipated empty space: pack
+ dependent, presume 0M usable)
+
+*4 is READ WRITE by default, but only when USB key is present via OTG adapter or similar (Anticipated empty space: none,
+ presume 0M usable)
+
+#5 is READ WRITE VOLATILE by default, files stored here will NOT persist between reboots, but will not cause any
+ block-wear-and-use on the SD card, therefore increasing live expectancy for the card. Games are advised to use this
+ storage where possible (Anticipated empty space: 240M, fluctuates as Pi RAM used changes)
+
+Interested devs are encouraged to use their keyboard and monitor to inspect the contents of these files to see how the
+underlying linux system is configured.
+
+There is an example "new persistent" command, nextpi-date_set in /NextPi/nextpi for devs to see how this can work.
+
+Please note that calling the native Linux utilities (as within these packages) is discouraged to ensure 100% future
+compatibility in case one has to be replaced/updated for any specific reason.  While the Linux CLI tools could change
+the nextpi- wrappers around them will remain the same...

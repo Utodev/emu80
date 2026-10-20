@@ -8,11 +8,12 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, ComCtrls, StdCtrls, ExtCtrls, Dialogs, Menus,
-  LCLType, Emulator, Tape, Icons;
+  LCLType, Emulator, Tape, Icons, PathTitle;
 
 type
   TTapeBrowserWindow = class(TForm)
   private
+    FTitle: TPathTitle;                // the title, with the file's path
     FEmu: TEmulator;
     FList: TListView;
     FToolBar: TToolBar;
@@ -60,11 +61,30 @@ var
   OnTapeSettingsChanged: TNotifyEvent;
 
 procedure ShowTapeBrowser(Emu: TEmulator);
+{ Before saving the tape as a .tap: if it has blocks a .tap can't keep (from
+  a .tzx: turbo data, recordings, texts...), whether to save without them }
+function ConfirmTapSave(Emu: TEmulator): Boolean;
 
 implementation
 
 uses
-  Config;
+  Config, ModernUI;
+
+function ConfirmTapSave(Emu: TEmulator): Boolean;
+var
+  Lost: Boolean;
+begin
+  Emu.Lock;
+  try
+    Lost := Emu.Spec.Tape.HasNonStandard;
+  finally
+    Emu.Unlock;
+  end;
+  Result := not Lost or (MessageDlg('Save tape', 'A .tap file keeps only the data blocks: the ' +
+    'tape''s other blocks (turbo timings, tones, pulses, recordings, pauses, texts and the like, ' +
+    'from a .tzx) are left out, and turbo data is saved with the standard timings.' + LineEnding +
+    LineEnding + 'Save it anyway?', mtWarning, [mbYes, mbNo], 0) = mrYes);
+end;
 
 procedure ShowTapeBrowser(Emu: TEmulator);
 begin
@@ -84,6 +104,7 @@ begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
   Caption := 'Tape browser';
+  FTitle := TPathTitle.Create(Self);
   Width := 520;
   Height := 380;
   Position := poMainFormCenter;
@@ -204,12 +225,13 @@ procedure TTapeBrowserWindow.ListCustomDrawItem(Sender: TCustomListView; Item: T
 begin
   DefaultDraw := True;
   if Item.Index <> FCurrent then Exit;
-  if FPlaying then Sender.Canvas.Brush.Color := RGBToColor(200, 240, 200)
-  else Sender.Canvas.Brush.Color := RGBToColor(255, 245, 190);
+  if FPlaying then Sender.Canvas.Brush.Color := TC(RGBToColor(200, 240, 200))
+  else Sender.Canvas.Brush.Color := TC(RGBToColor(255, 245, 190));
 end;
 
 procedure TTapeBrowserWindow.Refresh(Force: Boolean);
 var
+  Suffix: string;
   Tp: TTape;
   I, Selected: Integer;
   Item: TListItem;
@@ -220,11 +242,11 @@ begin
     Tp := FEmu.Spec.Tape;
     if not Force and (Tp.ChangeCount = FLastChange) then Exit;
     FLastChange := Tp.ChangeCount;
+    if Tp.Modified then Suffix := ' (modified)' else Suffix := '';
     if Tp.FileName <> '' then
-      Caption := 'Tape browser - ' + ExtractFileName(Tp.FileName)
+      FTitle.SetTitle('Tape browser - ', ExpandFileName(Tp.FileName), Suffix)
     else
-      Caption := 'Tape browser';
-    if Tp.Modified then Caption := Caption + ' (modified)';
+      FTitle.SetTitle('Tape browser' + Suffix, '', '');
     Selected := -1;
     if FList.Selected <> nil then Selected := FList.Selected.Index;
     FList.Items.BeginUpdate;
@@ -267,8 +289,12 @@ begin
           Item.Caption := '';
         Item.SubItems[0] := IntToStr(I + 1);
         Item.SubItems[1] := Block.Description;
-        Item.SubItems[2] := IntToStr(Length(Block.Data));
-        if Block.ChecksumOK then Item.SubItems[3] := 'OK' else Item.SubItems[3] := 'Bad';
+        // Size and checksum: of the blocks with data
+        if Block.IsData or (Length(Block.Data) > 0) then Item.SubItems[2] := IntToStr(Length(Block.Data))
+        else Item.SubItems[2] := '';
+        if not Block.IsData then Item.SubItems[3] := ''
+        else if Block.ChecksumOK then Item.SubItems[3] := 'OK'
+        else Item.SubItems[3] := 'Bad';
       end;
     finally
       FList.Items.EndUpdate;
@@ -445,7 +471,7 @@ begin
     Dlg.InitialDir := Settings.LastDir;
     Dlg.FileName := ExtractFileName(FEmu.Spec.Tape.FileName);
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not Dlg.Execute then Exit;
+    if not ConfirmTapSave(FEmu) or not Dlg.Execute then Exit;
     FEmu.Lock;
     try
       FEmu.Spec.Tape.SaveTAP(Dlg.FileName);
@@ -473,6 +499,7 @@ end;
   file: blockN.bin by default, N its number on the tape }
 procedure TTapeBrowserWindow.DoExportBlock(Sender: TObject);
 var
+  IsData: Boolean;
   Dlg: TSaveDialog;
   Data: TBytes;
   N: Integer;
@@ -484,8 +511,15 @@ begin
   try
     if N >= FEmu.Spec.Tape.Count then Exit;
     Data := Copy(FEmu.Spec.Tape[N].Data);
+    IsData := FEmu.Spec.Tape[N].IsData;
   finally
     FEmu.Unlock;
+  end;
+  if not IsData then
+  begin
+    MessageDlg('Export block', 'Only blocks with data (standard, turbo or pure data) can be exported.',
+      mtInformation, [mbOK], 0);
+    Exit;
   end;
   // The flag byte first and the checksum last are not the block's data
   if Length(Data) >= 2 then Data := Copy(Data, 1, Length(Data) - 2) else Data := nil;

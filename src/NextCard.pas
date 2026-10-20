@@ -12,7 +12,7 @@ uses
   SysUtils, Classes, FatFS;
 
 const
-  NEXT_CARD_MB = 1024;
+  NEXT_CARD_MB = 512;
   NEXT_DOWNLOAD_URL = 'https://www.specnext.com/latestdistro/';
 
 { The distribution is there: the NextZXOS ROMs in machines/next }

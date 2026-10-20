@@ -256,6 +256,9 @@ function ShowDaadDebugger(Emu: TEmulator): Boolean;
 
 implementation
 
+uses
+  ModernUI;
+
 const
   {$IFDEF WINDOWS}
   MONO_FONT = 'Consolas';
@@ -593,11 +596,11 @@ begin
   if FLines[L] < 0 then
   begin
     E := -1 - FLines[L];
-    Result := Format('%.4X > %s %s entry %d', [G.Entries[E].Header, G.VocWord(G.Entries[E].Verb, 0),
-      G.VocWord(G.Entries[E].Noun, 2), E - G.Processes[G.Entries[E].Process].FirstEntry]);
+    Result := Format('%d > %s %s', [E - G.Processes[G.Entries[E].Process].FirstEntry + 1,
+      G.VocWord(G.Entries[E].Verb, 0), G.VocWord(G.Entries[E].Noun, 2)]);
   end
   else
-    Result := Format('%.4X %s "%s"', [G.Condacts[FLines[L]].Addr, G.CondactText(G.Condacts[FLines[L]]),
+    Result := Format('%s "%s"', [G.CondactText(G.Condacts[FLines[L]]),
       G.CondactMessage(G.Condacts[FLines[L]])]);
 end;
 
@@ -696,7 +699,7 @@ begin
   G := FOwnerWin.Game;
   if FLineH = 0 then MeasureFont;
   L := FTop + Y div FLineH;
-  // The name comes after the address and four spaces
+  // The name comes under the entry's verb
   X0 := 2 + (GUTTER + 8) * FCharW;
   if G.Valid and (Y >= 0) and (L <= High(FLines)) and (FLines[L] >= 0) and (X >= X0) then
   begin
@@ -829,24 +832,24 @@ begin
   Inc(Y, 3);
   // A white box behind, so it shows on any line colour
   Canvas.Brush.Style := bsSolid;
-  Canvas.Brush.Color := clWhite;
-  Canvas.Pen.Color := clWhite;
+  Canvas.Brush.Color := TC(clWhite);
+  Canvas.Pen.Color := TC(clWhite);
   Canvas.Rectangle(X - 2, Y - 2, X + S + 3, Y + S + 3);
   if State = -1 then
   begin
-    DrawText(X + (S - FCharW) div 2, Y - 3, '?', RGBToColor(235, 130, 0), True);
+    DrawText(X + (S - FCharW) div 2, Y - 3, '?', TC(RGBToColor(235, 130, 0)), True);
     Exit;
   end;
   Canvas.Pen.Width := 2;
   if State = 1 then
   begin
-    Canvas.Pen.Color := RGBToColor(0, 150, 0);
+    Canvas.Pen.Color := TC(RGBToColor(0, 150, 0));
     Canvas.Line(X, Y + S div 2, X + S div 3, Y + S);
     Canvas.Line(X + S div 3, Y + S, X + S, Y);
   end
   else
   begin
-    Canvas.Pen.Color := RGBToColor(220, 0, 0);
+    Canvas.Pen.Color := TC(RGBToColor(220, 0, 0));
     Canvas.Line(X, Y, X + S, Y + S);
     Canvas.Line(X + S, Y, X, Y + S);
   end;
@@ -876,14 +879,14 @@ begin
     begin
       // An entry: its number, verb and noun
       E := -1 - FLines[L];
-      Canvas.Brush.Color := RGBToColor(238, 242, 250);
+      Canvas.Brush.Color := TC(RGBToColor(238, 242, 250));
       Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
       X := 2 + GUTTER * FCharW;
-      X := DrawText(X, Y, IntToHex(G.Entries[E].Header, 4) + '  ', clGray, False);
+      // The entry's number in its process (the first is 1)
+      X := DrawText(X, Y, Format('%4d  ', [E - G.Processes[G.Entries[E].Process].FirstEntry + 1]),
+        TC(clGray), False);
       S := Format('> %-6s %-6s', [G.VocWord(G.Entries[E].Verb, 0), G.VocWord(G.Entries[E].Noun, 2)]);
-      X := DrawText(X, Y, S, ENTRY_COLOR, True);
-      DrawText(X + 2 * FCharW, Y, Format('entry %d', [E - G.Processes[G.Entries[E].Process].FirstEntry]),
-        clGray, False);
+      DrawText(X, Y, S, TC(ENTRY_COLOR), True);
       Continue;
     end;
     Cond := G.Condacts[FLines[L]];
@@ -892,46 +895,47 @@ begin
     if B >= 0 then
     begin
       // Breakpoints in red, pale when switched off (as in the Z80 debugger)
-      if OnBreak then Canvas.Brush.Color := RGBToColor(205, 40, 40)
-      else Canvas.Brush.Color := RGBToColor(245, 205, 205);
+      if OnBreak then Canvas.Brush.Color := TC(RGBToColor(205, 40, 40))
+      else Canvas.Brush.Color := TC(RGBToColor(245, 205, 205));
       Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
       if FOwnerWin.BreakEntry(B).Cond <> nil then
-        DrawText(2, Y, '?', Pick(OnBreak, clWhite, clBlack), True);
+        DrawText(2, Y, '?', Pick(OnBreak, TC(clWhite), TC(clBlack)), True);
     end;
     if FLines[L] = FOwnerWin.Current then
     begin
       if B < 0 then
       begin
-        Canvas.Brush.Color := RGBToColor(205, 240, 205);
+        Canvas.Brush.Color := TC(RGBToColor(205, 240, 205));
         Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
       end;
       // The green arrow, as in the Z80 debugger
-      Canvas.Brush.Color := RGBToColor(0, 150, 0);
-      Canvas.Pen.Color := RGBToColor(0, 110, 0);
+      Canvas.Brush.Color := TC(RGBToColor(0, 150, 0));
+      Canvas.Pen.Color := TC(RGBToColor(0, 110, 0));
       Arrow[0] := Point(4 + FCharW div 2, Y + 3);
       Arrow[1] := Point(4 + FCharW * 2, Y + FLineH div 2);
       Arrow[2] := Point(4 + FCharW div 2, Y + FLineH - 3);
       Canvas.Polygon(Arrow);
     end;
-    X := 2 + GUTTER * FCharW;
+    // Under the entry's verb (where the address was)
+    X := 2 + (GUTTER + 8) * FCharW;
+    S := G.CondactText(Cond);
     if OnBreak then
     begin
-      X := DrawText(X, Y, IntToHex(Cond.Addr, 4) + '    ', RGBToColor(255, 205, 205), False);
-      S := G.CondactText(Cond);
-      X := DrawText(X, Y, Copy(S, 1, 8), RGBToColor(255, 235, 140), False);
-      X := DrawText(X, Y, Copy(S, 9, MaxInt), clWhite, False);
+      // Dark theme: the condact always bright white
+      if DarkTheme then X := DrawText(X, Y, Copy(S, 1, 8), clWhite, True)
+      else X := DrawText(X, Y, Copy(S, 1, 8), RGBToColor(255, 235, 140), False);
+      X := DrawText(X, Y, Copy(S, 9, MaxInt), TC(clWhite), False);
     end
     else
     begin
-      X := DrawText(X, Y, IntToHex(Cond.Addr, 4) + '    ', clGray, False);
-      S := G.CondactText(Cond);
-      X := DrawText(X, Y, Copy(S, 1, 8), clBlue, False);
-      X := DrawText(X, Y, Copy(S, 9, MaxInt), clBlack, False);
+      if DarkTheme then X := DrawText(X, Y, Copy(S, 1, 8), clWhite, True)
+      else X := DrawText(X, Y, Copy(S, 1, 8), clBlue, False);
+      X := DrawText(X, Y, Copy(S, 9, MaxInt), TC(clBlack), False);
     end;
     Msg := G.CondactMessage(Cond);
     if Msg <> '' then
       DrawText(Max(X + 2 * FCharW, 2 + (GUTTER + 26) * FCharW), Y, '"' + Msg + '"',
-        Pick(OnBreak, RGBToColor(255, 205, 205), clGray), False);
+        Pick(OnBreak, TC(RGBToColor(255, 205, 205)), TC(clGray)), False);
     // At the current condact, a condition: holds (tick), fails (cross) or
     // depends on something else (an orange question mark)
     if FLines[L] = FOwnerWin.Current then
@@ -942,7 +946,7 @@ begin
   begin
     Y := (FSel - FTop) * FLineH;
     Canvas.Brush.Style := bsClear;
-    Canvas.Pen.Color := RGBToColor(0, 0, 120);
+    Canvas.Pen.Color := TC(RGBToColor(0, 0, 120));
     Canvas.Pen.Style := psDot;
     Canvas.Rectangle(GUTTER * FCharW - 2, Y, ClientWidth - FScroll.Width - 1, Y + FLineH);
     Canvas.Pen.Style := psSolid;
@@ -983,7 +987,7 @@ begin
   Canvas.FillRect(ClientRect);
   if LineCount = 0 then
   begin
-    DrawText(4, 0, 'Insert (or Space in the process): add a breakpoint', clGray, False);
+    DrawText(4, 0, 'Insert (or Space in the process): add a breakpoint', TC(clGray), False);
     Exit;
   end;
   if FSel > LineCount - 1 then FSel := LineCount - 1;
@@ -995,17 +999,17 @@ begin
     Y := I * FLineH;
     if N = FSel then
     begin
-      Canvas.Brush.Color := RGBToColor(210, 225, 250);
+      Canvas.Brush.Color := TC(RGBToColor(210, 225, 250));
       Canvas.FillRect(0, Y, ClientWidth, Y + FLineH);
     end;
     // The on/off box
     Box := FLineH - 6;
-    Canvas.Brush.Color := clWhite;
-    Canvas.Pen.Color := clGray;
+    Canvas.Brush.Color := TC(clWhite);
+    Canvas.Pen.Color := TC(clGray);
     Canvas.Rectangle(4, Y + 3, 4 + Box, Y + 3 + Box);
     if E.Enabled then
     begin
-      Canvas.Pen.Color := RGBToColor(205, 40, 40);
+      Canvas.Pen.Color := TC(RGBToColor(205, 40, 40));
       Canvas.Pen.Width := 2;
       Canvas.MoveTo(6, Y + 3 + Box div 2);
       Canvas.LineTo(4 + Box div 2, Y + 1 + Box);
@@ -1013,10 +1017,10 @@ begin
       Canvas.Pen.Width := 1;
     end;
     X := 8 + Box;
-    X := DrawText(X, Y, IntToHex(E.Addr, 4) + '  ', clBlack, True);
-    X := DrawText(X, Y, Format('%-28s', [FOwnerWin.CondactLabel(E.Addr)]), clBlack, False);
+    X := DrawText(X, Y, IntToHex(E.Addr, 4) + '  ', TC(clBlack), True);
+    X := DrawText(X, Y, Format('%-28s', [FOwnerWin.CondactLabel(E.Addr)]), TC(clBlack), False);
     if E.CondText <> '' then
-      DrawText(X, Y, 'if ' + E.CondText, RGBToColor(140, 90, 0), False);
+      DrawText(X, Y, 'if ' + E.CondText, TC(RGBToColor(140, 90, 0)), False);
   end;
 end;
 
@@ -1179,23 +1183,23 @@ begin
       if N >= ItemCount then Break;
       Y := I * FLineH;
       X0 := 2 + C * ColChars * FCharW;
-      X := DrawText(X0, Y, Format('%.3d ', [N]), clGray, False);
+      X := DrawText(X0, Y, Format('%.3d ', [N]), TC(clGray), False);
       if not Known then
       begin
-        DrawText(X, Y, '---', clGray, False);
+        DrawText(X, Y, '---', TC(clGray), False);
         Continue;
       end;
       // Changed by the last condact: red
-      if Changed(N) then ValueColor := RGBToColor(210, 0, 0) else ValueColor := clBlack;
+      if Changed(N) then ValueColor := TC(RGBToColor(210, 0, 0)) else ValueColor := TC(clBlack);
       if not FObjects then
       begin
         // "000 007 @ 090": the flag, its value and the value of flag 7
         V := FOwnerWin.FFlags[N];
         X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
-        X := DrawText(X, Y, ' @ ', clGray, False);
-        X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), clBlack, False);
+        X := DrawText(X, Y, ' @ ', TC(clGray), False);
+        X := DrawText(X, Y, Format('%.3d', [FOwnerWin.FFlags[V]]), TC(clBlack), False);
         S := FlagName(N, FOwnerWin.Game.Engine);
-        if S <> '' then DrawText(X + FCharW, Y, Copy(S, 1, ColChars - 15), clGray, False);
+        if S <> '' then DrawText(X + FCharW, Y, Copy(S, 1, ColChars - 15), TC(clGray), False);
       end
       else
       begin
@@ -1203,8 +1207,8 @@ begin
         V := FOwnerWin.FFlags[256 + N];
         X := DrawText(X, Y, Format('%.3d', [V]), ValueColor, True);
         S := LocationName(V);
-        X := DrawText(X + FCharW, Y, Format('%-11s', [S]), RGBToColor(0, 110, 0), False);
-        DrawText(X + FCharW, Y, Copy(FOwnerWin.Game.ObjectText(N), 1, ColChars - 21), clGray, False);
+        X := DrawText(X + FCharW, Y, Format('%-11s', [S]), TC(RGBToColor(0, 110, 0)), False);
+        DrawText(X + FCharW, Y, Copy(FOwnerWin.Game.ObjectText(N), 1, ColChars - 21), TC(clGray), False);
       end;
     end;
 end;
@@ -2260,7 +2264,7 @@ begin
   if C < 0 then Exit('(not a condact)');
   E := FGame.Condacts[C].Entry;
   Result := Format('P%d E%d  %s', [FGame.Entries[E].Process,
-    E - FGame.Processes[FGame.Entries[E].Process].FirstEntry, DelSpace1(FGame.CondactText(FGame.Condacts[C]))]);
+    E - FGame.Processes[FGame.Entries[E].Process].FirstEntry + 1, DelSpace1(FGame.CondactText(FGame.Condacts[C]))]);
 end;
 
 procedure TDaadWindow.ShowCondact(Addr: Word);

@@ -1,0 +1,40 @@
+ZX Spectrum Next CP/M BIOS TODOs
+================================
+
+1. Devices
+----------
+Currently the following devices are available:
+        CRT     Terminal (based on +3/Z-19/H-19)
+        LPT     Printer (sent to currently-installed NextZXOS "P" driver)
+        XDEV    Auxiliary (sent to currently-installed NextZXOS "X" driver)
+
+Support for raw access to the UARTs (for ESP8266 and Pi Zero etc) is under
+development, intended to be added as UART and PI devices.
+
+
+2. Scripting
+------------
+The EXIT command (which uses USERF function 0 - exit CP/M) currently just
+resets the Next.
+
+In future releases of the BIOS, it is intended that this will return
+gracefully to running process in NextZXOS (eg a running NextBASIC program).
+
+There will also be support for passing an initial command line into CP/M.
+
+These features will all CP/M commands (such as language compilers) to be
+run under control of a NextBASIC or machine-code program.
+
+
+3. Keyboard remapping
+---------------------
+A command will be provided allowing the keyboard to be remapped (including the
+currently unused control characters CTRL-0..9). The main expected use case is
+for remapping the special keys (cursors, delete, inv/true video etc) to suit
+particular applications. However, it could also be used to change the standard
+key layout (to AZERTY, for example).
+
+
+4. GSX
+------
+Support for GSX applications is also under consideration.

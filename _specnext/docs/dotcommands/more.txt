@@ -1,0 +1,83 @@
+.MORE dot command v. 1.1
+
+by Marco Varesio
+https://retrobits.altervista.org
+
+.MORE is a simple text file viewer for the ZX Spectrum Next computer
+and ZX Spectrum computers equipped with DivIDE/DivMMC and ESXDOS.
+Backwards scroll is supported, with some limitations.
+Percentage of file is shown near file name.
+
+Synopsis: 
+        .MORE [-64|-85|-128] <FILE>
+
+Options (available only in 128K NextZXOS mode):
+		-64  force  64 columns mode
+		-85  force  85 columns mode
+		-128 force 128 columns mode
+        -h   ignore PLUS3DOS header
+
+Commands:
+		8/RIGHT/ENTER:   next page
+		5/LEFT/0/DELETE: previous page
+		Q/SPACE:         exit
+
+History:
+
+1.1 2020-04-13
+    do not show PLUS3DOS header (Next version)
+
+1.0 2019-12-02
+    Runs at 28MHz (Next version)
+
+0.9 2019-04-06
+    Maintenance/bufgix release
+
+0.8 2018-10-06
+    built with latest z88dk nightly
+    48k version is esxdos compatible
+
+0.7 2018-09-11
+    save/set peripheral2 register besides turbo value
+    101% bug fix
+
+0.6 2018-09-10
+    clear screen in layer 1 and 2
+    cr+lf across pages fix
+
+0.5 2018-09-05
+    alternate load of 48k version
+    minor fixes
+
+0.4 2018-09-03
+    added commands: 
+        8 & right cursor: next page
+        5 & left cursor: previous page
+    added options: -64, -85, -128 columns
+
+0.3 2018-08-26
+    build with z88dk nightly 20180826; this enabled file names with spaces within double quotation marks    
+    renamed to ".MORE"
+    file name and percentage moved to page bottom
+    runs at 14MHz
+    no CLS; all screen is overwritten (avoid garbage in timex mode)
+    filename and percentage are INVERSE colour (ink and paper are preserved)
+    2 versions: 128k and 48k
+    128k version determines rows and cols through IDE_MODE APIs
+
+0.2 2018-08-22
+    Q command for quit
+    Updated messages
+
+0.1 2017-12-01
+    First release
+
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
+	

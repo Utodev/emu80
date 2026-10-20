@@ -1,0 +1,2 @@
+zcc +zx -D_NONEXT_ -v -startup=30 -clib=sdcc_ix -SO3 --max-allocs-per-node200000 --opt-code-size cstack.c readme.c -o moreesx -pragma-include:zpragmaesx.inc -subtype=dot -Cz"--clean" -create-app
+rem move moreesx bin\MORE
