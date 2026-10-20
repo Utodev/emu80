@@ -36,7 +36,7 @@ var
   X, Y: Integer;
   P: LongWord;
 begin
-  SetLength(Pixels, SCREEN_WIDTH * SCREEN_HEIGHT);
+  SetLength(Pixels, FB_WIDTH * SCREEN_HEIGHT);   // the frame buffer is twice as wide
   Spec.CopyFrameBuffer(@Pixels[0]);
   S := TFileStream.Create(FileName, fmCreate);
   try
@@ -47,7 +47,7 @@ begin
     begin
       for X := 0 to SCREEN_WIDTH - 1 do
       begin
-        P := Pixels[Y * SCREEN_WIDTH + X];
+        P := Pixels[Y * FB_WIDTH + X * 2];
         Row[X * 3] := (P shr 16) and $FF;
         Row[X * 3 + 1] := (P shr 8) and $FF;
         Row[X * 3 + 2] := P and $FF;

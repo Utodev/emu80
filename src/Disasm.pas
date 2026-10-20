@@ -22,6 +22,11 @@ type
     okImmediate  // plain value: LD HL,$4000
   );
 
+var
+  { Show the ZX Spectrum Next's Z80N instructions (otherwise those ED
+    opcodes are NOP*) }
+  Z80NMnemonics: Boolean = False;
+
 { Disassemble the instruction at Addr. Len receives its length in bytes. }
 function Disassemble(Addr: Word; Peek: TPeekFunc; out Len: Integer): string;
 { Also returns the 16-bit operand (shown in the text as "$XXXX") and its kind;
@@ -174,8 +179,56 @@ var
   function DecodeED: string;
   var
     Op2: Byte;
+  var
+    H: Byte;
   begin
     Op2 := Next;
+    if Z80NMnemonics then
+    begin
+      Result := '';
+      case Op2 of
+        $23: Result := 'SWAPNIB';
+        $24: Result := 'MIRROR A';
+        $27: Result := 'TEST ' + Imm8;
+        $28: Result := 'BSLA DE,B';
+        $29: Result := 'BSRA DE,B';
+        $2A: Result := 'BSRL DE,B';
+        $2B: Result := 'BSRF DE,B';
+        $2C: Result := 'BRLC DE,B';
+        $30: Result := 'MUL D,E';
+        $31: Result := 'ADD HL,A';
+        $32: Result := 'ADD DE,A';
+        $33: Result := 'ADD BC,A';
+        $34: Result := 'ADD HL,' + Imm16;
+        $35: Result := 'ADD DE,' + Imm16;
+        $36: Result := 'ADD BC,' + Imm16;
+        $8A:
+          begin
+            // Big-endian
+            H := Next;
+            Operand := (H shl 8) or Next;
+            Result := 'PUSH ' + Hex4(Operand);
+          end;
+        $90: Result := 'OUTINB';
+        $91:
+          begin
+            Result := 'NEXTREG ' + Imm8;
+            Result := Result + ',' + Imm8;
+          end;
+        $92: Result := 'NEXTREG ' + Imm8 + ',A';
+        $93: Result := 'PIXELDN';
+        $94: Result := 'PIXELAD';
+        $95: Result := 'SETAE';
+        $98: Result := 'JP (C)';
+        $A4: Result := 'LDIX';
+        $A5: Result := 'LDWS';
+        $AC: Result := 'LDDX';
+        $B4: Result := 'LDIRX';
+        $B7: Result := 'LDPIRX';
+        $BC: Result := 'LDDRX';
+      end;
+      if Result <> '' then Exit;
+    end;
     X := Op2 shr 6;
     Y := (Op2 shr 3) and 7;
     Z := Op2 and 7;
@@ -362,7 +415,8 @@ begin
     $ED:
       begin
         Op2 := Peek(Word(Addr + 1));
-        Result := Op2 in [$B0..$B3, $B8..$BB];     // repeating block instructions
+        Result := (Op2 in [$B0..$B3, $B8..$BB]) or     // repeating block instructions
+          (Z80NMnemonics and (Op2 in [$B4, $B7, $BC]));
       end;
   else
     Result := False;

@@ -322,7 +322,7 @@ procedure TTapeBrowserWindow.DoPlay(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    FEmu.Spec.Tape.Play(FEmu.Spec.Cpu.T);
+    FEmu.Spec.PlayTape;
   finally
     FEmu.Unlock;
   end;

@@ -81,6 +81,9 @@ var
   Err, Text: string;
   Data: TBytes;
   Found: Boolean;
+  Dir: LongWord;
+  Entry: TFatEntry;
+  FreeBefore, Free0: Int64;
 begin
   F := TFileStream.Create(ParamStr(3), fmCreate);
   try
@@ -141,10 +144,11 @@ begin
   Sp.DivMMC.EjectCard;
   Sp.Free;
 
-  F := TFileStream.Create(ParamStr(3), fmOpenRead);
+  F := TFileStream.Create(ParamStr(3), fmOpenReadWrite);
   try
     V := TFatVolume.Create(F);
     try
+      FreeBefore := V.FreeBytes;
       E := V.ListDir(0);
       Found := False;
       for I := 0 to High(E) do
@@ -156,6 +160,23 @@ begin
             'the saved program has its +3DOS header');
         end;
       Check(Found, 'ESXDOS saved TEST onto the card');
+
+      // Long names (the Next's card): folders made by their path, a file
+      // replaced by its long name, and a folder deleted with what it holds
+      Dir := V.FindDir('/Long folder name/Sub folder', True);
+      SetLength(Data, 3);
+      Data[0] := 1; Data[1] := 2; Data[2] := 3;
+      V.PutFileLong(Dir, 'A long file name.bin', Data);
+      Data[0] := 9;
+      V.PutFileLong(Dir, 'A long file name.bin', Data);
+      E := V.ListDir(Dir);
+      Check((Length(E) = 1) and (E[0].LongName = 'A long file name.bin') and (V.ReadFile(E[0])[0] = 9),
+        'long names: a file replaced by its long name');
+      Check(V.FindName(0, 'Long folder name', Entry) and IsDirectory(Entry), 'long names: the folder');
+      V.DeleteTree(Entry);
+      Check(not V.FindName(0, 'Long folder name', Entry), 'a folder deleted with all it holds');
+      Free0 := V.FreeBytes;
+      Check(Free0 = FreeBefore, 'its clusters freed');
     finally
       V.Free;
     end;

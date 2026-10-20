@@ -60,8 +60,9 @@ end;
 { Switch to a model the snapshot can run on: 128K-capable, 48K or 16K }
 procedure EnsureModel(Spec: TSpectrum; Need128: Boolean; Preferred: TSpectrumModel);
 begin
-  // The ZX-Uno's ROM is whatever its BIOS chose: use a standard model
-  if Spec.Model = smZXUno then
+  // The ZX-Uno's ROM is whatever its BIOS chose, and the Next's snapshots
+  // need its own formats: use a standard model
+  if Spec.Model in [smZXUno, smZXNext] then
   begin
     if Need128 then Spec.SetModel(Preferred)
     else if Preferred = sm16K then Spec.SetModel(sm16K)

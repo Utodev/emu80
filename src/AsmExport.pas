@@ -183,6 +183,8 @@ begin
 
     Result.Add(Format('; Disassembled by pzx: %.4X-%.4X (%d bytes), for sjasmplus',
       [Start, Word(Start + Len - 1), Len]));
+    // The ZX Spectrum Next's instructions need sjasmplus's Z80N mode
+    if Z80NMnemonics then Result.Add(#9'OPT --zxnext');
     Result.Add('');
     // Labels that are not at an instruction start of the range
     for I := 0 to Names.Count - 1 do

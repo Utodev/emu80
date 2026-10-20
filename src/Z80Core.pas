@@ -52,6 +52,11 @@ type
     { Full I/O cycle (4 T-states plus contention). }
     function ReadPort(Port: Word; var T: Integer): Byte; virtual; abstract;
     procedure WritePort(Port: Word; Value: Byte; var T: Integer); virtual; abstract;
+    { Z80N NEXTREG: write a Next register (no I/O cycle; nothing by default) }
+    procedure WriteNextReg(Reg, Value: Byte; T: Integer); virtual;
+    { RETN has just run (its PC popped): the Next's Multiface and DivMMC
+      let go of the memory then }
+    procedure Retn; virtual;
   end;
 
   TZ80 = class
@@ -93,6 +98,7 @@ type
     procedure ExecBase(Op: Byte);
     procedure ExecCB;
     procedure ExecED;
+    function ExecZ80N(Op: Byte): Boolean;
     procedure ExecIndex(var XY: TRegPair);
     procedure ExecIndexCB(var XY: TRegPair);
     function ReadIndexAddr(const XY: TRegPair): Word;
@@ -103,6 +109,9 @@ type
     IFF1, IFF2: Boolean;
     IM: Byte;
     Halted: Boolean;
+    { The ZX Spectrum Next's Z80N: its extra ED instructions (otherwise they
+      are NOPs, as on the Z80) }
+    Z80N: Boolean;
     Q, LastQ: Byte;
     T: Integer;
     constructor Create(ABus: TZ80Bus);
@@ -171,6 +180,14 @@ end;
 procedure TZ80Bus.ContendNoMreq(Addr: Word; Time: Integer; var T: Integer);
 begin
   Inc(T, Time);
+end;
+
+procedure TZ80Bus.WriteNextReg(Reg, Value: Byte; T: Integer);
+begin
+end;
+
+procedure TZ80Bus.Retn;
+begin
 end;
 
 { TZ80 }
@@ -1023,6 +1040,7 @@ var
   Repeating: Boolean;
 begin
   Op := FetchOpcode;
+  if Z80N and ExecZ80N(Op) then Exit;
   case Op of
     $40, $48, $50, $58, $60, $68, $70, $78:
       begin
@@ -1086,6 +1104,7 @@ begin
       begin
         IFF1 := IFF2;
         Pop(PC);
+        FBus.Retn;
         WZ.W := PC.W;
       end;
     $46, $4E, $66, $6E: IM := 0;
@@ -1222,6 +1241,144 @@ begin
       end;
   end;
   // All other ED opcodes are 8 T-state NOPs
+end;
+
+{ The Z80N's extra ED instructions (wiki.specnext.dev/Extended_Z80_instruction_set);
+  False if Op isn't one. Their T-states are the wiki's; the block copies set
+  the flags as LDI/LDD do (core 3.02 testing). }
+function TZ80.ExecZ80N(Op: Byte): Boolean;
+var
+  B1, Src: Byte;
+  W: TRegPair;
+  N, Delta: Integer;
+  Repeating: Boolean;
+begin
+  Result := True;
+  case Op of
+    $23: A := Byte((A shl 4) or (A shr 4));                       // SWAPNIB
+    $24:                                                          // MIRROR A
+      begin
+        B1 := 0;
+        for N := 0 to 7 do
+          if (A and (1 shl N)) <> 0 then B1 := B1 or ($80 shr N);
+        A := B1;
+      end;
+    $27:                                                          // TEST n
+      begin
+        B1 := ReadByte(PC.W); Inc(PC.W);
+        B1 := A and B1;
+        F := SZ53PTable[B1] or FLAG_H;
+        Q := F;
+      end;
+    $28: DE.W := Word(DE.W shl (BC.H and 31));                    // BSLA DE,B
+    $29: DE.W := Word(SarLongint(SmallInt(DE.W), BC.H and 31));   // BSRA DE,B
+    $2A: DE.W := DE.W shr (BC.H and 31);                          // BSRL DE,B
+    $2B: DE.W := Word(not (Word(not DE.W) shr (BC.H and 31)));    // BSRF DE,B
+    $2C:                                                          // BRLC DE,B
+      begin
+        N := BC.H and 15;
+        DE.W := Word((DE.W shl N) or (DE.W shr (16 - N)));
+      end;
+    $30: DE.W := Word(DE.H * DE.L);                               // MUL D,E
+    $31: HL.W := Word(HL.W + A);                                  // ADD HL,A
+    $32: DE.W := Word(DE.W + A);                                  // ADD DE,A
+    $33: BC.W := Word(BC.W + A);                                  // ADD BC,A
+    $34, $35, $36:                                                // ADD rr,nn
+      begin
+        W.L := ReadByte(PC.W); Inc(PC.W);
+        W.H := ReadByte(PC.W); Inc(PC.W);
+        NoMreq(PC.W, 2);
+        case Op of
+          $34: HL.W := Word(HL.W + W.W);
+          $35: DE.W := Word(DE.W + W.W);
+        else
+          BC.W := Word(BC.W + W.W);
+        end;
+      end;
+    $8A:                                                          // PUSH nn
+      begin
+        W.H := ReadByte(PC.W); Inc(PC.W);
+        W.L := ReadByte(PC.W); Inc(PC.W);
+        NoMreq(IR, 3);
+        Dec(SP.W);
+        WriteByte(SP.W, W.H);
+        Dec(SP.W);
+        WriteByte(SP.W, W.L);
+      end;
+    $90:                                                          // OUTINB
+      begin
+        NoMreq(IR, 1);
+        B1 := ReadByte(HL.W);
+        FBus.WritePort(BC.W, B1, T);
+        HL.W := Word(HL.W + 1);
+      end;
+    $91:                                                          // NEXTREG n,m
+      begin
+        W.L := ReadByte(PC.W); Inc(PC.W);
+        W.H := ReadByte(PC.W); Inc(PC.W);
+        Inc(T, 6);
+        FBus.WriteNextReg(W.L, W.H, T);
+      end;
+    $92:                                                          // NEXTREG n,A
+      begin
+        W.L := ReadByte(PC.W); Inc(PC.W);
+        Inc(T, 6);
+        FBus.WriteNextReg(W.L, A, T);
+      end;
+    $93:                                                          // PIXELDN
+      if (HL.H and 7) <> 7 then
+        Inc(HL.H)
+      else if (HL.L and $E0) <> $E0 then
+      begin
+        HL.H := HL.H and $F8;
+        HL.L := Byte(HL.L + $20);
+      end
+      else
+      begin
+        HL.H := Byte((HL.H and $F8) + 8);
+        HL.L := HL.L and $1F;
+      end;
+    $94:                                                          // PIXELAD
+      HL.W := $4000 or ((DE.H and $C0) shl 5) or ((DE.H and 7) shl 8) or
+        ((DE.H and $38) shl 2) or (DE.L shr 3);
+    $95: A := $80 shr (DE.L and 7);                               // SETAE
+    $98:                                                          // JP (C)
+      begin
+        B1 := FBus.ReadPort(BC.W, T);
+        Inc(T);
+        PC.W := (PC.W and $C000) or (Word(B1) shl 6);
+        WZ.W := PC.W;
+      end;
+    $A4, $AC, $B4, $BC, $B7:                     // LDIX LDDX LDIRX LDDRX LDPIRX
+      begin
+        if Op = $B7 then Src := ReadByte((HL.W and $FFF8) or (DE.L and 7))
+        else Src := ReadByte(HL.W);
+        if Src <> A then WriteByte(DE.W, Src) else Inc(T, 3);
+        NoMreq(DE.W, 2);
+        Dec(BC.W);
+        if (Op = $AC) or (Op = $BC) then Delta := -1 else Delta := 1;
+        Repeating := Op in [$B4, $BC, $B7];
+        F := F and (FLAG_C or FLAG_Z or FLAG_S or FLAG_3 or FLAG_5);
+        if BC.W <> 0 then F := F or FLAG_V;
+        Q := F;
+        if Repeating and (BC.W <> 0) then
+        begin
+          NoMreq(DE.W, 5);
+          Dec(PC.W, 2);
+        end;
+        if Op <> $B7 then HL.W := Word(HL.W + Delta);
+        DE.W := Word(DE.W + 1);
+      end;
+    $A5:                                                          // LDWS
+      begin
+        B1 := ReadByte(HL.W);
+        WriteByte(DE.W, B1);
+        HL.L := Byte(HL.L + 1);
+        DE.H := DoInc(DE.H);
+      end;
+  else
+    Result := False;
+  end;
 end;
 
 { Read the displacement of an (IX+d)/(IY+d) operand and return the address. }

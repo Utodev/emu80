@@ -91,6 +91,8 @@ build/
 
 # Settings written next to the executable
 pzx.ini
+# The ZX Spectrum Next's SD card (and old ones kept when a new distribution comes)
+zxnext*.img
 
 #Other
 
@@ -104,3 +106,4 @@ tools/*
 build/*
 to_be_ignored/*
 specnext/*
+zxnext.img

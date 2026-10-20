@@ -88,6 +88,19 @@ type
       own: the ZX-Uno's is in the machine's SRAM) }
     procedure SaveState(var S: TDivState);
     procedure LoadState(const S: TDivState);
+  public
+    { Port E3 can be read back (the ZX Spectrum Next's DivMMC) }
+    ControlReadable: Boolean;
+    { The Next's programmable entry points (NR B8-BB) instead of the fixed
+      ones: which addresses map it in, whether only with ROM 3 (48K BASIC)
+      paged in (Rom3: it is), and instantly or after the opcode fetch }
+    NextEntries: Boolean;
+    Entry0, Valid0, Timing0, Entry1: Byte;
+    Rom3: Boolean;
+    { The Next's Multiface is paged in over it: it isn't seen meanwhile }
+    Hidden: Boolean;
+    { The Next's DRIVE button was pressed: 0066 maps it in (NR BB bits 1-0) }
+    NmiButton: Boolean;
   end;
 
 implementation
@@ -152,11 +165,13 @@ begin
   else
     FControl := FControl and $40;
   FMapped := False;
+  Hidden := False;
+  NmiButton := False;
 end;
 
 function TDivMMC.GetActive: Boolean;
 begin
-  Result := FMapped or ((FControl and $80) <> 0);
+  Result := (FMapped or ((FControl and $80) <> 0)) and not Hidden;
 end;
 
 function TDivMMC.Read(Addr: Word): Byte;
@@ -201,13 +216,51 @@ begin
 end;
 
 procedure TDivMMC.BeforeFetch(Addr: Word);
+var
+  Bit: Byte;
 begin
+  if NextEntries then
+  begin
+    // RST addresses 0000-0038 set to map instantly; 3Dxx (TR-DOS)
+    if (Addr and $FFC7) = 0 then
+    begin
+      Bit := 1 shl (Addr shr 3);
+      if ((Entry0 and Bit) <> 0) and (((Valid0 and Bit) <> 0) or Rom3) and ((Timing0 and Bit) <> 0) then
+        FMapped := True;
+    end
+    else if ((Addr and $FF00) = $3D00) and ((Entry1 and $80) <> 0) and Rom3 then
+      FMapped := True
+    else if (Addr = $0066) and NmiButton and ((Entry1 and 2) <> 0) then
+      FMapped := True;
+    Exit;
+  end;
   // ROM 3Dxx (the TR-DOS entry points): mapped before the opcode is read
   if (Addr and $FF00) = $3D00 then FMapped := True;
 end;
 
 procedure TDivMMC.AfterFetch(Addr: Word);
+var
+  Bit: Byte;
 begin
+  if NextEntries then
+  begin
+    case Addr of
+      $0000, $0008, $0010, $0018, $0020, $0028, $0030, $0038:
+        begin
+          Bit := 1 shl (Addr shr 3);
+          if ((Entry0 and Bit) <> 0) and (((Valid0 and Bit) <> 0) or Rom3) and ((Timing0 and Bit) = 0) then
+            FMapped := True;
+        end;
+      $04C6: if ((Entry1 and $04) <> 0) and Rom3 then FMapped := True;
+      $0562: if ((Entry1 and $08) <> 0) and Rom3 then FMapped := True;
+      $04D7: if ((Entry1 and $10) <> 0) and Rom3 then FMapped := True;
+      $056A: if ((Entry1 and $20) <> 0) and Rom3 then FMapped := True;
+      // 0066 maps only with the NMI (DRIVE) button
+      $0066: if NmiButton and ((Entry1 and 1) <> 0) then FMapped := True;
+      $1FF8..$1FFF: if (Entry1 and $40) <> 0 then FMapped := False;
+    end;
+    Exit;
+  end;
   case Addr of
     $0000, $0008, $0038, $0066, $04C6, $0562: FMapped := True;
     $1FF8..$1FFF: FMapped := False;
@@ -242,6 +295,8 @@ function TDivMMC.ReadPort(Port: Word): Byte;
 begin
   if ((Port and $FF) = $EB) and (FCard <> nil) then
     Result := FCard.ReadByte
+  else if ((Port and $FF) = $E3) and ControlReadable then
+    Result := FControl
   else
     Result := $FF;
 end;

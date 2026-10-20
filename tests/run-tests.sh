@@ -50,6 +50,27 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/divmmctest.lpr" > "$
 "$BUILD/divmmctest" "$ROOT/roms" "$ROOT/esxdos" "$BUILD/divmmctest.img"
 rm -f "$BUILD/divmmctest.img"
 
+# Z80N: the ZX Spectrum Next's extra instructions
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/z80ntest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/z80ntest"
+
+# ZX Spectrum Next: display layers and DMA
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/nextvideotest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/nextvideotest" "$ROOT/roms"
+
+# ZX Spectrum Next: three AY chips, extended keys, Multiface, .nex and snapshots
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/nexthwtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/nexthwtest" "$ROOT/roms" "$BUILD"
+
+# ZX Spectrum Next: NextZXOS from a card made from specnext/ (skipped without it)
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/nexttest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/nexttest" "$ROOT/roms" "$ROOT/specnext" "$BUILD/nexttest.img"
+rm -f "$BUILD/nexttest.img"
+
 # Currah uSpeech: its ROM starts, and LET s$ speaks through the SP0256
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/currahtest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
@@ -64,6 +85,11 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/daadtest.lpr" > "$BU
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/videotest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/videotest" "$ROOT/roms"
+
+# Tape: fast loading when the tape is started with Play
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/tapetest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/tapetest" "$ROOT/roms" "$ROOT/tests/daad"
 
 # ZX-Uno: its real BIOS and ROMs (zxuno folder), then loading a tape
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/zxunotest.lpr" > "$BUILD/fpc.log" || {

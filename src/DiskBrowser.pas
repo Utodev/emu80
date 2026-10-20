@@ -83,18 +83,22 @@ type
   files still to import after this one, ForAll: use the same choices for
   them), and a name suggested from its PC file name }
 function AskImport(const FileName: string; Size: Integer; var AName: string; out Header: Boolean;
-  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean): Boolean;
+  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean;
+  LongNames: Boolean = False): Boolean;
 function SuggestName(const FileName: string): string;
 { Import files and folders of the PC with Exists and Write: Paths (dropped
   on the browser), else the ones chosen in a dialog (PickFolder: a folder,
   else several files). With MakeDir, folders are made again with their
   contents (Exists and Write then get names like "GAMES/ARCADE/JET.TAP");
   without it (a +3 disk has no folders) the files in them are all imported
-  side by side. Dir: the browser's last PC folder (updated). Returns a
-  status text. }
+  side by side; the files in a folder made again are copied as they are,
+  without asking (no +3DOS header). LongNames: the PC's names are kept
+  (the ZX Spectrum Next's card), else they become 8.3 ones. A progress bar
+  shows meanwhile, and the program can't be used. Dir: the browser's last
+  PC folder (updated). Returns a status text. }
 function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
   Write: TImportWrite; MakeDir: TImportMakeDir = nil; Paths: TStrings = nil;
-  PickFolder: Boolean = False): string;
+  PickFolder: Boolean = False; LongNames: Boolean = False): string;
 { Export files to the PC: one with a save dialog, several into a folder;
   asks before overwriting, and once whether to keep +3DOS headers. Dir: the
   browser's last PC folder (updated). Returns a status text. }
@@ -145,10 +149,82 @@ begin
   end;
 end;
 
+{ A progress window over the program, which can't be used meanwhile }
+type
+  TImportProgress = class
+  private
+    FForm: TForm;
+    FBar: TProgressBar;
+    FLabel: TLabel;
+    FDisabled: TList;
+  public
+    constructor Create(Total: Integer);
+    destructor Destroy; override;
+    procedure Step(Done: Integer; const What: string);
+  end;
+
+constructor TImportProgress.Create(Total: Integer);
+var
+  I: Integer;
+begin
+  inherited Create;
+  FDisabled := TList.Create;
+  FForm := TForm.CreateNew(nil, 0);
+  FForm.Caption := 'Importing';
+  FForm.BorderStyle := bsDialog;
+  FForm.BorderIcons := [];
+  FForm.Position := poMainFormCenter;
+  FForm.FormStyle := fsStayOnTop;
+  FForm.ClientWidth := 420;
+  FForm.ClientHeight := 70;
+  FLabel := TLabel.Create(FForm);
+  FLabel.Parent := FForm;
+  FLabel.SetBounds(12, 10, 396, 18);
+  FBar := TProgressBar.Create(FForm);
+  FBar.Parent := FForm;
+  FBar.SetBounds(12, 34, 396, 22);
+  FBar.Max := Total;
+  // Everything else waits: no clicks or keys until it is over
+  for I := 0 to Screen.FormCount - 1 do
+    if Screen.Forms[I].Enabled and (Screen.Forms[I] <> FForm) then
+    begin
+      FDisabled.Add(Screen.Forms[I]);
+      Screen.Forms[I].Enabled := False;
+    end;
+  FForm.Show;
+  Application.ProcessMessages;
+end;
+
+destructor TImportProgress.Destroy;
+var
+  I: Integer;
+begin
+  for I := 0 to FDisabled.Count - 1 do TForm(FDisabled[I]).Enabled := True;
+  FDisabled.Free;
+  FForm.Free;
+  inherited Destroy;
+end;
+
+procedure TImportProgress.Step(Done: Integer; const What: string);
+begin
+  FBar.Position := Done;
+  FLabel.Caption := What;
+  Application.ProcessMessages;
+end;
+
 function ImportFromPC(var Dir: string; DefaultHeader: Boolean; Exists: TImportExists;
-  Write: TImportWrite; MakeDir: TImportMakeDir; Paths: TStrings; PickFolder: Boolean): string;
+  Write: TImportWrite; MakeDir: TImportMakeDir; Paths: TStrings; PickFolder: Boolean;
+  LongNames: Boolean): string;
 var
   Files, Prefixes, Folders: TStringList;
+  Progress: TImportProgress;
+
+  { The name on the card or disk for a PC name }
+  function CardName(const PCName: string): string;
+  begin
+    if LongNames then Result := ExtractFileName(ExcludeTrailingPathDelimiter(PCName))
+    else Result := SuggestName(PCName);
+  end;
 
   // A file, or a folder with what is in it (Prefix: the folders it is in)
   procedure Add(const Path, Prefix: string);
@@ -170,7 +246,7 @@ var
     Sub := Prefix;
     if Assigned(MakeDir) then
     begin
-      Sub := Prefix + SuggestName(ExcludeTrailingPathDelimiter(Path));
+      Sub := Prefix + CardName(Path);
       if Folders.IndexOf(Sub) < 0 then Folders.Add(Sub);
       Sub := Sub + '/';
     end;
@@ -203,6 +279,7 @@ var
   Addr: Word;
 begin
   Result := '';
+  Progress := nil;
   Files := TStringList.Create;
   Prefixes := TStringList.Create;
   Folders := TStringList.Create;
@@ -250,9 +327,13 @@ begin
       for I := 0 to Paths.Count - 1 do Add(Paths[I], '');
     end;
 
+    // Many files (a folder): a progress bar
+    if (Folders.Count > 0) or (Files.Count > 1) then
+      Progress := TImportProgress.Create(Folders.Count + Files.Count);
     // The folders first (parents come before what is in them)
     for I := 0 to Folders.Count - 1 do
     begin
+      if Progress <> nil then Progress.Step(I, Folders[I]);
       Error := MakeDir(Folders[I]);
       if Error <> '' then
       begin
@@ -268,6 +349,7 @@ begin
     Addr := 32768;
     for I := 0 to Files.Count - 1 do
     begin
+      if Progress <> nil then Progress.Step(Folders.Count + I, Prefixes[I] + ExtractFileName(Files[I]));
       try
         S := TFileStream.Create(Files[I], fmOpenRead or fmShareDenyWrite);
         try
@@ -283,13 +365,18 @@ begin
           Continue;
         end;
       end;
-      AName := SuggestName(Files[I]);
-      if HasPlus3Header(Data) or (Length(Data) > 65535) then
+      AName := CardName(Files[I]);
+      if Prefixes[I] <> '' then
+        // In a folder imported with its contents: copied as it is
+      else if HasPlus3Header(Data) or (Length(Data) > 65535) then
       begin
         // Copied as it is
         if not ForAll then
-          if not InputQuery('Import ' + ExtractFileName(Files[I]), 'Name (8.3; the file is ' +
-            'copied as it is):', AName) then Break;
+        begin
+          if LongNames then Error := 'Name (the file is copied as it is):'
+          else Error := 'Name (8.3; the file is copied as it is):';
+          if not InputQuery('Import ' + ExtractFileName(Files[I]), Error, AName) then Break;
+        end;
       end
       else if ForAll then
       begin
@@ -298,7 +385,7 @@ begin
       else
       begin
         if not AskImport(Files[I], Length(Data), AName, Header, Addr, DefaultHeader,
-          Files.Count - 1 - I, ForAll) then Break;
+          Files.Count - 1 - I, ForAll, LongNames) then Break;
         SameHeader := Header;
         if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
       end;
@@ -306,7 +393,8 @@ begin
       Answer := mrNo;
       if Exists(AName) then
       begin
-        Answer := AskOverwrite(UpperCase(AName), Files.Count > 1, OverwriteAll);
+        if LongNames then Answer := AskOverwrite(AName, Files.Count > 1, OverwriteAll)
+        else Answer := AskOverwrite(UpperCase(AName), Files.Count > 1, OverwriteAll);
         if Answer = mrCancel then Break;
         if Answer = mrNo then Continue;
       end;
@@ -317,13 +405,17 @@ begin
         Break;
       end;
       Inc(Done);
-      if (Files.Count = 1) and (Folders.Count = 0) then Result := 'imported ' + UpperCase(AName);
+      if (Files.Count = 1) and (Folders.Count = 0) then
+      begin
+        if LongNames then Result := 'imported ' + AName else Result := 'imported ' + UpperCase(AName);
+      end;
     end;
     if (Files.Count > 1) or (Done = 0) or (Folders.Count > 0) then
       Result := Format('imported %d of %d files', [Done, Files.Count]);
     if Folders.Count = 1 then Result := Result + ', 1 folder'
     else if Folders.Count > 1 then Result := Result + Format(', %d folders', [Folders.Count]);
   finally
+    Progress.Free;
     Files.Free;
     Prefixes.Free;
     Folders.Free;
@@ -808,7 +900,8 @@ end;
 { Name and header for a file from the PC: a +3DOS name, and either a header
   for bytes (CODE) at an address or none at all }
 function AskImport(const FileName: string; Size: Integer; var AName: string; out Header: Boolean;
-  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean): Boolean;
+  out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean;
+  LongNames: Boolean): Boolean;
 var
   Dlg: TForm;
   NameEdit, AddrEdit: TEdit;
@@ -873,7 +966,16 @@ begin
     Btn.SetBounds(295, Dlg.ClientHeight - 40, 75, 28);
     repeat
       if Dlg.ShowModal <> mrOK then Exit;
-      if not MakeRawName(NameEdit.Text, Raw, Error) then
+      // A long name: anything a FAT name can be
+      if LongNames then
+      begin
+        if (Trim(NameEdit.Text) = '') or (LastDelimiter('/\:*?"<>|', NameEdit.Text) > 0) then
+        begin
+          MessageDlg('Invalid name.', mtError, [mbOK], 0);
+          Continue;
+        end;
+      end
+      else if not MakeRawName(NameEdit.Text, Raw, Error) then
       begin
         MessageDlg('Invalid name: ' + Error + '.', mtError, [mbOK], 0);
         Continue;

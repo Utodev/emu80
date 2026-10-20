@@ -52,6 +52,10 @@ type
     Currah: Boolean;              // Currah µSpeech connected
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
+    NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
+    NextCard: string;             // its SD card image ('' = zxnext.img next to pzx.ini)
+    NextDistroId: string;         // the distribution the card was made from
+    NextFirmware: Boolean;        // the Next starts through its firmware (else NextZXOS directly)
     ZXUnoRoms: string;            // its ROMs ('' = zxuno/ROMS.ZX1)
     ZXUnoCustomRom: string;       // a 16K ROM run instead of the BIOS's choice ('' = none)
     ZXUnoBios: string;            // its BIOS settings, as the BIOS saved them (hex)
@@ -110,7 +114,7 @@ type
   end;
 
 const
-  BOOL_OPTIONS: array[0..20] of TBoolOption = (
+  BOOL_OPTIONS: array[0..21] of TBoolOption = (
     (Name: 'bw'; Section: 'General'),
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'contention'; Section: 'Machine'),
@@ -125,6 +129,7 @@ const
     (Name: 'kmouse'; Section: 'Hardware'),
     (Name: 'divmmc'; Section: 'Hardware'),
     (Name: 'currah'; Section: 'Hardware'),
+    (Name: 'nextfirmware'; Section: 'ZXNext'),
     (Name: 'fastload'; Section: 'TapeDisk'),
     (Name: 'autoplay'; Section: 'TapeDisk'),
     (Name: 'savetotape'; Section: 'TapeDisk'),
@@ -149,11 +154,18 @@ function DefaultRomDir: string;
 function PzxPath(const Name: string): string;
 { The DivMMC firmware to use: the setting, or the bundled ESXDOS }
 function DivMMCFirmwareFile: string;
+{ The ZX Spectrum Next's distribution folder and its SD card image, as set
+  or the defaults }
+function NextDistroDir: string;
+function NextCardFile: string;
 { The ZX-Uno's BIOS and ROMs files: as set, or the ones in the zxuno folder }
 function ZXUnoFirmwareFile: string;
 function ZXUnoRomsFile: string;
 
 implementation
+
+uses
+  NextCard;
 
 function DefaultRomDir: string;
 var
@@ -197,6 +209,43 @@ begin
   if Result = '' then Result := PzxPath('esxdos' + PathDelim + 'ESXMMC.BIN');
 end;
 
+{ Whether a file can be made in Dir (which is created if missing) }
+function CanWriteIn(const Dir: string): Boolean;
+var
+  F: string;
+  H: THandle;
+begin
+  Result := False;
+  if not DirectoryExists(Dir) and not ForceDirectories(Dir) then Exit;
+  F := IncludeTrailingPathDelimiter(Dir) + '.pzxwrite';
+  H := FileCreate(F);
+  if H = THandle(-1) then Exit;
+  FileClose(H);
+  DeleteFile(F);
+  Result := True;
+end;
+
+function NextDistroDir: string;
+var
+  Own: string;
+begin
+  Result := Settings.NextDir;
+  if Result <> '' then Exit;
+  // The specnext folder next to the program; when that can't be written
+  // (installed from a package) the one next to the settings file
+  Own := ExtractFilePath(Settings.FileName) + 'specnext';
+  Result := PzxPath('specnext');
+  if (Result <> '') and NextDistroReady(Result) then Exit;
+  if NextDistroReady(Own) then Exit(Own);
+  if (Result = '') or not CanWriteIn(Result) then Result := Own;
+end;
+
+function NextCardFile: string;
+begin
+  Result := Settings.NextCard;
+  if Result = '' then Result := ExtractFilePath(Settings.FileName) + 'zxnext.img';
+end;
+
 constructor TSettings.Create;
 begin
   inherited Create;
@@ -238,6 +287,7 @@ begin
   ScreenshotBorder := True;
   TurboSound := False;
   Currah := False;
+  NextFirmware := True;
   Monochrome := False;
   Contention := True;
   UlaSnow := True;
@@ -326,6 +376,7 @@ begin
     'kmouse': Result := @KempstonMouse;
     'divmmc': Result := @DivMMC;
     'currah': Result := @Currah;
+    'nextfirmware': Result := @NextFirmware;
     'fastload': Result := @FastLoad;
     'autoplay': Result := @AutoPlayTape;
     'savetotape': Result := @SaveToTape;
@@ -406,6 +457,12 @@ begin
   ZXUnoFirmware := Ini.ReadString('ROMs', 'zxunofirmware', ZXUnoFirmware);
   ZXUnoRoms := Ini.ReadString('ROMs', 'zxunoroms', ZXUnoRoms);
   ZXUnoCustomRom := Ini.ReadString('ROMs', 'zxunocustomrom', ZXUnoCustomRom);
+  NextDir := Ini.ReadString('ZXNext', 'nextdir', NextDir);
+  NextCard := Ini.ReadString('ZXNext', 'nextcard', NextCard);
+  NextDistroId := Ini.ReadString('ZXNext', 'distroid', NextDistroId);
+  // Older versions kept the README's version with its double spaces
+  while Pos('  ', NextDistroId) > 0 do
+    NextDistroId := StringReplace(NextDistroId, '  ', ' ', [rfReplaceAll]);
   SDCardFile := Ini.ReadString('Media', 'sdcard', SDCardFile);
 end;
 
@@ -439,6 +496,9 @@ begin
   Put('ROMs', 'zxunofirmware', ZXUnoFirmware);
   Put('ROMs', 'zxunoroms', ZXUnoRoms);
   Put('ROMs', 'zxunocustomrom', ZXUnoCustomRom);
+  Put('ZXNext', 'nextdir', NextDir);
+  Put('ZXNext', 'nextcard', NextCard);
+  Put('ZXNext', 'distroid', NextDistroId);
   Put('Media', 'sdcard', SDCardFile);
 end;
 

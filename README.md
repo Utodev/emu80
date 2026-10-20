@@ -18,6 +18,8 @@ also shown by Help > Documentation, F1).
 - [4. Settings](#4-settings)
   - [ZX-Uno](#zx-uno)
   - [Video modes](#video-modes)
+  - [ZX Spectrum Next](#zx-spectrum-next)
+  - [pzx snapshots (.pzs)](#pzx-snapshots-pzs)
 - [5. Tape browser](#5-tape-browser)
 - [6. Disk browser](#6-disk-browser)
 - [7. DivMMC and SD cards](#7-divmmc-and-sd-cards)
@@ -60,10 +62,14 @@ also shown by Help > Documentation, F1).
 - Beeper and AY-3-8912 sound (ABC stereo), paced by the sound card; optional
   TurboSound; an AY chip can be added to the 16K/48K; mute button.
 - Currah µSpeech speech synthesizer (SP0256-AL2): key voices and `LET s$="..."` from BASIC.
+- ZX Spectrum Next: Z80N, Next registers, 2 MB with its MMU, Layer 2, sprites, tilemap,
+  copper, zxnDMA, three AY chips, its Multiface and `.nex` files, running NextZXOS from its
+  official distribution (not included: see [ZX Spectrum Next](#zx-spectrum-next)).
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP tapes with fast loading or real-time loading, auto-load on open.
-- SNA and Z80 (v1/v2/v3) snapshots, load and save.
+- SNA and Z80 (v1/v2/v3) snapshots, load and save; pzx's own .pzs snapshots of every model (the
+  only kind for the ZX Spectrum Next and the ZX-Uno).
 - +3 disk drive (uPD765) with standard and extended DSK images, writable.
 - Disk browser: list the +3DOS files on a disk (type, start or autostart line,
   length), rename, delete, and import from / export to the PC.
@@ -97,8 +103,8 @@ also shown by Help > Documentation, F1).
 
 # pzx - ZX Spectrum emulator
 
-pzx emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, and the ZX-Uno (with its own BIOS
-and ROMs), with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
+pzx emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
+and ROMs) and the ZX Spectrum Next (with its official distribution), with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
 per-T-state video, so games and demos run at their real speed. The screen and the border are
 drawn as the beam reaches them, each 8-pixel cell taking its bytes and border colour at the end
 of its 4 T-states (as Fuse does), so multicolour and border effects that race the beam show as
@@ -111,10 +117,12 @@ Supported files:
 
 | File | What it is |
 |---|---|
-| `.tap` | tape images. Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC). |
+| `.tap` | tape images. Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
 | `.sna` | snapshots (48K and 128K; on the ZX-Uno they switch to the 48K or 128K, as its ROM is the one its BIOS chose). |
 | `.z80` | snapshots, versions 1, 2 and 3. |
 | `.dsk` | +3 disk images (standard and extended). Opening one switches to the +3 if needed and boots it. |
+| `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
+| `.pzs` | pzx's own snapshots, of any model (see [pzx snapshots](#pzx-snapshots-pzs)). Opening one switches to its machine. |
 
 The machine model is chosen with the chip button on the toolbar (click it and pick one) or in
 Options > Settings.
@@ -125,11 +133,21 @@ Options > Settings.
 |---|---|
 | Shift | CAPS SHIFT (see Shift keys below) |
 | Ctrl | SYMBOL SHIFT |
-| Backspace | DELETE (CAPS + 0) |
+| Backspace, Delete | DELETE (CAPS + 0) |
 | Cursor keys | CAPS + 5/6/7/8, or a joystick (see below) |
 | Esc | BREAK (CAPS + SPACE) |
-| Tab | extended mode (CAPS + SYMBOL) |
+| Tab | EXTEND MODE (CAPS + SYMBOL) |
+| Insert | EDIT (CAPS + 1) |
+| Caps Lock | CAPS LOCK (CAPS + 2) |
+| Home | TRUE VIDEO (CAPS + 3) |
+| End | INV. VIDEO (CAPS + 4) |
+| Page Down | GRAPHICS (CAPS + 9) |
 | `,` `.` `-` `=` `;` `'` `/` | the matching SYMBOL SHIFT characters |
+
+The keys that are two Spectrum keys at once (all of the above but Shift and Ctrl, and `,` `.`
+`;` `'`) are the extra keys of the ZX Spectrum Next's keyboard: on the Next they also show alone
+in its registers `B0` and `B1`, and a program can keep them out of the Spectrum keys (NR `68`
+bit 4), as on the real keyboard.
 
 **Shift keys**: Settings > Miscellaneous (`--shiftkeys`) chooses between "standard" (the
 default: either Shift is CAPS SHIFT, either Ctrl SYMBOL SHIFT) and "sides" (the left Shift and
@@ -154,7 +172,7 @@ stops when the pointer leaves the picture.
 | F2 | open |
 | F3 | save snapshot |
 | F4 | pause |
-| F5 | NMI |
+| F5 | NMI (on the ZX Spectrum Next its M1 button; Shift+F5 its DRIVE button) |
 | F6 | hard reset (Shift+F6 reset) |
 | F7 | tape browser |
 | F8 | play tape (Shift+F8 stop) |
@@ -167,14 +185,17 @@ stops when the pointer leaves the picture.
 
 In the menu bar, the storage menus (Tape, Floppy and SD) are between two separators (|).
 
-**File**: Open, Open recent, Save snapshot (.z80 or .sna), Screenshot (.SCR, or PNG at 1x or 2x
+**File**: Open, Open recent, Save snapshot (.z80, the default, .sna or .pzs; only .pzs on the ZX
+Spectrum Next and the ZX-Uno), Screenshot (.SCR, or PNG at 1x or 2x
 with or without the border), Exit.
 
 **Machine**: NMI (F5), Hard reset (F6: off and on, clears the memory), Reset
-(Shift+F6), Pause and POKE.
+(Shift+F6), Pause and POKE. On the ZX Spectrum Next, NMI is its M1 button (the Multiface) and
+the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
 
 **Tape**: Tape browser, Play, Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
-(the ROM loader is skipped and blocks load instantly), Auto play/stop (real-time loading starts
+(the ROM loader is skipped and blocks load instantly, also when the tape has been started with
+Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (real-time loading starts
 and stops the tape by itself) "SAVE writes to the tape" (SAVE adds its blocks to the inserted
 tape, or to a new blank one, instantly) and Record (REC).
 
@@ -210,7 +231,8 @@ possible) and Settings (everything else is in Settings).
 **Help**: Documentation (F1, this text from README.md), License (the GNU GPL v3, from the
 `LICENSE` file) and About (pzx stands for Pascal ZX; it shows the release number, the build date
 and time as YYYYMMDDHHMM, and the credits: the Spectrum ROMs (Amstrad), the authors of the ROM
-labels in the .sym files, the ZX-Uno (ZX-Uno Team), esxDOS (Miguel Guerreiro) and the Currah
+labels in the .sym files, the ZX-Uno (ZX-Uno Team), the Next's boot ROM (Victor Trucco and
+Fabio Belavenuto), esxDOS (Miguel Guerreiro) and the Currah
 µSpeech's ROMs and SP0256 emulation (Currah, Microchip, MAME's Joseph Zbiciak and Tim Lindner)).
 
 **Toolbar**: open, save snapshot, machine model (chip), hard reset (switch off and on, F6), NMI
@@ -235,7 +257,7 @@ Options > Settings has five pages (sections of a page are boxes with a title):
 | General | machine model, window size, black and white display, mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention is not applied above 1x), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
 | Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on). Hovering over one explains it. |
 | Storage | Tape: fast loading, auto play and SAVE to tape. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
-| ROMs | ROMs: the folder with the standard ROMs and, for each model, the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). |
+| ROMs | ROMs: the folder with the standard ROMs and, for each model, the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | Miscellaneous | Graphics: ULAplus, scanlines, Timex screen modes and Radastan mode (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) and the shift keys (standard or sides, see [Keyboard](#2-keyboard)), as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time), ULA snow (on by default; only the 16K, 48K, 128K and +2 show it) and allow writing to ROM (from the debugger and with POKE; off by default). |
 
 Settings are kept in `pzx.ini` in the same folder as the program (next to pzx.app on macOS); on
@@ -252,6 +274,7 @@ others:
 | `[Hardware]` | `turbosound`, `ay48`, `kmouse`, `divmmc`, `currah` |
 | `[TapeDisk]` | `fastload`, `autoplay`, `savetotape`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`), `divmmcrom`, `zxunofirmware`, `zxunoroms`, `zxunocustomrom` |
+| `[ZXNext]` | `nextdir`, `nextcard`, `nextfirmware` (and `distroid`, the distribution the card was made from) |
 | `[Media]` | `sdcard` |
 | `[Screenshot]` | `pngborder` |
 
@@ -311,7 +334,8 @@ as the Radastan video player `.playrmov`) need a 128K ROM: choose one in the boo
 make it the default in the BIOS setup (Edit).
 
 Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset (Shift+F6) restarts the ROM
-the BIOS chose.
+the BIOS chose. File > Save snapshot saves a .pzs (see [pzx snapshots](#pzx-snapshots-pzs)): .sna
+and .z80 can't hold its SRAM and registers.
 
 ### Video modes
 
@@ -326,6 +350,104 @@ Settings > Miscellaneous can add these to any model (they are off by default):
 
 The picture is kept at twice the width, so the 512-pixel hi-res is shown in full from 2x (at 1x
 every other column) and in PNG screenshots at 2x.
+
+### ZX Spectrum Next
+
+The ZX Spectrum Next (`--model zxnext`) is emulated as hardware: the Z80N CPU (its extra
+instructions, at 3.5, 7, 14 or 28 MHz), the Next registers (ports `243B` and `253B`), 2 MB of
+memory through its MMU (eight 8K slots, NR `50`-`57`, and the 128K/+3 paging ports), its DivMMC
+with the SD card, its video (ULA, ULANext, Timex modes, LoRes, Layer 2 at 256x192, 320x256 and
+640x256, 128 sprites, the tilemap, palettes, clip windows, layer priorities and the copper), the
+zxnDMA (port `6B`), the line interrupt, three AY chips and the DACs (Specdrum and Covox), the
+Multiface and the keyboard's extra keys. Its software, the
+firmware and NextZXOS with its ROMs, BASIC and programs, comes from its official distribution,
+which is not included (it has its own licence): download the latest one from
+[https://www.specnext.com/latestdistro/](https://www.specnext.com/latestdistro/) and unpack it
+into the `specnext` folder next to the program (it must have `machines/next` in it), or choose
+another folder in Settings > ROMs (`--nextdir`). When pzx is installed from a .deb or .rpm, the
+folder is `~/.config/pzx/specnext` (the one next to the program can't be written).
+
+Choosing the Next without the distribution shows where to put it and the machine stays as it
+was; with `--model zxnext` pzx says so and closes.
+
+**SD card.** The first time the Next is used, pzx makes its SD card, `zxnext.img` next to pzx.ini
+(Settings > ROMs, `--nextcard`): 1 GB, FAT16, with the whole distribution (long file names
+included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
+keep theirs, and what NextZXOS saves on it is kept (pzx saves it when leaving the Next and when it
+closes, without asking). When a newer distribution is unpacked, pzx asks whether to make a new
+card from it; the old one is kept, renamed as `zxnext-YYYYMMDD-HHMM.img`. SD > New SD card with
+the Next distribution makes another one.
+
+Cards used with older versions of pzx may have files that NextZXOS or the firmware rewrote left
+empty (pzx didn't answer the card's status request, CMD13, so every write after the first block
+failed): an empty `machines/next/config.ini` makes the firmware show its video test card at every
+start. When the Next's card is put in, pzx mends them: each empty file that isn't empty in the
+distribution is copied from it again, and an empty `config.ini` gets the default one; a message
+lists what was mended.
+
+**Extra cores.** The firmware's extra cores menu (C while it starts) works with an emulated 16 MB
+flash (in memory only, empty at every start of pzx): cores can be installed into slots 8-31, but
+pzx emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
+and starts the Next again.
+
+**Starting.** By default (Settings > ROMs > "Start through its firmware", `--nextfirmware`) the
+Next starts as the real one: its boot ROM (`roms/tbblue_loader.rom`) loads the firmware
+(`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (pzx says it is an
+emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-nextfirmware`), NextZXOS starts
+directly from the distribution's ROMs, as if the firmware had chosen it. Hard reset (F6) starts
+it all again; Reset (Shift+F6) is the Next's soft reset.
+
+**.nex files** (File > Open, or the command line) switch to the Next if needed and are loaded
+into its memory and started, as NextZXOS's `.nexload` does (versions 1.0 to 1.3: loading screens
+of every kind, palette, the copper code, which starts at once, and the registers as the header
+asks). A program that asks for its own file (to read more data from it) gets a handle that the
+esxDOS calls F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from the .nex; for
+DISK_FILEMAP, which programs use to stream data straight from the card, the file is also copied
+onto the Next's SD card as `/TMP/PZXNEX.NEX` (replaced each time). Tapes are only inserted (load
+them from NextZXOS's browser or with `LOAD ""`), and .sna, .z80 and .dsk files switch to their
+own model. File > Save snapshot saves a .pzs (see [pzx snapshots](#pzx-snapshots-pzs)).
+
+**Sound.** Three AY chips (TurboSound Next: port `FFFD` chooses one with `FF`, `FE` or `FD`, its
+bits 6 and 5 switching that chip's left and right outputs), each ABC or ACB stereo (NR `08` bit
+5) or mono (NR `09` bits 5-7), with the four 8-bit DACs.
+
+**Keys.** The keys that are two Spectrum keys at once (cursors, DELETE, EDIT, BREAK, EXTEND MODE,
+CAPS LOCK, TRUE and INV. VIDEO, GRAPHICS and `;` `"` `,` `.`, see [Keyboard](#2-keyboard)) are
+the Next's extra keys, read in NR `B0` and `B1`.
+
+**NMI buttons and the Multiface.** NMI (F5) is the Next's M1 button: NextZXOS's Multiface menu
+(Snapshot, Screenshot, TAP files, POKEs, Debug tools, Settings, Keymap...), from
+`enNextMf.rom` in the distribution. Machine > DRIVE button (Shift+F5) is the DivMMC's NMI. Each
+works when NextZXOS lets it (NR `06` bits 3 and 4; NextZXOS turns the DRIVE button off by
+default), as on the real machine; NR `02` makes them by software. The Multiface (its four types,
+NR `0A`, the +3 one by default) pages its 8K ROM and 8K RAM in over everything else at `0066`
+until RETN or its ports page it out; the NMI may be stackless (NR `C0` bit 3, as NextZXOS uses
+it).
+
+**Copper.** It runs on its own clock (four steps a T-state, two for a MOVE), and WAIT holds it
+until its line and horizontal position (in 8-pixel steps) come, counted from the first line of
+the picture moved by NR `64`. A register written while the beam is in a line, by the copper or
+the CPU, changes the rest of that line only: what has been drawn stays.
+
+**Debugger.** The disassembly, the instruction help and the assembler export know the Z80N
+instructions (the export adds `OPT --zxnext` for sjasmplus), and Next Regs (the chip button)
+shows and edits its registers.
+
+### pzx snapshots (.pzs)
+
+.z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so pzx has its own
+format: File > Save snapshot (F3) saves a `.pzs` on those two machines, and on the others it is
+a choice in the dialog's file types (.z80 stays the default, then .sna and .pzs; the name's
+extension, or else the type chosen, decides). Opening one (File > Open, the command line or
+dropping it on the window) switches to its machine and carries on where it was saved. It holds
+the whole machine: the CPU, all the memory (the 128K models' eight banks; the ZX-Uno's 512K of
+SRAM; the Next's 2 MB with its ROMs, Multiface and DivMMC memory), the registers and ports, the
+display (ULAplus, Timex modes; the Next's palettes, sprites, copper, Layer 2), the Next's DMA,
+the AY chips, the DivMMC's paging and RAM and the Currah µSpeech's ROM paging. It doesn't hold
+the SD card (the Next keeps its own card; on the others the card in use stays), +3 disks, tapes
+or the ZX-Uno's flash (made again from its BIOS and ROMs files). The file is `PZXSNAP`, a
+version byte (1), the machine's `--model` name (a length byte and the name: `48k`, `zxnext`...),
+then the machine compressed with zlib in the order of `SnapIO` in `src/PzxSnap.inc`.
 
 ## 5. Tape browser
 
@@ -358,7 +480,7 @@ The toolbar buttons (hover for a hint):
 |---|---|
 | Refresh | read the directory again (it also refreshes by itself when the emulated +3 writes to the disk or the disk changes). |
 | Import | copies files from the PC onto the disk (several can be chosen at once). A file that already has a +3DOS header is copied as it is; for any other file you choose its name and either a Bytes (CODE) header with its load address (16384 is suggested for screens, 32768 otherwise) or no header at all (the header is ticked by default here). With several files, "The same for the other files" applies those choices to the rest, with their own names. If a file with that name is already on the disk, pzx asks whether to overwrite it (Yes to all with several files). |
-| Import a folder | (a folder with a blue arrow) copies a folder of the PC with its contents onto the disk. A +3 disk has no folders, so all the files inside the folder and its subfolders are imported side by side. The usual questions (name, +3DOS header, overwrite) are asked, with "for all" to apply the choice to the rest. |
+| Import a folder | (a folder with a blue arrow) copies a folder of the PC with its contents onto the disk. A +3 disk has no folders, so all the files inside the folder and its subfolders are imported side by side. The usual questions (name, +3DOS header, overwrite) are asked, with "for all" to apply the choice to the rest; a progress bar shows meanwhile. |
 | Export | saves the selected files to the PC (also with a double-click): one with a save dialog, several into a folder you choose, asking before overwriting a file there. If they have a +3DOS header you can keep it or save only the data (a .bin, a screen...). |
 | Rename | (F2) gives the selected file a new name (8 characters and an optional extension of 3). |
 | Delete | (Del) removes the selected files and frees their space. |
@@ -397,6 +519,7 @@ The SD menu:
 | Insert SD card image | any raw card image (.img, .mmc, .hdf...). Inserting the one already in is refused. |
 | New SD card | an empty card of 16 MB to 2 GB, with one FAT16 partition. |
 | New SD card with ESXDOS | the same, with the esxDOS SYS, BIN and TMP folders already copied: ready to boot. |
+| New SD card with the Next distribution | a 1 GB card with the whole ZX Spectrum Next distribution and a `config.ini` (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | Save SD card | saves the changes into the image file it was loaded from. |
 | Save SD card as | saves the card, with its changes, as another image file (the dialog starts in the folder it was loaded from); that file is then the card. |
 | Eject SD card | |
@@ -414,23 +537,27 @@ on the real interface.
 ### SD card browser
 
 Shows the files and folders of the card (FAT12, FAT16 or FAT32, with or without a partition
-table): name (the long name if it has one), size, for files with a +3DOS header (as esxDOS saves
+table): name (the long name if it has one; folders have a folder icon), size, for files with a +3DOS header (as esxDOS saves
 BASIC) their type, start address or autostart line and length, date, attributes and 8.3 name.
 Double-click a folder to enter it (".." or the Up button to go back) and a file to export it. The
 toolbar: Up, Refresh, New folder, Import (from the PC, several files at once, with an optional
 Bytes header as in the disk browser, unticked by default here), Import a folder (a folder with a
 blue arrow: a folder of the PC with its contents), Export (several files at once, with or without
-the +3DOS header), Rename (F2) and Delete (Del; files, or empty folders). Importing or exporting
-a file that already exists asks whether to overwrite it. The import and export dialogs open in
-the folder this browser used last. New names are 8.3, as esxDOS uses them; renaming a file drops
-its long name. esxDOS keeps some things in memory, so after changing the card from the browser
+the +3DOS header), Rename (F2) and Delete (Del; files, and folders with all the files and
+folders in them, after asking). Importing or exporting a file that already exists asks whether
+to overwrite it. The import and export dialogs open in the folder this browser used last. New
+names are 8.3, as esxDOS uses them, except on the ZX Spectrum Next's card, where imported files
+and folders keep their PC names (NextZXOS reads long names); renaming a file drops its long
+name. esxDOS keeps some things in memory, so after changing the card from the browser
 it may not notice the changes until it reads that folder again (or after a reset).
 
 Files and folders can also be dragged from the PC's file manager and dropped on the SD card
-browser window. Imported folders are recreated inside the folder the browser shows, with 8.3
-names made from the PC names, merging with folders already on the card. The usual import
-questions (name, +3DOS header, overwrite) are asked, with "for all" to apply the choice to the
-rest.
+browser window. Imported folders are recreated inside the folder the browser shows (with 8.3
+names made from the PC names, or the PC names themselves on the Next's card), merging with
+folders already on the card, and the files in them are copied as they are, without asking (no
++3DOS header). Files imported on their own ask the usual questions (name, +3DOS header), with
+"for all" to apply the choice to the rest; overwriting a file is always asked. While several
+files are imported a progress bar shows, and pzx can't be used until it is over.
 
 ## 8. POKEs
 
@@ -504,7 +631,9 @@ shown. Empty, nothing is marked. Escape closes it.
 On the ZX-Uno it also has ZXUno Regs (the chip button): a window, which can stay open, with the
 ZX-Uno's registers (number, name, hex value and the names of the bits set), updated while the
 machine runs. Select a value, type a new one and press Enter to write it (as an OUT to `FD3B`
-with the register selected at `FC3B`). Escape closes it.
+with the register selected at `FC3B`). Escape closes it. On the ZX Spectrum Next the same button
+is Next Regs, with the Next's registers (written as with `NEXTREG`), the copper, extra keys and
+NMI ones among them.
 
 ### Disassembly
 
@@ -977,14 +1106,14 @@ can be carried.
 pzx [options] [file]
 ```
 
-A file (.tap, .sna, .z80 or .dsk) is opened as with File > Open, so a tape or disk is loaded
+A file (.tap, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
 automatically. Options start with `-` or `--` and take their value as the next argument or after
 "=" (`--model=128k`). Options are applied in this order whatever their position: machine, files,
 symbols, breakpoints, typed keys.
 
 | Option | Description |
 |---|---|
-| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno` (also `+2`, `+2b`, `+3`) |
+| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext` (also `+2`, `+2b`, `+3`) |
 | `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > General) |
 | `--scale N` | window zoom 1 to 4 |
 | `--tape FILE` | insert a .tap without starting it (combine with `--keyin`) |
@@ -1054,6 +1183,9 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 | `--watches FILE` | watches saved by the debugger (JSON) | |
 | `--daadbreakpoints FILE` | breakpoints saved by the Adventure Debugger (JSON); they act once that debugger is open (F11) | |
 | `--zxunocustomrom FILE` | a 16K ROM the ZX-Uno runs (as a 48K) instead of the one its BIOS chooses; empty = none | ROMs |
+| `--nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to pzx.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ROMs |
+| `--nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to pzx.ini | ROMs |
+| `--nextfirmware` | the ZX Spectrum Next starts through its firmware (boot screen; on by default); `--no-nextfirmware` starts NextZXOS directly | ROMs |
 
 | Option | Description |
 |---|---|
@@ -1087,7 +1219,9 @@ bw=1
 |---|---|
 | `pzx` / `pzx.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
 | `pzx.ini` | settings, next to the program (created when pzx closes; `~/.config/pzx/` when installed from a package) |
-| `roms/` | Spectrum ROMs and their .sym label files, and the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) |
+| `roms/` | Spectrum ROMs and their .sym label files, the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
+| `specnext/` | empty: unpack the ZX Spectrum Next distribution here (it isn't included, as it has its own licence) |
+| `zxnext.img` | the ZX Spectrum Next's SD card, next to pzx.ini, made from the distribution the first time the Next is used |
 | `zxuno/` | the ZX-Uno's BIOS (`FIRMWARE.ZX1`) and ROMs (`ROMS.ZX1`) |
 | `esxdos/` | esxDOS 0.8.9: `ESXMMC.BIN` (the DivMMC firmware) and the SYS and BIN folders for new SD cards |
 | `README.md` | this file |
@@ -1104,6 +1238,11 @@ makes `pzx-VERSION-windows.zip` with `pzx.exe` (built with lazbuild) and its fol
 anywhere.
 
 The Spectrum ROMs are copyright Amstrad, who allow their distribution.
+
+The ZX Spectrum Next's boot ROM (`roms/tbblue_loader.rom`, from the ZEsarUX distribution) is
+(c) Victor Trucco and Fabio Belavenuto (TBBlue), GPL v3. The Next's distribution (firmware,
+NextZXOS, its ROMs and programs) is not included: it has its own licence and is downloaded from
+specnext.com.
 
 The Currah µSpeech ROM is (c) Currah 1983. Microchip Technology holds the copyright to the
 SP0256-AL2 ROM image and the intellectual property rights to the algorithms and data it contains.
@@ -1155,4 +1294,5 @@ distribution but retain the copyright; see `roms/README.md`. The ROM labels in
 Spectrum ROM Disassembly* by Ian Logan and Frank O'Hara
 (github.com/skoolkid/rom, GPL v3). The 128K, +2 and +3 labels come from the
 disassemblies collected in github.com/ZXSpectrumVault/rom-disassemblies (Paul
-Farrow, Garry Lancaster and others).
+Farrow, Garry Lancaster and others). `roms/tbblue_loader.rom` is the ZX Spectrum
+Next's boot ROM (Victor Trucco and Fabio Belavenuto, GPL v3).

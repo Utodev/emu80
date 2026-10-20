@@ -43,6 +43,8 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
                     z.write(path, os.path.join(top, path))
         else:
             z.write(name, os.path.join(top, name))
+    # The empty folder for the ZX Spectrum Next distribution (never its contents)
+    z.writestr(top + '/specnext/', '')
 EOF
   echo "Built build/packages/$ZIP.zip"
 else
@@ -60,6 +62,8 @@ mkdir -p "$LIB" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
   "$STAGE/usr/share/icons/hicolor/256x256/apps" "$STAGE/usr/share/doc/pzx"
 cp build/linux/pzx "$LIB/pzx"
 cp -R roms esxdos zxuno "$LIB/"
+# The ZX Spectrum Next distribution goes in ~/.config/pzx/specnext (never packaged)
+mkdir -p "$LIB/specnext"
 cp README.md LICENSE "$LIB/"
 cp README.md "$STAGE/usr/share/doc/pzx/"
 cp LICENSE "$STAGE/usr/share/doc/pzx/copyright"

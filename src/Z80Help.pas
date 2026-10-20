@@ -188,6 +188,73 @@ begin
   Flags := F_NONE;
   Copy_ := '';
 
+  // The Z80N's extra instructions (ZX Spectrum Next)
+  if Z80NMnemonics then
+  begin
+    if Mnem = 'SWAPNIB' then
+      Set3('Swap the two halves (nibbles) of A.', 'A', F_NONE)
+    else if Mnem = 'MIRROR' then
+      Set3('Mirror A: bit 0 goes to bit 7, bit 1 to bit 6...', 'A', F_NONE)
+    else if Mnem = 'TEST' then
+      Set3(Format('Test: A AND %s sets the flags, A is not changed.', [Op(0)]), 'nothing', F_AND)
+    else if Mnem = 'BSLA' then
+      Set3('Shift DE left by B (0-31) bits.', 'DE', F_NONE)
+    else if Mnem = 'BSRA' then
+      Set3('Shift DE right by B (0-31) bits, keeping the sign (bit 15).', 'DE', F_NONE)
+    else if Mnem = 'BSRL' then
+      Set3('Shift DE right by B (0-31) bits, filling with 0s.', 'DE', F_NONE)
+    else if Mnem = 'BSRF' then
+      Set3('Shift DE right by B (0-31) bits, filling with 1s.', 'DE', F_NONE)
+    else if Mnem = 'BRLC' then
+      Set3('Rotate DE left by B (0-15) bits.', 'DE', F_NONE)
+    else if Mnem = 'MUL' then
+      Set3('Multiply: DE = D * E (unsigned).', 'DE', F_NONE)
+    else if (Mnem = 'ADD') and (Op(1) = 'A') and ((Op(0) = 'HL') or (Op(0) = 'DE') or (Op(0) = 'BC')) then
+      Set3(Format('Add A (unsigned) to %s.', [Op(0)]), Op(0), 'C undefined; the others not affected')
+    else if (Mnem = 'ADD') and (Copy(Op(1), 1, 1) = '$') and
+      ((Op(0) = 'HL') or (Op(0) = 'DE') or (Op(0) = 'BC')) then
+      Set3(Format('Add %s to %s.', [Num(Op(1)), Op(0)]), Op(0), F_NONE)
+    else if (Mnem = 'PUSH') and (Copy(Op(0), 1, 1) = '$') then
+      Set3(Format('Push the value %s onto the stack.', [Num(Op(0))]), 'SP, the stack', F_NONE)
+    else if Mnem = 'OUTINB' then
+      Set3('Write the byte at HL to the port in BC, then increase HL (B is not changed).', 'HL',
+        'undefined')
+    else if Mnem = 'NEXTREG' then
+      Set3(Format('Write %s to Next register %s (as an OUT to 253B with the register ' +
+        'selected at 243B).', [Src(Op(1), False), Op(0)]), 'the Next register', F_NONE)
+    else if Mnem = 'PIXELDN' then
+      Set3('Move HL, a screen address, one pixel line down.', 'HL', F_NONE)
+    else if Mnem = 'PIXELAD' then
+      Set3('HL = the screen address of the pixel at line D, column E.', 'HL', F_NONE)
+    else if Mnem = 'SETAE' then
+      Set3('A = the bit for the pixel at column E within its byte ($80 shr (E and 7)).', 'A', F_NONE)
+    else if (Mnem = 'JP') and (Op(0) = '(C)') then
+      Set3('Jump within this 16K: the low 14 bits of PC = the byte read from the port in BC ' +
+        'times 64.', 'PC', 'undefined')
+    else if (Mnem = 'LDIX') or (Mnem = 'LDDX') or (Mnem = 'LDIRX') or (Mnem = 'LDDRX') then
+    begin
+      if (Mnem = 'LDIX') or (Mnem = 'LDIRX') then Rest := 'increased' else Rest := 'decreased';
+      Desc := Format('Copy the byte at HL to DE unless it equals A (transparent); DE is increased, ' +
+        'HL %s, BC decreased.', [Rest]);
+      if Length(Mnem) = 5 then Desc := Desc + ' Repeats until BC is 0.';
+      Changes := 'memory at DE, DE, HL, BC';
+      Flags := F_LDI;
+    end
+    else if Mnem = 'LDPIRX' then
+      Set3('Pattern fill: copy the byte of the 8-byte table at HL chosen by E (its low 3 bits) to ' +
+        'DE unless it equals A; DE is increased, BC decreased, until BC is 0.',
+        'memory at DE, DE, BC', F_LDI)
+    else if Mnem = 'LDWS' then
+      Set3('Copy the byte at HL to DE, then increase L and D (a column down, for Layer 2).',
+        'memory at DE, L, D', F_INC);
+    if Desc <> '' then
+    begin
+      Result := Instr + LineEnding + Desc + ' (Z80N: ZX Spectrum Next only)' + LineEnding +
+        'Changes: ' + Changes + LineEnding + 'Flags: ' + Flags;
+      Exit;
+    end;
+  end;
+
   // 8-bit arithmetic and logic: "ADD A,B" or "SUB B"
   if (Mnem = 'ADD') or (Mnem = 'ADC') or (Mnem = 'SUB') or (Mnem = 'SBC') or (Mnem = 'AND') or
      (Mnem = 'OR') or (Mnem = 'XOR') or (Mnem = 'CP') then
@@ -564,6 +631,22 @@ begin
               T2 := 21;                               // repeating
             end;
         end;
+        // The Z80N's
+        if Z80NMnemonics then
+          case Op2 of
+            $27: T := 11;
+            $34..$36, $90, $A4, $AC: T := 16;
+            $8A: T := 23;
+            $91: T := 20;
+            $92: T := 17;
+            $98: T := 13;
+            $A5: T := 14;
+            $B4, $B7, $BC:
+              begin
+                T := 16;
+                T2 := 21;
+              end;
+          end;
       end;
     $DD, $FD:
       begin
@@ -603,6 +686,10 @@ begin
   Result := '';
   Op := Peek(Addr);
   Op2 := Peek(Word(Addr + 1));
+  // The Next's Z80N instructions are its documented set
+  if Z80NMnemonics and (Op = $ED) and (Op2 in [$23, $24, $27..$2C, $30..$36, $8A, $90..$95, $98,
+    $A4, $A5, $AC, $B4, $B7, $BC]) then
+    Exit;
   case Op of
     $CB:
       if Op2 in [$30..$37] then

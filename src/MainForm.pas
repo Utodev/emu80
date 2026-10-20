@@ -48,9 +48,13 @@ type
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
     FLastFile: string;          // last file opened, for the POKE history
     FStarted: Boolean;          // command line processed
+    FStartNext: Boolean;        // the ZX Spectrum Next was the model last time
+    FNextFromCommandLine: Boolean;   // --model zxnext: pzx closes if it can't start
     FFullerBits: Byte;
     FScaleItems: array[1..4] of TMenuItem;
     FKeyCount: array[0..39] of Integer;
+    FDriveNmiItem: TMenuItem;
+    FExtCount: array[0..15] of Integer;      // two-key keys (EXT_*) held
     FPCKeyDown: array[0..255] of Boolean;
     FPCKeyTime: array[0..255] of QWord;     // when each PC key went down
     FPendingUp: array[0..255] of QWord;     // delayed key-up due time, 0 = none
@@ -102,6 +106,7 @@ type
     procedure DoReset(Sender: TObject);
     procedure DoHardReset(Sender: TObject);
     procedure DoNMI(Sender: TObject);
+    procedure DoDriveNMI(Sender: TObject);
     procedure DoPause(Sender: TObject);
     procedure DoTurbo(Sender: TObject);
     procedure DoTapeBrowser(Sender: TObject);
@@ -185,6 +190,10 @@ type
     function LoadSymbols(const FileName: string): Boolean;
     procedure EmulatorBreak(Sender: TObject);
     function ConfirmDiskChanges(Drive: Integer): Boolean;
+    function PrepareNext: Boolean;
+    procedure LeaveNext;
+    function MakeNextCardFile(const FileName: string): Boolean;
+    procedure DoNewNextCard(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -203,7 +212,7 @@ implementation
 
 uses
   Snapshot, DSK, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, FatFS, DebugFiles;
+  SDBrowser, FatFS, DebugFiles, NextCard;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -213,8 +222,9 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.sna;*.z80;*.dsk|Tape images (*.tap)|*.tap|' +
-    'Snapshots (*.sna;*.z80)|*.sna;*.z80|+3 disk images (*.dsk)|*.dsk|All files|*.*';
+  OPEN_FILTER = 'All supported files|*.tap;*.sna;*.z80;*.dsk;*.nex;*.pzs|Tape images (*.tap)|*.tap|' +
+    'Snapshots (*.sna;*.z80;*.pzs)|*.sna;*.z80;*.pzs|+3 disk images (*.dsk)|*.dsk|' +
+    'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
 
@@ -306,6 +316,10 @@ begin
   Settings.Load;
   RemoveStaleTempCards;
   Err := '';
+  // The Next needs its distribution and its card: started as the 48K and
+  // switched over once the window is up
+  FStartNext := Settings.Model = smZXNext;
+  if FStartNext then Settings.Model := sm48K;
   try
     FEmu := TEmulator.Create(Settings.Model, Settings.RomDir);
   except
@@ -438,6 +452,8 @@ begin
   // The model is chosen with the toolbar's chip button or in Settings
   TopItem := AddItem(FMenu.Items, '&Machine', nil);
   AddItem(TopItem, '&NMI', @DoNMI, ShortCut(VK_F5, []));
+  // The ZX Spectrum Next's second NMI button (F5 is its M1 button)
+  FDriveNmiItem := AddItem(TopItem, '&DRIVE button (DivMMC NMI)', @DoDriveNMI, ShortCut(VK_F5, [ssShift]));
   AddItem(TopItem, '&Hard reset', @DoHardReset, ShortCut(VK_F6, []));
   AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssShift]));
   AddItem(TopItem, '-', nil);
@@ -509,6 +525,7 @@ begin
   AddItem(TopItem, 'Use a PC &folder as SD card...', @DoSDFolder);
   AddItem(TopItem, '&New SD card...', @DoSDNew).Tag := 0;
   AddItem(TopItem, 'New SD card with &ESXDOS...', @DoSDNew).Tag := 1;
+  AddItem(TopItem, 'New SD card with the &Next distribution...', @DoNewNextCard);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&Save SD card', @DoSDSave).Tag := 0;
   AddItem(TopItem, 'Save SD card &as...', @DoSDSave).Tag := 1;
@@ -625,7 +642,10 @@ begin
 end;
 
 procedure TMainWindow.ApplySettings;
+var
+  Err: string;
 begin
+  Err := '';
   FEmu.Lock;
   try
     FEmu.Spec.FastLoad := Settings.FastLoad;
@@ -648,9 +668,23 @@ begin
     FEmu.Spec.ULAPlusEnabled := Settings.ULAPlus;
     FEmu.Spec.TimexEnabled := Settings.Timex;
     FEmu.Spec.RadastanEnabled := Settings.Radastan;
+    FEmu.Spec.NextDir := NextDistroDir;
+    FEmu.Spec.NextBootRom := IncludeTrailingPathDelimiter(DefaultRomDir) + 'tbblue_loader.rom';
+    // Another way of starting the Next: switched off and on again
+    if FEmu.Spec.NextFirmwareBoot <> Settings.NextFirmware then
+    begin
+      FEmu.Spec.NextFirmwareBoot := Settings.NextFirmware;
+      if FEmu.Spec.Model = smZXNext then
+        try
+          FEmu.Spec.SetModel(smZXNext);
+        except
+          on E: Exception do Err := E.Message;
+        end;
+    end;
   finally
     FEmu.Unlock;
   end;
+  if Err <> '' then MessageDlg('ZX Spectrum Next: ' + Err, mtError, [mbOK], 0);
   FEmu.Sound := Settings.Sound;
   ApplyRomFiles;
   ApplyDivMMC;
@@ -696,8 +730,8 @@ var
   Firmware, Err: string;
 begin
   Result := True;
-  // The ZX-Uno has its own DivMMC, which its BIOS switches on
-  if FEmu.Spec.Info.Memory = mkZXUno then Exit;
+  // The ZX-Uno and the Next have their own DivMMC
+  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext] then Exit;
   if Settings.DivMMC = FEmu.Spec.DivMMCOn then Exit;
   Err := '';
   if Settings.DivMMC then
@@ -845,6 +879,7 @@ begin
   FFastDiskItem.Checked := Settings.FastDisk;
   FDriveBItem.Checked := Settings.DriveB;
   for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := Settings.DriveB;
+  FDriveNmiItem.Visible := M = smZXNext;
   FBorderShotItem.Checked := Settings.ScreenshotBorder;
   FPauseItem.Checked := FEmu.Paused;
   FRecItem.Checked := FEmu.Spec.Recording;
@@ -1061,6 +1096,13 @@ begin
   end;
   if (FPauseButton.Down <> FEmu.Paused) or (FRecButton.Down <> FEmu.Spec.Recording) then
     UpdateChecks;
+  if FEmu.Spec.ForeignCore >= 0 then
+  begin
+    FEmu.Spec.ForeignCore := -1;
+    MessageDlg('ZX Spectrum Next', 'The Next''s firmware tried to start another machine''s core ' +
+      '(an extra core, slots 8-31). pzx emulates only the ZX Spectrum Next core, so the Next ' +
+      'starts again instead.', mtInformation, [mbOK], 0);
+  end;
   if FEmu.Paused then
     FStatus.Panels[1].Text := 'Paused'
   else
@@ -1149,6 +1191,7 @@ procedure TMainWindow.UpdateKeyboard;
 var
   Row, Bit: Integer;
   Value: Byte;
+  Ext: Word;
 begin
   for Row := 0 to 7 do
   begin
@@ -1157,6 +1200,10 @@ begin
       if FKeyCount[Row * 5 + Bit] > 0 then Value := Value and not (1 shl Bit);
     FEmu.Spec.Keyboard[Row] := Value;
   end;
+  Ext := 0;
+  for Bit := 0 to 15 do
+    if FExtCount[Bit] > 0 then Ext := Ext or (1 shl Bit);
+  FEmu.Spec.ExtKeys := Ext;
   FEmu.Spec.KempstonState := FKempstonBits;
   FEmu.Spec.FullerState := not FFullerBits;
 end;
@@ -1166,6 +1213,12 @@ procedure TMainWindow.MapKey(Key: Word; Down: Boolean);
   procedure Press(K: Integer);
   begin
     if Down then Inc(FKeyCount[K]) else if FKeyCount[K] > 0 then Dec(FKeyCount[K]);
+  end;
+
+  { A key that is two Spectrum keys (the Next's keyboard has it alone) }
+  procedure Ext(Bit: Integer);
+  begin
+    if Down then Inc(FExtCount[Bit]) else if FExtCount[Bit] > 0 then Dec(FExtCount[Bit]);
   end;
 
   procedure Joy(Bit: Byte);
@@ -1222,22 +1275,27 @@ begin
     VK_RSHIFT: if Settings.ShiftSides then Press(KEY_SYM) else Press(KEY_CAPS);
     VK_LCONTROL: if Settings.ShiftSides then Press(KEY_CAPS) else Press(KEY_SYM);
     VK_CONTROL, VK_RCONTROL: Press(KEY_SYM);
-    VK_BACK: begin Press(KEY_CAPS); Press(KEY_0); end;
-    VK_LEFT: begin Press(KEY_CAPS); Press(KEY_5); end;
-    VK_DOWN: begin Press(KEY_CAPS); Press(KEY_6); end;
-    VK_UP: begin Press(KEY_CAPS); Press(KEY_7); end;
-    VK_RIGHT: begin Press(KEY_CAPS); Press(KEY_8); end;
-    VK_ESCAPE: begin Press(KEY_CAPS); Press(KEY_SPACE); end;    // BREAK
-    VK_TAB: begin Press(KEY_CAPS); Press(KEY_SYM); end;         // extended mode
-    VK_OEM_COMMA: begin Press(KEY_SYM); Press(KEY_N); end;
-    VK_OEM_PERIOD: begin Press(KEY_SYM); Press(KEY_M); end;
+    VK_BACK, VK_DELETE: Ext(EXT_DELETE);
+    VK_LEFT: Ext(EXT_LEFT);
+    VK_DOWN: Ext(EXT_DOWN);
+    VK_UP: Ext(EXT_UP);
+    VK_RIGHT: Ext(EXT_RIGHT);
+    VK_ESCAPE: Ext(EXT_BREAK);
+    VK_TAB: Ext(EXT_EXTEND);                  // extended mode
+    VK_INSERT: Ext(EXT_EDIT);
+    VK_CAPITAL: Ext(EXT_CAPSLOCK);
+    VK_NEXT: Ext(EXT_GRAPH);                  // Page Down
+    VK_HOME: Ext(EXT_TRUEVIDEO);
+    VK_END: Ext(EXT_INVVIDEO);
+    VK_OEM_COMMA: Ext(EXT_COMMA);
+    VK_OEM_PERIOD: Ext(EXT_PERIOD);
     VK_OEM_MINUS, VK_SUBTRACT: begin Press(KEY_SYM); Press(KEY_J); end;
     VK_OEM_PLUS: begin Press(KEY_SYM); Press(KEY_L); end;
     VK_ADD: begin Press(KEY_SYM); Press(KEY_K); end;
     VK_MULTIPLY: begin Press(KEY_SYM); Press(KEY_B); end;
     VK_DIVIDE, VK_OEM_2: begin Press(KEY_SYM); Press(KEY_V); end;
-    VK_OEM_1: begin Press(KEY_SYM); Press(KEY_O); end;           // ;
-    VK_OEM_7: begin Press(KEY_SYM); Press(KEY_P); end;           // "
+    VK_OEM_1: Ext(EXT_SEMICOLON);
+    VK_OEM_7: Ext(EXT_QUOTE);
   end;
 end;
 
@@ -1357,6 +1415,7 @@ begin
     FPendingUp[I] := 0;
   end;
   for I := 0 to High(FKeyCount) do FKeyCount[I] := 0;
+  for I := 0 to High(FExtCount) do FExtCount[I] := 0;
   FKempstonBits := 0;
   FFullerBits := 0;
   UpdateKeyboard;
@@ -1398,6 +1457,8 @@ var
 begin
   OldScale := Settings.Scale;
   ProcessCommandLine;
+  if FStartNext and (Settings.Model = sm48K) and (FEmu.Spec.Model = sm48K) then ChangeModel(smZXNext);
+  FStartNext := False;
   if Settings.Scale <> OldScale then SetScale(Settings.Scale);
 end;
 
@@ -1450,22 +1511,55 @@ end;
 
 procedure TMainWindow.OpenFile(const FileName: string; AutoStart: Boolean);
 var
+  M: TSpectrumModel;
   Ext: string;
   Disk: TDiskImage;
 begin
   Ext := LowerCase(ExtractFileExt(FileName));
+  // Snapshots and disks switch the Next to a standard model: its card first
+  if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk')) then
+    LeaveNext;
+  // A .nex program needs the Next; a .pzs snapshot its machine
+  if (Ext = '.nex') and (FEmu.Spec.Model <> smZXNext) then
+  begin
+    ChangeModel(smZXNext);
+    if FEmu.Spec.Model <> smZXNext then Exit;
+  end;
+  if Ext = '.pzs' then
+  begin
+    try
+      M := TSpectrum.OwnSnapshotModel(FileName);
+    except
+      on E: Exception do
+      begin
+        MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message,
+          mtError, [mbOK], 0);
+        Exit;
+      end;
+    end;
+    if FEmu.Spec.Model <> M then
+    begin
+      ChangeModel(M);
+      if FEmu.Spec.Model <> M then Exit;
+    end;
+  end;
   FEmu.Lock;
   try
     try
       if Ext = '.tap' then
       begin
         FEmu.Spec.Tape.LoadTAP(FileName);
-        if AutoStart then FEmu.Spec.AutoLoad;
+        // On the Next the tape is loaded from NextZXOS (LOAD "" or the Browser)
+        if AutoStart and (FEmu.Spec.Model <> smZXNext) then FEmu.Spec.AutoLoad;
       end
       else if Ext = '.sna' then
         LoadSNA(FEmu.Spec, FileName)
       else if Ext = '.z80' then
         LoadZ80(FEmu.Spec, FileName)
+      else if Ext = '.nex' then
+        FEmu.Spec.LoadNex(FileName)
+      else if Ext = '.pzs' then
+        FEmu.Spec.LoadOwnSnapshot(FileName)
       else if Ext = '.dsk' then
       begin
         Disk := TDiskImage.Create;
@@ -1534,24 +1628,51 @@ end;
 procedure TMainWindow.DoSaveSnapshot(Sender: TObject);
 var
   Dlg: TSaveDialog;
+  FileName, Ext: string;
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna';
-    Dlg.DefaultExt := 'z80';
+    // .z80 and .sna can't hold the Next or the ZX-Uno: pzx's own format;
+    // the others have it as a choice, .z80 first
+    if FEmu.Spec.NeedsOwnSnapshot then
+    begin
+      Dlg.Filter := 'pzx snapshot (*.pzs)|*.pzs';
+      Dlg.DefaultExt := 'pzs';
+    end
+    else
+    begin
+      Dlg.Filter := 'Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|pzx snapshot (*.pzs)|*.pzs';
+      Dlg.DefaultExt := 'z80';
+      Dlg.FilterIndex := 1;
+    end;
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if not Dlg.Execute then Exit;
+    // The format: by the name's extension, else by the type chosen
+    FileName := Dlg.FileName;
+    Ext := LowerCase(ExtractFileExt(FileName));
+    if FEmu.Spec.NeedsOwnSnapshot then
+      Ext := '.pzs'
+    else if (Ext <> '.z80') and (Ext <> '.sna') and (Ext <> '.pzs') then
+      case Dlg.FilterIndex of
+        2: Ext := '.sna';
+        3: Ext := '.pzs';
+      else
+        Ext := '.z80';
+      end;
+    FileName := ChangeFileExt(FileName, Ext);
     FEmu.Lock;
     try
-      if LowerCase(ExtractFileExt(Dlg.FileName)) = '.sna' then
-        SaveSNA(FEmu.Spec, Dlg.FileName)
+      if Ext = '.pzs' then
+        FEmu.Spec.SaveOwnSnapshot(FileName)
+      else if Ext = '.sna' then
+        SaveSNA(FEmu.Spec, FileName)
       else
-        SaveZ80(FEmu.Spec, Dlg.FileName);
+        SaveZ80(FEmu.Spec, FileName);
     finally
       FEmu.Unlock;
     end;
-    Settings.AddRecent(Dlg.FileName);
+    Settings.AddRecent(FileName);
     UpdateRecentMenu;
   finally
     Dlg.Free;
@@ -1565,8 +1686,210 @@ end;
 
 { Machine }
 
-procedure TMainWindow.ChangeModel(M: TSpectrumModel);
+{ ZX Spectrum Next }
+
+function SaveCardInPlace(Emu: TEmulator; out Err: string): Boolean; forward;
+
+{ Make the Next's card from its distribution, showing that it is busy }
+function TMainWindow.MakeNextCardFile(const FileName: string): Boolean;
+var
+  OldStatus: string;
 begin
+  Result := True;
+  OldStatus := FStatus.Panels[2].Text;
+  FStatus.Panels[2].Text := 'Making the ZX Spectrum Next SD card...';
+  Screen.Cursor := crHourGlass;
+  Application.ProcessMessages;
+  try
+    try
+      MakeNextCard(NextDistroDir, FileName);
+      Settings.NextDistroId := NextCard.NextDistroId(NextDistroDir);
+    except
+      on E: Exception do
+      begin
+        Result := False;
+        MessageDlg('Could not make the ZX Spectrum Next SD card: ' + E.Message, mtError, [mbOK], 0);
+      end;
+    end;
+  finally
+    Screen.Cursor := crDefault;
+    FStatus.Panels[2].Text := OldStatus;
+  end;
+end;
+
+{ Before switching to the Next: its distribution must be there; its card is
+  made the first time (and again, if asked, for a new distribution) and
+  put in its DivMMC. False: it can't be used (said why). }
+function TMainWindow.PrepareNext: Boolean;
+var
+  Dir, Card, Id, Old: string;
+  Vol: TFatVolume;
+  Repaired: TStringList;
+begin
+  Result := False;
+  Dir := NextDistroDir;
+  if not NextDistroReady(Dir) then
+  begin
+    // The folder ready to unpack the distribution into
+    if not DirectoryExists(Dir) then ForceDirectories(Dir);
+    if FNextFromCommandLine then Old := 'pzx closes now.' else Old := 'The machine stays as it was.';
+    MessageDlg('ZX Spectrum Next', Format('The ZX Spectrum Next needs its system distribution. ' +
+      'Download the latest one from %s and unpack it into the folder:' + LineEnding + LineEnding +
+      '%s' + LineEnding + LineEnding + '(it must have machines' + PathDelim + 'next in it).' +
+      LineEnding + LineEnding + '%s', [NEXT_DOWNLOAD_URL, Dir, Old]), mtInformation, [mbOK], 0);
+    Exit;
+  end;
+  Card := NextCardFile;
+  Id := NextCard.NextDistroId(Dir);
+  if not FileExists(Card) then
+  begin
+    if not MakeNextCardFile(Card) then Exit;
+  end
+  else if (Settings.NextDistroId <> '') and (Settings.NextDistroId <> Id) then
+  begin
+    Old := ChangeFileExt(Card, '') + '-' + FormatDateTime('yyyymmdd-hhnn', Now) + ExtractFileExt(Card);
+    if MessageDlg('ZX Spectrum Next', Format('There is a new ZX Spectrum Next distribution (%s). ' +
+      'Make a new SD card from it?' + LineEnding + LineEnding + 'The current card is kept as %s.',
+      [NextDistroVersion(Dir), ExtractFileName(Old)]), mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    begin
+      if not RenameFile(Card, Old) then
+      begin
+        MessageDlg('Could not rename ' + Card, mtError, [mbOK], 0);
+        Exit;
+      end;
+      if not MakeNextCardFile(Card) then Exit;
+    end
+    else
+      Settings.NextDistroId := Id;    // not asked again for this one
+  end
+  else if Settings.NextDistroId = '' then
+    Settings.NextDistroId := Id;
+  // The other models' card first (its changes saved, or not, as the user says)
+  if not ConfirmCardChanges then Exit;
+  Repaired := nil;
+  FEmu.Lock;
+  try
+    try
+      FEmu.Spec.DivMMC.InsertCard(Card);
+      Result := True;
+    except
+      on E: Exception do
+        MessageDlg('Could not use the SD card ' + Card + ': ' + E.Message, mtError, [mbOK], 0);
+    end;
+    // Files that older versions of pzx left empty, mended from the distribution
+    if Result then
+      try
+        Vol := TFatVolume.Create(FEmu.Spec.DivMMC.Card.Stream);
+        try
+          Repaired := RepairNextCard(Vol, Dir);
+        finally
+          Vol.Free;
+        end;
+      except
+        FreeAndNil(Repaired);
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+  if Repaired <> nil then
+  try
+    if Repaired.Count > 0 then
+      MessageDlg('ZX Spectrum Next', 'These files on the Next''s SD card were empty (an older ' +
+        'version of pzx didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
+        'from the distribution:' + LineEnding + LineEnding + Repaired.Text, mtInformation, [mbOK], 0);
+  finally
+    Repaired.Free;
+  end;
+end;
+
+{ Leaving the Next: its card saved, and the other models' card back }
+procedure TMainWindow.LeaveNext;
+var
+  Err: string;
+begin
+  if (FEmu.Spec.DivMMC.Card <> nil) and FEmu.Spec.DivMMC.Card.Modified then
+    if not SaveCardInPlace(FEmu, Err) then
+      MessageDlg('Could not save the Next''s SD card: ' + Err, mtError, [mbOK], 0);
+  FEmu.Lock;
+  try
+    FEmu.Spec.DivMMC.EjectCard;
+    if (Settings.SDCardFile <> '') and FileExists(Settings.SDCardFile) then
+      try
+        FEmu.Spec.DivMMC.InsertCard(Settings.SDCardFile);
+      except
+        Settings.SDCardFile := '';
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
+procedure TMainWindow.DoNewNextCard(Sender: TObject);
+var
+  Dlg: TSaveDialog;
+  FileName: string;
+  InUse: Boolean;
+begin
+  if not NextDistroReady(NextDistroDir) then
+  begin
+    MessageDlg('ZX Spectrum Next', Format('There is no ZX Spectrum Next distribution in %s. ' +
+      'Download the latest one from %s and unpack it there.', [NextDistroDir, NEXT_DOWNLOAD_URL]),
+      mtInformation, [mbOK], 0);
+    Exit;
+  end;
+  Dlg := TSaveDialog.Create(nil);
+  try
+    Dlg.Title := 'New SD card with the ZX Spectrum Next distribution';
+    Dlg.FileName := ExtractFileName(NextCardFile);
+    Dlg.InitialDir := ExtractFilePath(NextCardFile);
+    Dlg.Filter := 'SD card images (*.img)|*.img|All files|*.*';
+    Dlg.DefaultExt := 'img';
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    FileName := Dlg.FileName;
+  finally
+    Dlg.Free;
+  end;
+  // The card in use can't be replaced under the machine's feet
+  InUse := (FEmu.Spec.DivMMC.Card <> nil) and SameFileName(FEmu.Spec.DivMMC.Card.FileName, FileName);
+  if InUse then
+  begin
+    FEmu.Lock;
+    try
+      FEmu.Spec.DivMMC.EjectCard;
+    finally
+      FEmu.Unlock;
+    end;
+  end;
+  if not MakeNextCardFile(FileName) then Exit;
+  // It is the Next's card from now on
+  if SameFileName(FileName, ExtractFilePath(Settings.FileName) + 'zxnext.img') then Settings.NextCard := ''
+  else Settings.NextCard := FileName;
+  if FEmu.Spec.Model = smZXNext then
+  begin
+    FEmu.Lock;
+    try
+      FEmu.Spec.DivMMC.InsertCard(FileName);
+      FEmu.Spec.Reset(True);
+    finally
+      FEmu.Unlock;
+    end;
+  end;
+end;
+
+procedure TMainWindow.ChangeModel(M: TSpectrumModel);
+var
+  WasNext: Boolean;
+begin
+  WasNext := FEmu.Spec.Model = smZXNext;
+  // The Next: its distribution must be there, and its card ready
+  if (M = smZXNext) and not WasNext and not PrepareNext then
+  begin
+    Settings.Model := FEmu.Spec.Model;
+    UpdateChecks;
+    Exit;
+  end;
+  if WasNext and (M <> smZXNext) then LeaveNext;
   FEmu.Lock;
   try
     if FEmu.Spec.Model <> M then
@@ -1630,6 +1953,16 @@ begin
   end;
 end;
 
+procedure TMainWindow.DoDriveNMI(Sender: TObject);
+begin
+  FEmu.Lock;
+  try
+    FEmu.Spec.DriveNMI;
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
 procedure TMainWindow.DoPause(Sender: TObject);
 begin
   FEmu.Paused := not FEmu.Paused;
@@ -1653,7 +1986,7 @@ procedure TMainWindow.DoTapePlay(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    FEmu.Spec.Tape.Play(FEmu.Spec.Cpu.T);
+    FEmu.Spec.PlayTape;
   finally
     FEmu.Unlock;
   end;
@@ -2122,6 +2455,13 @@ var
 begin
   Result := True;
   if (FEmu.Spec.DivMMC.Card = nil) or not FEmu.Spec.DivMMC.Card.Modified then Exit;
+  // The Next's card keeps what NextZXOS writes, as on the real machine
+  if FEmu.Spec.Model = smZXNext then
+  begin
+    if not SaveCardInPlace(FEmu, Err) then
+      MessageDlg('Could not save the Next''s SD card: ' + Err, mtError, [mbOK], 0);
+    Exit;
+  end;
   if SameFileName(FEmu.Spec.DivMMC.Card.FileName, FTempCard) then
   begin
     // Made from a folder: the changes can only be kept as an image
@@ -2713,6 +3053,7 @@ var
       (Name = 'sdadd') or (Name = 'sdfolder') or (Name = 'volume') or (Name = 'issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'divmmcrom') or
       (Name = 'zxunofirmware') or (Name = 'zxunoroms') or (Name = 'zxunocustomrom') or
+      (Name = 'nextdir') or (Name = 'nextcard') or
       (Name = 'shiftkeys') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -2953,6 +3294,23 @@ begin
         else
           Errors := Errors + 'DivMMC firmware not found: ' + Value + LineEnding;
       end
+      else if Arg = 'nextdir' then
+      begin
+        if (Value = '') or DirectoryExists(Value) then
+        begin
+          if Value <> '' then Value := ExpandFileName(Value);
+          Settings.NextDir := Value;
+          FEmu.Spec.NextDir := NextDistroDir;
+        end
+        else
+          Errors := Errors + 'Folder not found: ' + Value + LineEnding;
+      end
+      else if Arg = 'nextcard' then
+      begin
+        // Made from the distribution if it doesn't exist yet
+        if Value <> '' then Value := ExpandFileName(Value);
+        Settings.NextCard := Value;
+      end
       else if Arg = 'sdcard' then SDFile := Value
       else if Arg = 'sdadd' then SDAdds.Add(Value)
       else if Arg = 'sdfolder' then SDFolder := Value
@@ -3014,7 +3372,19 @@ begin
     if TurboSet then FEmu.Turbo := TurboValue;
     // Other ZX-Uno files: before starting it (or again, if it already is)
     if UnoSet then ApplyZXUnoFiles(FEmu.Spec.Model = smZXUno);
-    if HaveModel then ChangeModel(NewModel);
+    if HaveModel then
+    begin
+      FStartNext := False;
+      FNextFromCommandLine := NewModel = smZXNext;
+      ChangeModel(NewModel);
+      FNextFromCommandLine := False;
+      // --model zxnext without its distribution: nothing else to do
+      if (NewModel = smZXNext) and (FEmu.Spec.Model <> smZXNext) then
+      begin
+        Close;
+        Exit;
+      end;
+    end;
     ApplyDivMMC;
     if SDFile <> '' then
     begin
@@ -3363,6 +3733,8 @@ begin
     '128K, +2 and +3 from the disassemblies by Paul Farrow, Garry Lancaster and ' +
     'others (ZXSpectrumVault rom-disassemblies).' + LineEnding +
     'ZX-Uno (its design, core, BIOS and ROMs pack): (C) ZX-Uno Team.' + LineEnding +
+    'ZX Spectrum Next boot ROM (tbblue_loader.rom): (C) Victor Trucco and Fabio Belavenuto ' +
+    '(TBBlue), GPL v3, via ZEsarUX. Its distribution (specnext.com) is not included.' + LineEnding +
     'esxDOS: (C) Miguel Guerreiro (Papaya Dezign).' + LineEnding +
     'Currah ' + #$C2#$B5 + 'Speech ROM: (C) Currah 1983. SP0256-AL2 mask ROM: Microchip ' +
     'Technology holds its copyright and the rights to its algorithms and data. SP0256 ' +

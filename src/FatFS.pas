@@ -56,6 +56,12 @@ type
     procedure FreeChain(First: LongWord);
     procedure ZeroCluster(Cluster: LongWord);
     function FindFreeEntry(DirCluster: LongWord): Int64;
+    function FindFreeEntries(DirCluster: LongWord; Count: Integer): TInt64Array;
+    procedure WriteLongName(const Positions: TInt64Array; const LongName: string;
+      const Raw83: array of Byte);
+    function ShortNameIn(DirCluster: LongWord; const LongName: string; Used: TStrings;
+      out Raw: array of Byte): Boolean;
+    function WriteData(const Data: TBytes): LongWord;
     procedure WriteEntry(Pos: Int64; const Raw83: array of Byte; Attr: Byte; Cluster,
       Size: LongWord);
   public
@@ -69,6 +75,15 @@ type
     function ReadStart(const E: TFatEntry; Count: Integer): TBytes;
     procedure WriteFile(DirCluster: LongWord; const AName: string; const Data: TBytes);
     procedure MakeDir(DirCluster: LongWord; const AName: string);
+    { Write a file or make a folder with a long name (any PC name): an 8.3
+      name is made for it (NAME~1.EXT...), and the long name is kept in
+      LFN entries unless it already is a valid upper case 8.3 name. Used,
+      if given, holds the 8.3 names already in the folder (and gets the new
+      one), saving reading the folder each time. MakeDirLong returns the
+      new folder's cluster. }
+    procedure WriteFileLong(DirCluster: LongWord; const LongName: string; const Data: TBytes;
+      Used: TStrings = nil);
+    function MakeDirLong(DirCluster: LongWord; const LongName: string; Used: TStrings = nil): LongWord;
     { Files, or empty directories }
     procedure Delete(const E: TFatEntry);
     procedure Rename(DirCluster: LongWord; const E: TFatEntry; const NewName: string);
@@ -78,8 +93,19 @@ type
     function FindDir(const Path: string; CreateMissing: Boolean; Start: LongWord = 0): LongWord;
     { Write a file, replacing one with the same name }
     procedure PutFile(DirCluster: LongWord; const AName: string; const Data: TBytes);
+    { The same with a long name (any PC name), replacing a file whose long
+      or 8.3 name is that }
+    procedure PutFileLong(DirCluster: LongWord; const LongName: string; const Data: TBytes);
+    { A file or folder whose long or 8.3 name is Name: True and it in E }
+    function FindName(DirCluster: LongWord; const Name: string; out E: TFatEntry): Boolean;
+    { A folder with everything in it, or a file }
+    procedure DeleteTree(const E: TFatEntry);
     function FreeBytes: Int64;
     function TotalBytes: Int64;
+    { Where a file's data is on the card: pairs of first 512-byte sector
+      (from the start of the image) and number of sectors, one per run of
+      consecutive clusters (at most 65535 sectors each) }
+    function FileMap(const E: TFatEntry): TInt64Array;
     property FatType: Integer read FFatType;
     property VolumeLabel: string read FLabel;
   end;
@@ -97,9 +123,10 @@ procedure FormatCard(Stream: TStream; SizeMB: Integer; const ALabel: string);
 { Copy a folder of the PC (its files and subfolders) into a directory of the
   card, merging with folders already there. Names that aren't valid 8.3
   names are skipped, or with ConvertNames turned into 8.3 names (NAME~1.EXT
-  when two would clash). }
+  when two would clash). LongNames: the PC names are kept as long names
+  (VFAT), with an 8.3 name made for each. }
 procedure CopyTree(Volume: TFatVolume; DirCluster: LongWord; const SourceDir: string;
-  ConvertNames: Boolean = False);
+  ConvertNames: Boolean = False; LongNames: Boolean = False);
 { Bytes in a folder of the PC and its subfolders, and how many files and
   folders there are }
 function FolderSize(const Dir: string; out Entries: Integer): Int64;
@@ -758,6 +785,8 @@ var
   I, K: Integer;
   Entries: TFatEntries;
   Found: Boolean;
+  Raw: array[0..10] of Byte;
+  Error: string;
 begin
   Result := Start;
   Parts := StringReplace(Path, '\', '/', [rfReplaceAll]).Split(['/']);
@@ -776,12 +805,55 @@ begin
       end;
     if Found then Continue;
     if not CreateMissing then raise EFatError.CreateFmt('there is no folder %s', [Parts[I]]);
-    MakeDir(Result, Parts[I]);
-    Entries := ListDir(Result);
-    for K := 0 to High(Entries) do
-      if IsDirectory(Entries[K]) and SameText(Entries[K].ShortName, Trim(Parts[I])) then
-        Result := Entries[K].Cluster;
+    // An 8.3 name as it is; any other with its long name
+    if MakeName83(Parts[I], Raw, Error) then
+    begin
+      MakeDir(Result, Parts[I]);
+      Entries := ListDir(Result);
+      for K := 0 to High(Entries) do
+        if IsDirectory(Entries[K]) and SameText(Entries[K].ShortName, Trim(Parts[I])) then
+          Result := Entries[K].Cluster;
+    end
+    else
+      Result := MakeDirLong(Result, Parts[I]);
   end;
+end;
+
+procedure TFatVolume.PutFileLong(DirCluster: LongWord; const LongName: string; const Data: TBytes);
+var
+  E: TFatEntry;
+begin
+  if FindName(DirCluster, LongName, E) and not IsDirectory(E) then Delete(E);
+  WriteFileLong(DirCluster, LongName, Data);
+end;
+
+function TFatVolume.FindName(DirCluster: LongWord; const Name: string; out E: TFatEntry): Boolean;
+var
+  Entries: TFatEntries;
+  I: Integer;
+begin
+  Result := False;
+  Entries := ListDir(DirCluster);
+  for I := 0 to High(Entries) do
+    if SameText(Entries[I].ShortName, Trim(Name)) or
+       ((Entries[I].LongName <> '') and SameText(Entries[I].LongName, Name)) then
+    begin
+      E := Entries[I];
+      Exit(True);
+    end;
+end;
+
+procedure TFatVolume.DeleteTree(const E: TFatEntry);
+var
+  Entries: TFatEntries;
+  I: Integer;
+begin
+  if IsDirectory(E) then
+  begin
+    Entries := ListDir(E.Cluster);
+    for I := 0 to High(Entries) do DeleteTree(Entries[I]);
+  end;
+  Delete(E);
 end;
 
 procedure TFatVolume.PutFile(DirCluster: LongWord; const AName: string; const Data: TBytes);
@@ -805,6 +877,33 @@ begin
   for C := 2 to FClusters + 1 do
     if GetFat(C) = 0 then Inc(N);
   Result := N * ClusterBytes;
+end;
+
+function TFatVolume.FileMap(const E: TFatEntry): TInt64Array;
+var
+  C: TLongWordArray;
+  I, N, PerCluster: Integer;
+  Sector: Int64;
+begin
+  Result := nil;
+  if E.Cluster < 2 then Exit;
+  C := Chain(E.Cluster);
+  PerCluster := ClusterBytes div 512;
+  N := 0;
+  for I := 0 to High(C) do
+  begin
+    Sector := ClusterPos(C[I]) div 512;
+    if (N > 0) and (Result[N - 2] + Result[N - 1] = Sector) and
+       (Result[N - 1] + PerCluster <= 65535) then
+      Inc(Result[N - 1], PerCluster)
+    else
+    begin
+      SetLength(Result, N + 2);
+      Result[N] := Sector;
+      Result[N + 1] := PerCluster;
+      Inc(N, 2);
+    end;
+  end;
 end;
 
 function TFatVolume.TotalBytes: Int64;
@@ -837,8 +936,55 @@ begin
   end;
 end;
 
+procedure CopyTreeLong(Volume: TFatVolume; DirCluster: LongWord; const SourceDir: string);
+var
+  Info: TSearchRec;
+  Dir: string;
+  Entries: TFatEntries;
+  Used: TStringList;
+  I: Integer;
+  Data: TBytes;
+  S: TFileStream;
+  Sub: LongWord;
+begin
+  Dir := IncludeTrailingPathDelimiter(SourceDir);
+  if FindFirst(Dir + '*', faAnyFile, Info) <> 0 then Exit;
+  Used := TStringList.Create;
+  try
+    Entries := Volume.ListDir(DirCluster);
+    for I := 0 to High(Entries) do Used.Add(UpperCase(Entries[I].ShortName));
+    repeat
+      if (Info.Name = '.') or (Info.Name = '..') then Continue;
+      if (Info.Attr and faDirectory) <> 0 then
+      begin
+        // A folder that is already there is merged with
+        Sub := 0;
+        for I := 0 to High(Entries) do
+          if IsDirectory(Entries[I]) and SameText(DisplayName(Entries[I]), Info.Name) then
+            Sub := Entries[I].Cluster;
+        if Sub = 0 then Sub := Volume.MakeDirLong(DirCluster, Info.Name, Used);
+        CopyTreeLong(Volume, Sub, Dir + Info.Name);
+      end
+      else
+      begin
+        S := TFileStream.Create(Dir + Info.Name, fmOpenRead or fmShareDenyWrite);
+        try
+          SetLength(Data, S.Size);
+          if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
+        finally
+          S.Free;
+        end;
+        Volume.WriteFileLong(DirCluster, Info.Name, Data, Used);
+      end;
+    until FindNext(Info) <> 0;
+  finally
+    Used.Free;
+    FindClose(Info);
+  end;
+end;
+
 procedure CopyTree(Volume: TFatVolume; DirCluster: LongWord; const SourceDir: string;
-  ConvertNames: Boolean);
+  ConvertNames: Boolean; LongNames: Boolean);
 var
   Info: TSearchRec;
   Dir, Name, Base, Ext: string;
@@ -851,6 +997,11 @@ var
   S: TFileStream;
   Sub: LongWord;
 begin
+  if LongNames then
+  begin
+    CopyTreeLong(Volume, DirCluster, SourceDir);
+    Exit;
+  end;
   Dir := IncludeTrailingPathDelimiter(SourceDir);
   if FindFirst(Dir + '*', faAnyFile, Info) <> 0 then Exit;
   Used := TStringList.Create;
@@ -914,6 +1065,202 @@ begin
     Used.Free;
     FindClose(Info);
   end;
+end;
+
+{ Long names (VFAT) }
+
+function LfnChecksum(const Raw83: array of Byte): Byte;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to 10 do Result := Byte(((Result and 1) shl 7) + (Result shr 1) + Raw83[I]);
+end;
+
+function LfnEntriesFor(const LongName: string): Integer;
+begin
+  Result := (Length(UTF8Decode(LongName)) + 12) div 13;
+end;
+
+function TFatVolume.FindFreeEntries(DirCluster: LongWord; Count: Integer): TInt64Array;
+var
+  Sectors: TInt64Array;
+  Sec: array[0..511] of Byte;
+  S, I, Run: Integer;
+  Clusters: TLongWordArray;
+  NewCluster, Dir: LongWord;
+  K: Integer;
+begin
+  Result := nil;
+  SetLength(Result, Count);
+  Dir := DirCluster;
+  repeat
+    Sectors := DirSectors(Dir);
+    Run := 0;
+    for S := 0 to High(Sectors) do
+    begin
+      FStream.Position := Sectors[S];
+      FStream.ReadBuffer(Sec, 512);
+      for I := 0 to 15 do
+        if Sec[I * 32] in [0, $E5] then
+        begin
+          Result[Run] := Sectors[S] + I * 32;
+          Inc(Run);
+          if Run = Count then Exit;
+        end
+        else
+          Run := 0;
+    end;
+    if (Dir = 0) and (FFatType <> 32) then
+      raise EFatError.Create('the root directory is full');
+    // Grow the directory by a cluster; a run of free entries at its end
+    // carries on into it
+    if Dir = 0 then Dir := FRootCluster;
+    Clusters := Chain(Dir);
+    NewCluster := AllocCluster(Clusters[High(Clusters)]);
+    ZeroCluster(NewCluster);
+    for K := 0 to Count - 1 - Run do
+    begin
+      Result[Run + K] := ClusterPos(NewCluster) + K * 32;
+      if K * 32 >= ClusterBytes then raise EFatError.Create('the name is too long');
+    end;
+    Exit;
+  until False;
+end;
+
+procedure TFatVolume.WriteLongName(const Positions: TInt64Array; const LongName: string;
+  const Raw83: array of Byte);
+const
+  OFFSETS: array[0..12] of Integer = (1, 3, 5, 7, 9, 14, 16, 18, 20, 22, 24, 28, 30);
+var
+  U: UnicodeString;
+  E: array[0..31] of Byte;
+  N, Seq, I, C: Integer;
+  Sum: Byte;
+  Ch: Word;
+begin
+  U := UTF8Decode(LongName);
+  N := Length(Positions) - 1;    // LFN entries; the last position is the 8.3 entry
+  Sum := LfnChecksum(Raw83);
+  for Seq := 1 to N do
+  begin
+    FillChar(E, SizeOf(E), 0);
+    E[0] := Seq;
+    if Seq = N then E[0] := E[0] or $40;
+    E[11] := ATTR_LFN;
+    E[13] := Sum;
+    for I := 0 to 12 do
+    begin
+      C := (Seq - 1) * 13 + I + 1;
+      if C <= Length(U) then Ch := Ord(U[C])
+      else if C = Length(U) + 1 then Ch := 0
+      else Ch := $FFFF;
+      E[OFFSETS[I]] := Ch and $FF;
+      E[OFFSETS[I] + 1] := Ch shr 8;
+    end;
+    // Stored last part first
+    FStream.Position := Positions[N - Seq];
+    FStream.WriteBuffer(E, 32);
+  end;
+end;
+
+{ The 8.3 name for LongName in a folder; True if it needs LFN entries }
+function TFatVolume.ShortNameIn(DirCluster: LongWord; const LongName: string; Used: TStrings;
+  out Raw: array of Byte): Boolean;
+var
+  Names: TStringList;
+  Entries: TFatEntries;
+  Short, Base, Ext, Error: string;
+  I, N: Integer;
+begin
+  Names := nil;
+  if Used = nil then
+  begin
+    Names := TStringList.Create;
+    Entries := ListDir(DirCluster);
+    for I := 0 to High(Entries) do Names.Add(UpperCase(Entries[I].ShortName));
+    Used := Names;
+  end;
+  try
+    Short := ShortNameFor(LongName);
+    Result := Short <> LongName;
+    // Only the case differs: the same 8.3 name, if it is free
+    if (Short <> UpperCase(LongName)) or (Used.IndexOf(Short) >= 0) then
+    begin
+      Result := True;
+      Ext := ExtractFileExt(Short);
+      Base := ChangeFileExt(Short, '');
+      N := 1;
+      repeat
+        Short := Copy(Base, 1, 8 - Length(IntToStr(N)) - 1) + '~' + IntToStr(N) + Ext;
+        Inc(N);
+      until Used.IndexOf(Short) < 0;
+    end;
+    if not MakeName83(Short, Raw, Error) then raise EFatError.Create(Error);
+    Used.Add(Short);
+  finally
+    Names.Free;
+  end;
+end;
+
+{ The data in new clusters; the first one (0 for no data) }
+function TFatVolume.WriteData(const Data: TBytes): LongWord;
+var
+  Prev, C: LongWord;
+  Done, Len: Int64;
+begin
+  if Length(Data) > FreeBytes then
+    raise EFatError.CreateFmt('not enough space: %d bytes needed, %d free', [Length(Data), FreeBytes]);
+  Result := 0;
+  Prev := 0;
+  Done := 0;
+  while Done < Length(Data) do
+  begin
+    C := AllocCluster(Prev);
+    if Result = 0 then Result := C;
+    Len := Min(ClusterBytes, Length(Data) - Done);
+    FStream.Position := ClusterPos(C);
+    FStream.WriteBuffer(Data[Done], Len);
+    Inc(Done, Len);
+    Prev := C;
+  end;
+end;
+
+procedure TFatVolume.WriteFileLong(DirCluster: LongWord; const LongName: string;
+  const Data: TBytes; Used: TStrings);
+var
+  Raw: array[0..10] of Byte;
+  Lfn: Integer;
+  Pos: TInt64Array;
+  First: LongWord;
+begin
+  if ShortNameIn(DirCluster, LongName, Used, Raw) then Lfn := LfnEntriesFor(LongName) else Lfn := 0;
+  Pos := FindFreeEntries(DirCluster, Lfn + 1);
+  First := WriteData(Data);
+  if Lfn > 0 then WriteLongName(Pos, LongName, Raw);
+  WriteEntry(Pos[Lfn], Raw, ATTR_ARCHIVE, First, Length(Data));
+end;
+
+function TFatVolume.MakeDirLong(DirCluster: LongWord; const LongName: string; Used: TStrings): LongWord;
+var
+  Raw, Dot: array[0..10] of Byte;
+  Lfn: Integer;
+  Pos: TInt64Array;
+  Parent: LongWord;
+begin
+  if ShortNameIn(DirCluster, LongName, Used, Raw) then Lfn := LfnEntriesFor(LongName) else Lfn := 0;
+  Pos := FindFreeEntries(DirCluster, Lfn + 1);
+  Result := AllocCluster(0);
+  ZeroCluster(Result);
+  FillChar(Dot, SizeOf(Dot), Ord(' '));
+  Dot[0] := Ord('.');
+  WriteEntry(ClusterPos(Result), Dot, ATTR_DIR, Result, 0);
+  Dot[1] := Ord('.');
+  Parent := DirCluster;
+  if (FFatType = 32) and (Parent = FRootCluster) then Parent := 0;
+  WriteEntry(ClusterPos(Result) + 32, Dot, ATTR_DIR, Parent, 0);
+  if Lfn > 0 then WriteLongName(Pos, LongName, Raw);
+  WriteEntry(Pos[Lfn], Raw, ATTR_DIR, Result, 0);
 end;
 
 { New cards }

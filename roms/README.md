@@ -23,6 +23,12 @@ contains; Microchip allowed Joe Zbiciak to distribute it as long as this is
 acknowledged (spatula-city.org/~im14u2c/sp0256-al2/). Both files are from
 k1.spdns.de (Vintage/Sinclair/82/Peripherals/Currah uSpeech).
 
+`tbblue_loader.rom` is the boot ROM of the TBBlue board of the ZX Spectrum
+Next (© Victor Trucco and Fabio Belavenuto, GPL v3), taken from the ZEsarUX
+emulator distribution. It loads the firmware (`TBBLUE.FW`) from the SD card;
+the firmware and everything else of the Next come from its official
+distribution, which is not included (see the `specnext` folder).
+
 `48.sym` lists the 48K ROM routines and system variables with the names used
 in *The Complete Spectrum ROM Disassembly* (Ian Logan and Frank O'Hara), taken
 from Richard Dymond's SkoolKit disassembly (github.com/skoolkid/rom, GPL v3).

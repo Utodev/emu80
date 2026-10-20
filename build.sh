@@ -47,6 +47,8 @@ if [ "$OS" = macos ]; then
   cp -R esxdos "$APP/MacOS/esxdos"
   rm -rf "$APP/MacOS/zxuno"
   cp -R zxuno "$APP/MacOS/zxuno"
+  # Empty: the ZX Spectrum Next distribution is the user's to add
+  mkdir -p "$APP/MacOS/specnext"
   cat > "$APP/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -69,5 +71,6 @@ else
   cp -R esxdos "$OUT/esxdos"
   rm -rf "$OUT/zxuno"
   cp -R zxuno "$OUT/zxuno"
+  mkdir -p "$OUT/specnext"
   echo "Built $OUT/pzx"
 fi

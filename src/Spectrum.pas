@@ -9,7 +9,8 @@ unit Spectrum;
 interface
 
 uses
-  SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah;
+  SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
+  Disasm;
 
 const
   SCREEN_WIDTH = 352;
@@ -29,7 +30,8 @@ type
 
   TAudioEvent = record
     T: Integer;
-    Kind: Byte;     // 0 = beeper level, 1 = AY register write, 2 = second AY (TurboSound)
+    Kind: Byte;     // 0 = beeper level, 1 = AY register write, 2 = second AY (TurboSound),
+                    // 3 = the Next's DACs (Reg: which of A-D), 4 = the Next's third AY
     Reg: Byte;
     Value: Byte;
   end;
@@ -63,6 +65,10 @@ const
   { ZX-Uno: 512K of SRAM in 16K pages (0-7 the RAM banks, 8-11 the ROM, 12
     the DivMMC firmware...) and a 4 MB SPI flash }
   ZXUNO_PAGES = 32;
+  { RAM in 16K banks: 8 on the 128K models, the ZX-Uno's 512K of SRAM, the
+    ZX Spectrum Next's 1792K (224 pages of 8K) }
+  RAM_BANKS = 112;
+  NEXT_PAGES = 224;
   ZXUNO_FLASH_SIZE = 4 * 1024 * 1024;
   { The BIOS settings in the flash: active ROM, quiet boot, timings... }
   ZXUNO_CFG = $7040;
@@ -113,8 +119,16 @@ type
   public
     Model: TSpectrumModel;
     Cpu: TZ80;
-    Ram: array[0..ZXUNO_PAGES - 1] of TBank;
+    Ram: array of TBank;              // the banks the model has
     DivState: TDivState;
+    NextReg: array[0..255] of Byte;
+    NextSram: array of TBank;         // the Next's first 256K of SRAM
+    NextBootOn: Boolean;
+    MfNmi, MfOn, MfInvisible, DivNmiButton: Boolean;
+    CopperPC, CopperClk, CopperDue: Integer;
+    CopperStopped, CopperRestarted: Boolean;
+    NextSel, PortDFFD: Byte;
+    NextMMU: array[0..7] of Byte;
     CurrahPaged: Boolean;
     Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
     ULAPlusPal: array[0..63] of Byte;
@@ -138,19 +152,98 @@ type
     FCpu: TZ80;
     FAY: TAY8912;
     FAY2: TAY8912;                       // second chip (TurboSound)
+    FAY3: TAY8912;                       // third chip (the Next)
     FAYChip: Integer;                    // chip selected by port $FFFD (TurboSound)
-    FAY2Levels: array[0..2] of Single;
+    FAY2Levels, FAY3Levels: array[0..2] of Single;
+    FAYPan: array[0..2] of Byte;         // the Next: each chip's left (bit 1) and right (bit 0) output
     FMotorPhase, FNoiseLP: Single;      // floppy drive noise
     FNoiseSeed: LongWord;
     FTape: TTape;
     FFDC: TUPD765;
-    FRam: array[0..ZXUNO_PAGES - 1] of TBank;   // 0-7 the RAM banks (all 32: ZX-Uno SRAM)
+    FRam: array[0..RAM_BANKS - 1] of TBank;   // 0-7 the RAM banks (32: ZX-Uno SRAM; 112: Next)
     FRom: array[0..3] of TBank;
     FNoMem: TBank;                       // unpopulated memory (16K): reads $FF
     FRomDir: string;
     FSlot: array[0..3] of PBank;
     FSlotBank: array[0..3] of Integer;   // RAM bank in slot, or -1 - ROM number
     FSlotContended: array[0..3] of Boolean;
+    { What the CPU sees, in 8K pages: every memory access goes through
+      these (filled from the 16K slots, or on the Next from its MMU) }
+    FPage: array[0..7] of PByte;
+    FPageRO: array[0..7] of Boolean;        // writes ignored (ROM, no memory)
+    FPageScreen: array[0..7] of Boolean;    // the first 8K of the screen bank
+    // ZX Spectrum Next
+    FNextDir: string;                       // its distribution (specnext folder)
+    FNextReg: array[0..255] of Byte;        // Next registers (port 243B selects, 253B data)
+    FNextSel: Byte;
+    FNextMMU: array[0..7] of Byte;          // 8K page per slot, 255 = ROM
+    FPortDFFD: Byte;
+    FNextSpeed: Integer;                    // 1, 2, 4, 8 (NR 07: 3.5 to 28 MHz)
+    FUserSpeed: Integer;                    // the speed setting
+    FNextSpecial: Boolean;                  // +3 all-RAM paging in use
+    { The first 256K of the Next's SRAM, in 16K banks: 0-3 the ROMs, 4 the
+      DivMMC's ROM (and the Multiface's), 6-7 the alternate ROMs, 8-15 the
+      DivMMC's RAM; the RAM pages (FRam) follow }
+    FNextSram: array[0..15] of TBank;
+    FNextBootRom: array[0..$1FFF] of Byte;  // the FPGA's boot ROM (loads TBBLUE.FW)
+    FNextBootOn: Boolean;                   // the boot ROM is at 0000 (until NR 03 is written)
+    FNextFirmware: Boolean;                 // boot through the firmware (else NextZXOS directly)
+    FNextBootRomFile: string;
+    FNextMachineId: Byte;                   // NR 00
+    // Next video (NextVideo.inc)
+    FNextPal: array[0..7, 0..255] of Word;  // palettes: 9-bit colour, bit 9 Layer 2 priority
+    FNextPalRGB: array[0..7, 0..255] of LongWord;
+    FNextPal44: Boolean;                    // NR 44: the first byte has been written
+    FNextClip: array[0..3, 0..3] of Byte;   // Layer 2, sprites, ULA, tilemap: X1 X2 Y1 Y2
+    FNextClipIdx: array[0..3] of Byte;
+    FNextL2Port: Byte;                      // port 123B
+    FNextL2Offset: Byte;                    // port 123B bank offset (bit 4 writes)
+    FSprAttr: array[0..127, 0..4] of Byte;
+    FSprPattern: array[0..$3FFF] of Byte;
+    FSprIndex: Integer;                     // sprite whose attributes are written next
+    FSprAttrIdx: Integer;                   // its attribute byte
+    FSprPatAddr: Integer;                   // pattern memory address
+    FSprStatus: Byte;                       // port 303B
+    FNextLine: array[0..639] of LongWord;   // the line being composed
+    FCopper: array[0..1023] of Word;
+    FCopperAddr: Integer;                   // write address (bytes)
+    FCopperPC: Integer;                     // instruction being run
+    FCopperStopped: Boolean;
+    FCopperClk: Integer;                    // its clock in the frame (4 per T-state)
+    FCopperDue: Integer;                    // when it next has something to do (its clock)
+    FCopperRestarted: Boolean;              // mode 11: restarted at 0,0 in this frame
+    FCopperInRun: Boolean;                  // a MOVE of its own is writing a register
+    FNextDrawnX: Integer;                   // frame buffer pixels of FRenderLine drawn
+    // zxnDMA (NextDma.inc)
+    FDmaQueue: array[0..7] of Integer;      // what the next bytes written are
+    FDmaQueueLen: Integer;
+    FDmaPortA, FDmaPortB, FDmaLength: Word;
+    FDmaA, FDmaB, FDmaCount: Word;          // the counters
+    FDmaAtoB, FDmaAIO, FDmaBIO, FDmaBurst, FDmaRestart, FDmaActive: Boolean;
+    FDmaAMode, FDmaBMode, FDmaTimingA, FDmaTimingB: Integer;
+    FDmaPrescaler: Integer;
+    FDmaNextT: Int64;
+    FDmaReadMask, FDmaReadIdx: Integer;
+    FNextDac: array[0..3] of Byte;          // DACs A-D (128 = silence)
+    FNextResetReq: Integer;                 // NR 02: 1 soft, 2 hard reset after the instruction
+    // A .nex file kept open for its program (header bytes 140-141)
+    FNexData: TBytes;
+    FNexPos: Integer;
+    FNexOpen: Boolean;
+    FNexMap: array of Int64;                // where it is on the SD card (sector, count pairs)
+    FNexMapPos: Integer;                    // DISK_FILEMAP: the next pair to give
+    // The Next's SPI flash (port E7 bit 7 selects it, EB its data): where
+    // the firmware keeps the extra cores; in memory only, made on first use
+    FNextSpiCS: Byte;                       // port E7
+    FNextFlash: array of Byte;
+    FNextFlashCmd: array[0..7] of Byte;
+    FNextFlashIdx, FNextFlashAddr, FNextFlashReads: Integer;
+    FNextFlashWel: Boolean;                 // write enabled
+    FForeignCore: Integer;
+    // The Next's Multiface (multiface.vhd in the Next's FPGA sources)
+    FMfNmi: Boolean;                        // its NMI is in progress (until RETN or its ports)
+    FMfOn: Boolean;                         // its ROM and RAM paged in at 0000-3FFF
+    FMfInvisible: Boolean;                  // its enable port doesn't page it in
     FContentionOn: Boolean;              // setting: apply memory/I/O contention
     FContend: Boolean;                   // contention applies now (setting and 1x speed)
     FSnowOn: Boolean;                    // setting: ULA snow
@@ -270,6 +363,49 @@ type
     function HasTimex: Boolean; inline;
     function HasRadastan: Boolean; inline;
     function IsZXUno: Boolean; inline;
+    function IsNext: Boolean; inline;
+    function RamBanksUsed: Integer;
+    procedure NextLoadRoms;
+    procedure NextReset(Hard: Boolean);
+    procedure NextWriteReg(Reg, Value: Byte);
+    function NextReadReg(Reg: Byte): Byte;
+    procedure NextPortPaging(Bank: Boolean);
+    procedure NextUpdatePaging;
+    procedure NextSetDivEntries;
+    procedure NextVideoReset;
+    procedure NextPaletteWrite(Value: Byte; NineBits: Boolean);
+    procedure NextSetPal(Pal, Index: Integer; Value: Word);
+    procedure NextClipWrite(Layer: Integer; Value: Byte);
+    procedure NextSpriteAttr(Value: Byte);
+    procedure NextRenderLine(Line, X0, X1: Integer);
+    procedure NextRenderUpTo(T: Integer; Split: Boolean);
+    procedure NextDrawTo(T: Integer; Split: Boolean);
+    procedure NextCopperRun(T: Integer);
+    function NextRasterTime(V, H, FromT: Integer): Integer;
+    function NextVideoReg(Reg: Byte): Boolean;
+    function NextL2Bank(Addr: Word; Write: Boolean; out Bank: Integer): Boolean;
+    procedure NextCopperWrite(Value: Byte);
+    procedure DmaQueue(What: Integer);
+    procedure DmaWrite(Value: Byte);
+    function DmaRead: Byte;
+    procedure DmaStart;
+    function DmaByte: Boolean;
+    procedure DmaRun(Count: Integer);
+    procedure NextDacWrite(Port: Word; Value: Byte; T: Integer);
+    function NextAltRomIndex: Integer;
+    function NextSramBank(Bank: Integer): PBank;
+    function NextLineIntActive: Boolean;
+    function TurboOn: Boolean; inline;
+    function MfPorts(out EnablePort, DisablePort: Byte): Integer;
+    function NextMfNmi: Boolean;
+    function NextDivNmi: Boolean;
+    function NextMfPortRead(Port: Word; out Value: Byte): Boolean;
+    procedure NextMfPortWrite(Port: Word);
+    function NexFileCall: Boolean;
+    procedure NextFlashWrite(Value: Byte);
+    function NextFlashRead: Byte;
+    procedure NexOnCard;
+    procedure SnapIO(S: TStream; Save: Boolean);
     procedure LoadZXUnoFlash;
     procedure ZXUnoBoot(Hard: Boolean);
     procedure SetZXUnoTiming;
@@ -300,6 +436,7 @@ type
     procedure UpdateBeeper(T: Integer);
     procedure ApplyEvent(Index: Integer);
     procedure GenerateAudio;
+    procedure AddAY(Chip: Integer; const Lv: array of Single; Gain: Single; var L, R: Single);
     procedure TapeTrap;
     procedure CheckTraps;
     { RST 8 with the DivMMC: remember the game files esxDOS opens }
@@ -328,6 +465,10 @@ type
     procedure SetRecording(Value: Boolean);
   public
     Keyboard: array[0..7] of Byte;   // half-row state, bit = 0 when pressed
+    { The keys of the Next's keyboard that are two Spectrum keys at once
+      (EXT_* bits): the combination is pressed, and the Next also reports
+      them alone in NR B0-B1 }
+    ExtKeys: Word;
     KempstonState: Byte;
     KempstonEnabled: Boolean;
     FullerState: Byte;      // Fuller joystick port $7F, bits low when pressed
@@ -371,7 +512,27 @@ type
     destructor Destroy; override;
     procedure SetModel(AModel: TSpectrumModel);
     procedure Reset(Hard: Boolean);
+    { The NMI button; on the ZX Spectrum Next its M1 button (the Multiface) }
     procedure RequestNMI;
+    { The ZX Spectrum Next's DRIVE button: the DivMMC's NMI }
+    procedure DriveNMI;
+    { Play the tape from now (Tape.Play takes the time in the frame, not
+      the CPU's T-states, which differ at other speeds) }
+    procedure PlayTape;
+    { The Next's firmware started another machine's core (its slot, 8-31):
+      pzx emulates the Next's only, so the Next starts again; -1 if not }
+    property ForeignCore: Integer read FForeignCore write FForeignCore;
+    { The Next's Multiface is paged in (its NMI menu is running) }
+    property MultifaceOn: Boolean read FMfOn;
+    { pzx's own snapshots (.pzs: see PzxSnap.inc), for any model: whether
+      it is the only kind this machine can have (the ZX Spectrum Next and
+      the ZX-Uno), the machine a file is of (raises if it isn't one), save
+      and load (the machine must be that model) }
+    function NeedsOwnSnapshot: Boolean;
+    class function OwnSnapshotModel(const FileName: string): TSpectrumModel;
+    procedure SaveOwnSnapshot(const FileName: string);
+    procedure LoadOwnSnapshot(const FileName: string);
+    procedure Retn; override;
     { Queue automatic typing. Keys is a list of "row:mask" presses; an empty
       Keys waits Frames frames with nothing pressed. }
     procedure AutoType(Frames: Integer; const Keys: array of Integer);
@@ -508,6 +669,7 @@ type
     procedure WriteMem(Addr: Word; Value: Byte; T: Integer); override;
     function ReadPort(Port: Word; var T: Integer): Byte; override;
     procedure WritePort(Port: Word; Value: Byte; var T: Integer); override;
+    procedure WriteNextReg(Reg, Value: Byte; T: Integer); override;
     { Copy of the current frame in $FFRRGGBB pixels, SCREEN_WIDTH x SCREEN_HEIGHT. }
     procedure CopyFrameBuffer(Dest: PLongWord);
     function Samples: Pointer;
@@ -538,6 +700,26 @@ type
     { The Currah µSpeech (connected while CurrahOn; its ROMs loaded first) }
     property Currah: TCurrah read FCurrah;
     property CurrahOn: Boolean read FCurrahOn write FCurrahOn;
+    { ZX Spectrum Next: the folder of its distribution (ROMs in
+      machines/next), set before choosing the model }
+    property NextDir: string read FNextDir write FNextDir;
+    { Next register, as port 253B reads it, and writing one (debugger) }
+    function NextRegister(Reg: Byte): Byte;
+    procedure SetNextRegister(Reg, Value: Byte);
+    { Its MMU: the 8K page in each slot (255 = ROM) }
+    function NextMMU(Slot: Integer): Byte;
+    { Load a .nex program (as NextZXOS's .nexload does) and start it; raises
+      on errors }
+    procedure LoadNex(const FileName: string);
+    { Boot through its firmware (TBBLUE.FW on the card, started by the FPGA's
+      boot ROM in NextBootRom) instead of starting NextZXOS directly; set
+      before choosing the model }
+    property NextFirmwareBoot: Boolean read FNextFirmware write FNextFirmware;
+    property NextBootRom: string read FNextBootRomFile write FNextBootRomFile;
+    { What NR 00 says the machine is: $08, an emulator (with $0A, a ZX
+      Spectrum Next, the firmware shows the Sinclair logo; with $08 the
+      TBBlue one) }
+    property NextMachineId: Byte read FNextMachineId write FNextMachineId;
     { ZX-Uno register (debugger) }
     function ZXUnoRegister(Reg: Byte): Byte;
     { Debugger: write a ZX-Uno register, as an OUT to FD3B would }
@@ -565,6 +747,17 @@ const
   KEY_ENTER = 30; KEY_L = 31; KEY_K = 32; KEY_J = 33; KEY_H = 34;
   KEY_SPACE = 35; KEY_SYM = 36; KEY_M = 37; KEY_N = 38; KEY_B = 39;
 
+  { ExtKeys bits: NR B0 (bits 0-7) and NR B1 (bits 8-15) }
+  EXT_RIGHT = 0; EXT_LEFT = 1; EXT_DOWN = 2; EXT_UP = 3; EXT_PERIOD = 4; EXT_COMMA = 5;
+  EXT_QUOTE = 6; EXT_SEMICOLON = 7; EXT_EXTEND = 8; EXT_CAPSLOCK = 9; EXT_GRAPH = 10;
+  EXT_TRUEVIDEO = 11; EXT_INVVIDEO = 12; EXT_BREAK = 13; EXT_EDIT = 14; EXT_DELETE = 15;
+  { The Spectrum keys each one is }
+  EXT_KEYS: array[0..15, 0..1] of Integer = (
+    (KEY_CAPS, KEY_8), (KEY_CAPS, KEY_5), (KEY_CAPS, KEY_6), (KEY_CAPS, KEY_7),
+    (KEY_SYM, KEY_M), (KEY_SYM, KEY_N), (KEY_SYM, KEY_P), (KEY_SYM, KEY_O),
+    (KEY_CAPS, KEY_SYM), (KEY_CAPS, KEY_2), (KEY_CAPS, KEY_9), (KEY_CAPS, KEY_3),
+    (KEY_CAPS, KEY_4), (KEY_CAPS, KEY_SPACE), (KEY_CAPS, KEY_1), (KEY_CAPS, KEY_0));
+
   NO_MEMORY = -100;   // slot with nothing paged in (16K model)
 
   BP_EXEC = 1;
@@ -577,6 +770,9 @@ const
     $FF000000, $FF0000FF, $FFFF0000, $FFFF00FF, $FF00FF00, $FF00FFFF, $FFFFFF00, $FFFFFFFF);
 
 implementation
+
+uses
+  ZStream, FatFS;
 
 type
   { Bus for the dry run of an instruction: reads memory without side
@@ -659,6 +855,7 @@ begin
   FCpu := TZ80.Create(Self);
   FAY := TAY8912.Create;
   FAY2 := TAY8912.Create;
+  FAY3 := TAY8912.Create;
   FTape := TTape.Create;
   FTape.OnEdge := @TapeEdge;
   FFDC := TUPD765.Create;
@@ -689,8 +886,15 @@ begin
   SaveToTape := True;
   FSpeed := 1;
   FPendingSpeed := 1;
+  FUserSpeed := 1;
+  FNextSpeed := 1;
+  FNextDir := ExtractFilePath(ExcludeTrailingPathDelimiter(ARomDir)) + 'specnext';
+  FNextMachineId := $08;
+  FNextFirmware := True;
+  FNextBootRomFile := IncludeTrailingPathDelimiter(ARomDir) + 'tbblue_loader.rom';
   FTempBreak := -1;
   FUnoAutoLoad := -1;
+  FForeignCore := -1;
   FDaadFetch := -1;
   FastLoad := True;
   AutoPlayTape := True;
@@ -713,6 +917,7 @@ begin
   FProbeBus.Free;
   FFDC.Free;
   FTape.Free;
+  FAY3.Free;
   FAY2.Free;
   FAY.Free;
   FCpu.Free;
@@ -728,6 +933,11 @@ begin
   if FInfo.Memory = mkZXUno then
   begin
     LoadZXUnoFlash;
+    Exit;
+  end;
+  if FInfo.Memory = mkZXNext then
+  begin
+    NextLoadRoms;
     Exit;
   end;
   for I := 0 to FInfo.RomCount - 1 do
@@ -756,9 +966,10 @@ end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);
 var
-  WasUno: Boolean;
+  WasUno, WasNext: Boolean;
 begin
   WasUno := IsZXUno;
+  WasNext := IsNext;
   FModel := AModel;
   FInfo := ModelInfo[AModel];
   LoadRoms;
@@ -771,6 +982,18 @@ begin
     FDiv.UseMemory(nil, nil);
     if WasUno then FDivOn := False;
   end;
+  // The Next has its DivMMC built in, its ROM and RAM in the SRAM, and the
+  // Z80N's extra instructions
+  if IsNext then
+  begin
+    FDiv.UseMemory(@FNextSram[4], @FNextSram[8]);
+    FDivOn := True;
+  end
+  else if WasNext then FDivOn := False;
+  FCpu.Z80N := IsNext;
+  Z80NMnemonics := IsNext;
+  FDiv.ControlReadable := IsNext;
+  if not IsNext then FDiv.NextEntries := False;
   BuildContention;
   FTape.ClockHz := FInfo.ClockHz;
   FFDC.ClockHz := FInfo.ClockHz;
@@ -807,10 +1030,13 @@ begin
   FZXUnoReg := 0;
   FZXReg[$40] := 0;
   if IsZXUno then ZXUnoBoot(Hard);
+  if IsNext then NextReset(Hard);
   FCpu.Reset(Hard);
   FCpu.T := 0;
   FAY.Reset;
   FAY2.Reset;
+  FAY3.Reset;
+  FillChar(FAYPan, SizeOf(FAYPan), 3);
   FDiv.Reset(Hard);
   FCurrah.Reset;
   FResetFrame := FFrameCount;
@@ -826,6 +1052,7 @@ begin
   FUnoAutoLoad := -1;
   CancelAutoType;
   FRenderLine := 0;
+  FNextDrawnX := 0;
   FRenderCell := 0;
   FEventCount := 0;
   FBeeperLevel := 0;
@@ -836,12 +1063,31 @@ end;
 
 procedure TSpectrum.RequestNMI;
 begin
-  FNMIRequest := True;
+  // The Next's buttons work as NR 06 lets them (NextZXOS sets it)
+  if IsNext then
+  begin
+    if (FNextReg[$06] and 8) <> 0 then NextMfNmi;
+  end
+  else
+    FNMIRequest := True;
+end;
+
+procedure TSpectrum.PlayTape;
+begin
+  // With fast loading, a moment of silence first: the ROM's loader, if it
+  // is waiting, goes back to LD-START (056C) and takes the block at once
+  if FastLoad then FTape.Play(U(FCpu.T) + FInfo.ClockHz div 10)
+  else FTape.Play(U(FCpu.T));
+end;
+
+procedure TSpectrum.DriveNMI;
+begin
+  if IsNext and ((FNextReg[$06] and $10) <> 0) then NextDivNmi;
 end;
 
 function TSpectrum.RamBank(Index: Integer): PBank;
 begin
-  Result := @FRam[Index and 7];
+  if IsNext then Result := @FRam[Index mod RAM_BANKS] else Result := @FRam[Index and 7];
 end;
 
 procedure TSpectrum.UpdatePaging;
@@ -851,6 +1097,11 @@ const
 var
   Slot, Bank, Rom: Integer;
 begin
+  if IsNext then
+  begin
+    NextUpdatePaging;
+    Exit;
+  end;
   case FInfo.Memory of
     mk48K:
       begin
@@ -948,6 +1199,14 @@ begin
       end;
     end;
   end;
+  // The 8K pages the CPU reads and writes
+  for Slot := 0 to 7 do
+  begin
+    FPage[Slot] := @FSlot[Slot shr 1]^[(Slot and 1) * $2000];
+    Bank := FSlotBank[Slot shr 1];
+    FPageRO[Slot] := Bank < 0;
+    FPageScreen[Slot] := (Bank = FScreenBank) and not Odd(Slot);
+  end;
 end;
 
 function TSpectrum.CurrentRom: Integer;
@@ -973,7 +1232,27 @@ begin
   Result.Model := FModel;
   Result.Cpu := TZ80.Create(FProbeBus);
   Result.Cpu.CopyStateFrom(FCpu);
-  Move(FRam, Result.Ram, SizeOf(FRam));
+  SetLength(Result.Ram, RamBanksUsed);
+  Move(FRam, Result.Ram[0], RamBanksUsed * SizeOf(TBank));
+  Move(FNextReg, Result.NextReg, SizeOf(FNextReg));
+  Move(FNextMMU, Result.NextMMU, SizeOf(FNextMMU));
+  if IsNext then
+  begin
+    SetLength(Result.NextSram, Length(FNextSram));
+    Move(FNextSram, Result.NextSram[0], SizeOf(FNextSram));
+  end;
+  Result.NextBootOn := FNextBootOn;
+  Result.MfNmi := FMfNmi;
+  Result.MfOn := FMfOn;
+  Result.MfInvisible := FMfInvisible;
+  Result.CopperPC := FCopperPC;
+  Result.CopperClk := FCopperClk;
+  Result.CopperDue := FCopperDue;
+  Result.CopperStopped := FCopperStopped;
+  Result.CopperRestarted := FCopperRestarted;
+  Result.DivNmiButton := FDiv.NmiButton;
+  Result.NextSel := FNextSel;
+  Result.PortDFFD := FPortDFFD;
   FDiv.SaveState(Result.DivState);
   Result.CurrahPaged := FCurrah.Paged;
   Result.Port7FFD := FPort7FFD;
@@ -1009,8 +1288,23 @@ begin
   Result := S.Model = FModel;
   if not Result then Exit;
   FCpu.CopyStateFrom(S.Cpu);
-  Move(S.Ram, FRam, SizeOf(FRam));
+  Move(S.Ram[0], FRam, Length(S.Ram) * SizeOf(TBank));
+  Move(S.NextReg, FNextReg, SizeOf(FNextReg));
+  Move(S.NextMMU, FNextMMU, SizeOf(FNextMMU));
+  if Length(S.NextSram) = Length(FNextSram) then Move(S.NextSram[0], FNextSram, SizeOf(FNextSram));
+  FNextBootOn := S.NextBootOn;
+  FMfNmi := S.MfNmi;
+  FMfOn := S.MfOn;
+  FMfInvisible := S.MfInvisible;
+  FCopperPC := S.CopperPC;
+  FCopperClk := S.CopperClk;
+  FCopperDue := S.CopperDue;
+  FCopperStopped := S.CopperStopped;
+  FCopperRestarted := S.CopperRestarted;
+  FNextSel := S.NextSel;
+  FPortDFFD := S.PortDFFD;
   FDiv.LoadState(S.DivState);
+  FDiv.NmiButton := S.DivNmiButton;
   FCurrah.Paged := S.CurrahPaged;
   FPort7FFD := S.Port7FFD;
   FPort1FFD := S.Port1FFD;
@@ -1026,6 +1320,7 @@ begin
   FFrameCount := S.FrameCount;
   FCpuTBase := S.CpuTBase;
   FRenderLine := S.RenderLine;
+  FNextDrawnX := 0;
   FRenderCell := S.RenderCell;
   FEventCount := Min(S.EventCount, FEventCount);
   FAYTickT := S.AYTickT;
@@ -1088,7 +1383,9 @@ procedure TSpectrum.SetSpeed(Value: Integer);
 begin
   if Value < 1 then Value := 1;
   if Value > 32 then Value := 32;
-  FPendingSpeed := Value;
+  FUserSpeed := Value;
+  // The Next's own turbo (NR 07) on top of it
+  FPendingSpeed := Min(32, FUserSpeed * FNextSpeed);
 end;
 
 procedure TSpectrum.SetFastDisk(Value: Boolean);
@@ -1131,6 +1428,13 @@ begin
     Exit;
   end;
   if FCurrahOn and FCurrah.Paged and (Addr < $1000) then Exit(maRom);
+  if IsNext then
+  begin
+    if FNextMMU[Addr shr 13] < NEXT_PAGES then Result := maRam
+    else if (Addr < $4000) and (FNextMMU[Addr shr 13] = 255) then Result := maRom
+    else Result := maNone;
+    Exit;
+  end;
   Bank := FSlotBank[Addr shr 14];
   if Bank = NO_MEMORY then Result := maNone
   else if Bank < 0 then Result := maRom
@@ -1144,7 +1448,7 @@ begin
     maRom: if not RomWritable then Exit;
   end;
   if FDivOn and (Addr < $4000) and FDiv.Active then FDiv.ForceWrite(Addr, Value)
-  else FSlot[Addr shr 14]^[Addr and $3FFF] := Value;
+  else FPage[Addr shr 13][Addr and $1FFF] := Value;
 end;
 
 function TSpectrum.FramesSinceReset: Int64;
@@ -1171,7 +1475,12 @@ end;
 
 function TSpectrum.ActiveAY: TAY8912;
 begin
-  if TurboSound and (FAYChip = 1) then Result := FAY2 else Result := FAY;
+  case FAYChip of
+    1: if TurboOn then Result := FAY2 else Result := FAY;
+    2: if TurboOn and IsNext then Result := FAY3 else Result := FAY;
+  else
+    Result := FAY;
+  end;
 end;
 
 function TSpectrum.BasicRomPaged: Boolean;
@@ -1219,21 +1528,29 @@ end;
   µSpeech's (any access to 0038 toggles it, after the access) }
 function TSpectrum.LowRead(Addr: Word; T: Integer): Byte;
 begin
-  if not FCurrahOn then Exit(FSlot[0]^[Addr]);
+  if not FCurrahOn then Exit(FPage[Addr shr 13][Addr and $1FFF]);
   if FCurrah.Paged and (Addr < $1000) then Result := FCurrah.ReadRom(Addr)
   else if FCurrah.Paged and (Addr = $1000) then Result := FCurrah.ReadStatus(U(T))
-  else Result := FSlot[0]^[Addr];
+  else Result := FPage[Addr shr 13][Addr and $1FFF];
   if Addr = $0038 then FCurrah.Toggle;
 end;
 
 function TSpectrum.ReadMem(Addr: Word; T: Integer): Byte;
+var
+  L2: Integer;
 begin
-  if FDivOn and (Addr < $4000) and FDiv.Active then
+  // The Next's Layer 2 mapped over the bottom of memory (port 123B), under
+  // the DivMMC (the Next decodes 0000-3FFF: boot ROM, configuration
+  // mapping, Multiface, DivMMC, Layer 2, MMU)
+  if IsNext and ((FNextL2Port and 4) <> 0) and not ((Addr < $4000) and (FDiv.Active or FMfOn)) and
+     not FNextBootOn and NextL2Bank(Addr, False, L2) then
+    Result := FRam[L2][Addr and $3FFF]
+  else if FDivOn and (Addr < $4000) and FDiv.Active then
     Result := FDiv.Read(Addr)
   else if Addr < $4000 then
     Result := LowRead(Addr, T)
   else
-    Result := FSlot[Addr shr 14]^[Addr and $3FFF];
+    Result := FPage[Addr shr 13][Addr and $1FFF];
   if FDaadOn and (FDaadMap[Addr] <> 0) then DaadRead(Addr);
   if (FMemBreakpoints > 0) and not FSuppressBreaks and
      ((FBreakFlags[Addr] and (BP_READ or BP_DISABLED)) = BP_READ) and ConditionHolds(Addr) then
@@ -1379,6 +1696,12 @@ end;
 function TSpectrum.FetchMem(Addr: Word; T: Integer): Byte;
 begin
   // Opcode fetches never trigger read breakpoints
+  // The Next's Multiface pages in as its NMI fetches 0066
+  if FMfNmi and (Addr = $0066) and not FMfOn then
+  begin
+    FMfOn := True;
+    NextUpdatePaging;
+  end;
   if FDivOn and (Addr < $4000) then
   begin
     // DivMMC automatic paging happens around opcode fetches
@@ -1389,7 +1712,7 @@ begin
   else if Addr < $4000 then
     Result := LowRead(Addr, T)
   else
-    Result := FSlot[Addr shr 14]^[Addr and $3FFF];
+    Result := FPage[Addr shr 13][Addr and $1FFF];
   // ULA snow: with I pointing at contended memory, the refresh cycle (the
   // last two T-states of the M1 cycle) disturbs a screen fetch at that time
   if FSnowOn and (FSpeed = 1) and FSlotContended[FCpu.I shr 6] and (FInfo.Memory <> mkPlus3) then
@@ -1432,7 +1755,7 @@ begin
   else if FCurrahOn and FCurrah.Paged and (Addr < $1000) then
     Result := FCurrah.ReadRom(Addr)
   else
-    Result := FSlot[Addr shr 14]^[Addr and $3FFF];
+    Result := FPage[Addr shr 13][Addr and $1FFF];
 end;
 
 procedure TSpectrum.WriteMem(Addr: Word; Value: Byte; T: Integer);
@@ -1440,6 +1763,12 @@ var
   Slot: Integer;
 begin
   Slot := Addr shr 14;
+  if IsNext and ((FNextL2Port and 1) <> 0) and not ((Addr < $4000) and (FDiv.Active or FMfOn)) and
+     not FNextBootOn and NextL2Bank(Addr, True, Slot) then
+  begin
+    FRam[Slot][Addr and $3FFF] := Value;
+    Exit;
+  end;
   if (FMemBreakpoints > 0) and not FSuppressBreaks and
      ((FBreakFlags[Addr] and (BP_WRITE or BP_DISABLED)) = BP_WRITE) and ConditionHolds(Addr) then
   begin
@@ -1459,10 +1788,20 @@ begin
     FDiv.Write(Addr, Value);
     Exit;
   end;
-  if FSlotBank[Slot] < 0 then Exit;  // ROM
-  if (FSlotBank[Slot] = FScreenBank) and ((Addr and $3FFF) < 6912) then
-    RenderUpTo(U(T));
-  FSlot[Slot]^[Addr and $3FFF] := Value;
+  Slot := Addr shr 13;
+  if FPageRO[Slot] then
+  begin
+    // The Next's alternate ROM can be written through the ROM's addresses
+    if IsNext and (Addr < $4000) and (FNextMMU[Slot] = 255) and ((FNextReg[$8C] and $C0) = $C0) then
+      FNextSram[6 + NextAltRomIndex][Addr] := Value;
+    Exit;  // ROM
+  end;
+  if FPageScreen[Slot] and ((Addr and $1FFF) < 6912) then
+  begin
+    // The Next draws whole lines then (a split for every write would be slow)
+    if IsNext then NextRenderUpTo(U(T), False) else RenderUpTo(U(T));
+  end;
+  FPage[Slot][Addr and $1FFF] := Value;
 end;
 
 { I/O }
@@ -1533,7 +1872,17 @@ begin
   Responded := False;
   if FCurrahOn and (Port = $0038) then FCurrah.Toggle;
 
-  if (Port and 1) = 0 then
+  if IsNext and NextMfPortRead(Port, HighByte) then
+  begin
+    Responded := True;
+    Result := HighByte;
+  end
+  else if IsNext and (((Port and $FF) = $6B) or ((Port and $FF) = $0B)) then
+  begin
+    Responded := True;
+    Result := DmaRead;
+  end
+  else if (Port and 1) = 0 then
   begin
     // ULA: keyboard, EAR
     Responded := True;
@@ -1553,6 +1902,16 @@ begin
     end
     else if (FUlaOut and $10) = 0 then
       Result := Result and not $40;
+  end
+  else if IsNext and ((Port and $FF) = $EB) and ((FNextSpiCS and $80) = 0) then
+  begin
+    Responded := True;
+    Result := NextFlashRead;
+  end
+  else if IsNext and ((Port and $FF) = $E7) then
+  begin
+    Responded := True;
+    Result := FNextSpiCS;
   end
   else if FDivOn and FDiv.IsPort(Port) then
   begin
@@ -1600,7 +1959,34 @@ begin
     Result := FFDC.ReadData;
   end;
 
-  if IsZXUno and (Port = $FC3B) then
+  if IsNext and (Port = $243B) then
+  begin
+    Responded := True;
+    Result := FNextSel;
+  end
+  else if IsNext and (Port = $253B) then
+  begin
+    Responded := True;
+    Result := NextReadReg(FNextSel);
+  end
+  else if IsNext and (Port = $123B) then
+  begin
+    Responded := True;
+    Result := FNextL2Port;
+  end
+  else if IsNext and (Port = $303B) then
+  begin
+    Responded := True;
+    Result := FSprStatus;
+    FSprStatus := 0;
+  end
+  else if IsNext and (Port = $BFF5) then
+  begin
+    // AY info: the active chip and its selected register
+    Responded := True;
+    Result := ((3 - FAYChip) shl 6) or (ActiveAY.Selected and $1F);
+  end
+  else if IsZXUno and (Port = $FC3B) then
   begin
     Responded := True;
     Result := FZXUnoReg;
@@ -1642,6 +2028,7 @@ begin
   LogPort(Port, Value, True);
   CheckPortBreak(Port, True);
   if FCurrahOn and (Port = $0038) then FCurrah.Toggle;
+  if IsNext then NextMfPortWrite(Port);
 
   if (Port and 1) = 0 then
   begin
@@ -1660,7 +2047,49 @@ begin
     end;
   end;
 
-  if FDivOn and FDiv.IsPort(Port) then FDiv.WritePort(Port, Value);
+  if IsNext and ((Port and $FF) = $E7) then
+  begin
+    // One device at a time: the SD card only when it alone is chosen
+    FNextSpiCS := Value;
+    FNextFlashIdx := 0;
+    FNextFlashReads := 0;
+    if (Value and $8F) = $8E then FDiv.WritePort(Port, Value) else FDiv.WritePort(Port, $FF);
+  end
+  else if IsNext and ((Port and $FF) = $EB) and ((FNextSpiCS and $80) = 0) then
+    NextFlashWrite(Value)
+  else if FDivOn and FDiv.IsPort(Port) then
+    FDiv.WritePort(Port, Value);
+
+  if IsNext and (Port = $243B) then
+    FNextSel := Value
+  else if IsNext and (Port = $253B) then
+  begin
+    NextRenderUpTo(U(T), NextVideoReg(FNextSel));
+    NextWriteReg(FNextSel, Value);
+  end
+  else if IsNext and (Port = $123B) then
+  begin
+    RenderUpTo(U(T));
+    if (Value and $10) <> 0 then FNextL2Offset := Value and 7 else FNextL2Port := Value;
+  end
+  else if IsNext and (Port = $303B) then
+  begin
+    FSprIndex := Value and 127;
+    FSprAttrIdx := 0;
+    FSprPatAddr := (Value and $3F) * 256 + (Value shr 7) * 128;
+  end
+  else if IsNext and ((Port and $FF) = $57) then
+    NextSpriteAttr(Value)
+  else if IsNext and (((Port and $FF) = $6B) or ((Port and $FF) = $0B)) then
+    DmaWrite(Value)
+  else if IsNext and ((FNextReg[$08] and 8) <> 0) and
+    ((Port and $FF) in [$1F, $F1, $3F, $0F, $F3, $DF, $FB, $B3, $4F, $F9, $5F]) then
+    NextDacWrite(Port, Value, U(T))
+  else if IsNext and ((Port and $FF) = $5B) then
+  begin
+    FSprPattern[FSprPatAddr] := Value;
+    FSprPatAddr := (FSprPatAddr + 1) and $3FFF;
+  end;
 
   // Video modes: draw what is already shown before the change
   if IsZXUno and (Port = $FC3B) then
@@ -1697,6 +2126,30 @@ begin
   end;
 
   case FInfo.Memory of
+    mkZXNext:
+      // 7FFD (+3 decoding), DFFD and 1FFD; DFFD wins over the AY's FFFD
+      if (Port and $F003) = $D001 then
+      begin
+        FPortDFFD := Value and $0F;
+        NextPortPaging(True);
+      end
+      else if (Port and $C003) = $4001 then
+      begin
+        if (FPort7FFD and $20) = 0 then
+        begin
+          RenderUpTo(U(T));
+          FPort7FFD := Value;
+          NextPortPaging(True);
+        end;
+      end
+      else if (Port and $F003) = $1001 then
+      begin
+        if (FPort7FFD and $20) = 0 then
+        begin
+          FPort1FFD := Value;
+          NextPortPaging(True);
+        end;
+      end;
     mk128K:
       if (Port and $8002) = 0 then
         if (FPort7FFD and $20) = 0 then WritePaging7FFD(Value);
@@ -1731,19 +2184,30 @@ begin
       end;
   end;
 
-  if HasAY then
+  if HasAY and not (IsNext and ((Port and $F003) = $D001)) then
   begin
     if (Port and $C002) = $C000 then
     begin
-      if TurboSound and (Value >= $FE) then
-        FAYChip := (not Value) and 1    // $FF: first chip, $FE: second
+      if TurboOn and ((Value and $9C) = $9C) then
+      begin
+        // $FF: first chip, $FE: second; the Next's third is $FD, and bits
+        // 6-5 switch the chip's left and right outputs
+        if IsNext and ((Value and 3) <> 0) then
+        begin
+          FAYChip := 3 - (Value and 3);
+          FAYPan[FAYChip] := (Value shr 5) and 3;
+        end
+        else if (Value and 3) >= 2 then
+          FAYChip := (not Value) and 1;
+      end
       else
         ActiveAY.SelectRegister(Value);
     end
     else if (Port and $C002) = $8000 then
     begin
       if ActiveAY.Selected < 16 then
-        AddEvent(U(T), 1 + Ord(ActiveAY = FAY2), ActiveAY.Selected, Value);
+        if ActiveAY = FAY3 then AddEvent(U(T), 4, ActiveAY.Selected, Value)
+        else AddEvent(U(T), 1 + Ord(ActiveAY = FAY2), ActiveAY.Selected, Value);
       ActiveAY.WriteData(Value);
     end;
   end;
@@ -1764,17 +2228,23 @@ end;
   switch them off); other models as Settings say }
 function TSpectrum.HasULAPlus: Boolean;
 begin
-  if IsZXUno then Result := (FZXReg[$0F] and 1) = 0 else Result := ULAPlusEnabled;
+  if IsZXUno then Result := (FZXReg[$0F] and 1) = 0
+  else if IsNext then Result := (FNextReg[$68] and 8) <> 0
+  else Result := ULAPlusEnabled;
 end;
 
 function TSpectrum.HasTimex: Boolean;
 begin
-  if IsZXUno then Result := (FZXReg[$0F] and 2) = 0 else Result := TimexEnabled;
+  if IsZXUno then Result := (FZXReg[$0F] and 2) = 0
+  else if IsNext then Result := True
+  else Result := TimexEnabled;
 end;
 
 function TSpectrum.HasRadastan: Boolean;
 begin
-  if IsZXUno then Result := (FZXReg[$0F] and 4) = 0 else Result := RadastanEnabled;
+  if IsZXUno then Result := (FZXReg[$0F] and 4) = 0
+  else if IsNext then Result := False
+  else Result := RadastanEnabled;
 end;
 
 procedure TSpectrum.SetDivOn(Value: Boolean);
@@ -1815,7 +2285,15 @@ end;
   or the ZX-Uno's raster interrupt }
 function TSpectrum.IntActive: Boolean;
 begin
-  if IsZXUno then
+  if IsNext then
+  begin
+    // ULA interrupt unless NR 22 (or port FF bit 6) disables it, and the
+    // line interrupt
+    Result := (FCpu.T < FInfo.InterruptLength * FSpeed) and ((FNextReg[$22] and 4) = 0) and
+      ((FTimexPort and $40) = 0);
+    if not Result and ((FNextReg[$22] and 2) <> 0) then Result := NextLineIntActive;
+  end
+  else if IsZXUno then
   begin
     Result := (FCpu.T < FInfo.InterruptLength * FSpeed) and ((FZXReg[$0D] and 4) = 0) and
       not (HasTimex and ((FTimexPort and $40) <> 0));
@@ -2325,6 +2803,11 @@ procedure TSpectrum.RenderUpTo(T: Integer);
 var
   CellT: Integer;
 begin
+  if IsNext then
+  begin
+    NextRenderUpTo(T, True);
+    Exit;
+  end;
   while FRenderLine < SCREEN_HEIGHT do
   begin
     // T-state at which this 8-pixel cell is displayed. It takes its data
@@ -2347,6 +2830,7 @@ end;
 procedure TSpectrum.RestartRender;
 begin
   FRenderLine := 0;
+  FNextDrawnX := 0;
   FRenderCell := 0;
 end;
 
@@ -2391,12 +2875,44 @@ begin
 end;
 
 procedure TSpectrum.ApplyEvent(Index: Integer);
+var
+  K: Integer;
 begin
   case FEvents[Index].Kind of
     0: FBeeperLevel := FEvents[Index].Value;
     1: FAY.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
     2: FAY2.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
+    4: FAY3.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
+    3:
+      for K := 0 to 3 do
+        if (FEvents[Index].Reg and (1 shl K)) <> 0 then FNextDac[K] := FEvents[Index].Value;
   end;
+end;
+
+{ The Next: one AY chip's channels into the left and right outputs }
+procedure TSpectrum.AddAY(Chip: Integer; const Lv: array of Single; Gain: Single; var L, R: Single);
+var
+  CL, CR, Mono: Single;
+begin
+  if (FNextReg[$09] and ($20 shl Chip)) <> 0 then
+  begin
+    Mono := (Lv[0] + Lv[1] + Lv[2]) * 0.5 * Gain;
+    CL := Mono;
+    CR := Mono;
+  end
+  else if (FNextReg[$08] and $20) <> 0 then
+  begin
+    // ACB: B on the right, C in the middle
+    CL := (Lv[0] * 0.75 + Lv[2] * 0.5 + Lv[1] * 0.25) * Gain;
+    CR := (Lv[1] * 0.75 + Lv[2] * 0.5 + Lv[0] * 0.25) * Gain;
+  end
+  else
+  begin
+    CL := (Lv[0] * 0.75 + Lv[1] * 0.5 + Lv[2] * 0.25) * Gain;
+    CR := (Lv[2] * 0.75 + Lv[1] * 0.5 + Lv[0] * 0.25) * Gain;
+  end;
+  if (FAYPan[Chip] and 2) <> 0 then L := L + CL;
+  if (FAYPan[Chip] and 1) <> 0 then R := R + CR;
 end;
 
 procedure TSpectrum.GenerateAudio;
@@ -2407,12 +2923,14 @@ var
   Clicks: TInt64DynArray;
   ClickLen, Dt: Int64;
   Floppy, Rnd: Single;
-  TickA, TickB, TickC, A, B, C, A2, B2, C2, L, R, AYGain: Single;
-  Two: Boolean;
+  TickA, TickB, TickC, A, B, C, A2, B2, C2, A3, B3, C3, L, R, AYGain: Single;
+  DacL, DacR: Integer;
+  Two, Three: Boolean;
   Mix: array[0..1] of Single;
 begin
   TPerSample := FInfo.ClockHz / SAMPLE_RATE;
-  Two := TurboSound and HasAY;
+  Two := TurboOn and HasAY;
+  Three := Two and IsNext;
   // Floppy drive noise: only with the drive at real speed
   Drive := FloppyNoise and FInfo.HasFDC and FFDC.Timed and
     ((FFDC.Disk(0) <> nil) or (FFDC.Disk(1) <> nil));
@@ -2423,7 +2941,7 @@ begin
     Spinning := FFDC.Motor;
     Reading := FFDC.HeadActive;
   end;
-  if Two then AYGain := 0.25 else AYGain := 0.35;
+  if Three then AYGain := 0.2 else if Two then AYGain := 0.25 else AYGain := 0.35;
   if FCurrahOn then
   begin
     FCurrah.ClockHz := FInfo.ClockHz;
@@ -2441,6 +2959,7 @@ begin
     Acc := 0;
     A := 0; B := 0; C := 0;
     A2 := 0; B2 := 0; C2 := 0;
+    A3 := 0; B3 := 0; C3 := 0;
     TickCount := 0;
     // Walk a merged timeline of events and AY ticks across the sample period
     repeat
@@ -2458,6 +2977,11 @@ begin
           begin
             FAY2.Tick(TickA, TickB, TickC);
             A2 := A2 + TickA; B2 := B2 + TickB; C2 := C2 + TickC;
+          end;
+          if Three then
+          begin
+            FAY3.Tick(TickA, TickB, TickC);
+            A3 := A3 + TickA; B3 := B3 + TickB; C3 := C3 + TickC;
           end;
           Inc(TickCount);
           Inc(FAYTickT, 16);
@@ -2478,6 +3002,9 @@ begin
       FAY2Levels[0] := A2 / TickCount;
       FAY2Levels[1] := B2 / TickCount;
       FAY2Levels[2] := C2 / TickCount;
+      FAY3Levels[0] := A3 / TickCount;
+      FAY3Levels[1] := B3 / TickCount;
+      FAY3Levels[2] := C3 / TickCount;
     end;
     if not HasAY then
     begin
@@ -2487,11 +3014,36 @@ begin
     begin
       FAY2Levels[0] := 0; FAY2Levels[1] := 0; FAY2Levels[2] := 0;
     end;
-    // ABC stereo
-    L := Acc * 0.5 + (FAYLevels[0] * 0.75 + FAYLevels[1] * 0.5 + FAYLevels[2] * 0.25 +
-      FAY2Levels[0] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[2] * 0.25) * AYGain;
-    R := Acc * 0.5 + (FAYLevels[2] * 0.75 + FAYLevels[1] * 0.5 + FAYLevels[0] * 0.25 +
-      FAY2Levels[2] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[0] * 0.25) * AYGain;
+    if not Three then
+    begin
+      FAY3Levels[0] := 0; FAY3Levels[1] := 0; FAY3Levels[2] := 0;
+    end;
+    L := Acc * 0.5;
+    R := Acc * 0.5;
+    if IsNext then
+    begin
+      // Each chip ABC or ACB stereo (NR 08 bit 5), or mono (NR 09 bits 5-7),
+      // with the outputs port FFFD left on
+      AddAY(0, FAYLevels, AYGain, L, R);
+      AddAY(1, FAY2Levels, AYGain, L, R);
+      AddAY(2, FAY3Levels, AYGain, L, R);
+    end
+    else
+    begin
+      // ABC stereo
+      L := L + (FAYLevels[0] * 0.75 + FAYLevels[1] * 0.5 + FAYLevels[2] * 0.25 +
+        FAY2Levels[0] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[2] * 0.25) * AYGain;
+      R := R + (FAYLevels[2] * 0.75 + FAYLevels[1] * 0.5 + FAYLevels[0] * 0.25 +
+        FAY2Levels[2] * 0.75 + FAY2Levels[1] * 0.5 + FAY2Levels[0] * 0.25) * AYGain;
+    end;
+    if IsNext then
+    begin
+      // The Next's DACs: A and B on the left, C and D on the right
+      DacL := Integer(FNextDac[0]) + Integer(FNextDac[1]) - 256;
+      DacR := Integer(FNextDac[2]) + Integer(FNextDac[3]) - 256;
+      L := L + DacL * (1 / 512);
+      R := R + DacR * (1 / 512);
+    end;
     if FCurrahOn then
     begin
       // The µSpeech's voice, mixed in with the Spectrum's sound on the TV
@@ -2577,6 +3129,8 @@ var
   Ok, Loading: Boolean;
   Addr: Word;
 begin
+  // Where a playing tape is now, so the right block is taken
+  FTape.AdvanceTo(U(FCpu.T));
   Block := FTape.TakeBlockForTrap;
   if Block = nil then Exit;
   Ok := False;
@@ -2685,7 +3239,9 @@ begin
     $04C2:
       if SaveToTape then TapeSaveTrap;
     $056C:
-      if FastLoad and not FTape.Playing and (FTape.Current < FTape.Count) then
+      // Fast loading takes the block even if the tape was started with Play
+      // (the trap stops it), so Play doesn't turn it into real-time loading
+      if FastLoad and (FTape.Current < FTape.Count) then
         TapeTrap;
     $0556:
       if not FastLoad and AutoPlayTape and not FTape.Playing and (FTape.Current < FTape.Count) then
@@ -2696,8 +3252,17 @@ end;
 { Automatic typing }
 
 function TSpectrum.KeyRow(Row: Integer): Byte;
+var
+  K, J: Integer;
 begin
   Result := Keyboard[Row];
+  // The two-key keys, unless the Next is told not to (NR 68 bit 4)
+  if (ExtKeys <> 0) and not (IsNext and ((FNextReg[$68] and $10) <> 0)) then
+    for K := 0 to 15 do
+      if (ExtKeys and (1 shl K)) <> 0 then
+        for J := 0 to 1 do
+          if EXT_KEYS[K, J] div 5 = Row then
+            Result := Result and not (1 shl (EXT_KEYS[K, J] mod 5));
   if FAutoKeyPos < Length(FAutoKeys) then
     Result := Result and FAutoKeys[FAutoKeyPos].Rows[Row];
 end;
@@ -3194,10 +3759,18 @@ begin
   if FNMIRequest then
   begin
     FNMIRequest := False;
+    // The Next's stackless NMI (NR C0 bit 3): the return address in NR C2-C3
+    if IsNext and ((FNextReg[$C0] and 8) <> 0) then
+    begin
+      FNextReg[$C2] := FCpu.PC.L;
+      FNextReg[$C3] := FCpu.PC.H;
+    end;
     FCpu.NMI;
     Exit;
   end;
   if IntActive and FCpu.IFF1 and FCpu.Interrupt then Exit;
+  // The Next: esxDOS calls on the .nex file its program was given
+  if FNexOpen and (FCpu.PC.W = $0008) and NexFileCall then Exit;
   if FCpu.PC.W < $4000 then
   begin
     CheckTraps;
@@ -3207,12 +3780,31 @@ begin
   FSuppressBreaks := FProbeCovered;
   FCpu.Step;
   FSuppressBreaks := False;
+  // The Next's DMA sending bytes in burst mode (sampled sound)
+  if FDmaActive then DmaRun(MaxInt);
+  // The copper, when it has a register to write
+  if IsNext and not FCopperStopped and (U(FCpu.T) * 4 >= FCopperDue) then
+    NextRenderUpTo(U(FCpu.T), False);
+  // NR 02: a reset, once the instruction that asked for it is over
+  if FNextResetReq > 0 then
+  begin
+    Reset(FNextResetReq = 2);
+    FNextResetReq := 0;
+  end;
 end;
 
 procedure TSpectrum.FinishFrame;
 begin
   if FUnoAutoLoad >= 0 then ZXUnoAutoLoadStep;
   RenderUpTo(MaxInt);
+  if IsNext then
+  begin
+    // The copper's clock into the next frame
+    Dec(FCopperClk, FInfo.FrameT * 4);
+    if FCopperClk < 0 then FCopperClk := 0;
+    if FCopperDue <> MaxInt then FCopperDue := Max(0, FCopperDue - FInfo.FrameT * 4);
+    FCopperRestarted := False;
+  end;
   FTape.AdvanceTo(FInfo.FrameT);
   GenerateAudio;
 
@@ -3229,6 +3821,7 @@ begin
   end;
   FFDC.Tick;
   FRenderLine := 0;
+  FNextDrawnX := 0;
   FRenderCell := 0;
   Inc(FFrameCount);
   AdvanceAutoKeys;
@@ -3307,5 +3900,10 @@ begin
   // Show the picture up to the current beam position
   RenderUpTo(U(FCpu.T));
 end;
+
+{$I NextVideo.inc}
+{$I NextDma.inc}
+{$I SpectrumNext.inc}
+{$I PzxSnap.inc}
 
 end.

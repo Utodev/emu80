@@ -3882,7 +3882,11 @@ begin
     FUnoOn := FEmu.Spec.Model = smZXUno;
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
-    FUnoButton.Visible := FUnoOn;
+    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model = smZXNext);
+    if FEmu.Spec.Model = smZXNext then
+      FUnoButton.Hint := 'Next Regs: the ZX Spectrum Next''s registers (MMU, speed, interrupts...)'
+    else
+      FUnoButton.Hint := 'ZXUno Regs: the ZX-Uno''s registers';
     FCurrahPaged := FEmu.Spec.CurrahOn and FEmu.Spec.Currah.Paged;
     if FDivActive or FCurrahPaged then FRomIndex := -1;
     Cpu := FEmu.Spec.Cpu;

@@ -473,7 +473,15 @@ end;
 function TTape.TakeBlockForTrap: TTapeBlock;
 begin
   Result := nil;
-  if FCurrent >= FBlocks.Count then Exit;
+  // Playing past a block's pilot tone (its data, or the pause after it):
+  // the loader has had it already, the next one is wanted
+  if FState in [tsSync1, tsSync2, tsData, tsPause] then Inc(FCurrent);
+  if FCurrent >= FBlocks.Count then
+  begin
+    FState := tsStopped;
+    Changed;
+    Exit;
+  end;
   Result := FBlocks[FCurrent];
   Inc(FCurrent);
   FState := tsStopped;

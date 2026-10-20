@@ -34,6 +34,8 @@ type
     FFloppyNoise, FSaveOnExit: TCheckBox;
     FFirmwareBrowse: TButton;
     FUnoFirmware, FUnoRoms, FUnoCustom: TEdit;   // ZX-Uno BIOS, ROMs and custom ROM files
+    FNextDir, FNextCard: TEdit;                  // ZX Spectrum Next distribution and SD card
+    FNextFirmware: TCheckBox;
     FJoystick: TComboBox;
     FIssue2, FIssue3, FShiftNormal, FShiftSides: TRadioButton;
     FVolume, FSpeed: TTrackBar;
@@ -101,7 +103,7 @@ begin
   BorderStyle := bsDialog;
   Position := poMainFormCenter;
   ClientWidth := 500;
-  ClientHeight := 570;
+  ClientHeight := 710;
 
   FButtons := TButtonPanel.Create(Self);
   FButtons.Parent := Self;
@@ -259,6 +261,19 @@ begin
   FUnoCustom.Hint := 'A 16K ROM that runs as a 48K instead of the BIOS''s choice; changes ' +
     'switch the ZX-Uno off and on';
   FUnoCustom.ShowHint := True;
+  Group := AddGroup(Page, 'ZX Spectrum Next', 476, 124);
+  Y := 8;
+  FNextDir := AddFileRow(Group, 'Distribution:', 'the specnext folder', Y, 4);
+  FNextDir.Hint := 'The folder with the ZX Spectrum Next''s system distribution (from ' +
+    'specnext.com), with machines/next in it';
+  FNextDir.ShowHint := True;
+  Inc(Y, 32);
+  FNextCard := AddFileRow(Group, 'SD card:', 'zxnext.img next to pzx.ini', Y, 5);
+  FNextCard.Hint := 'Its SD card image, made from the distribution if it doesn''t exist';
+  FNextCard.ShowHint := True;
+  Inc(Y, 32);
+  FNextFirmware := AddCheck(Group, 'Start through its firmware (TBBLUE.FW: boot screen and menu)', Y);
+  FNextFirmware.Hint := 'Off: NextZXOS starts directly, without the firmware''s screen';
 
   // The rest of the machine, last
   Page := AddPage('Miscellaneous');
@@ -427,7 +442,32 @@ end;
 procedure TSettingsDialog.DoUnoBrowse(Sender: TObject);
 var
   Dlg: TOpenDialog;
+  DirDlg: TSelectDirectoryDialog;
 begin
+  // The Next's distribution folder and SD card
+  if (Sender as TComponent).Tag = 4 then
+  begin
+    DirDlg := TSelectDirectoryDialog.Create(Self);
+    try
+      DirDlg.Title := 'ZX Spectrum Next distribution folder';
+      if DirDlg.Execute then FNextDir.Text := DirDlg.FileName;
+    finally
+      DirDlg.Free;
+    end;
+    Exit;
+  end;
+  if (Sender as TComponent).Tag = 5 then
+  begin
+    Dlg := TOpenDialog.Create(Self);
+    try
+      Dlg.Title := 'ZX Spectrum Next SD card image (made if it doesn''t exist)';
+      Dlg.Filter := 'SD card images (*.img)|*.img|All files|*.*';
+      if Dlg.Execute then FNextCard.Text := Dlg.FileName;
+    finally
+      Dlg.Free;
+    end;
+    Exit;
+  end;
   Dlg := TOpenDialog.Create(Self);
   try
     if (Sender as TComponent).Tag = 3 then
@@ -544,6 +584,9 @@ begin
   FCurrah.Checked := S.Currah;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
+  FNextDir.Text := S.NextDir;
+  FNextCard.Text := S.NextCard;
+  FNextFirmware.Checked := S.NextFirmware;
   FUnoRoms.Text := S.ZXUnoRoms;
   FUnoCustom.Text := S.ZXUnoCustomRom;
   FAY48.Checked := S.AY48;
@@ -591,6 +634,9 @@ begin
   S.KempstonMouse := FMouse.Checked;
   if FDivMMC.Enabled then S.DivMMC := FDivMMC.Checked else S.DivMMC := FOwn[0];
   S.ZXUnoFirmware := Trim(FUnoFirmware.Text);
+  S.NextDir := Trim(FNextDir.Text);
+  S.NextCard := Trim(FNextCard.Text);
+  S.NextFirmware := FNextFirmware.Checked;
   S.ZXUnoRoms := Trim(FUnoRoms.Text);
   S.ZXUnoCustomRom := Trim(FUnoCustom.Text);
   if Trim(FFirmware.Text) <> S.DivMMCFirmware then

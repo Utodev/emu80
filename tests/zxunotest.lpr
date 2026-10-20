@@ -2,7 +2,7 @@
   (zxuno/ROMS.ZX1): the BIOS must read the flash, set the machine up (out
   of boot mode, registers locked, DivMMC on with ESXDOS) and start the 48K;
   loading a tape must work (the DAAD Ready test game, whose database is at
-  8400); its boot menu (Break) and setup (Edit) must work with the
+  8400), and a .pzs snapshot of it must bring it back; its boot menu (Break) and setup (Edit) must work with the
   Spectrum's keys, the setup saving its settings to the flash, and saved
   settings must choose the ROM started.
 
@@ -78,7 +78,8 @@ end;
 var
   Sp: TSpectrum;
   I: Integer;
-  Text: string;
+  Text, Snap: string;
+  Reg0: Byte;
 
 procedure Frames(N: Integer);
 var
@@ -150,6 +151,21 @@ begin
     Sp.AutoLoad;
     Frames(1500);
     Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F), 'tape loaded (the game''s database at 8400)');
+
+    // A .pzs snapshot of it: saved, the machine started again, loaded back
+    Snap := GetTempDir + 'zxunotest.pzs';
+    Reg0 := Sp.ZXUnoRegister(0);
+    Text := ScreenText(Sp);
+    Sp.SaveOwnSnapshot(Snap);
+    Check(TSpectrum.OwnSnapshotModel(Snap) = smZXUno, 'snapshot: of the ZX-Uno');
+    Sp.Reset(True);
+    Frames(10);
+    Sp.LoadOwnSnapshot(Snap);
+    Frames(2);
+    Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F), 'snapshot: the game''s memory');
+    Check(Sp.ZXUnoRegister(0) = Reg0, 'snapshot: MASTERCONF');
+    Check(ScreenText(Sp) = Text, 'snapshot: the game''s screen');
+    DeleteFile(Snap);
 
     // Break: the boot menu; the third machine is the 128K
     Boot(KEY_SPACE);

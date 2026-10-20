@@ -6,10 +6,10 @@ unit Models;
 interface
 
 type
-  TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno);
+  TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext);
 
   { Which memory/port architecture the model uses }
-  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno);
+  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext);
 
   TModelInfo = record
     Name: string;
@@ -78,7 +78,15 @@ const
      ClockHz: 3500000; FrameT: 69888; LineT: 224; PaperTopT: 14336;
      ContentionStartT: 14335; ContentionPattern: (6, 5, 4, 3, 2, 1, 0, 0);
      InterruptLength: 32; IOContention: True; NoMreqContention: True;
-     FloatingBus: True; HasAY: True; HasFDC: False)
+     FloatingBus: True; HasAY: True; HasFDC: False),
+    { ZX Spectrum Next: its ROMs (NextZXOS) come from the distribution in
+      the specnext folder; +3 timing, as its firmware sets it }
+    (Name: 'ZX Spectrum Next'; Memory: mkZXNext;
+     RomFiles: ('', '', '', ''); RomCount: 0; BasicRom: 3;
+     ClockHz: 3546900; FrameT: 70908; LineT: 228; PaperTopT: 14365;
+     ContentionStartT: 14361; ContentionPattern: (1, 0, 7, 6, 5, 4, 3, 2);
+     InterruptLength: 32; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: True; HasFDC: False)
   );
 
 function ModelFromName(const S: string; Default: TSpectrumModel): TSpectrumModel;
@@ -87,7 +95,8 @@ function ModelKey(M: TSpectrumModel): string;
 implementation
 
 const
-  Keys: array[TSpectrumModel] of string = ('16k', '48k', '128k', 'plus2', 'plus2b', 'plus3', 'zxuno');
+  Keys: array[TSpectrumModel] of string = ('16k', '48k', '128k', 'plus2', 'plus2b', 'plus3', 'zxuno',
+    'zxnext');
 
 function ModelKey(M: TSpectrumModel): string;
 begin

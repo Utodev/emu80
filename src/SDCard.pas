@@ -1,7 +1,7 @@
 { SDCard: an SD card in SPI mode, as the DivMMC talks to it, on an image
   file (a raw dump of a card). It answers as an SDHC card (block addresses):
-  CMD0, CMD8, CMD55/ACMD41, CMD1, CMD58, CMD9, CMD10, CMD12, CMD16, CMD17,
-  CMD18, CMD24, CMD25 and CMD59.
+  CMD0, CMD8, CMD55/ACMD41, CMD1, CMD58, CMD9, CMD10, CMD12, CMD13, CMD16,
+  CMD17, CMD18, CMD24, CMD25 and CMD59.
 
   The image file isn't changed until the card is saved: the blocks written
   (by the Spectrum or by the SD card browser) are kept in memory on top of
@@ -412,6 +412,9 @@ begin
         FMultiRead := False;
         Queue([$FF, R1]);
       end;
+    // SEND_STATUS (R2: no error), which NextZXOS and the Next's firmware ask
+    // for after every block they write
+    13: Queue([R1, $00]);
     16, 59: Queue([R1]);
     17:
       begin

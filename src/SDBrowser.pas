@@ -50,6 +50,7 @@ type
     procedure DoRename(Sender: TObject);
     procedure DoDelete(Sender: TObject);
     function ImportExists(const AName: string): Boolean;
+    function LongNames: Boolean;
     function ImportWrite(const AName: string; const Data: TBytes; Replace: Boolean): string;
     { The selected entries (indexes in FEntries, without "..") }
     function SelectedIndexes: TIndexArray;
@@ -68,7 +69,7 @@ procedure ShowSDBrowser(Emu: TEmulator);
 implementation
 
 uses
-  Config, DiskBrowser;
+  Config, DiskBrowser, Models;
 
 procedure ShowSDBrowser(Emu: TEmulator);
 begin
@@ -123,7 +124,8 @@ begin
     @DoImportFolder);
   AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
   AddButton(ikRename, 'Rename the selected file or folder... (F2)', @DoRename);
-  AddButton(ikDelete, 'Delete the selected files (or empty folders) (Del)', @DoDelete);
+  AddButton(ikDelete, 'Delete the selected files and folders (folders with all they hold) (Del)',
+    @DoDelete);
 
   PathPanel := TPanel.Create(Self);
   PathPanel.Parent := Self;
@@ -151,6 +153,7 @@ begin
   FList.MultiSelect := True;
   FList.OnDblClick := @ListDblClick;
   FList.OnKeyDown := @ListKeyDown;
+  FList.SmallImages := FImages;
   AddColumn('Name', 190);
   AddColumn('Size', 80, True);
   AddColumn('Type', 110);
@@ -270,6 +273,7 @@ begin
         begin
           Item := FList.Items.Add;
           Item.Caption := '..';
+          Item.ImageIndex := Ord(ikFolderUp);
           Item.Data := Pointer(PtrInt(-1));
           Item.SubItems.Add('');
           Item.SubItems.Add('Parent folder');
@@ -279,6 +283,7 @@ begin
           E := FEntries[I];
           Item := FList.Items.Add;
           Item.Caption := DisplayName(E);
+          if IsDirectory(E) then Item.ImageIndex := Ord(ikFolder) else Item.ImageIndex := -1;
           Item.Data := Pointer(PtrInt(I));
           TypeText := '';
           Start := '';
@@ -410,7 +415,8 @@ var
   Status: string;
 begin
   // Files on an SD card usually have no +3DOS header: unticked by default
-  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir);
+  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
+    nil, False, LongNames);
   Refresh;
   if Status <> '' then FStatus.SimpleText := Status;
 end;
@@ -420,7 +426,7 @@ var
   Status: string;
 begin
   Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
-    nil, True);
+    nil, True, LongNames);
   Refresh;
   if Status <> '' then FStatus.SimpleText := Status;
 end;
@@ -435,7 +441,7 @@ begin
   try
     for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
     Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
-      Paths);
+      Paths, False, LongNames);
   finally
     Paths.Free;
   end;
@@ -480,12 +486,20 @@ begin
   end;
 end;
 
+{ The ZX Spectrum Next's card: NextZXOS reads long names, so files keep
+  the PC's (esxDOS on the others needs 8.3 ones) }
+function TSDBrowserWindow.LongNames: Boolean;
+begin
+  Result := FEmu.Spec.Model = smZXNext;
+end;
+
 function TSDBrowserWindow.ImportExists(const AName: string): Boolean;
 var
   Vol: TFatVolume;
   Raw: array[0..10] of Byte;
   Error, Base: string;
   Dir: LongWord;
+  E: TFatEntry;
 begin
   Result := False;
   FEmu.Lock;
@@ -494,7 +508,8 @@ begin
       try
         try
           Dir := TargetDir(Vol, AName, False, Base);
-          if MakeName83(Base, Raw, Error) then Result := Vol.Exists(Dir, Raw);
+          if LongNames then Result := Vol.FindName(Dir, Base, E)
+          else if MakeName83(Base, Raw, Error) then Result := Vol.Exists(Dir, Raw);
         except
           on EFatError do Result := False;   // no such folder yet
         end;
@@ -520,7 +535,8 @@ begin
       try
         try
           Dir := TargetDir(Vol, AName, True, Base);
-          if Replace then Vol.PutFile(Dir, Base, Data)
+          if LongNames then Vol.PutFileLong(Dir, Base, Data)
+          else if Replace then Vol.PutFile(Dir, Base, Data)
           else Vol.WriteFile(Dir, Base, Data);
           Result := '';
         except
@@ -645,13 +661,18 @@ procedure TSDBrowserWindow.DoDelete(Sender: TObject);
 var
   Sel: TIndexArray;
   I: Integer;
+  Folders: Boolean;
   Question, Error: string;
   Vol: TFatVolume;
 begin
   Sel := SelectedIndexes;
   if Length(Sel) = 0 then Exit;
+  Folders := False;
+  for I := 0 to High(Sel) do Folders := Folders or IsDirectory(FEntries[Sel[I]]);
   if Length(Sel) = 1 then Question := Format('Delete %s from the card?', [DisplayName(FEntries[Sel[0]])])
   else Question := Format('Delete the %d selected entries from the card?', [Length(Sel)]);
+  if Folders then Question := Question + LineEnding + LineEnding +
+    'Folders are deleted with all the files and folders in them.';
   if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
   Error := '';
   FEmu.Lock;
@@ -660,7 +681,7 @@ begin
       try
         for I := 0 to High(Sel) do
           try
-            Vol.Delete(FEntries[Sel[I]]);
+            Vol.DeleteTree(FEntries[Sel[I]]);
           except
             on E: Exception do
             begin
