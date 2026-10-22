@@ -31,14 +31,15 @@ type
     RomDir: string;
     FastLoad: Boolean;
     AutoPlayTape: Boolean;
+    TapeLoop: Boolean;            // the tape goes on from its start at the end
     Sound: Boolean;
     Volume: Integer;           // 0..100
     Scale: Integer;            // 1..4
     Joystick: TJoystickKeys;
+    Deinterlace: TDeinterlace;
     Issue2: Boolean;
     { Shift and Ctrl: False = Shift is CAPS SHIFT and Ctrl SYMBOL SHIFT;
       True = the left ones are CAPS SHIFT and the right ones SYMBOL SHIFT }
-    ShiftSides: Boolean;              // 16K/48K keyboard issue 2 (else issue 3)
     CpuSpeed: Integer;            // 1, 2, 4 ... 32 (interrupts stay at 50 Hz)
     FastDisk: Boolean;            // disk without real drive timing
     DriveB: Boolean;              // second drive connected to the +3
@@ -57,10 +58,19 @@ type
     NextCard: string;             // its SD card image ('' = zxnext.img next to pzx.ini)
     NextDistroId: string;         // the distribution the card was made from
     NextFirmware: Boolean;        // the Next starts through its firmware (else NextZXOS directly)
+    { A hidden option, not documented (see CLAUDE.md): the Next says it is a
+      real one. RealSpecNext is what applies in this run (the file's value, or
+      the command line's over it); the rest tells where it came from and
+      whether the licence warning has been accepted (kept in the file). }
+    RealSpecNext: Boolean;
+    RealSpecNextCmd: Boolean;     // the command line gave it
+    RealSpecNextIni: Boolean;     // the settings file has it
+    RealSpecNextOk: Boolean;      // the warning was accepted
     ZXUnoRoms: string;            // its ROMs ('' = zxuno/ROMS.ZX1)
     ZXUnoCustomRom: string;       // a 16K ROM run instead of the BIOS's choice ('' = none)
     ZXUnoBios: string;            // its BIOS settings, as the BIOS saved them (hex)
-    SDCardFile: string;           // the SD card image inserted
+    SDCardFile: string;           // the SD card image inserted (the standard models')
+    ZXUnoCard: string;            // the last one inserted in the ZX-Uno ('' = none); the Next's is NextCard
     KempstonMouse: Boolean;
     Monochrome: Boolean;          // black and white display
     Contention: Boolean;          // memory and I/O contention
@@ -86,6 +96,11 @@ type
     { Load the main file, then the overlay file if one was given }
     procedure Load;
     procedure Save;
+    { The hidden option's file entries, changed on the spot (they don't wait
+      for the settings to be saved): the warning accepted, and the file's
+      own value dropped when the warning isn't accepted }
+    procedure AcceptRealSpecNext;
+    procedure ForgetRealSpecNext;
     procedure AddRecent(const FileName: string);
     procedure AddRecentSymbols(const FileName: string);
     procedure AddRecentDisk(const FileName: string);
@@ -104,6 +119,8 @@ const
   MAX_RECENT = 8;
   MAX_POKES = 20;
   { What the cursor keys emulate, as in --joystick and the settings file }
+  { As in --deinterlace and the settings file }
+  DEINTERLACE_KEYS: array[TDeinterlace] of string = ('progressive', 'bob', 'weave');
   JOYSTICK_KEYS: array[TJoystickKeys] of string = (
     'none', 'kempston', 'sinclair1', 'sinclair2', 'cursor', 'fuller');
 
@@ -115,7 +132,7 @@ type
   end;
 
 const
-  BOOL_OPTIONS: array[0..21] of TBoolOption = (
+  BOOL_OPTIONS: array[0..22] of TBoolOption = (
     (Name: 'bw'; Section: 'General'),
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'contention'; Section: 'Machine'),
@@ -133,12 +150,15 @@ const
     (Name: 'nextfirmware'; Section: 'ZXNext'),
     (Name: 'fastload'; Section: 'TapeDisk'),
     (Name: 'autoplay'; Section: 'TapeDisk'),
+    (Name: 'tapeloop'; Section: 'TapeDisk'),
     (Name: 'savetotape'; Section: 'TapeDisk'),
     (Name: 'fastdisk'; Section: 'TapeDisk'),
     (Name: 'driveb'; Section: 'TapeDisk'),
     (Name: 'floppynoise'; Section: 'TapeDisk'),
     (Name: 'pngborder'; Section: 'Screenshot'));
 
+  DEINTERLACE_NAMES: array[TDeinterlace] of string = (
+    'Progressive (each frame on its own)', 'Bob (two frames blended)', 'Weave (two frames'' lines interleaved)');
   JOYSTICK_NAMES: array[TJoystickKeys] of string = (
     'None (cursor keys and Ctrl as on the keyboard)', 'Kempston',
     'Sinclair Interface 2, joystick 1 (keys 6-0)', 'Sinclair Interface 2, joystick 2 (keys 1-5)',
@@ -273,12 +293,13 @@ begin
   RomDir := DefaultRomDir;
   FastLoad := True;
   AutoPlayTape := True;
+  TapeLoop := True;
   Sound := True;
   Volume := 70;
   Scale := 2;
   Joystick := jkKempston;
+  Deinterlace := dlWeave;
   Issue2 := False;
-  ShiftSides := True;
   CpuSpeed := 1;
   FastDisk := False;
   DriveB := False;
@@ -290,6 +311,10 @@ begin
   TurboSound := False;
   Currah := False;
   NextFirmware := True;
+  RealSpecNext := False;
+  RealSpecNextCmd := False;
+  RealSpecNextIni := False;
+  RealSpecNextOk := False;
   Monochrome := False;
   Contention := True;
   UlaSnow := True;
@@ -381,6 +406,7 @@ begin
     'nextfirmware': Result := @NextFirmware;
     'fastload': Result := @FastLoad;
     'autoplay': Result := @AutoPlayTape;
+    'tapeloop': Result := @TapeLoop;
     'savetotape': Result := @SaveToTape;
     'fastdisk': Result := @FastDisk;
     'driveb': Result := @DriveB;
@@ -435,6 +461,7 @@ var
   P: PBoolean;
   S: string;
   J: TJoystickKeys;
+  D: TDeinterlace;
 begin
   for I := 0 to High(BOOL_OPTIONS) do
   begin
@@ -451,8 +478,9 @@ begin
   S := LowerCase(Ini.ReadString('Machine', 'joystick', JOYSTICK_KEYS[Joystick]));
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do
     if S = JOYSTICK_KEYS[J] then Joystick := J;
-  S := LowerCase(Ini.ReadString('Machine', 'shiftkeys', ''));
-  if S = 'sides' then ShiftSides := True else if S = 'standard' then ShiftSides := False;
+  S := LowerCase(Ini.ReadString('Machine', 'deinterlace', DEINTERLACE_KEYS[Deinterlace]));
+  for D := Low(TDeinterlace) to High(TDeinterlace) do
+    if S = DEINTERLACE_KEYS[D] then Deinterlace := D;
   S := Ini.ReadString('Machine', 'issue', '');
   if S = '2' then Issue2 := True else if S = '3' then Issue2 := False;
   RomDir := Ini.ReadString('ROMs', 'romdir', RomDir);
@@ -468,6 +496,7 @@ begin
   while Pos('  ', NextDistroId) > 0 do
     NextDistroId := StringReplace(NextDistroId, '  ', ' ', [rfReplaceAll]);
   SDCardFile := Ini.ReadString('Media', 'sdcard', SDCardFile);
+  ZXUnoCard := Ini.ReadString('Media', 'zxunocard', ZXUnoCard);
 end;
 
 procedure TSettings.WriteOptions(Ini: TCustomIniFile);
@@ -493,8 +522,8 @@ begin
   Put('General', 'volume', IntToStr(Volume));
   Put('General', 'speed', IntToStr(CpuSpeed));
   Put('Machine', 'joystick', JOYSTICK_KEYS[Joystick]);
+  Put('Machine', 'deinterlace', DEINTERLACE_KEYS[Deinterlace]);
   if Issue2 then Put('Machine', 'issue', '2') else Put('Machine', 'issue', '3');
-  if ShiftSides then Put('Machine', 'shiftkeys', 'sides') else Put('Machine', 'shiftkeys', 'standard');
   Put('ROMs', 'romdir', RomDir);
   Put('ROMs', 'rom', RomList);
   Put('ROMs', 'divmmcrom', DivMMCFirmware);
@@ -504,7 +533,10 @@ begin
   Put('ZXNext', 'nextdir', NextDir);
   Put('ZXNext', 'nextcard', NextCard);
   Put('ZXNext', 'distroid', NextDistroId);
+  if RealSpecNextIni then Put('ZXNext', 'realspecnext', '1') else Ini.DeleteKey('ZXNext', 'realspecnext');
+  if RealSpecNextOk then Put('ZXNext', 'realspecnextok', '1') else Ini.DeleteKey('ZXNext', 'realspecnextok');
   Put('Media', 'sdcard', SDCardFile);
+  Put('Media', 'zxunocard', ZXUnoCard);
 end;
 
 { Values missing from the file keep their current value, so the overlay only
@@ -549,6 +581,12 @@ begin
   // The keys above are those of older versions; these are the current ones,
   // named as the command line options
   ReadOptions(Ini);
+  if not Overlay then
+  begin
+    RealSpecNextIni := Ini.ReadBool('ZXNext', 'realspecnext', False);
+    RealSpecNext := RealSpecNextIni;
+    RealSpecNextOk := Ini.ReadBool('ZXNext', 'realspecnextok', False);
+  end;
   if not Overlay or Ini.SectionExists('Pokes') then
   begin
     PokeHistory.Clear;
@@ -700,6 +738,43 @@ begin
     Text.Free;
     Ini.Free;
   end;
+end;
+
+{ One key of the settings file, changed now: written, or deleted when Value
+  is empty (the rest of the file as it is) }
+procedure ChangeFileKey(const FileName: string; Text: TStringList;
+  const Section, Key, Value: string);
+var
+  Ini: TMemIniFile;
+begin
+  Ini := TMemIniFile.Create('');
+  try
+    Ini.SetStrings(Text);
+    Ini.DeleteKey(Section, Key);
+    if Value <> '' then Ini.WriteString(Section, Key, Value);
+    Text.Clear;
+    Ini.GetStrings(Text);
+    try
+      ForceDirectories(ExtractFilePath(FileName));
+      Text.SaveToFile(FileName);
+    except
+      // Read-only folder: it stays as it was
+    end;
+  finally
+    Ini.Free;
+  end;
+end;
+
+procedure TSettings.AcceptRealSpecNext;
+begin
+  RealSpecNextOk := True;
+  ChangeFileKey(FFileName, FMainText, 'ZXNext', 'realspecnextok', '1');
+end;
+
+procedure TSettings.ForgetRealSpecNext;
+begin
+  RealSpecNextIni := False;
+  ChangeFileKey(FFileName, FMainText, 'ZXNext', 'realspecnext', '');
 end;
 
 procedure TSettings.AddPoke(const FileName, Pokes: string);

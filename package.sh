@@ -5,13 +5,19 @@
 #   ./package.sh            the packages, into build/packages/
 #
 # The .zip has a pzx-VERSION-windows folder with pzx.exe, roms, esxdos,
-# zxuno, README.md and LICENSE (pzx.ini is made there when pzx closes).
+# zxuno, README.md and LICENSE (pzx.ini is made there when pzx closes), and a
+# lib folder with the native library for host applications (pzxlib.dll) and
+# its documentation (LIBRARY.md), and a tests folder with the C# host demo
+# (tests/csharp/PzxHostDemo: its sources, build.bat and, in the .zip, the
+# program built, which runs with --selftest). The library is built, if it
+# isn't there, with src/lib/build-lib.sh.
 # The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
 # (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
 # RPMBUILD=command uses another rpmbuild.
 #
 # Installed layout: the program, roms, esxdos, zxuno, README.md and LICENSE
-# in /usr/lib/pzx (pzx finds them next to itself), /usr/bin/pzx to start it,
+# in /usr/lib/pzx (pzx finds them next to itself), and its lib folder with
+# libpzxlib.so and LIBRARY.md, and its tests folder with the C# demo's sources, /usr/bin/pzx to start it,
 # a desktop entry and the icon. The settings go to ~/.config/pzx/pzx.ini,
 # as /usr/lib/pzx can't be written. The version is the release number
 # (src/Release.inc). Sound needs SDL2, recommended by both packages.
@@ -25,6 +31,20 @@ MAINTAINER="Uto <csanchez@kioskoymas.com>"
 SUMMARY="ZX Spectrum emulator (48K, 128K, +2, +2B, +3, ZX-Uno)"
 OUT="$ROOT/build/packages"
 mkdir -p "$OUT"
+
+# The native library, for the packages' lib folder (built here if needed)
+if [ ! -f build/lib/pzxlib.dll ]; then
+  src/lib/build-lib.sh >/dev/null 2>&1 || echo "Could not build pzxlib.dll: the .zip has no lib folder" >&2
+fi
+if [ ! -f build/lib/libpzxlib.so ]; then
+  src/lib/build-lib.sh linux >/dev/null 2>&1 || echo "Could not build libpzxlib.so: no lib folder in the .deb and .rpm" >&2
+fi
+
+# The C# host demo, built (Windows only) for the .zip
+DEMO=tests/csharp/PzxHostDemo
+if [ -f build/lib/pzxlib.dll ] && command -v cmd.exe >/dev/null; then
+  (cd "$DEMO" && cmd.exe /c build.bat >/dev/null 2>&1) || echo "Could not build the C# demo: the .zip has its sources only" >&2
+fi
 
 # Windows: a .zip of pzx.exe and its folders
 if [ -f pzx.exe ]; then
@@ -43,6 +63,16 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
                     z.write(path, os.path.join(top, path))
         else:
             z.write(name, os.path.join(top, name))
+    # The native library and its documentation
+    if os.path.exists('build/lib/pzxlib.dll'):
+        z.write('build/lib/pzxlib.dll', top + '/lib/pzxlib.dll')
+        z.write('LIBRARY.md', top + '/lib/LIBRARY.md')
+    # The C# host demo: sources, build.bat, and the program built if it is
+    for f in ('Pzx.cs', 'Program.cs', 'build.bat'):
+        z.write('tests/csharp/PzxHostDemo/' + f, top + '/tests/PzxHostDemo/' + f)
+    if os.path.exists('build/csharp/PzxHostDemo.exe') and os.path.exists('build/lib/pzxlib.dll'):
+        z.write('build/csharp/PzxHostDemo.exe', top + '/tests/PzxHostDemo/PzxHostDemo.exe')
+        z.write('build/lib/pzxlib.dll', top + '/tests/PzxHostDemo/pzxlib.dll')
     # The empty folder for the ZX Spectrum Next distribution (never its contents)
     z.writestr(top + '/specnext/', '')
 EOF
@@ -65,6 +95,15 @@ cp -R roms esxdos zxuno "$LIB/"
 # The ZX Spectrum Next distribution goes in ~/.config/pzx/specnext (never packaged)
 mkdir -p "$LIB/specnext"
 cp README.md LICENSE "$LIB/"
+# The native library for host applications, with its documentation
+if [ -f build/lib/libpzxlib.so ]; then
+  mkdir -p "$LIB/lib"
+  cp build/lib/libpzxlib.so LIBRARY.md "$LIB/lib/"
+fi
+# The C# host demo's sources (it is built on Windows)
+mkdir -p "$LIB/tests/PzxHostDemo"
+cp tests/csharp/PzxHostDemo/Pzx.cs tests/csharp/PzxHostDemo/Program.cs tests/csharp/PzxHostDemo/build.bat \
+  "$LIB/tests/PzxHostDemo/"
 cp README.md "$STAGE/usr/share/doc/pzx/"
 cp LICENSE "$STAGE/usr/share/doc/pzx/copyright"
 cat > "$STAGE/usr/bin/pzx" <<'EOF'
@@ -99,6 +138,7 @@ EOF
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$LIB/pzx" "$STAGE/usr/bin/pzx"
+[ ! -f "$LIB/lib/libpzxlib.so" ] || chmod 755 "$LIB/lib/libpzxlib.so"
 SIZE=$(du -sk "$STAGE" | cut -f1)
 
 # .deb

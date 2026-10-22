@@ -8,6 +8,12 @@ interface
 type
   TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext);
 
+  { How the picture is shown, as if the Spectrum's frames were the fields of
+    an interlaced picture: each frame on its own (progressive, as the
+    Spectrum sends it), two frames blended (Bob) or two frames' lines
+    interleaved (Weave) }
+  TDeinterlace = (dlProgressive, dlBob, dlWeave);
+
   { Which memory/port architecture the model uses }
   TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext);
 

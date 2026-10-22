@@ -159,6 +159,16 @@ type
     FMotorPhase, FNoiseLP: Single;      // floppy drive noise
     FNoiseSeed: LongWord;
     FTape: TTape;
+    { Auto play/stop: the Spectrum's demand for tape, from how often the EAR
+      port is read (see TapeAuto) }
+    FTapeReads: Integer;                   // reads of the EAR port this frame
+    FDemandFrames, FQuietFrames: Integer;  // frames in a row with and without that many reads
+    FLoadDemand: Boolean;                  // a load is under way
+    FTapeHeld: Boolean;                    // the user stopped the tape, or a TZX block did: no auto play until a new load
+    FLoadedSincePlay: Boolean;             // the tape has been playing while a load was under way
+    FBlockStopSeen: Boolean;
+    FLoadEnded: Boolean;                   // the ROM's LD-BYTES returned this frame
+    FTapeEpoch: Integer;
     FFDC: TUPD765;
     FRam: array[0..RAM_BANKS - 1] of TBank;   // 0-7 the RAM banks (32: ZX-Uno SRAM; 112: Next)
     FRom: array[0..3] of TBank;
@@ -444,6 +454,7 @@ type
     procedure AddAY(Chip: Integer; const Lv: array of Single; Gain: Single; var L, R: Single);
     procedure TapeTrap;
     procedure TapeTrapRest;
+    procedure TapeAuto;
     procedure CheckTraps;
     { RST 8 with the DivMMC: remember the game files esxDOS opens }
     procedure NoteEsxdosCall;
@@ -661,6 +672,18 @@ type
       change applies from the next frame. }
     procedure SetSpeed(Value: Integer);
     property Speed: Integer read FSpeed;
+    { Fast loading, and a tape playing in real time (what the ROM trap left
+      to the program's own loader): the emulator runs flat out meanwhile }
+    function TapeAccelerating: Boolean;
+    { Stop, as the user does it: it keeps Auto play from starting the tape
+      again for the same load (PlayTape is the user's Play) }
+    procedure StopTape;
+    { Stopped by the user or by a TZX block, with a load asking for it:
+      Auto play waits for the next one }
+    property TapeAutoHeld: Boolean read FTapeHeld;
+    { What the tape is doing, in words: playing, end of tape, stopped
+      (and held, for Auto play) }
+    function TapeStateText: string;
     { Disk transfers without real drive timing }
     procedure SetFastDisk(Value: Boolean);
     function GetFastDisk: Boolean;
@@ -1091,10 +1114,103 @@ end;
 
 procedure TSpectrum.PlayTape;
 begin
+  // The user's Play: Auto play is free to act again, and the load under way,
+  // if any, is the one to stop the tape at the end of
+  FTapeHeld := False;
+  FLoadedSincePlay := FLoadDemand;
   // With fast loading, a moment of silence first: the ROM's loader, if it
   // is waiting, goes back to LD-START (056C) and takes the block at once
   if FastLoad then FTape.Play(FCpu.T + FInfo.ClockHz div 10 * FSpeed)
   else FTape.Play(FCpu.T);
+end;
+
+function TSpectrum.TapeStateText: string;
+begin
+  if FTape.Playing then Result := 'playing'
+  else if (FTape.Count > 0) and (FTape.Current >= FTape.Count) then Result := 'end of tape'
+  else if FTapeHeld and AutoPlayTape then Result := 'stopped (auto play waits for the next load)'
+  else Result := 'stopped';
+end;
+
+procedure TSpectrum.StopTape;
+begin
+  FTape.Stop;
+  // Stopped with a load asking for the tape: not again for that one
+  if FLoadDemand then FTapeHeld := True;
+end;
+
+{ Auto play/stop, once a frame. The Spectrum asks for the tape when it reads
+  the EAR bit over and over: a loader does it every few T-states (hundreds of
+  times a frame), a keyboard scan a few times. So a load starts after
+  DEMAND_FRAMES frames of that, and ends after QUIET_FRAMES without it (the
+  ROM's LD-BYTES says so sooner: see CheckTrap). The tape plays when a load
+  starts (or goes on being asked for) and stops when it ends, where it is;
+  stopped by the user or by a TZX block, it waits for the next load. }
+procedure TSpectrum.TapeAuto;
+const
+  DEMAND_READS = 300;     // EAR reads in a frame (at 1x) that make a loader
+  DEMAND_FRAMES = 10;     // a fifth of a second of them starts a load
+  QUIET_FRAMES = 75;      // one and a half seconds without them end it
+begin
+  if FTape.Epoch <> FTapeEpoch then
+  begin
+    // Rewound, another block chosen, a tape in or out: a fresh start
+    FTapeEpoch := FTape.Epoch;
+    FTapeHeld := False;
+  end;
+  // A TZX block stopped it: not started again for what asked for it
+  if FTape.StoppedByBlock then
+  begin
+    if not FBlockStopSeen then FTapeHeld := True;
+    FBlockStopSeen := True;
+  end
+  else FBlockStopSeen := False;
+  if FTapeReads div FSpeed >= DEMAND_READS then
+  begin
+    Inc(FDemandFrames);
+    FQuietFrames := 0;
+  end
+  else
+  begin
+    FDemandFrames := 0;
+    Inc(FQuietFrames);
+  end;
+  FTapeReads := 0;
+  // The ROM's LD-BYTES returned in this frame (after reading as hard as ever,
+  // so the count above doesn't say it): the load ends soon, if no other follows
+  if FLoadEnded then
+  begin
+    FLoadEnded := False;
+    FDemandFrames := 0;
+    FQuietFrames := Max(FQuietFrames, QUIET_FRAMES - 20);
+  end;
+  if not AutoPlayTape then
+  begin
+    FLoadDemand := False;
+    Exit;
+  end;
+  if not FLoadDemand then
+  begin
+    if FDemandFrames >= DEMAND_FRAMES then
+    begin
+      // A new load: Auto play is free again
+      FLoadDemand := True;
+      FTapeHeld := False;
+      FLoadedSincePlay := FTape.Playing;
+    end;
+  end
+  else if FQuietFrames >= QUIET_FRAMES then
+  begin
+    FLoadDemand := False;
+    // Done loading: stopped where it is
+    if FTape.Playing and FLoadedSincePlay then FTape.Stop;
+    FLoadedSincePlay := False;
+  end;
+  if FLoadDemand and not FTape.Playing and not FTapeHeld and FTape.HasMore then
+  begin
+    FLoadedSincePlay := True;
+    FTape.Play(FCpu.T);
+  end;
 end;
 
 procedure TSpectrum.DriveNMI;
@@ -1912,6 +2028,7 @@ begin
       if (HighByte and (1 shl Row)) = 0 then Result := Result and KeyRow(Row);
     Result := Result or $A0;
     FTape.AdvanceTo(T);
+    Inc(FTapeReads);
     if FTape.Playing then
     begin
       if not FTape.Level then Result := Result and not $40;
@@ -3173,6 +3290,11 @@ end;
 
 { Tape traps }
 
+function TSpectrum.TapeAccelerating: Boolean;
+begin
+  Result := FastLoad and FTape.Playing;
+end;
+
 procedure TSpectrum.TapeTrap;
 var
   Block: TTapeBlock;
@@ -3361,7 +3483,7 @@ begin
     $056C:
       // Fast loading takes the block even if the tape was started with Play
       // (the trap stops it), so Play doesn't turn it into real-time loading
-      if FastLoad and (FTape.Current < FTape.Count) then
+      if FastLoad and FTape.HasMore then
         TapeTrap;
     $0580:
       // LD-LEADER, reading a pilot tone in real time, and fast loading has
@@ -3376,8 +3498,22 @@ begin
          ((FCpu.BC.H = $B0) or (FCpu.BC.H = $B2)) then
         TapeTrapRest;
     $0556:
-      if not FastLoad and AutoPlayTape and not FTape.Playing and (FTape.Current < FTape.Count) then
-        FTape.Play(FCpu.T);
+      // LD-BYTES: a load, for sure; the tape starts (the one stopped by the
+      // user, or by a TZX block, as well: this is a new load)
+      if not FastLoad and AutoPlayTape then
+      begin
+        FTapeHeld := False;
+        FLoadDemand := True;
+        FLoadEnded := False;
+        FDemandFrames := 0;
+        FQuietFrames := 0;
+        FLoadedSincePlay := True;
+        if not FTape.Playing and FTape.HasMore then FTape.Play(FCpu.T);
+      end;
+    $05E2:
+      // The end of LD-BYTES: the load is over, unless another follows at
+      // once (a header, then its data): stopped a few frames later
+      if AutoPlayTape and FLoadDemand then FLoadEnded := True;
   end;
 end;
 
@@ -3954,6 +4090,7 @@ begin
   Inc(FCpuTBase, FrameLength);
   Dec(FCpu.T, FrameLength);
   FTape.EndFrame(FrameLength);
+  TapeAuto;
   if FPendingSpeed <> FSpeed then
   begin
     // Keep the position within the frame when the clock changes

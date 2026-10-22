@@ -1224,7 +1224,16 @@ begin
   Mnem := Copy(Instr, 1, P - 1);
   // Over the mnemonic: what the instruction does
   if Help <> '' then AddSpot(X, Y - 1, Length(Mnem), skDoc, 0, 0, 0, Help);
-  if DarkTheme then
+  if IsZ80N(Addr, @FOwnerWin.Peek) then
+  begin
+    // The Next's Z80N instructions: bold teal (light cyan on a breakpoint's
+    // red, and on the dark theme), apart from the blue, white and dark red
+    // of the rest and readable on the green line and the pale red
+    if OnBreak then X := DrawText(X, Y, Mnem, RGBToColor(150, 255, 255), True)
+    else if DarkTheme then X := DrawText(X, Y, Mnem, RGBToColor(110, 235, 255), True)
+    else X := DrawText(X, Y, Mnem, RGBToColor(0, 110, 130), True);
+  end
+  else if DarkTheme then
   begin
     // Dark: bold white (light red if undocumented), also on the green line
     // of the execution point and on a breakpoint's

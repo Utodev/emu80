@@ -92,6 +92,8 @@ type
   private
     FProgress: Double;
     FTurn: Integer;
+    FLoaded: Boolean;
+    procedure SetLoaded(Value: Boolean);
   protected
     procedure Paint; override;
     procedure TextChanged; override;
@@ -99,6 +101,8 @@ type
     constructor Create(AOwner: TComponent); override;
     { Progress 0..1; Playing turns the reels a step at each call }
     procedure Show(Progress: Double; Playing: Boolean);
+    { False: an empty cassette player, without a tape in it }
+    property Loaded: Boolean read FLoaded write SetLoaded;
   end;
 
 { A scaled size for the controls (96 DPI design units) }
@@ -1236,6 +1240,97 @@ begin
   Invalidate;
 end;
 
+procedure TCassette.SetLoaded(Value: Boolean);
+begin
+  if FLoaded = Value then Exit;
+  FLoaded := Value;
+  Invalidate;
+end;
+
+{ A cassette player without a tape: its recessed compartment with the two
+  empty spindles, the head, the capstan and the pinch roller }
+procedure DrawEmptyPlayer(Cv: TCanvas; R: TRect; Back: TColor);
+const
+  CASE_COL = $00262626;
+  CASE_EDGE = $00585858;
+  WELL = $00141414;
+  METAL = $00A0A0A0;
+var
+  W, H, I, X, K, RS: Integer;
+  A: Double;
+  Pts: array[0..3] of TPoint;
+
+  function PX(F: Double): Integer;
+  begin
+    Result := R.Left + Round(W * F);
+  end;
+
+  function PY(F: Double): Integer;
+  begin
+    Result := R.Top + Round(H * F);
+  end;
+
+  procedure Circle(CX, CY, Rad: Integer; Pen, Fill: TColor);
+  begin
+    Cv.Pen.Color := Pen;
+    Cv.Brush.Color := Fill;
+    Cv.Ellipse(CX - Rad, CY - Rad, CX + Rad + 1, CY + Rad + 1);
+  end;
+
+begin
+  Cv.Brush.Style := bsSolid;
+  Cv.Brush.Color := Back;
+  Cv.FillRect(R);
+  W := R.Right - R.Left;
+  H := R.Bottom - R.Top;
+  if W > H * 158 div 100 then
+  begin
+    W := H * 158 div 100;
+    R.Left := R.Left + (R.Right - R.Left - W) div 2;
+    R.Right := R.Left + W;
+  end;
+  // The player's front and the compartment sunk into it
+  Cv.Pen.Color := CASE_EDGE;
+  Cv.Brush.Color := CASE_COL;
+  Cv.RoundRect(R.Left, R.Top, R.Right, R.Bottom, W div 18, W div 18);
+  Cv.Pen.Color := $00080808;
+  Cv.Brush.Color := WELL;
+  Cv.RoundRect(PX(0.06), PY(0.1), PX(0.94), PY(0.9), W div 30, W div 30);
+  RS := Math.Max(4, Round(W * 0.055));
+  // The two spindles, with their teeth
+  for I := 0 to 1 do
+  begin
+    X := PX(0.29 + I * 0.42);
+    Circle(X, PY(0.44), RS * 14 div 10, $00303030, $001C1C1C);
+    Circle(X, PY(0.44), RS, $00606060, $00808080);
+    Circle(X, PY(0.44), RS * 6 div 10, $00202020, $00202020);
+    Cv.Pen.Color := $00B0B0B0;
+    Cv.Pen.Width := Math.Max(2, RS div 4);
+    for K := 0 to 5 do
+    begin
+      A := K * Pi / 3;
+      Cv.Line(X + Round(Cos(A) * RS * 0.35), PY(0.44) + Round(Sin(A) * RS * 0.35),
+        X + Round(Cos(A) * RS * 0.62), PY(0.44) + Round(Sin(A) * RS * 0.62));
+    end;
+    Cv.Pen.Width := 1;
+  end;
+  // The head block, the capstan and the pinch roller along the bottom
+  Pts[0] := Classes.Point(PX(0.4), PY(0.9) - 1);
+  Pts[1] := Classes.Point(PX(0.44), PY(0.68));
+  Pts[2] := Classes.Point(PX(0.56), PY(0.68));
+  Pts[3] := Classes.Point(PX(0.6), PY(0.9) - 1);
+  Cv.Pen.Color := $00505050;
+  Cv.Brush.Color := $00383838;
+  Cv.Polygon(Pts);
+  Cv.Brush.Color := METAL;
+  Cv.Pen.Color := $00606060;
+  Cv.Rectangle(PX(0.475), PY(0.7), PX(0.525), PY(0.8));
+  Circle(PX(0.26), PY(0.8), Math.Max(2, W div 50), $00404040, METAL);
+  Circle(PX(0.74), PY(0.8), Math.Max(2, W div 50), $00404040, METAL);
+  Circle(PX(0.15), PY(0.8), Math.Max(3, W div 28), $00101010, $00181818);
+  Circle(PX(0.85), PY(0.8), Math.Max(3, W div 28), $00101010, $00181818);
+end;
+
 { A compact cassette: its shell with screws, the label (the tape's name and
   the rainbow stripes), the window with the tape wound on both reels (as much
   on each as has been played), the hubs turning while it plays, and the
@@ -1303,9 +1398,11 @@ var
     Cv.Ellipse(CX - RH * 6 div 10, HubY - RH * 6 div 10, CX + RH * 6 div 10 + 1, HubY + RH * 6 div 10 + 1);
     Cv.Pen.Color := $00E8E8E8;
     Cv.Pen.Width := Math.Max(2, RH div 4);
+    // Anticlockwise, as the reels of a cassette playing (the screen's Y
+    // grows downwards, so the angle goes down)
     for K := 0 to 5 do
     begin
-      A := (Turn * 10 + K * 60) * Pi / 180;
+      A := (K * 60 - Turn * 10) * Pi / 180;
       Cv.Line(CX + Round(Cos(A) * RH * 0.35), HubY + Round(Sin(A) * RH * 0.35),
         CX + Round(Cos(A) * RH * 0.62), HubY + Round(Sin(A) * RH * 0.62));
     end;
@@ -1418,7 +1515,10 @@ end;
 
 procedure TCassette.Paint;
 begin
-  DrawCassette(Canvas, ClientRect, Parent.Brush.Color, FProgress, FTurn, Caption);
+  if FLoaded then
+    DrawCassette(Canvas, ClientRect, Parent.Brush.Color, FProgress, FTurn, Caption)
+  else
+    DrawEmptyPlayer(Canvas, ClientRect, Parent.Brush.Color);
 end;
 
 initialization

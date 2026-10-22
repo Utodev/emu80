@@ -341,7 +341,10 @@ end;
 
 procedure TTapeBrowserWindow.ListDblClick(Sender: TObject);
 begin
+  // Play from that block
+  if FList.Selected = nil then Exit;
   DoSetPosition(Sender);
+  DoPlay(Sender);
 end;
 
 procedure TTapeBrowserWindow.DoPlay(Sender: TObject);
@@ -359,7 +362,7 @@ procedure TTapeBrowserWindow.DoStop(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    FEmu.Spec.Tape.Stop;
+    FEmu.Spec.StopTape;
   finally
     FEmu.Unlock;
   end;

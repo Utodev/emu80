@@ -142,3 +142,23 @@ if [ -n "$SJ" ]; then
     echo "Assembler export: sjasmplus does not rebuild the 48K ROM"; cat "$BUILD/sjasm.log"; exit 1
   fi
 fi
+
+# Installing the Next distribution from a zip
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/distrotest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/distrotest"
+
+# Settings file entries and the Next's machine ID
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/configtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/configtest" "$ROOT/roms"
+
+# Tape auto play/stop
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/autoplaytest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/autoplaytest" "$ROOT/roms"
+
+# The native library's API (the C# host demo is in tests/csharp)
+fpc -O2 -Fu"$ROOT/src" -Fu"$ROOT/src/lib" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/libtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/libtest" "$ROOT/roms"

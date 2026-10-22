@@ -687,9 +687,7 @@ begin
   Op := Peek(Addr);
   Op2 := Peek(Word(Addr + 1));
   // The Next's Z80N instructions are its documented set
-  if Z80NMnemonics and (Op = $ED) and (Op2 in [$23, $24, $27..$2C, $30..$36, $8A, $90..$95, $98,
-    $A4, $A5, $AC, $B4, $B7, $BC]) then
-    Exit;
+  if IsZ80N(Addr, Peek) then Exit;
   case Op of
     $CB:
       if Op2 in [$30..$37] then

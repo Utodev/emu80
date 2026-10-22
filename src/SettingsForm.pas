@@ -27,7 +27,7 @@ type
     FModel: TComboBox;
     FRomDir: TEdit;
     FBrowse: TButton;
-    FFastLoad, FAutoPlay, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
+    FFastLoad, FAutoPlay, FTapeLoop, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
     FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
@@ -36,8 +36,8 @@ type
     FUnoFirmware, FUnoRoms, FUnoCustom: TEdit;   // ZX-Uno BIOS, ROMs and custom ROM files
     FNextDir, FNextCard: TEdit;                  // ZX Spectrum Next distribution and SD card
     FNextFirmware: TCheckBox;
-    FJoystick: TComboBox;
-    FIssue2, FIssue3, FShiftNormal, FShiftSides: TRadioButton;
+    FJoystick, FDeinterlace: TComboBox;
+    FIssue2, FIssue3: TRadioButton;
     FVolume, FSpeed: TTrackBar;
     FScale: TComboBox;
     FUI: TComboBox;
@@ -95,6 +95,7 @@ var
   M: TSpectrumModel;
   S, Y, I: Integer;
   J: TJoystickKeys;
+  D: TDeinterlace;
   Page: TTabSheet;
   Group: TGroupBox;
   Panel: TPanel;
@@ -190,14 +191,16 @@ begin
 
   // Tapes and disks
   Page := AddPage('Storage');
-  Group := AddGroup(Page, 'Tape', 8, 116);
+  Group := AddGroup(Page, 'Tape', 8, 144);
   Y := 8;
   FFastLoad := AddCheck(Group, 'Fast tape loading', Y);
   Inc(Y, 28);
   FAutoPlay := AddCheck(Group, 'Start the tape automatically when the ROM loads (real-time mode)', Y);
   Inc(Y, 28);
   FSaveToTape := AddCheck(Group, 'SAVE writes the blocks to the tape', Y);
-  Group := AddGroup(Page, 'Floppy', 136, 116);
+  Inc(Y, 28);
+  FTapeLoop := AddCheck(Group, 'Continuous tape playback (from the start again at the end)', Y);
+  Group := AddGroup(Page, 'Floppy', 164, 116);
   Y := 8;
   FFastDisk := AddCheck(Group, 'Fast floppy disk access (no real drive timing)', Y);
   Inc(Y, 28);
@@ -283,7 +286,7 @@ begin
 
   // The rest of the machine, last
   Page := AddPage('Miscellaneous');
-  Group := AddGroup(Page, 'Graphics', 8, 136);
+  Group := AddGroup(Page, 'Graphics', 8, 170);
   Y := 8;
   FULAPlus := AddCheck(Group, 'ULAplus (64-colour palette)', Y);
   Inc(Y, 28);
@@ -292,26 +295,26 @@ begin
   FTimex := AddCheck(Group, 'Timex screen modes (second screen, hi-colour, 512x192 hi-res)', Y);
   Inc(Y, 28);
   FRadastan := AddCheck(Group, 'Radastan mode', Y);
-  Group := AddGroup(Page, 'Controls', 152, 168);
+  Inc(Y, 30);
+  AddLabel(Group, 'Deinterlace:', Y + 4);
+  FDeinterlace := AddCombo(Group, Y, 270);
+  FDeinterlace.Left := 170;
+  for D := Low(TDeinterlace) to High(TDeinterlace) do FDeinterlace.Items.Add(DEINTERLACE_NAMES[D]);
+  FDeinterlace.Hint := 'The frames taken as the fields of an interlaced picture: needed by ' +
+    'demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)';
+  FDeinterlace.ShowHint := True;
+  Group := AddGroup(Page, 'Controls', 186, 82);
   Y := 8;
   AddLabel(Group, 'Keyboard (16K/48K):', Y);
   Panel := AddRadioPanel(Group, Y - 2, 26);
   FIssue2 := AddRadio(Panel, 'Issue 2', 0, 0);
   FIssue3 := AddRadio(Panel, 'Issue 3', 100, 0);
   Inc(Y, 30);
-  AddLabel(Group, 'Shift keys:', Y);
-  Panel := AddRadioPanel(Group, Y - 2, 52);
-  FShiftNormal := AddRadio(Panel, 'Shift = CAPS SHIFT, Ctrl = SYMBOL', 0, 0);
-  FShiftSides := AddRadio(Panel, 'Left = CAPS SHIFT, right = SYMBOL', 0, 26);
-  FShiftSides.Hint := 'Left Shift and left Ctrl are CAPS SHIFT, right Shift and right Ctrl ' +
-    'SYMBOL SHIFT';
-  FShiftSides.ShowHint := True;
-  Inc(Y, 62);
   AddLabel(Group, 'Joystick (cursors + Ctrl):', Y + 4);
   FJoystick := AddCombo(Group, Y, 270);
   FJoystick.Left := 170;
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
-  Group := AddGroup(Page, 'Core features', 328, 116);
+  Group := AddGroup(Page, 'Core features', 276, 116);
   Y := 8;
   FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
   Inc(Y, 28);
@@ -585,6 +588,7 @@ begin
   FRomDir.Text := S.RomDir;
   FFastLoad.Checked := S.FastLoad;
   FAutoPlay.Checked := S.AutoPlayTape;
+  FTapeLoop.Checked := S.TapeLoop;
   FMouse.Checked := S.KempstonMouse;
   FDivMMC.Checked := S.DivMMC;
   FCurrah.Checked := S.Currah;
@@ -602,10 +606,9 @@ begin
   FFloppyNoise.Checked := S.FloppyNoise;
   FSaveOnExit.Checked := S.SaveOnExit;
   FJoystick.ItemIndex := Ord(S.Joystick);
+  FDeinterlace.ItemIndex := Ord(S.Deinterlace);
   FIssue2.Checked := S.Issue2;
   FIssue3.Checked := not S.Issue2;
-  FShiftSides.Checked := S.ShiftSides;
-  FShiftNormal.Checked := not S.ShiftSides;
   FSound.Checked := not S.Sound;
   FTurboSound.Checked := S.TurboSound;
   FMonochrome.Checked := S.Monochrome;
@@ -638,6 +641,7 @@ begin
   S.RomDir := FRomDir.Text;
   S.FastLoad := FFastLoad.Checked;
   S.AutoPlayTape := FAutoPlay.Checked;
+  S.TapeLoop := FTapeLoop.Checked;
   S.KempstonMouse := FMouse.Checked;
   if FDivMMC.Enabled then S.DivMMC := FDivMMC.Checked else S.DivMMC := FOwn[0];
   S.ZXUnoFirmware := Trim(FUnoFirmware.Text);
@@ -658,8 +662,8 @@ begin
   S.FloppyNoise := FFloppyNoise.Checked;
   S.SaveOnExit := FSaveOnExit.Checked;
   S.Joystick := TJoystickKeys(FJoystick.ItemIndex);
+  S.Deinterlace := TDeinterlace(FDeinterlace.ItemIndex);
   S.Issue2 := FIssue2.Checked;
-  S.ShiftSides := FShiftSides.Checked;
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
   S.Currah := FCurrah.Checked;

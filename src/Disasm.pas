@@ -41,6 +41,9 @@ function ConditionAt(Addr: Word; Peek: TPeekFunc; F, B: Byte): TCondition;
 { True if "step over" should run to the following instruction instead of
   stepping into it: CALL, RST, DJNZ, HALT and repeating block instructions. }
 function IsStepOver(Addr: Word; Peek: TPeekFunc): Boolean;
+{ An instruction of the ZX Spectrum Next's Z80N set (only while Z80NMnemonics
+  is on): the ED opcodes it adds, not every instruction the Z80 didn't have }
+function IsZ80N(Addr: Word; Peek: TPeekFunc): Boolean;
 
 implementation
 
@@ -400,6 +403,13 @@ begin
   else
     Exit;
   if Holds then Result := cdTaken else Result := cdNotTaken;
+end;
+
+function IsZ80N(Addr: Word; Peek: TPeekFunc): Boolean;
+begin
+  Result := Z80NMnemonics and (Peek(Addr) = $ED) and
+    (Peek(Word(Addr + 1)) in [$23, $24, $27..$2C, $30..$36, $8A, $90..$95, $98, $A4, $A5, $AC, $B4,
+    $B7, $BC]);
 end;
 
 function IsStepOver(Addr: Word; Peek: TPeekFunc): Boolean;

@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, NextWizard, Models, Spectrum, Emulator, Config, Icons, PokeForm,
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Emulator, Config, Icons, PokeForm,
   Pokes, ScreenCapture, DocForm, ModernUI;
 
 type
@@ -23,7 +23,7 @@ type
     FModelButton: TToolButton;
     FModelMenu: TPopupMenu;
     FModelPopupItems: array[TSpectrumModel] of TMenuItem;
-    FPauseButton: TToolButton;
+    FPauseButton, FTapePlayButton: TToolButton;
     FRecButton: TToolButton;
     FDiskButton: TToolButton;
     FSDButton: TToolButton;
@@ -43,7 +43,7 @@ type
     FRecentSymbolsMenu: TMenuItem;
     FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
     FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
-    FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem: TMenuItem;
+    FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem: TMenuItem;
     FMonoItem: TMenuItem;
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
     FLastFile: string;          // last file opened, for the POKE history
@@ -55,17 +55,21 @@ type
     FNoticeTimer: TTimer;   // --model zxnext: pzx closes if it can't start
     FFullerBits: Byte;
     FScaleItems: array[1..4] of TMenuItem;
+    FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
+    FPrevPixels: array of LongWord;   // the frame before (the other field)
+    FPixelsOdd: Boolean;              // FPixels is the odd field
     FKeyCount: array[0..39] of Integer;
     FDriveNmiItem: TMenuItem;
     FExtCount: array[0..15] of Integer;      // two-key keys (EXT_*) held
     // The modern interface (MainModern.inc)
     FModern: Boolean;
+    FNextJustInstalled: Boolean;   // its card is made at the usual size, without asking
     FModernMinHeight, FModernMinWidth: Integer;
     FBigImages, FSmallImages: TImageList;
     FMirror: TPopupMenu;
     FMHeader, FMLeft, FMRight, FMBottom: TDarkPanel;
     FMMachine, FMTape, FMMedia: TPaletteBox;
-    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMDiskBtn, FMSDBtn: TFlatButton;
+    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
     FMZoom: array[1..4] of TFlatButton;
     FMCassette: TCassette;
     FMTapeLabel: TLabel;
@@ -188,6 +192,7 @@ type
     procedure DoScreenshotBorder(Sender: TObject);
     function ConfirmTapeChanges: Boolean;
     procedure DoScale(Sender: TObject);
+    procedure DoDeinterlace(Sender: TObject);
     procedure DoSettings(Sender: TObject);
     procedure DoTapeInsert(Sender: TObject);
     procedure BuildModern;
@@ -223,6 +228,24 @@ type
     procedure EmulatorBreak(Sender: TObject);
     function ConfirmDiskChanges(Drive: Integer): Boolean;
     function PrepareNext: Boolean;
+    { The card each hardware remembers: the Next's (NextCard), the ZX-Uno's, the
+      standard models' }
+    procedure RememberCard(const FileName: string);
+    { Put that card in the DivMMC (nothing, if it isn't there): the one that
+      is in goes out first (its changes were dealt with) }
+    procedure UseCard(const FileName: string; EjectIfNone: Boolean);
+    { Switching hardware: the DivMMC and its card for the new one }
+    procedure HardwareChanged(Old, New: TSpectrumModel);
+    { The licence warning the first time the Next is to say it is a real one
+      (hidden option realspecnext), and the ID the machine will send }
+    procedure ConfirmRealSpecNext;
+    procedure ApplyNextId;
+    { The distribution isn't installed: where to get it and how to install it }
+    procedure NoNextDistro;
+    { Options > Install Spectrum Next Distribution: only without one }
+    procedure UpdateInstallNextItem(Sender: TObject);
+    procedure DoInstallNextDistro(Sender: TObject);
+    procedure InstallProgress(Percent: Integer);
     procedure LeaveNext;
     function MakeNextCardFile(const FileName: string; SizeMB: Integer = 0): Boolean;
     procedure DoNewNextCard(Sender: TObject);
@@ -394,6 +417,7 @@ begin
   FBitmap.PixelFormat := pf32bit;
   FBitmap.SetSize(SCREEN_WIDTH, SCREEN_HEIGHT);
   SetLength(FPixels, FB_WIDTH * SCREEN_HEIGHT);
+  SetLength(FPrevPixels, FB_WIDTH * SCREEN_HEIGHT);
 
   BuildMenu;
   BuildToolBar;
@@ -434,8 +458,14 @@ begin
   FStatusTimer.Interval := 250;
   FStatusTimer.OnTimer := @StatusTick;
 
-  // The card that was in the DivMMC last time
-  if (Settings.SDCardFile <> '') and FileExists(Settings.SDCardFile) then
+  // The card that was in the DivMMC last time (the ZX-Uno's, if it starts as
+  // that; the Next's is put in when it is switched to)
+  if Settings.Model = smZXUno then
+  begin
+    Settings.DivMMC := True;
+    if (Settings.ZXUnoCard <> '') and FileExists(Settings.ZXUnoCard) then UseCard(Settings.ZXUnoCard, False);
+  end;
+  if (FEmu.Spec.DivMMC.Card = nil) and (Settings.SDCardFile <> '') and FileExists(Settings.SDCardFile) then
   begin
     FEmu.Lock;
     try
@@ -484,6 +514,7 @@ procedure TMainWindow.BuildMenu;
 var
   TopItem, Item: TMenuItem;
   S: Integer;
+  D: TDeinterlace;
 begin
   FMenu := TMainMenu.Create(Self);
   Menu := FMenu;
@@ -518,7 +549,7 @@ begin
   AddItem(FMenu.Items, '|', nil).Enabled := False;
   TopItem := AddItem(FMenu.Items, '&Tape', nil);
   AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, []));
-  AddItem(TopItem, '&Play', @DoTapePlay, ShortCut(VK_F8, []));
+  AddItem(TopItem, '&Play/pause', @DoTapePlay, ShortCut(VK_F8, []));
   AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssShift]));
   FRecItem := AddItem(TopItem, 'Re&cord (REC)', @DoTapeRecord);
   AddItem(TopItem, '&Rewind', @DoTapeRewind);
@@ -597,6 +628,7 @@ begin
   AddItem(TopItem, '&Adventure Debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
 
   TopItem := AddItem(FMenu.Items, '&Options', nil);
+  TopItem.OnClick := @UpdateInstallNextItem;
   FMonoItem := AddItem(TopItem, '&Black and white display', @DoMonochrome);
   Item := AddItem(TopItem, '&Window size', nil);
   for S := 1 to 4 do
@@ -606,9 +638,18 @@ begin
     FScaleItems[S].RadioItem := True;
     FScaleItems[S].GroupIndex := 2;
   end;
+  Item := AddItem(TopItem, '&Deinterlace', nil);
+  for D := Low(TDeinterlace) to High(TDeinterlace) do
+  begin
+    FDeinterlaceItems[D] := AddItem(Item, DEINTERLACE_NAMES[D], @DoDeinterlace);
+    FDeinterlaceItems[D].Tag := Ord(D);
+    FDeinterlaceItems[D].RadioItem := True;
+    FDeinterlaceItems[D].GroupIndex := 3;
+  end;
   FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
   FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
   FModernItem := AddItem(TopItem, 'Mo&dern interface (dark)', @DoToggleTheme);
+  FInstallNextItem := AddItem(TopItem, 'Install Spectrum Next Distribution', @DoInstallNextDistro);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, 'S&ettings...', @DoSettings);
 
@@ -683,7 +724,7 @@ begin
   FTurboButton.Style := tbsCheck;
   AddSeparator;
   AddButton(ikTape, 'Tape browser (F7)', @DoTapeBrowser);
-  AddButton(ikPlay, 'Play tape (F8)', @DoTapePlay);
+  FTapePlayButton := AddButton(ikPlay, 'Play/pause tape (F8)', @DoTapePlay);
   AddButton(ikStop, 'Stop tape (Shift+F8)', @DoTapeStop);
   FRecButton := AddButton(ikRecord, 'Record onto the tape (REC)', @DoTapeRecord);
   FRecButton.Style := tbsCheck;
@@ -705,6 +746,7 @@ begin
   try
     FEmu.Spec.FastLoad := Settings.FastLoad;
     FEmu.Spec.AutoPlayTape := Settings.AutoPlayTape;
+    FEmu.Spec.Tape.Loop := Settings.TapeLoop;
     FEmu.Spec.KempstonEnabled := Settings.Joystick = jkKempston;
     FEmu.Spec.MouseEnabled := Settings.KempstonMouse;
     FEmu.Spec.AYOn48K := Settings.AY48;
@@ -724,6 +766,8 @@ begin
     FEmu.Spec.TimexEnabled := Settings.Timex;
     FEmu.Spec.RadastanEnabled := Settings.Radastan;
     FEmu.Spec.NextDir := NextDistroDir;
+    if Settings.RealSpecNext and Settings.RealSpecNextOk then FEmu.Spec.NextMachineId := $0A
+    else FEmu.Spec.NextMachineId := $08;
     FEmu.Spec.NextBootRom := IncludeTrailingPathDelimiter(DefaultRomDir) + 'tbblue_loader.rom';
     // Another way of starting the Next: switched off and on again
     if FEmu.Spec.NextFirmwareBoot <> Settings.NextFirmware then
@@ -859,7 +903,7 @@ begin
   end;
   if Remember then
   begin
-    Settings.SDCardFile := FileName;
+    RememberCard(FileName);
     Settings.AddRecentCard(FileName);
     UpdateRecentDisksMenu;
   end;
@@ -929,6 +973,7 @@ begin
   FAutoPlayItem.Checked := Settings.AutoPlayTape;
   FMuteItem.Checked := not Settings.Sound;
   FMonoItem.Checked := Settings.Monochrome;
+  UpdateInstallNextItem(nil);
   // The Spectrum draws its own pointer: hide the PC one over the picture
   if Settings.KempstonMouse then FDisplay.Cursor := crNone else FDisplay.Cursor := crDefault;
   FSaveToTapeItem.Checked := Settings.SaveToTape;
@@ -946,6 +991,7 @@ begin
   for S := 1 to 4 do
   begin
     FScaleItems[S].Checked := S = Settings.Scale;
+  FDeinterlaceItems[Settings.Deinterlace].Checked := True;
     // A zoom too big for the screen can't be chosen
     FScaleItems[S].Enabled := (S = 1) or ScaleFits(S);
   end;
@@ -1068,22 +1114,21 @@ end;
 
 procedure TMainWindow.RenderBitmap;
 var
-  Scale, X, Y, I, Stride, BytesPP: Integer;
+  Scale, X, Y, Stride, BytesPP, W, H: Integer;
   RShift, GShift, BShift, AShift: Byte;
   Data, Row: PByte;
-  Line, Dark: array of LongWord;
+  Tmp: array of LongWord;
+  Options: TPresentOptions;
+  Direct: Boolean;
   P, Native: LongWord;
-  Direct, Mono, Scan: Boolean;
-  Grey: LongWord;
 begin
   Scale := DisplayScale;
-  Mono := Settings.Monochrome;
-  // Scanlines: from 2x, the lower rows of every Spectrum line are darker
-  Scan := Settings.Scanlines and (Scale >= 2);
-  if (FBitmap.Width <> SCREEN_WIDTH * Scale) or (FBitmap.Height <> SCREEN_HEIGHT * Scale) then
-    FBitmap.SetSize(SCREEN_WIDTH * Scale, SCREEN_HEIGHT * Scale);
-  SetLength(Line, SCREEN_WIDTH * Scale);
-  SetLength(Dark, SCREEN_WIDTH * Scale);
+  Options.Deinterlace := Settings.Deinterlace;
+  Options.Mono := Settings.Monochrome;
+  Options.Scanlines := Settings.Scanlines;
+  W := SCREEN_WIDTH * Scale;
+  H := SCREEN_HEIGHT * Scale;
+  if (FBitmap.Width <> W) or (FBitmap.Height <> H) then FBitmap.SetSize(W, H);
   FBitmap.BeginUpdate(False);
   try
     Data := FBitmap.RawImage.Data;
@@ -1096,45 +1141,23 @@ begin
       Direct := (BitsPerPixel = 32) and (RShift = 16) and (GShift = 8) and (BShift = 0) and
         (ByteOrder = riboLSBFirst);
     end;
-    for Y := 0 to SCREEN_HEIGHT - 1 do
+    if Direct then
+      PresentFrame(@FPixels[0], @FPrevPixels[0], FPixelsOdd, Scale, Options, Data, Stride)
+    else
     begin
-      // Build one scaled line, then copy it Scale times. The frame buffer
-      // is twice as wide (Timex hi-res): each output pixel takes its column
-      for X := 0 to SCREEN_WIDTH * Scale - 1 do
+      // Another pixel format: drawn as BGRA and converted
+      SetLength(Tmp, W * H);
+      PresentFrame(@FPixels[0], @FPrevPixels[0], FPixelsOdd, Scale, Options, @Tmp[0], W * 4);
+      for Y := 0 to H - 1 do
       begin
-        P := FPixels[Y * FB_WIDTH + X * 2 div Scale];
-        if Mono then
+        Row := @Data[Y * Stride];
+        for X := 0 to W - 1 do
         begin
-          Grey := (((P shr 16) and $FF) * 77 + ((P shr 8) and $FF) * 150 + (P and $FF) * 29) shr 8;
-          P := $FF000000 or (Grey shl 16) or (Grey shl 8) or Grey;
-        end;
-        if Direct then
-          Native := P
-        else
+          P := Tmp[Y * W + X];
           Native := (((P shr 16) and $FF) shl RShift) or (((P shr 8) and $FF) shl GShift) or
             ((P and $FF) shl BShift) or (LongWord($FF) shl AShift);
-        Line[X] := Native;
-        if Scan then
-          Dark[X] := (((((P shr 16) and $FF) * 5) shr 3) shl RShift) or
-            (((((P shr 8) and $FF) * 5) shr 3) shl GShift) or ((((P and $FF) * 5) shr 3) shl BShift) or
-            (LongWord($FF) shl AShift);
-      end;
-      for I := 0 to Scale - 1 do
-      begin
-        Row := @Data[(Y * Scale + I) * Stride];
-        if Scan and (I >= (Scale + 1) div 2) then
-        begin
-          if BytesPP = 4 then
-            Move(Dark[0], Row^, Length(Dark) * 4)
-          else
-            for X := 0 to High(Dark) do
-              Move(Dark[X], Row[X * BytesPP], BytesPP);
-        end
-        else if BytesPP = 4 then
-          Move(Line[0], Row^, Length(Line) * 4)
-        else
-          for X := 0 to High(Line) do
-            Move(Line[X], Row[X * BytesPP], BytesPP);
+          Move(Native, Row[X * BytesPP], BytesPP);
+        end;
       end;
     end;
   finally
@@ -1144,10 +1167,19 @@ end;
 
 procedure TMainWindow.FrameReady(Sender: TObject);
 begin
-  FEmu.CopyDisplay(@FPixels[0]);
+  FEmu.CopyFields(@FPixels[0], @FPrevPixels[0], FPixelsOdd);
   RenderBitmap;
   FDisplay.Invalidate;
 end;
+
+procedure TMainWindow.DoDeinterlace(Sender: TObject);
+begin
+  Settings.Deinterlace := TDeinterlace((Sender as TMenuItem).Tag);
+  UpdateChecks;
+  RenderBitmap;
+  FDisplay.Invalidate;
+end;
+
 
 procedure TMainWindow.PaintDisplay(Sender: TObject);
 var
@@ -1192,10 +1224,15 @@ begin
     else
     begin
       TapeText := Format('Tape %d/%d', [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count]);
-      if Spec.Tape.Playing then TapeText := TapeText + ' playing';
+      TapeText := TapeText + ' ' + Spec.TapeStateText;
       if Spec.Tape.Current < Spec.Tape.Count then
         TapeText := TapeText + ': ' + Spec.Tape[Spec.Tape.Current].Description;
     end;
+    // The Play button shows a pause while the tape plays
+    if Spec.Tape.Playing then
+      FTapePlayButton.ImageIndex := Ord(ikPause)
+    else
+      FTapePlayButton.ImageIndex := Ord(ikPlay);
     // The disk browser needs a disk in A:, the SD browser a card
     // The browsers need something to browse: from the toolbar and the menus
     HaveDisk := DefaultDrive(Spec) >= 0;
@@ -1386,11 +1423,10 @@ begin
     VK_NUMPAD0..VK_NUMPAD9: Press(Digits[Chr(Ord('0') + Key - VK_NUMPAD0)]);
     VK_RETURN: Press(KEY_ENTER);
     VK_SPACE: Press(KEY_SPACE);
-    // Shift and Ctrl (FormKeyDown/Up tell left from right)
+    // Left Shift is CAPS SHIFT and right Shift SYMBOL SHIFT (FormKeyDown/Up
+    // tell left from right); Ctrl is never either
     VK_SHIFT, VK_LSHIFT: Press(KEY_CAPS);
-    VK_RSHIFT: if Settings.ShiftSides then Press(KEY_SYM) else Press(KEY_CAPS);
-    VK_LCONTROL: if Settings.ShiftSides then Press(KEY_CAPS) else Press(KEY_SYM);
-    VK_CONTROL, VK_RCONTROL: Press(KEY_SYM);
+    VK_RSHIFT: Press(KEY_SYM);
     VK_BACK, VK_DELETE: Ext(EXT_DELETE);
     VK_LEFT: Ext(EXT_LEFT);
     VK_DOWN: Ext(EXT_DOWN);
@@ -1881,26 +1917,26 @@ end;
 function TMainWindow.PrepareNext: Boolean;
 var
   Dir, Card, Id, Old: string;
-  Installed: Boolean;
   Vol: TFatVolume;
   Repaired: TStringList;
 begin
   Result := False;
+  // First of all: what the Next says it is (and the warning, if it asks to be a real one)
+  ConfirmRealSpecNext;
   Dir := NextDistroDir;
-  // Not there (it can't come with pzx): the steps to download and install
-  // it; stopped, the machine stays as it was (or pzx closes, started on it)
-  Installed := False;
+  // Not there (it can't come with pzx): where to get it and how to install
+  // it; the machine stays as it was (or pzx closes, started on it)
   if not NextDistroReady(Dir) then
   begin
-    if not InstallNextDistro(Dir) then Exit;
-    Installed := True;
+    NoNextDistro;
+    Exit;
   end;
   Card := NextCardFile;
   Id := NextCard.NextDistroId(Dir);
   if not FileExists(Card) then
   begin
-    // Just installed with the steps: straight on, the card of the usual size
-    if Installed then
+    // Just installed: straight on, the card of the usual size
+    if FNextJustInstalled then
     begin
       if not MakeNextCardFile(Card, NEXT_CARD_MB) then Exit;
     end
@@ -1985,6 +2021,161 @@ begin
   end;
 end;
 
+procedure TMainWindow.RememberCard(const FileName: string);
+begin
+  case FEmu.Spec.Model of
+    smZXNext: Settings.NextCard := FileName;
+    smZXUno: Settings.ZXUnoCard := FileName;
+  else
+    Settings.SDCardFile := FileName;
+  end;
+end;
+
+procedure TMainWindow.UseCard(const FileName: string; EjectIfNone: Boolean);
+var
+  Have: Boolean;
+begin
+  Have := (FileName <> '') and FileExists(FileName);
+  // Already in: nothing to do (reading it again would drop what isn't saved)
+  if Have and (FEmu.Spec.DivMMC.Card <> nil) and
+     SameFileName(ExpandFileName(FEmu.Spec.DivMMC.Card.FileName), ExpandFileName(FileName)) then Exit;
+  if not Have and not EjectIfNone then Exit;
+  FEmu.Lock;
+  try
+    FEmu.Spec.DivMMC.EjectCard;
+    if Have then
+      try
+        FEmu.Spec.DivMMC.InsertCard(FileName);
+      except
+        // An unreadable image is as good as none
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+  DropTempCard;
+  if SDBrowserWindow <> nil then SDBrowserWindow.Refresh;
+end;
+
+procedure TMainWindow.HardwareChanged(Old, New: TSpectrumModel);
+const
+  OWN = [smZXUno, smZXNext];
+begin
+  if Old = New then Exit;
+  // Into the Next or the ZX-Uno: their DivMMC is on, with the last card
+  // used in them if there is one (the Next's was put in by PrepareNext)
+  if New in OWN then Settings.DivMMC := True;
+  if New = smZXUno then UseCard(Settings.ZXUnoCard, False)
+  // Out of the ZX-Uno: the standard models' card (out of the Next, LeaveNext)
+  else if (Old = smZXUno) and not (New in OWN) then UseCard(Settings.SDCardFile, True);
+  // Out of either to a standard Spectrum: keep the DivMMC?
+  if (Old in OWN) and not (New in OWN) and Settings.DivMMC then
+    if MessageDlg('DivMMC', 'This is a standard ZX Spectrum. Do you want to switch off the DivMMC ' +
+       'interface?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then Settings.DivMMC := False;
+end;
+
+procedure TMainWindow.ApplyNextId;
+begin
+  FEmu.Lock;
+  try
+    // $0A: a ZX Spectrum Next; $08: an emulator, as pzx says it is
+    if Settings.RealSpecNext and Settings.RealSpecNextOk then FEmu.Spec.NextMachineId := $0A
+    else FEmu.Spec.NextMachineId := $08;
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
+procedure TMainWindow.ConfirmRealSpecNext;
+begin
+  if Settings.RealSpecNext and not Settings.RealSpecNextOk then
+  begin
+    if MessageDlg('ZX Spectrum Next', 'Al usar esta característica puede estar violando la licencia ' +
+       'del software del Spectrum Next. ¿Quiere continuar?', mtWarning, [mbYes, mbNo], 0) = mrYes then
+      Settings.AcceptRealSpecNext
+    else
+    begin
+      // Refused: the emulator's ID. The file's entry goes only if that is
+      // where the option came from; a command line one is ignored this once
+      if not Settings.RealSpecNextCmd then Settings.ForgetRealSpecNext;
+      Settings.RealSpecNext := False;
+    end;
+  end;
+  ApplyNextId;
+end;
+
+procedure TMainWindow.NoNextDistro;
+begin
+  ShowNoNextDistro;
+end;
+
+procedure TMainWindow.InstallProgress(Percent: Integer);
+begin
+  FStatus.Panels[2].Text := Format('Installing the ZX Spectrum Next distribution... %d%%', [Percent]);
+  Application.ProcessMessages;
+end;
+
+procedure TMainWindow.UpdateInstallNextItem(Sender: TObject);
+begin
+  if FInstallNextItem <> nil then FInstallNextItem.Visible := not NextDistroReady(NextDistroDir);
+end;
+
+{ Choose the distribution's zip, unpack it into the specnext folder and
+  check it; then offer to start the Next. A zip that isn't a distribution
+  leaves the folder empty (what was in it is deleted, as the user is told). }
+procedure TMainWindow.DoInstallNextDistro(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+  ZipFile, Dir, Msg, OldStatus: string;
+  R: TDistroInstall;
+begin
+  Dir := NextDistroDir;
+  Dlg := TOpenDialog.Create(nil);
+  try
+    Dlg.Title := 'The ZX Spectrum Next distribution downloaded';
+    Dlg.Filter := 'Zip files (*.zip)|*.zip|All files|*.*';
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if not Dlg.Execute then Exit;
+    ZipFile := Dlg.FileName;
+  finally
+    Dlg.Free;
+  end;
+  OldStatus := FStatus.Panels[2].Text;
+  Screen.Cursor := crHourGlass;
+  // Nothing else meanwhile: the window ignores the mouse and keyboard
+  Enabled := False;
+  try
+    R := InstallNextDistroZip(ZipFile, Dir, Msg, @InstallProgress);
+  finally
+    Enabled := True;
+    Screen.Cursor := crDefault;
+    FStatus.Panels[2].Text := OldStatus;
+  end;
+  UpdateInstallNextItem(nil);
+  case R of
+    diOk:
+      if MessageDlg('ZX Spectrum Next', 'Distribución instalada.' + LineEnding +
+         '¿Quiere iniciar la emulación de Spectrum Next?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      begin
+        FNextJustInstalled := True;
+        try
+          ChangeModel(smZXNext);
+        finally
+          FNextJustInstalled := False;
+        end;
+      end;
+    diInvalid:
+      begin
+        MessageDlg('ZX Spectrum Next', 'Distribución no valida', mtError, [mbOK], 0);
+        // As the message says: the folder is emptied
+        ClearNextDistroDir(Dir);
+        UpdateInstallNextItem(nil);
+      end;
+  else
+    MessageDlg('ZX Spectrum Next', 'The distribution could not be installed: ' + Msg + LineEnding +
+      'Nothing was installed.', mtError, [mbOK], 0);
+  end;
+end;
+
 procedure TMainWindow.DoNewNextCard(Sender: TObject);
 var
   Dlg: TSaveDialog;
@@ -1992,7 +2183,11 @@ var
   InUse: Boolean;
   SizeMB: Integer;
 begin
-  if not NextDistroReady(NextDistroDir) and not InstallNextDistro(NextDistroDir) then Exit;
+  if not NextDistroReady(NextDistroDir) then
+  begin
+    NoNextDistro;
+    Exit;
+  end;
   // The size first, then the file (as for the DivMMC's new cards)
   if not AskNextCardSize(SizeMB) then Exit;
   Dlg := TSaveDialog.Create(nil);
@@ -2038,8 +2233,14 @@ end;
 procedure TMainWindow.ChangeModel(M: TSpectrumModel);
 var
   WasNext: Boolean;
+  Old: TSpectrumModel;
 begin
+  Old := FEmu.Spec.Model;
   WasNext := FEmu.Spec.Model = smZXNext;
+  // The card in the DivMMC may change with the hardware (the Next's does by
+  // itself): its changes first, or the change is cancelled
+  if (M <> Old) and (Old <> smZXNext) and (M <> smZXNext) and ((Old = smZXUno) or (M = smZXUno)) and
+     not ConfirmCardChanges then Exit;
   // The Next: its distribution must be there, and its card ready
   if (M = smZXNext) and not WasNext and not PrepareNext then
   begin
@@ -2063,6 +2264,7 @@ begin
     FEmu.Unlock;
   end;
   Settings.Model := FEmu.Spec.Model;
+  HardwareChanged(Old, FEmu.Spec.Model);
   // Leaving the ZX-Uno (its own DivMMC): as Settings say again
   ApplyDivMMC;
   UpdateChecks;
@@ -2154,11 +2356,12 @@ begin
   ShowTapeBrowser(FEmu);
 end;
 
+{ Play/pause: plays the tape from where it is; while it plays, stops it there }
 procedure TMainWindow.DoTapePlay(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    FEmu.Spec.PlayTape;
+    if FEmu.Spec.Tape.Playing then FEmu.Spec.StopTape else FEmu.Spec.PlayTape;
   finally
     FEmu.Unlock;
   end;
@@ -2168,7 +2371,7 @@ procedure TMainWindow.DoTapeStop(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    FEmu.Spec.Tape.Stop;
+    FEmu.Spec.StopTape;
   finally
     FEmu.Unlock;
   end;
@@ -2615,7 +2818,7 @@ begin
     try
       try
         FEmu.Spec.DivMMC.Card.Save(Dlg.FileName);
-        Settings.SDCardFile := FEmu.Spec.DivMMC.Card.FileName;
+        RememberCard(FEmu.Spec.DivMMC.Card.FileName);
       except
         on E: Exception do Err := E.Message;
       end;
@@ -2830,7 +3033,7 @@ begin
   end;
   FTempCard := TempFile;
   FTempFolder := Folder;
-  Settings.SDCardFile := '';    // nothing to insert again next time
+  RememberCard('');    // nothing to insert again next time
   // Boot again so esxDOS sees the new card
   FEmu.Lock;
   try
@@ -2865,7 +3068,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  Settings.SDCardFile := '';
+  RememberCard('');
   DropTempCard;
   if SDBrowserWindow <> nil then SDBrowserWindow.Refresh;
 end;
@@ -3235,6 +3438,7 @@ var
   SymFiles: TStringList;
   M: TSpectrumModel;
   J: TJoystickKeys;
+  D: TDeinterlace;
   HaveModel, Help, BoolValue, TurboSet, TurboValue, FirmwareSet: Boolean;
   BoolTarget: PBoolean;
   Boot, RomIndex: Integer;
@@ -3255,12 +3459,12 @@ var
       (Name = 'disk') or (Name = 'diska') or (Name = 'diskb') or (Name = 'sym') or (Name = 's') or
       (Name = 'bp') or (Name = 'bpr') or (Name = 'bpw') or (Name = 'bprw') or (Name = 'bpa') or
       (Name = 'bpin') or (Name = 'bpout') or (Name = 'bpio') or (Name = 'keyin') or
-      (Name = 'config') or (Name = 'config-add') or (Name = 'joystick') or (Name = 'sdcard') or
+      (Name = 'config') or (Name = 'config-add') or (Name = 'joystick') or (Name = 'deinterlace') or (Name = 'sdcard') or (Name = 'zxunocard') or
       (Name = 'sdadd') or (Name = 'sdfolder') or (Name = 'volume') or (Name = 'issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'divmmcrom') or
       (Name = 'zxunofirmware') or (Name = 'zxunoroms') or (Name = 'zxunocustomrom') or
       (Name = 'nextdir') or (Name = 'nextcard') or
-      (Name = 'shiftkeys') or (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
+      (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
 
@@ -3374,6 +3578,14 @@ begin
         Settings.Sound := not BoolValue;
         Continue;
       end;
+      // Hidden option (not documented, see CLAUDE.md): over the settings file's
+      if BoolName = 'realspecnext' then
+      begin
+        if Value <> '' then BoolValue := (Value <> '0') and not SameText(Value, 'false');
+        Settings.RealSpecNext := BoolValue;
+        Settings.RealSpecNextCmd := True;
+        Continue;
+      end;
       if BoolName = 'turbo' then
       begin
         TurboSet := True;
@@ -3476,13 +3688,6 @@ begin
         if (Value <> 'classic') and (Value <> 'modern') then
           Errors := Errors + 'Unknown --ui (classic or modern): ' + Value + LineEnding;
       end
-      else if Arg = 'shiftkeys' then
-      begin
-        Value := LowerCase(Value);
-        if Value = 'standard' then Settings.ShiftSides := False
-        else if Value = 'sides' then Settings.ShiftSides := True
-        else Errors := Errors + 'Unknown --shiftkeys (standard or sides): ' + Value + LineEnding;
-      end
       else if (Arg = 'zxunofirmware') or (Arg = 'zxunoroms') or (Arg = 'zxunocustomrom') then
       begin
         if (Value = '') or FileExists(Value) then
@@ -3525,8 +3730,25 @@ begin
         Settings.NextCard := Value;
       end
       else if Arg = 'sdcard' then SDFile := Value
+      else if Arg = 'zxunocard' then
+      begin
+        if Value <> '' then Value := ExpandFileName(Value);
+        Settings.ZXUnoCard := Value;
+      end
       else if Arg = 'sdadd' then SDAdds.Add(Value)
       else if Arg = 'sdfolder' then SDFolder := Value
+      else if Arg = 'deinterlace' then
+      begin
+        Value := LowerCase(Value);
+        N := -1;
+        for D := Low(TDeinterlace) to High(TDeinterlace) do
+          if Value = DEINTERLACE_KEYS[D] then
+          begin
+            Settings.Deinterlace := D;
+            N := 0;
+          end;
+        if N < 0 then Errors := Errors + 'Unknown --deinterlace (progressive, bob or weave): ' + Value + LineEnding;
+      end
       else if Arg = 'joystick' then
       begin
         Value := LowerCase(Value);

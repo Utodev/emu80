@@ -158,6 +158,41 @@ begin
     WriteLn('FAIL  AT: ', CondactHelp('AT', aeDAAD));
     Inc(Failures);
   end;
+  // Z80N instructions are told apart (for the debugger's colours): only the
+  // ED opcodes the Next adds, and only with the Z80N mnemonics on
+  Z80NMnemonics := True;
+  for Op2 := 0 to 255 do
+  begin
+    FillChar(Mem.Bytes, SizeOf(Mem.Bytes), 0);
+    Mem.Bytes[0] := $ED;
+    Mem.Bytes[1] := Op2;
+    if IsZ80N(0, @Mem.Peek) <> (Op2 in [$23, $24, $27..$2C, $30..$36, $8A, $90..$95, $98, $A4, $A5, $AC,
+       $B4, $B7, $BC]) then
+    begin
+      WriteLn('FAIL  IsZ80N for ED ', IntToHex(Op2, 2));
+      Inc(Failures);
+    end;
+  end;
+  for Op := 0 to 255 do
+    if Op <> $ED then
+    begin
+      FillChar(Mem.Bytes, SizeOf(Mem.Bytes), 0);
+      Mem.Bytes[0] := Op;
+      Mem.Bytes[1] := $23;
+      if IsZ80N(0, @Mem.Peek) then
+      begin
+        WriteLn('FAIL  IsZ80N for ', IntToHex(Op, 2), ' 23');
+        Inc(Failures);
+      end;
+    end;
+  Z80NMnemonics := False;
+  Mem.Bytes[0] := $ED;
+  Mem.Bytes[1] := $30;
+  if IsZ80N(0, @Mem.Peek) then
+  begin
+    WriteLn('FAIL  IsZ80N without the Z80N mnemonics');
+    Inc(Failures);
+  end;
   Seen.Free;
   if Failures = 0 then WriteLn('Instruction and condact help: all passed')
   else

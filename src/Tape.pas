@@ -123,6 +123,9 @@ type
     FSymbol: Integer;       // generalized data: the symbol being played
     FSymPulse: Integer;     // ... and its pulse
     FLoopStart, FLoopLeft: Integer;
+    FLoop: Boolean;
+    FStoppedByBlock: Boolean;
+    FEpoch: Integer;
     FCallBlock, FCallPos: Integer;
     FStopIf48K: Boolean;
     FFileName: string;
@@ -185,6 +188,17 @@ type
     property Blocks[Index: Integer]: TTapeBlock read GetBlock; default;
     property Current: Integer read FCurrent;
     property Playing: Boolean read GetPlaying;
+    { At the end of the tape play goes on from its start }
+    property Loop: Boolean read FLoop write FLoop;
+    { A TZX block stopped the tape ("stop the tape", or "stop if 48K"): until
+      it is played again }
+    property StoppedByBlock: Boolean read FStoppedByBlock;
+    { Counts what the user does to the position or the tape in it: Rewind, a
+      block chosen, a tape put in or ejected }
+    property Epoch: Integer read FEpoch;
+    { Something is left to play: blocks after the current one, or the start
+      again when the tape loops }
+    function HasMore: Boolean;
     property State: TTapeState read FState;
     { How far the tape has played, 0..1, by time (for a cassette's reels) }
     function Progress: Double;
@@ -482,6 +496,8 @@ begin
   FLevel := False;
   FFileName := '';
   FModified := False;
+  FStoppedByBlock := False;
+  Inc(FEpoch);
   Changed;
 end;
 
@@ -495,6 +511,8 @@ begin
   FCallBlock := -1;
   FLoopLeft := 0;
   FModified := False;
+  FStoppedByBlock := False;
+  Inc(FEpoch);
   Changed;
 end;
 
@@ -646,11 +664,22 @@ procedure TTape.SetupBlock;
 var
   B: TTapeBlock;
   Guard: Integer;
+  WrappedNow: Boolean;
 begin
   Guard := 0;
+  WrappedNow := False;
   while True do
   begin
     Inc(Guard);
+    // The end of a looping tape: from the start, once (a tape with nothing
+    // to play would go round for ever)
+    if FLoop and not WrappedNow and (FCurrent = FBlocks.Count) and (FBlocks.Count > 0) then
+    begin
+      WrappedNow := True;
+      FCurrent := 0;
+      FLoopLeft := 0;
+      FCallBlock := -1;
+    end;
     if (FCurrent < 0) or (FCurrent >= FBlocks.Count) or (Guard > 100000) then
     begin
       // The end (or a jump nowhere, or round in circles)
@@ -699,6 +728,7 @@ begin
           // "Stop the tape": the next Play goes on after it
           Inc(FCurrent);
           FState := tsStopped;
+          FStoppedByBlock := True;
           Exit;
         end
         else if BeginPause(B) then
@@ -747,6 +777,7 @@ begin
           if FStopIf48K then
           begin
             FState := tsStopped;
+            FStoppedByBlock := True;
             Exit;
           end;
         end;
@@ -779,12 +810,16 @@ begin
     FLevel := False;
   end;
   FOwed := False;
+  FStoppedByBlock := False;
   StartBlock(T);
 end;
 
 procedure TTape.Stop;
 begin
   if FState = tsStopped then Exit;
+  // In the pause after a block, that block is done: the tape goes on after
+  // it (stopped in its data or tone, it goes on from the start of the block)
+  if (FState = tsPause) and (FCurrent < FBlocks.Count) then Inc(FCurrent);
   FState := tsStopped;
   Changed;
 end;
@@ -795,6 +830,8 @@ begin
   FCurrent := 0;
   FLevel := False;
   FCallBlock := -1;
+  FStoppedByBlock := False;
+  Inc(FEpoch);
   Changed;
 end;
 
@@ -803,6 +840,8 @@ begin
   if (Index < 0) or (Index > FBlocks.Count) then Exit;
   FState := tsStopped;
   FCurrent := Index;
+  FStoppedByBlock := False;
+  Inc(FEpoch);
   Changed;
 end;
 
@@ -1076,6 +1115,8 @@ begin
   // the loader has had it already, the next one is wanted
   if FState in [tsSync1, tsSync2, tsData, tsPause] then Inc(I);
   I := NextSignal(I);
+  // The end of a looping tape: the first block again
+  if FLoop and (I >= FBlocks.Count) and (FBlocks.Count > 0) then I := NextSignal(0);
   if I >= FBlocks.Count then
   begin
     FCurrent := FBlocks.Count;
@@ -1088,6 +1129,11 @@ begin
   FCurrent := I + 1;
   FState := tsStopped;
   Changed;
+end;
+
+function TTape.HasMore: Boolean;
+begin
+  Result := (FCurrent < FBlocks.Count) or (FLoop and (FBlocks.Count > 0));
 end;
 
 function TTape.NextNeedsRealTime: Boolean;

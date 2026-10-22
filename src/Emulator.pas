@@ -34,12 +34,17 @@ type
     FThread: TEmuThread;
     FAudio: TAudioOutput;
     FDisplay: array of LongWord;
+    FPrevDisplay: array of LongWord;   // the frame before: the other field, to deinterlace
+    FDisplayOdd: Boolean;              // FDisplay is an odd field (frames alternate)
     FFramePending: Boolean;
     FPaused: Boolean;
     FTurbo: Boolean;
     FSound: Boolean;
     FOnFrame: TNotifyEvent;
     FOnBreak: TNotifyEvent;
+    FHosted: Boolean;
+    FOnHostFrame: TNotifyEvent;
+    FOnHostBreak: TNotifyEvent;
     FIdle: Boolean;           // thread is parked in the paused state
     FFps: Integer;
     FFrameCounter: Integer;
@@ -48,6 +53,7 @@ type
     procedure NotifyBreak;
     procedure FrameDone;
     procedure NotifyFrame;
+    function GetRunning: Boolean;
     procedure StepOne;
   public
     constructor Create(AModel: TSpectrumModel; const RomDir: string);
@@ -57,12 +63,25 @@ type
     procedure Unlock;
     { Copy the latest frame (FB_WIDTH x SCREEN_HEIGHT $00RRGGBB pixels). }
     procedure CopyDisplay(Dest: PLongWord);
+    { The latest frame and the one before it (the two fields of an interlaced
+      picture), and whether the latest is the odd field }
+    procedure CopyFields(Cur, Prev: PLongWord; out CurOdd: Boolean);
     property Spec: TSpectrum read FSpec;
     property Paused: Boolean read FPaused write FPaused;
     property Turbo: Boolean read FTurbo write FTurbo;
     property Sound: Boolean read FSound write FSound;
     property Fps: Integer read FFps;
     property OnFrame: TNotifyEvent read FOnFrame write FOnFrame;
+    { The library's way (a host with no main thread of ours to queue to):
+      with Hosted the frames and the breakpoint stops are not queued, but
+      told from the emulation thread through these (the break one is also
+      readable as Paused and Spec.BreakKind) }
+    property Hosted: Boolean read FHosted write FHosted;
+    property OnHostFrame: TNotifyEvent read FOnHostFrame write FOnHostFrame;
+    property OnHostBreak: TNotifyEvent read FOnHostBreak write FOnHostBreak;
+    { Stop the thread for good (Start runs it again) }
+    procedure StopThread;
+    property Running: Boolean read GetRunning;
     { Called on the main thread when a breakpoint pauses the emulation. }
     property OnBreak: TNotifyEvent read FOnBreak write FOnBreak;
     { Debugger commands; call them while paused, without holding the lock. }
@@ -119,8 +138,9 @@ end;
 procedure TEmuThread.Execute;
 var
   NextTime, Now, FrameUs, TurboYield: Int64;
-  Queued, Broke: Boolean;
+  Queued, Broke, Fast: Boolean;
 begin
+  Fast := False;
   NextTime := MicroTime;
   TurboYield := NextTime;
   while not Terminated do
@@ -136,8 +156,12 @@ begin
     FOwner.FIdle := False;
     FOwner.FLock.Enter;
     try
-      FOwner.FSpec.Muted := not FOwner.FSound or FOwner.FTurbo;
+      FOwner.FSpec.Muted := not FOwner.FSound or Fast;
       Broke := not FOwner.FSpec.RunFrame;
+      // Turbo, or a tape playing in real time with fast loading on (turbo
+      // loaders, recordings: what the ROM trap can't take): as fast as
+      // possible, the tape and the CPU keeping their own T-state clock
+      Fast := FOwner.FTurbo or FOwner.FSpec.TapeAccelerating;
       if Broke then
       begin
         // Breakpoint: stop here and show the picture up to the beam position
@@ -147,7 +171,9 @@ begin
       FrameUs := Int64(FOwner.FSpec.Info.FrameT) * 1000000 div FOwner.FSpec.Info.ClockHz;
       FOwner.FDisplayLock.Enter;
       try
+        Move(FOwner.FDisplay[0], FOwner.FPrevDisplay[0], Length(FOwner.FDisplay) * SizeOf(LongWord));
         FOwner.FSpec.CopyFrameBuffer(@FOwner.FDisplay[0]);
+        FOwner.FDisplayOdd := not FOwner.FDisplayOdd;
       finally
         FOwner.FDisplayLock.Leave;
       end;
@@ -157,11 +183,16 @@ begin
     FOwner.FrameDone;
     if Broke then
     begin
-      TThread.Queue(Self, @FOwner.NotifyBreak);
+      if FOwner.FHosted then
+      begin
+        if Assigned(FOwner.FOnHostBreak) then FOwner.FOnHostBreak(FOwner);
+      end
+      else
+        TThread.Queue(Self, @FOwner.NotifyBreak);
       Continue;
     end;
 
-    if FOwner.FTurbo then
+    if Fast then
     begin
       // Critical sections are not fair: without an occasional pause the UI
       // thread would never get the lock while running flat out.
@@ -205,6 +236,7 @@ begin
   FDisplayLock := TCriticalSection.Create;
   FSpec := TSpectrum.Create(AModel, RomDir);
   SetLength(FDisplay, FB_WIDTH * SCREEN_HEIGHT);
+  SetLength(FPrevDisplay, FB_WIDTH * SCREEN_HEIGHT);
   FSound := True;
   FAudio := TAudioOutput.Create(SAMPLE_RATE, 4, 1024);
   if not FAudio.IsOpen then FreeAndNil(FAudio);
@@ -232,8 +264,24 @@ end;
 
 procedure TEmulator.Start;
 begin
+  if FThread <> nil then Exit;
   FThread := TEmuThread.Create(Self);
   FThread.Start;
+end;
+
+procedure TEmulator.StopThread;
+begin
+  if FThread = nil then Exit;
+  FThread.Terminate;
+  FThread.WaitFor;
+  TThread.RemoveQueuedEvents(FThread);
+  FreeAndNil(FThread);
+  FIdle := True;
+end;
+
+function TEmulator.GetRunning: Boolean;
+begin
+  Result := FThread <> nil;
 end;
 
 procedure TEmulator.Lock;
@@ -267,6 +315,11 @@ begin
     FFps := Round(FFrameCounter * 1000000 / (Now - FFpsStart));
     FFrameCounter := 0;
     FFpsStart := Now;
+  end;
+  if FHosted then
+  begin
+    if Assigned(FOnHostFrame) then FOnHostFrame(Self);
+    Exit;
   end;
   // Only one notification in flight, so a slow UI never queues a backlog
   if not FFramePending then
@@ -401,6 +454,18 @@ begin
     FLock.Leave;
   end;
   Resume;
+end;
+
+procedure TEmulator.CopyFields(Cur, Prev: PLongWord; out CurOdd: Boolean);
+begin
+  FDisplayLock.Enter;
+  try
+    Move(FDisplay[0], Cur^, Length(FDisplay) * SizeOf(LongWord));
+    Move(FPrevDisplay[0], Prev^, Length(FPrevDisplay) * SizeOf(LongWord));
+    CurOdd := FDisplayOdd;
+  finally
+    FDisplayLock.Leave;
+  end;
 end;
 
 procedure TEmulator.UpdateDisplay;

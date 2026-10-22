@@ -164,7 +164,7 @@ begin
     MUIScale(38));
   NewButton(FMTape, Ord(ikRewind), '', 'Rewind the tape', @DoTapeRewind, Gap + (BW + Gap), Y, BW,
     MUIScale(38));
-  NewButton(FMTape, Ord(ikPlay), '', 'Play tape (F8)', @DoTapePlay, Gap + 2 * (BW + Gap), Y, BW,
+  FMTapePlay := NewButton(FMTape, Ord(ikPlay), '', 'Play/pause tape (F8)', @DoTapePlay, Gap + 2 * (BW + Gap), Y, BW,
     MUIScale(38));
   NewButton(FMTape, Ord(ikStop), '', 'Stop tape (Shift+F8)', @DoTapeStop, Gap + 3 * (BW + Gap), Y, BW,
     MUIScale(38));
@@ -298,6 +298,7 @@ var
   P: TPoint;
 begin
   Btn := Sender as TFlatButton;
+  UpdateInstallNextItem(nil);
   FMirror.Items.Clear;
   MirrorItems(FMenu.Items[Btn.Tag], FMirror.Items);
   P := Btn.ClientToScreen(Point(0, Btn.Height));
@@ -420,7 +421,7 @@ var
   Spec: TSpectrum;
   TapeText, TapeName: string;
   Progress: Double;
-  Playing, HaveDisk, HaveCard: Boolean;
+  Playing, HaveDisk, HaveCard, HaveTape: Boolean;
   Names: array[0..2] of string;
   I: Integer;
 begin
@@ -428,6 +429,7 @@ begin
   FEmu.Lock;
   try
     Spec := FEmu.Spec;
+    HaveTape := Spec.Tape.Count > 0;
     if Spec.Tape.Count = 0 then
     begin
       TapeText := 'No tape';
@@ -435,11 +437,12 @@ begin
     end
     else
     begin
-      TapeText := Format('Block %d of %d', [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count]);
+      TapeText := Format('Block %d of %d - %s', [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count,
+        Spec.TapeStateText]);
       if Spec.Tape.Current < Spec.Tape.Count then
         TapeText := TapeText + LineEnding + Spec.Tape[Spec.Tape.Current].Description
       else
-        TapeText := 'At the end of the tape';
+        TapeText := 'End of the tape';
       if Spec.Tape.FileName <> '' then TapeText := ExtractFileName(Spec.Tape.FileName) + ' - ' + TapeText;
       Progress := Spec.Tape.Progress;
     end;
@@ -461,6 +464,7 @@ begin
   end;
   if FMTapeLabel.Caption <> TapeText then FMTapeLabel.Caption := TapeText;
   if FMCassette.Caption <> TapeName then FMCassette.Caption := TapeName;
+  FMCassette.Loaded := HaveTape;
   FMCassette.Show(Progress, Playing);
   if FMDiskBtn.Enabled <> HaveDisk then FMDiskBtn.Enabled := HaveDisk;
   if FMSDBtn.Enabled <> HaveCard then FMSDBtn.Enabled := HaveCard;
@@ -472,6 +476,17 @@ begin
     FMMediaBox.Invalidate;
   end;
   FMModelBtn.Caption := ModelInfo[FEmu.Spec.Model].Name;
+  // The Play button shows a pause while the tape plays
+  if Playing and (FMTapePlay.ImageIndex <> Ord(ikPause)) then
+  begin
+    FMTapePlay.ImageIndex := Ord(ikPause);
+    FMTapePlay.Invalidate;
+  end
+  else if not Playing and (FMTapePlay.ImageIndex <> Ord(ikPlay)) then
+  begin
+    FMTapePlay.ImageIndex := Ord(ikPlay);
+    FMTapePlay.Invalidate;
+  end;
   FMPause.Down := FEmu.Paused;
   FMTurbo.Down := FEmu.Turbo;
   FMRec.Down := FEmu.Spec.Recording;

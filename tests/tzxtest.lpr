@@ -345,6 +345,29 @@ begin
     PlayAll;
     Check(Levels = '101', 'signal level set high: ' + Levels);
 
+    // Continuous playback: at the end it goes on from the start
+    Start;
+    B($10); W(1000); W(3); Bytes([$FF, 1, $FE]);
+    B($10); W(1000); W(3); Bytes([$FF, 2, $FD]);
+    Load;
+    Tp.Loop := True;
+    Check(Tp.HasMore, 'a looping tape always has more');
+    Tp.Play(0);
+    Tp.AdvanceTo(2000000);
+    Check(Tp.Playing, 'a looping tape is still playing after its length');
+    Tp.AdvanceTo(8000000);
+    Check(Tp.Playing and (Tp.Current < 2), 'a looping tape keeps wrapping to the start');
+    Tp.Stop;
+    Tp.Loop := False;
+    PlayAll;
+    Check(not Tp.Playing and (Tp.Current = 2) and not Tp.HasMore, 'without the loop it stops at the end');
+    Tp.Loop := True;
+    Tp.Rewind;
+    Check(Tp.TakeBlockForTrap = Tp[0], 'the trap takes the first block');
+    Check(Tp.TakeBlockForTrap = Tp[1], 'the trap takes the second block');
+    Check(Tp.TakeBlockForTrap = Tp[0], 'the trap wraps to the first block on a looping tape');
+    Tp.Loop := False;
+
     // Fast loading: only what the ROM can read; turbo timings play
     Start;
     B($30); B(2); Str('Hi');
@@ -419,6 +442,16 @@ begin
         if J = 0 then Expected := 'with fast loading' else Expected := 'in real time';
         Check((Sp.Peek($8401) = $11) and (Sp.Peek($8402) = $5F), 'the game as TZX loads ' + Expected);
       end;
+      // The emulator runs flat out while a tape plays in real time with fast
+      // loading on; never with it off, nor with the tape stopped
+      Sp.Tape.Stop;
+      Sp.FastLoad := True;
+      Check(not Sp.TapeAccelerating, 'a stopped tape is not accelerated');
+      Sp.Tape.Rewind;
+      Sp.Tape.Play(Sp.Cpu.T);
+      Check(Sp.TapeAccelerating, 'a playing tape is accelerated with fast loading');
+      Sp.FastLoad := False;
+      Check(not Sp.TapeAccelerating, 'a playing tape is not accelerated without fast loading');
     finally
       Sp.Free;
     end;

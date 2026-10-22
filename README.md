@@ -19,6 +19,7 @@ also shown by Help > Documentation, F1).
   - [Interface](#interface)
   - [ZX-Uno](#zx-uno)
   - [Video modes](#video-modes)
+  - [Deinterlacing](#deinterlacing)
   - [ZX Spectrum Next](#zx-spectrum-next)
   - [pzx snapshots (.pzs)](#pzx-snapshots-pzs)
 - [5. Tape browser](#5-tape-browser)
@@ -133,8 +134,9 @@ Options > Settings.
 
 | PC key | Spectrum |
 |---|---|
-| Shift | CAPS SHIFT (see Shift keys below) |
-| Ctrl | SYMBOL SHIFT |
+| Left Shift | CAPS SHIFT |
+| Right Shift | SYMBOL SHIFT |
+| Ctrl | nothing (fire, if the joystick option below uses it) |
 | Backspace, Delete | DELETE (CAPS + 0) |
 | Cursor keys | CAPS + 5/6/7/8, or a joystick (see below) |
 | Esc | BREAK (CAPS + SPACE) |
@@ -150,10 +152,6 @@ The keys that are two Spectrum keys at once (all of the above but Shift and Ctrl
 `;` `'`) are the extra keys of the ZX Spectrum Next's keyboard: on the Next they also show alone
 in its registers `B0` and `B1`, and a program can keep them out of the Spectrum keys (NR `68`
 bit 4), as on the real keyboard.
-
-**Shift keys**: Settings > Miscellaneous (`--shiftkeys`) chooses between "standard" (the
-default: either Shift is CAPS SHIFT, either Ctrl SYMBOL SHIFT) and "sides" (the left Shift and
-left Ctrl are CAPS SHIFT, the right Shift and right Ctrl SYMBOL SHIFT).
 
 **Joystick**: Settings > Miscellaneous chooses what the cursor keys plus either Ctrl key (fire)
 emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
@@ -178,7 +176,7 @@ stops when the pointer leaves the picture.
 | F5 | NMI (on the ZX Spectrum Next its M1 button; Shift+F5 its DRIVE button) |
 | F6 | hard reset (Shift+F6 reset) |
 | F7 | tape browser |
-| F8 | play tape (Shift+F8 stop) |
+| F8 | play/pause tape (Shift+F8 stop) |
 | F9 | POKE |
 | F11 | Adventure Debugger |
 | Shift+F11 | turbo (as fast as possible) |
@@ -196,11 +194,32 @@ with or without the border), Exit.
 (Shift+F6), Pause and POKE. On the ZX Spectrum Next, NMI is its M1 button (the Multiface) and
 the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
 
-**Tape**: Tape browser, Play, Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
+**Tape**: Tape browser, Play/pause (F8; the button, in both interfaces, shows a pause while the tape plays, and pressing it then stops the tape where it is, and Play goes on from there; a block stopped in its middle starts again from its beginning), Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
 (the ROM loader is skipped and blocks load instantly, also when the tape has been started with
-Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (real-time loading starts
-and stops the tape by itself) "SAVE writes to the tape" (SAVE adds its blocks to the inserted
-tape, or to a new blank one, instantly) and Record (REC).
+Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (see below),
+"SAVE writes to the tape" (SAVE adds its blocks to the inserted tape, or to a new blank one, instantly),
+continuous playback (Settings > Storage, `--tapeloop`, on by default: when the tape reaches its end it goes on from
+its start while a load asks for it, and a LOAD after the last block takes the first one again; off: **stop at the end of
+the tape**, as Spectaculator does: the tape stops at its end and Auto play doesn't start it again, even with the
+Spectrum still trying to load, until you rewind it, put another tape in, choose a block or press Play) and Record (REC).
+
+**Auto play/stop** (Tape > Auto play/stop, Settings > Storage, `--autoplay`, on by default) starts the tape when the
+Spectrum asks for data and stops it, where it is, when it no longer does, so multiload games work with TAP and TZX
+tapes: the next load goes on from the block the tape was left at (a block being played when it stops starts again
+from its beginning; if only its pause was left, the tape goes on after it). It knows a load in two ways:
+the ROM's LD-BYTES, which starts the tape when it is called and stops it a few frames after it returns (if no other
+call follows, as there does between a header and its data); and, for loaders of their own, the Spectrum reading the
+EAR bit over and over (hundreds of times a frame, where a keyboard scan reads it a few times): after a fifth of a
+second of that the tape starts, and after one and a half seconds without it, it stops. A single read, or the
+keyboard being read now and then, doesn't start it, and a short silence in the middle of a load doesn't stop it.
+Stop (by hand) while a load is asking for the tape keeps Auto play from starting it again for that same load: the next
+load (the ROM's LD-BYTES, or reading again after a silence), Play, Rewind, choosing a block or putting a tape in
+lets it work again. A TZX's own "stop the tape" (a pause of 0 ms, or "stop on a 48K") stops the tape the same way: it
+waits for the next load, or for Play. A custom loader that reads the EAR bit in an unusual way, or a program that
+reads the port that fast for another reason (waiting for a key in a tight loop), can fool it: switch Auto
+play/stop off and use Play and Stop yourself. Tape > Fast loading, if it is on, takes what the ROM's loader asks for
+at once, and the custom loaders go as above. The state shows next to the block number ("playing", "stopped", "end of
+tape", or "stopped (auto play waits for the next load)").
 
 The tape plays at the CPU's pace: with the CPU faster than 1x (Settings > General, or a machine's
 own turbo: the ZX Spectrum Next's 7-28 MHz, the ZX-Uno's) real-time loading still works, and
@@ -234,8 +253,9 @@ symbol files), Clear symbols and, at the bottom, Adventure Debugger (F11, see
 [Adventure Debugger](#11-adventure-debugger)).
 
 **Options**: Black and white display, Window size, Mute sound, Turbo speed (Shift+F11: as fast as
-possible), Modern interface (dark; see [Interface](#interface)) and Settings (everything else is
-in Settings).
+possible), Deinterlace (Progressive, Bob or Weave; see [Deinterlacing](#deinterlacing)), Modern interface (dark; see [Interface](#interface)), Install Spectrum Next Distribution
+(only while the Next's distribution isn't installed; see [ZX Spectrum Next](#zx-spectrum-next)) and
+Settings (everything else is in Settings).
 
 **Help**: Documentation (F1, this text from README.md), License (the GNU GPL v3, from the
 `LICENSE` file) and About (pzx stands for Pascal ZX; it shows the release number, the build date
@@ -265,9 +285,9 @@ Options > Settings has five pages (sections of a page are boxes with a title):
 |---|---|
 | General | machine model, window size, interface (classic or modern, see [Interface](#interface)), black and white display, mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention is not applied above 1x), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
 | Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on). Hovering over one explains it. |
-| Storage | Tape: fast loading, auto play and SAVE to tape. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
+| Storage | Tape: fast loading, auto play, SAVE to tape and continuous tape playback. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | ROMs | ROMs: the folder with the standard ROMs and, for each model, the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
-| Miscellaneous | Graphics: ULAplus, scanlines, Timex screen modes and Radastan mode (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) and the shift keys (standard or sides, see [Keyboard](#2-keyboard)), as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time), ULA snow (on by default; only the 16K, 48K, 128K and +2 show it) and allow writing to ROM (from the debugger and with POKE; off by default). |
+| Miscellaneous | Graphics: ULAplus, scanlines, Timex screen modes, Radastan mode and deinterlacing (Weave by default; see [Deinterlacing](#deinterlacing)) (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time), ULA snow (on by default; only the 16K, 48K, 128K and +2 show it) and allow writing to ROM (from the debugger and with POKE; off by default). |
 
 Settings are kept in `pzx.ini` in the same folder as the program (next to pzx.app on macOS); on
 Linux, if that folder can't be written (pzx installed from a .deb or .rpm package), in
@@ -279,12 +299,12 @@ others:
 | Section | Keys |
 |---|---|
 | `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `bw`, `mute`, `volume`, `speed`, `saveonexit` |
-| `[Machine]` | `contention`, `snow`, `romedit`, `ulaplus`, `timex`, `radastan`, `scanlines`, `joystick`, `issue`, `shiftkeys` |
+| `[Machine]` | `contention`, `snow`, `romedit`, `ulaplus`, `timex`, `radastan`, `scanlines`, `deinterlace`, `joystick`, `issue` |
 | `[Hardware]` | `turbosound`, `ay48`, `kmouse`, `divmmc`, `currah` |
-| `[TapeDisk]` | `fastload`, `autoplay`, `savetotape`, `fastdisk`, `driveb`, `floppynoise` |
+| `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `savetotape`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`), `divmmcrom`, `zxunofirmware`, `zxunoroms`, `zxunocustomrom` |
 | `[ZXNext]` | `nextdir`, `nextcard`, `nextfirmware` (and `distroid`, the distribution the card was made from) |
-| `[Media]` | `sdcard` |
+| `[Media]` | `sdcard`, `zxunocard` |
 | `[Screenshot]` | `pngborder` |
 
 The recent files, pokes and last folder are kept in sections of their own. A pzx.ini from an
@@ -310,8 +330,9 @@ The modern interface (on Windows 10 and 11 its title bar is dark too):
   POKE, Debug (the debugger) and Settings, with big buttons; Pause and Turbo are lit while on.
 - **Tape palette** (right): a cassette with the tape's name on its label and its progress (all the
   tape starts on the left reel and passes to the right one as it plays; the hubs turn while it
-  plays; click it for the tape browser), the tape's name and block, Eject (puts in a tape: as File > Open,
-  for .tap and .tzx files only), Rewind, Play, Stop and Record, the tape browser and Fast loading (lit while
+  plays; click it for the tape browser; with no tape in it, an empty cassette player is shown
+  instead), the tape's name and block, Eject (puts in a tape: as File > Open,
+  for .tap and .tzx files only), Rewind, Play/pause, Stop and Record, the tape browser and Fast loading (lit while
   on).
 - **Media palette**: drives A: and B: and the SD card, with their LEDs and the files in them, and
   buttons for the disk and SD card browsers.
@@ -397,6 +418,23 @@ Settings > Miscellaneous can add these to any model (they are off by default):
 The picture is kept at twice the width, so the 512-pixel hi-res is shown in full from 2x (at 1x
 every other column) and in PNG screenshots at 2x.
 
+
+### Deinterlacing
+
+The Spectrum sends a progressive picture: every frame (50 a second) is the same field, with no
+odd or even one. Some demos (DeMarché's Mescaline and Paralactika, the end of Gasman's
+Ultraviolet) draw two different pictures in alternate frames, counting on a TV to mix them, so
+they flicker in stripes when each frame is shown on its own. Options > Deinterlace (also Settings
+> Miscellaneous, `--deinterlace`) takes each two frames in a row as the odd and even fields of an
+interlaced picture of 352x576 (704x576 with Timex hi-res):
+
+| Method | What is shown |
+|---|---|
+| Progressive | each frame on its own, scaled to the whole picture, as the Spectrum sends it. |
+| Bob | the two fields blended: each pixel the mean of the red, green and blue of the same pixel in both, every line drawn twice. This is how those demos are meant to be seen. |
+| Weave | both fields at once, interlaced: a line of the odd field, then one of the even field, and so on (each Spectrum line's rows, the upper half from the odd field, the lower from the even one). At 1x, with no room for both, it blends them as Bob. The default. |
+
+It only changes what is shown: screenshots (PNG) still save the frame as the Spectrum made it.
 ### ZX Spectrum Next
 
 The ZX Spectrum Next (`--model zxnext`) is emulated as hardware: the Z80N CPU (its extra
@@ -414,13 +452,19 @@ another folder in Settings > ROMs (`--nextdir`). When pzx is installed from a .d
 folder is `~/.config/pzx/specnext` (the one next to the program can't be written).
 
 Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
-starts a few steps, in one window that takes the interface's look: first whether to install it; then the
-download page (a link that opens in the browser: in "Full distribution downloads" the lightweight
-one is enough); then, with Next, the .zip file downloaded is chosen and unpacked into the folder
-(a distribution inside one folder of the zip is moved up) and checked. If it isn't a
-distribution, what was unpacked is deleted and it ends there; if it is, the Next starts at once
-(its SD card made with the usual size, without asking). Closing the window or Escape stops it at
-any step: the machine stays as it was, or with `--model zxnext` pzx closes.
+says so in a window ("La distribución de Spectrum Next no está instalada...") with the download
+page as a link that opens in the browser, and the machine stays as it was (with `--model zxnext`, pzx closes). Download the .zip and
+choose Options > Install Spectrum Next Distribution (this entry is only there while the distribution
+isn't installed): pick the .zip file and pzx unpacks it into the folder (a distribution inside one
+folder of the zip goes straight into it, with no extra level) and checks it, and only then moves it
+into place, so a broken file leaves nothing half installed. A path in the zip that would write
+outside the folder (`..`, an absolute path or another drive) makes pzx refuse the whole file, and
+links are not made. If it is a distribution, pzx says so and asks whether to start the Next now
+(Yes: the machine changes to the Next, its SD card made at the usual size without asking; No: nothing
+else). If it isn't ("Distribución no valida", or a file that isn't a zip), pressing OK **deletes
+everything in the distribution's folder**, which is what that message means: don't point
+`--nextdir` at a folder with other things in it. A file that can't be read or written, or a damaged
+zip, is reported as an error and installs nothing.
 
 **SD card.** The first time the Next is used, pzx makes its SD card, `zxnext.img` next to pzx.ini
 (Settings > ROMs, `--nextcard`), asking its size first (FAT16: the sizes the distribution fits in
@@ -520,7 +564,7 @@ browsers): the current one is marked with `*` (`>`
 while playing) and highlighted (green while playing, yellow when stopped), and the status bar
 says where the tape is ("Playing block 3 of 10", "At the end of the tape"). Play at the end of
 the tape starts it again from the first block. The toolbar buttons (hover for a hint) play, stop,
-rewind, play from the selected block (or double-click it), move the selected block up or down,
+rewind, play from the selected block (a double-click on a block does it too), move the selected block up or down,
 delete it (or press Del) and save the tape as a new .tap. At the bottom, choose fast loading or
 real-time loading: the same setting as Tape > Fast loading.
 
@@ -539,9 +583,14 @@ type and custom info are shown in the tape browser. Old blocks of earlier versio
 ones, are skipped; a file cut short keeps the blocks it has.
 
 Fast loading takes at once the blocks the ROM's loader can read (standard data, and turbo or
-pure data with the ROM's bit lengths). Anything else (turbo loaders, recordings...) plays in real
-time, as on a real cassette: after a block loaded at once, if what comes next is a signal the
-ROM can't read, the tape goes on playing by itself for the game's own loader.
+pure data with the ROM's bit lengths). Anything else (turbo loaders, recordings, tones, pulse
+sequences, generalized data...) can't be skipped, as it is the game's own loader that reads it, so
+it plays as on a real cassette: after a block loaded at once, if what comes next is a signal the
+ROM can't read, the tape goes on playing by itself for the game's own loader. With fast loading
+on, the emulator runs as fast as possible (and mute) while the tape plays like that, so those
+blocks load in a fraction of their time without being altered: the tape and the CPU keep their
+own T-state clock, pauses, loops and the rest of the flow included. With fast loading off the
+tape plays at the CPU's pace as always.
 
 Tapes are saved as .tap (Save tape as, and in the tape browser), which keeps only the data
 blocks: with blocks from a .tzx that a .tap can't keep, pzx asks first.
@@ -592,6 +641,17 @@ with automatic paging (at `0000`, `0008`, `0038`, `0066`, `04C6`, `0562` and `3D
 every model. The firmware is esxDOS 0.8.9 (`esxdos/ESXMMC.BIN`, from
 [http://www.esxdos.org](http://www.esxdos.org)); another one can be chosen in Settings > ROMs.
 The interface is connected in Settings > Hardware.
+
+**Changing hardware.** The DivMMC and its card follow the machine, each one remembering the card last used in it
+(the card inserted from the SD menu, or saved as another file, while a machine is the current one is the one it
+remembers): the standard models share `sdcard`, the ZX-Uno has `zxunocard` and the Next `nextcard`.
+- Switching to the **Next**: the DivMMC is connected and the Next's last card goes in (made from its distribution
+  the first time; see [ZX Spectrum Next](#zx-spectrum-next)).
+- Switching to the **ZX-Uno**: the DivMMC is connected and the ZX-Uno's last card goes in, if it has one (if not,
+  the card that was in stays).
+- Switching from the ZX-Uno or the Next to a **standard Spectrum**: the standard models' card comes back (the
+  ZX-Uno's or the Next's goes out, its changes first saved or asked about) and pzx asks whether to switch the DivMMC
+  off; if not, it stays connected.
 
 The SD menu:
 
@@ -1216,6 +1276,7 @@ symbols, breakpoints, typed keys.
 | `--bpio PORT` | port read or write breakpoint (any) |
 | `--keyin TEXT` | type TEXT on the Spectrum keyboard once the machine has started. Letters and digits are their keys (so in 48K BASIC keyword mode "J" is LOAD), symbols are typed with SYMBOL SHIFT (" is SYMBOL+P). `~` waits half a second. Escapes: `\n` ENTER, `\w` wait one second. Example: `--keyin 'J""\n'` |
 | `--sdcard FILE` | insert an SD card image (connects the DivMMC) |
+| `--zxunocard FILE` | the SD card the ZX-Uno uses (the last one used in it); empty = none |
 | `--sdfolder FOLDER` | use a PC folder as the SD card (as SD > Use a PC folder as SD card; connects the DivMMC) |
 | `--sdadd "FILE,FOLDER"` | copy a PC file onto that card, into FOLDER (such as `/GAMES` or `/GAMES/ARCADE`; missing folders are created; without ",FOLDER" it goes to the root). The name on the card is the 8.3 form of the file name, and a file with that name is replaced. Repeat it for more files. The machine is then switched off and on so esxDOS sees them. Example: `--sdcard my.img --sdadd "C:\games\jsw.tap,/GAMES"` |
 
@@ -1246,9 +1307,9 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 | `--timex` | Timex screen modes | Miscellaneous |
 | `--radastan` | Radastan mode (ZX-Uno) | Miscellaneous |
 | `--scanlines` | scanlines, from window size 2x | Miscellaneous |
+| `--deinterlace M` | how the picture is deinterlaced: `progressive`, `bob` or `weave` (the default) (see [Deinterlacing](#deinterlacing)) | Miscellaneous, Options menu |
 | `--joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | Miscellaneous |
 | `--issue N` | keyboard issue 2 or 3 | Miscellaneous |
-| `--shiftkeys S` | `standard` (Shift = CAPS, Ctrl = SYMBOL) or `sides` (left = CAPS, right = SYMBOL) | Miscellaneous |
 | `--turbosound` | TurboSound | Hardware |
 | `--ay48` | AY chip on the 16K/48K | Hardware |
 | `--kmouse` | Kempston mouse | Hardware |
@@ -1256,6 +1317,7 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 | `--currah` | Currah µSpeech | Hardware |
 | `--fastload` | fast tape loading | Storage |
 | `--autoplay` | start the tape automatically | Storage |
+| `--tapeloop` | continuous tape playback: at the end the tape goes on from its start (on by default) | Storage |
 | `--savetotape` | SAVE writes to the tape | Storage |
 | `--fastdisk` | fast floppy disk access | Storage |
 | `--driveb` | drive B: connected (default: no) | Storage |
@@ -1323,7 +1385,10 @@ rpmbuild: on Debian or Ubuntu, `sudo apt install rpm`) in `build/packages`. Both
 program and its folders in `/usr/lib/pzx`, a `pzx` command, a desktop entry and the icon; they
 need GTK 2 and recommend SDL2 (for sound). The version is the release number. `package.sh` also
 makes `pzx-VERSION-windows.zip` with `pzx.exe` (built with lazbuild) and its folders, to unpack
-anywhere.
+anywhere. The three packages have a `lib` folder (`/usr/lib/pzx/lib` in the Linux ones) with the native
+library for host applications (`pzxlib.dll`, or `libpzxlib.so`) and its documentation, `LIBRARY.md`; `package.sh`
+builds the library with `src/lib/build-lib.sh` if it is not built yet. They also have a `tests` folder with the
+C# host demo (`PzxHostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `PzxHostDemo.exe --selftest`).
 
 The Spectrum ROMs are copyright Amstrad, who allow their distribution.
 
