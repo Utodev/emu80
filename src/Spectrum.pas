@@ -233,6 +233,7 @@ type
     FNexData: TBytes;
     FNexPos: Integer;
     FNexOpen: Boolean;
+    FNexName: string;     // the .nex file's name, for programs that open it again
     FNexMap: array of Int64;                // where it is on the SD card (sector, count pairs)
     FNexMapPos: Integer;                    // DISK_FILEMAP: the next pair to give
     // The Next's SPI flash (port E7 bit 7 selects it, EB its data): where
@@ -1937,6 +1938,14 @@ begin
   begin
     Responded := True;
     Result := FDiv.ReadPort(Port);
+  end
+  // The Next's second Kempston joystick (port 37): none plugged in, so
+  // nothing pressed (games read both and join them; FF would hold every
+  // direction and fire)
+  else if IsNext and ((Port and $FF) = $37) then
+  begin
+    Responded := True;
+    Result := 0;
   end
   // The ZX-Uno has its Kempston joystick port always (its BIOS reads it)
   else if (KempstonEnabled or IsZXUno) and ((Port and $E0) = 0) then
@@ -3903,7 +3912,7 @@ begin
   end;
   if IntActive and FCpu.IFF1 and FCpu.Interrupt then Exit;
   // The Next: esxDOS calls on the .nex file its program was given
-  if FNexOpen and (FCpu.PC.W = $0008) and NexFileCall then Exit;
+  if (FNexData <> nil) and (FCpu.PC.W = $0008) and NexFileCall then Exit;
   if FCpu.PC.W < $4000 then
   begin
     CheckTraps;

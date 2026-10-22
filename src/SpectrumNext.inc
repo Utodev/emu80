@@ -167,6 +167,7 @@ begin
   FDiv.NmiButton := False;
   FNexOpen := False;
   FNexData := nil;
+  FNexName := '';
   NextSetDivEntries;
   // Display: palettes, clips, sprites, copper (the palettes keep their
   // colours over a soft reset)
@@ -241,9 +242,12 @@ begin
     $03:
       begin
         // Any write switches the boot ROM off; the machine type changes only
-        // in configuration mode, the display timing with bit 7
+        // in configuration mode, the display timing with bit 7. Type 111
+        // goes back to configuration mode (Atic Atac writes its DivMMC NMI
+        // entry into the SRAM that way)
         FNextBootOn := False;
-        if (FNextReg[$03] and 7) = 0 then FNextReg[$03] := (FNextReg[$03] and $F8) or (Value and 7);
+        if (Value and 7) = 7 then FNextReg[$03] := FNextReg[$03] and $F8
+        else if (FNextReg[$03] and 7) = 0 then FNextReg[$03] := (FNextReg[$03] and $F8) or (Value and 7);
         if (Value and $80) <> 0 then FNextReg[$03] := (FNextReg[$03] and $8F) or (Value and $70);
         NextUpdatePaging;
         Exit;
@@ -252,6 +256,13 @@ begin
       begin
         FNextReg[$04] := Value and $7F;
         NextUpdatePaging;
+        Exit;
+      end;
+    $09:
+      begin
+        // Bit 3 clears the DivMMC's MAPRAM (port E3 bit 6) and reads as 0
+        if (Value and 8) <> 0 then FDiv.ClearMapRam;
+        FNextReg[$09] := Value and not 8;
         Exit;
       end;
     $02:
@@ -859,6 +870,7 @@ begin
     raise Exception.Create('Not a .nex file');
   FNexOpen := False;
   FNexData := nil;
+  FNexName := '';
   Flags := D[10];
   SP := D[12] or (D[13] shl 8);
   PC := D[14] or (D[15] shl 8);
@@ -1033,6 +1045,7 @@ begin
     FNexData := D;
     FNexPos := Pos_;
     FNexOpen := True;
+    FNexName := ExtractFileName(FileName);
     NexOnCard;
     if Handle < $4000 then FCpu.BC.W := NEX_HANDLE
     else Poke(Handle, NEX_HANDLE);
@@ -1072,7 +1085,7 @@ end;
   file (the function code is the byte after the RST). False: not ours. }
 function TSpectrum.NexFileCall: Boolean;
 const
-  F_CLOSE = $9B; F_READ = $9D; F_SEEK = $9F; F_FGETPOS = $A0; F_FSTAT = $A1;
+  F_OPEN = $9A; F_CLOSE = $9B; F_READ = $9D; F_SEEK = $9F; F_FGETPOS = $A0; F_FSTAT = $A1;
   DISK_FILEMAP = $85;
   ESX_EACCES = 8;     // "access denied": what isn't done here
 var
@@ -1082,6 +1095,7 @@ var
   Fn: Byte;
   Count, I: Integer;
   Pos_: Int64;
+  Name: string;
 
   procedure PutByte(A: Word; V: Byte);
   begin
@@ -1099,9 +1113,34 @@ var
 
 begin
   Result := False;
-  if FCpu.A <> NEX_HANDLE then Exit;
   Ret := Peek(FCpu.SP.W) or (Peek(FCpu.SP.W + 1) shl 8);
   Fn := Peek(Ret);
+  // The program opening its own .nex by name, to read more of it (as
+  // streaming games do): the file loaded from the PC, from its start
+  if Fn = F_OPEN then
+  begin
+    if Ret < $4000 then Buf := FCpu.HL.W else Buf := FCpu.IX.W;
+    Name := '';
+    for I := 0 to 255 do
+    begin
+      N := Peek(Word(Buf + I));
+      if N = 0 then Break;
+      Name := Name + Chr(N);
+    end;
+    Name := StringReplace(Name, '/', PathDelim, [rfReplaceAll]);
+    if (FNexName = '') or not SameText(ExtractFileName(Name), FNexName) then Exit;
+    Result := True;
+    FNexOpen := True;
+    FNexPos := 0;
+    FNexMapPos := 0;
+    FCpu.A := NEX_HANDLE;
+    FCpu.F := FCpu.F and not 1;
+    FCpu.SP.W := FCpu.SP.W + 2;
+    FCpu.PC.W := Ret + 1;
+    Inc(FCpu.T, 40);
+    Exit;
+  end;
+  if not FNexOpen or (FCpu.A <> NEX_HANDLE) then Exit;
   if not (Fn in [DISK_FILEMAP, F_CLOSE, $9E, F_READ, F_SEEK, F_FGETPOS, F_FSTAT]) then Exit;
   Result := True;
   // Programs give addresses in IX; dot commands (in the DivMMC's RAM) in HL
@@ -1110,10 +1149,8 @@ begin
   FCpu.F := FCpu.F and not 1;                 // carry clear: done
   case Fn of
     F_CLOSE:
-      begin
-        FNexOpen := False;
-        FNexData := nil;
-      end;
+      // Kept: the program may open it again
+      FNexOpen := False;
     F_READ:
       begin
         Count := FCpu.BC.W;

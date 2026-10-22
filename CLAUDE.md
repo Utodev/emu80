@@ -2,14 +2,6 @@
 
 This is a ZX Spectrum Emulator made with  Lazarus (Free Pascal) using LCL
 
-# Target
-
-- Properly emulate Spectrum 48K, Spectrum 128K, Spectrum +2, Spectrum +2B and Spectrum +3
-- Perfect Z80 timing, condented memory, etc. so games run at real speed
-- Possible to load TAP, SNA, Z80 and DSK files.
-- Tape browser that allows deleting or moving blocks
-- A proper menu, settings and a quick button bar to change model, reset and NMI
-
 # Documentation
 
 - `README.md` (shown by Help > Documentation and `--help`) explains how pzx works and all
@@ -31,3 +23,5 @@ This is a ZX Spectrum Emulator made with  Lazarus (Free Pascal) using LCL
 
 The specnext folder won't be added to any package. It requires license. The folder will be created by the packages, but empty. When running the emulator in Spectrum Next mode, if the folder is empty, the emulator would show
 a message saying you need to add the latest distribution to the specnext folder.
+
+All settings options should have a ini file equivalence, and a command line parameter equivalence. Command line parameters should have a default value when missing.

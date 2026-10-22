@@ -276,9 +276,9 @@ begin
   Sound := True;
   Volume := 70;
   Scale := 2;
-  Joystick := jkNone;
+  Joystick := jkKempston;
   Issue2 := False;
-  ShiftSides := False;
+  ShiftSides := True;
   CpuSpeed := 1;
   FastDisk := False;
   DriveB := False;

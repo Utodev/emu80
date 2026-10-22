@@ -82,6 +82,8 @@ type
     { Debugger: change the control register (MAPRAM still can't be cleared)
       and the automatic paging state }
     procedure SetControl(Value: Byte);
+    { The Next can clear MAPRAM (NR 09 bit 3), which the original can't }
+    procedure ClearMapRam;
     property Mapped: Boolean read FMapped write FMapped;
     property RomLoaded: Boolean read FRomLoaded;
     { Debugger: its state, saved and put back (its RAM only when it has its
@@ -279,6 +281,11 @@ begin
   if FExtRam = nil then Move(S.Ram, FRam, SizeOf(FRam));
   FControl := S.Control;
   FMapped := S.Mapped;
+end;
+
+procedure TDivMMC.ClearMapRam;
+begin
+  FControl := FControl and not $40;
 end;
 
 procedure TDivMMC.SetControl(Value: Byte);

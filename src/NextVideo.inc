@@ -234,8 +234,10 @@ begin
       Inc(FCopperClk)                     // NOOP
     else
     begin
-      // MOVE: the picture so far with the old value
-      NextDrawTo(FCopperClk div 4, True);
+      // MOVE: the picture so far with the old value, if the register
+      // changes the picture (copper lists also write others, such as
+      // the user register 7F to wait, tens of thousands of times a frame)
+      if NextVideoReg((Instr shr 8) and $7F) then NextDrawTo(FCopperClk div 4, True);
       FCopperInRun := True;
       NextWriteReg((Instr shr 8) and $7F, Instr and $FF);
       FCopperInRun := False;

@@ -296,7 +296,10 @@ begin
   begin
     FStream.Position := Block * SD_BLOCK;
     FStream.ReadBuffer(Data, SD_BLOCK);
-    Queue([$FE]);
+    // As a real card: a byte of wait (Nac) before the data token. Programs
+    // that read the card themselves count on it (a streaming .nex game
+    // reads one byte after R1 before it looks for the token)
+    Queue([$FF, $FE]);
     Queue(Data);
     Queue([$FF, $FF]);
   end

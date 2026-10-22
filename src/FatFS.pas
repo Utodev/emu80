@@ -53,6 +53,7 @@ type
     function Chain(First: LongWord): TLongWordArray;
     function DirSectors(DirCluster: LongWord): TInt64Array;
     function AllocCluster(Previous: LongWord): LongWord;
+    function AllocClusters(Bytes: Int64): TLongWordArray;
     procedure FreeChain(First: LongWord);
     procedure ZeroCluster(Cluster: LongWord);
     function FindFreeEntry(DirCluster: LongWord): Int64;
@@ -604,6 +605,47 @@ begin
   raise EFatError.Create('the card is full');
 end;
 
+{ The clusters for Bytes of data, linked in a chain: all in one run if the
+  card has room for it (programs that read the card directly, as streaming
+  .nex games do with DISK_FILEMAP, want their file in one piece), else the
+  first free ones }
+function TFatVolume.AllocClusters(Bytes: Int64): TLongWordArray;
+var
+  N, Run, I: Integer;
+  C, Start: LongWord;
+begin
+  N := (Bytes + ClusterBytes - 1) div ClusterBytes;
+  SetLength(Result, N);
+  if N = 0 then Exit;
+  Run := 0;
+  Start := 0;
+  for C := 2 to FClusters + 1 do
+    if GetFat(C) = 0 then
+    begin
+      if Run = 0 then Start := C;
+      Inc(Run);
+      if Run = N then Break;
+    end
+    else
+      Run := 0;
+  if Run >= N then
+    for I := 0 to N - 1 do Result[I] := Start + LongWord(I)
+  else
+  begin
+    I := 0;
+    for C := 2 to FClusters + 1 do
+      if GetFat(C) = 0 then
+      begin
+        Result[I] := C;
+        Inc(I);
+        if I = N then Break;
+      end;
+    if I < N then raise EFatError.Create('the card is full');
+  end;
+  for I := 0 to N - 2 do SetFat(Result[I], Result[I + 1]);
+  SetFat(Result[N - 1], EndMark);
+end;
+
 procedure TFatVolume.FreeChain(First: LongWord);
 var
   Clusters: TLongWordArray;
@@ -689,8 +731,7 @@ procedure TFatVolume.WriteFile(DirCluster: LongWord; const AName: string; const 
 var
   Raw: array[0..10] of Byte;
   Error: string;
-  First, Prev, C: LongWord;
-  Done, Len: Int64;
+  First: LongWord;
   Pos: Int64;
 begin
   if not MakeName83(AName, Raw, Error) then raise EFatError.Create(Error);
@@ -698,19 +739,7 @@ begin
   if Length(Data) > FreeBytes then
     raise EFatError.CreateFmt('not enough space: %d bytes needed, %d free', [Length(Data), FreeBytes]);
   Pos := FindFreeEntry(DirCluster);
-  First := 0;
-  Prev := 0;
-  Done := 0;
-  while Done < Length(Data) do
-  begin
-    C := AllocCluster(Prev);
-    if First = 0 then First := C;
-    Len := Min(ClusterBytes, Length(Data) - Done);
-    FStream.Position := ClusterPos(C);
-    FStream.WriteBuffer(Data[Done], Len);
-    Inc(Done, Len);
-    Prev := C;
-  end;
+  First := WriteData(Data);
   WriteEntry(Pos, Raw, ATTR_ARCHIVE, First, Length(Data));
 end;
 
@@ -1206,24 +1235,23 @@ end;
 { The data in new clusters; the first one (0 for no data) }
 function TFatVolume.WriteData(const Data: TBytes): LongWord;
 var
-  Prev, C: LongWord;
+  Clusters: TLongWordArray;
+  I: Integer;
   Done, Len: Int64;
 begin
   if Length(Data) > FreeBytes then
     raise EFatError.CreateFmt('not enough space: %d bytes needed, %d free', [Length(Data), FreeBytes]);
   Result := 0;
-  Prev := 0;
+  Clusters := AllocClusters(Length(Data));
   Done := 0;
-  while Done < Length(Data) do
+  for I := 0 to High(Clusters) do
   begin
-    C := AllocCluster(Prev);
-    if Result = 0 then Result := C;
     Len := Min(ClusterBytes, Length(Data) - Done);
-    FStream.Position := ClusterPos(C);
+    FStream.Position := ClusterPos(Clusters[I]);
     FStream.WriteBuffer(Data[Done], Len);
     Inc(Done, Len);
-    Prev := C;
   end;
+  if Length(Clusters) > 0 then Result := Clusters[0];
 end;
 
 procedure TFatVolume.WriteFileLong(DirCluster: LongWord; const LongName: string;

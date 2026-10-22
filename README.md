@@ -158,7 +158,8 @@ left Ctrl are CAPS SHIFT, the right Shift and right Ctrl SYMBOL SHIFT).
 **Joystick**: Settings > Miscellaneous chooses what the cursor keys plus either Ctrl key (fire)
 emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
 Interface 2 joystick 1 (keys 6-0) or joystick 2 (keys 1-5), a Cursor/Protek/AGF joystick (keys
-5-8 and 0) or a Fuller joystick (port `7F`). Only the chosen interface is connected.
+5-8 and 0) or a Fuller joystick (port `7F`). Only the chosen interface is connected. By default
+it is a Kempston joystick.
 
 **Mouse**: with the Kempston mouse on (Settings > Hardware), moving the PC mouse over the picture
 moves the Spectrum's Kempston mouse (ports `FBDF` for X, `FFDF` for Y and `FADF` for the
@@ -452,8 +453,9 @@ it all again; Reset (Shift+F6) is the Next's soft reset.
 **.nex files** (File > Open, or the command line) switch to the Next if needed and are loaded
 into its memory and started, as NextZXOS's `.nexload` does (versions 1.0 to 1.3: loading screens
 of every kind, palette, the copper code, which starts at once, and the registers as the header
-asks). A program that asks for its own file (to read more data from it) gets a handle that the
-esxDOS calls F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from the .nex; for
+asks). A program that asks for its own file (to read more data from it: through the handle the
+header asks for, or opening it again by name with F_OPEN) gets a handle that the esxDOS calls
+F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from the .nex; for
 DISK_FILEMAP, which programs use to stream data straight from the card, the file is also copied
 onto the Next's SD card as `/TMP/PZXNEX.NEX` (replaced each time). Tapes are only inserted (load
 them from NextZXOS's browser or with `LOAD ""`), and .sna, .z80 and .dsk files switch to their
@@ -476,6 +478,12 @@ NR `0A`, the +3 one by default) pages its 8K ROM and 8K RAM in over everything e
 until RETN or its ports page it out; the NMI may be stackless (NR `C0` bit 3, as NextZXOS uses
 it: RETN then returns to the address in NR `C2`-`C3`; RETI, which interrupt handlers use, still
 returns to the one on the stack).
+
+**Configuration mode.** While NR `03`'s machine type is `000`, `0000`-`3FFF` is the 16K of SRAM
+that NR `04` chooses, writable. Writing type `111` to NR `03` goes back to it from any machine
+type, as on the real Next: games such as Atic Atac use that to write their own DivMMC NMI entry
+into the DivMMC's memory, and stream their sound through the DivMMC NMI. NR `09` bit 3 clears
+the DivMMC's MAPRAM (port `E3` bit 6), which the original DivMMC can't do.
 
 **Copper.** It runs on its own clock (four steps a T-state, two for a MOVE), and WAIT holds it
 until its line and horizontal position (in 8-pixel steps) come, counted from the first line of
@@ -624,7 +632,9 @@ folders in them, after asking). Importing or exporting a file that already exist
 to overwrite it. The import and export dialogs open in the folder this browser used last. New
 names are 8.3, as esxDOS uses them, except on the ZX Spectrum Next's card, where imported files
 and folders keep their PC names (NextZXOS reads long names); renaming a file drops its long
-name. esxDOS keeps some things in memory, so after changing the card from the browser
+name. A file is written in one piece when the card has a free stretch big enough for it (as on
+a freshly formatted card): programs that read the card directly, such as .nex games that stream
+their data with DISK_FILEMAP, need their file that way. esxDOS keeps some things in memory, so after changing the card from the browser
 it may not notice the changes until it reads that folder again (or after a reset).
 
 Files and folders can also be dragged from the PC's file manager and dropped on the SD card
@@ -1236,7 +1246,7 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 | `--timex` | Timex screen modes | Miscellaneous |
 | `--radastan` | Radastan mode (ZX-Uno) | Miscellaneous |
 | `--scanlines` | scanlines, from window size 2x | Miscellaneous |
-| `--joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston`, `sinclair1`, `sinclair2`, `cursor` or `fuller` | Miscellaneous |
+| `--joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | Miscellaneous |
 | `--issue N` | keyboard issue 2 or 3 | Miscellaneous |
 | `--shiftkeys S` | `standard` (Shift = CAPS, Ctrl = SYMBOL) or `sides` (left = CAPS, right = SYMBOL) | Miscellaneous |
 | `--turbosound` | TurboSound | Hardware |

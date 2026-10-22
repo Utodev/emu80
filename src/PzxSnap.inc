@@ -256,6 +256,7 @@ begin
       for I := 0 to 255 do FNextPalRGB[P, I] := Rgb9(FNextPal[P, I] and $1FF);
     FNexOpen := False;
     FNexData := nil;
+    FNexName := '';
     FNextResetReq := 0;
     NextSetDivEntries;
     NextUpdatePaging;
