@@ -1,1 +1,0 @@
-Copy CONFIG to c:/dot

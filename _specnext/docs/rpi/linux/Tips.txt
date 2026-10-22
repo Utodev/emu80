@@ -1,3 +1,0 @@
-Remember, LESS is no longer MORE, but when developing for NextPi, less is most definitely more...
-
--Dx

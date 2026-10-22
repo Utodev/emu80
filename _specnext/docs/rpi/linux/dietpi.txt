@@ -1,5 +1,0 @@
-NextPi is dirivative of DietPi
-
-the Root Password username is dietpi
-
-More information about dietpi can be found at dietpi.com

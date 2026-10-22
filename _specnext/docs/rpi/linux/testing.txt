@@ -1,7 +1,0 @@
-Automated testing
-
-SOME (not much) of NextPi's CLIAPI is testable from the development environment.
-
-These tests are run using bash, and rely upon the NextPi directory structure,
- as setup in /tools/install_development_environment, and need to be run as root
- UNLESS the devmode test ("/tmp/nextpi.dev" exists) passes

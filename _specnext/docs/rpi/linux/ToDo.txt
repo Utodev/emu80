@@ -1,7 +1,0 @@
-TODO
-
- * Add Error checking to ALL THE THINGS -- none of the nextpi- CLI tools have it
-
- * disable network updates of packages
-
- * disable linux trying to set volume on Next's DAC

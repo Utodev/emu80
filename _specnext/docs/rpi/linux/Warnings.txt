@@ -1,8 +1,0 @@
-Things that are different to "normal linux"
-
-The File system is READ ONLY
-There's no RTC, and no network, so we're trapped in no-time, immortal.
-Because there's no passage of time, there's no CRON.
-
-DO NOT update packages via apt - this will overwrite custom configs, and 
- probably stop the device booting.

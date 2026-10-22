@@ -1,3 +1,0 @@
-All passwords are "dietpi" - this is in memory of DietPi, the distro we
-started from - and also so that any dietpi documentation you may follow, which
-references this, will remain accurate.

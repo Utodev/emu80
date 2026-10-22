@@ -1,5 +1,0 @@
-in_key_translation_table.asm
-mem.c
-option.c
-state.c
-user_interaction.c

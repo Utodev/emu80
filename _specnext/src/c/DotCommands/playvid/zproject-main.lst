@@ -1,4 +1,0 @@
-interrupts-common.asm
-main.c
-sd.c
-playvidp.o
