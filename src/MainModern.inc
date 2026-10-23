@@ -518,19 +518,6 @@ end;
   the modern interface and which button changes to the classic one }
 procedure TMainWindow.ShowNotice;
 begin
-  FNotice := TModernNotice.Create(Self);
-  FNotice.Images := FSmallImages;
-  FNotice.IconIndex := Ord(ikTheme);
-  FNotice.Parent := Self;
-  FNotice.SetBounds(0, 0, MUIScale(430), MUIScale(84));
-  // In the middle of the window
-  FNotice.AnchorHorizontalCenterTo(Self);
-  FNotice.AnchorVerticalCenterTo(Self);
-  FNotice.BringToFront;
-  FNoticeTimer := TTimer.Create(Self);
-  FNoticeTimer.Interval := 5000;
-  FNoticeTimer.OnTimer := @NoticeEnd;
-  FNoticeTimer.Enabled := True;
 end;
 
 procedure TMainWindow.NoticeEnd(Sender: TObject);
