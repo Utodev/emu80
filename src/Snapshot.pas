@@ -104,6 +104,14 @@ var
   Bank, Pos: Integer;
 begin
   D := ReadFileBytes(FileName);
+  // A CPC snapshot starts with "MV - SNA"; a Spectrum one has no signature
+  if (Length(D) >= 8) and (D[0] = Ord('M')) and (D[1] = Ord('V')) and (D[2] = Ord(' ')) and
+     (D[3] = Ord('-')) and (D[4] = Ord(' ')) and (D[5] = Ord('S')) and (D[6] = Ord('N')) and
+     (D[7] = Ord('A')) then
+  begin
+    Spec.LoadCPCSna(FileName);
+    Exit;
+  end;
   if Length(D) < 49179 then raise Exception.Create('Invalid SNA file');
   Paging := 0;
   Is128K := Length(D) > 49179;
@@ -164,6 +172,11 @@ var
   I, Bank, Pos: Integer;
   SP: Word;
 begin
+  if Spec.CPC <> nil then
+  begin
+    Spec.SaveCPCSna(FileName);
+    Exit;
+  end;
   Cpu := Spec.Cpu;
   if Is128(Spec) then SetLength(D, 49179 + 4 + 5 * $4000) else SetLength(D, 49179);
   D[0] := Cpu.I;

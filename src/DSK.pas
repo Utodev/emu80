@@ -41,6 +41,9 @@ type
     { Creates an empty disk in the standard +3 format (ready to use, no FORMAT
       needed): 40 tracks, 1 side, 9 sectors of 512 bytes, empty directory }
     procedure CreatePlus3Formatted;
+    { The same for an Amstrad CPC: AMSDOS's data format (sector numbers C1-C9,
+      in its usual interleave) }
+    procedure CreateCPCFormatted;
     function Track(Cylinder, Side: Integer): PTrack;
     procedure FormatTrack(Cylinder, Side: Integer; const IDs: array of Byte; SectorCount: Integer;
       N, Gap3, Filler: Byte);
@@ -103,6 +106,29 @@ begin
     // $E5 everywhere: an empty CP/M directory, and no disk specification in
     // the boot sector, so +3DOS uses its standard format
     FormatTrack(C, 0, IDs, 9, 2, $2A, $E5);
+  end;
+  FModified := False;
+end;
+
+procedure TDiskImage.CreateCPCFormatted;
+const
+  // The order the sectors are in around the track
+  ORDER: array[0..8] of Byte = ($C1, $C6, $C2, $C7, $C3, $C8, $C4, $C9, $C5);
+var
+  C, I: Integer;
+  IDs: array[0..35] of Byte;
+begin
+  CreateBlank(40, 1);
+  for C := 0 to 39 do
+  begin
+    for I := 0 to 8 do
+    begin
+      IDs[I * 4] := C;
+      IDs[I * 4 + 1] := 0;
+      IDs[I * 4 + 2] := ORDER[I];
+      IDs[I * 4 + 3] := 2;
+    end;
+    FormatTrack(C, 0, IDs, 9, 2, $4E, $E5);
   end;
   FModified := False;
 end;

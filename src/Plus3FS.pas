@@ -90,6 +90,12 @@ function MakeRawName(const AName: string; out Raw: array of Byte; out Error: str
 { A file with a PLUS3DOS header in front of Data }
 function AddPlus3Header(const Data: TBytes; FileType: Byte; Param1, Param2: Word): TBytes;
 function HasPlus3Header(const Data: TBytes): Boolean;
+{ An Amstrad CPC's AMSDOS header: 128 bytes, the sum of the first 67 in the word
+  at 67 (and a user number below 16) }
+function HasAmsdosHeader(const Data: TBytes): Boolean;
+{ A binary (file type 2) with an AMSDOS header, for the 8.3 name AName, loading
+  at Load and starting at Exec }
+function AddAmsdosHeader(const Data: TBytes; const AName: string; Load, Exec: Word): TBytes;
 function FileTypeName(const F: TPlus3File): string;
 
 implementation
@@ -110,6 +116,54 @@ begin
   Sum := 0;
   for I := 0 to 126 do Sum := Byte(Sum + Data[I]);
   Result := (Data[8] = $1A) and (Sum = Data[127]);
+end;
+
+function HasAmsdosHeader(const Data: TBytes): Boolean;
+var
+  I, Sum: Integer;
+begin
+  Result := False;
+  if Length(Data) < PLUS3_HEADER_SIZE then Exit;
+  if Data[0] > 15 then Exit;
+  Sum := 0;
+  for I := 0 to 66 do Inc(Sum, Data[I]);
+  Result := ((Sum and $FFFF) = (Data[67] or (Data[68] shl 8))) and (Data[18] <= 3) and (Sum > 0);
+end;
+
+function AddAmsdosHeader(const Data: TBytes; const AName: string; Load, Exec: Word): TBytes;
+var
+  I, K, Sum, N: Integer;
+  Base, Ext: string;
+begin
+  SetLength(Result, Length(Data) + PLUS3_HEADER_SIZE);
+  FillChar(Result[0], PLUS3_HEADER_SIZE, 0);
+  N := Pos('.', AName);
+  if N > 0 then
+  begin
+    Base := Copy(AName, 1, N - 1);
+    Ext := Copy(AName, N + 1, 3);
+  end
+  else
+  begin
+    Base := AName;
+    Ext := '';
+  end;
+  FillChar(Result[1], 11, Ord(' '));
+  for K := 1 to Min(Length(Base), 8) do Result[K] := Ord(UpCase(Base[K]));
+  for K := 1 to Min(Length(Ext), 3) do Result[8 + K] := Ord(UpCase(Ext[K]));
+  // As SAVE makes it on a disc: 0 user, 1-11 name, 18 type (2: binary; 0: BASIC),
+  // 21-22 load address, 24-25 logical length, 26-27 entry, 64-66 length
+  Result[18] := 2;
+  Result[21] := Load and $FF; Result[22] := Load shr 8;
+  Result[24] := Length(Data) and $FF; Result[25] := (Length(Data) shr 8) and $FF;
+  Result[26] := Exec and $FF; Result[27] := Exec shr 8;
+  Result[64] := Length(Data) and $FF; Result[65] := (Length(Data) shr 8) and $FF;
+  Result[66] := (Length(Data) shr 16) and $FF;
+  Sum := 0;
+  for I := 0 to 66 do Inc(Sum, Result[I]);
+  Result[67] := Sum and $FF;
+  Result[68] := (Sum shr 8) and $FF;
+  if Length(Data) > 0 then Move(Data[0], Result[PLUS3_HEADER_SIZE], Length(Data));
 end;
 
 function AddPlus3Header(const Data: TBytes; FileType: Byte; Param1, Param2: Word): TBytes;

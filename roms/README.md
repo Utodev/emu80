@@ -37,3 +37,12 @@ from Richard Dymond's SkoolKit disassembly (github.com/skoolkid/rom, GPL v3).
 `tools/make-rom-symbols.py` from the disassemblies in
 github.com/ZXSpectrumVault/rom-disassemblies (Paul Farrow, Garry Lancaster and
 others); every label was checked against these ROM files.
+
+`cpc464.rom`, `cpc664.rom` and `cpc6128.rom` (32K each: the 16K operating
+system followed by the 16K Locomotive BASIC of the model) and `amsdos.rom`
+(the 16K AMSDOS disc ROM of the CPC 664 and 6128) are the firmware of the
+Amstrad CPC, © Amstrad. Amstrad allows the distribution of the CPC ROMs
+for non-commercial use, retaining the copyright. The files were taken from
+the Caprice32 emulator distribution (the same images as WinAPE's `OS464.ROM`
++ `BASIC1-0.ROM`, `OS664.ROM` + `BASIC664.ROM`, `OS6128.ROM` + `BASIC1-1.ROM`
+and `AMSDOS.ROM`).

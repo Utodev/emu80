@@ -417,6 +417,7 @@ var
   Status: string;
 begin
   // Files on an SD card usually have no +3DOS header: unticked by default
+  AmsdosHeaders := False;
   Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
     nil, False, LongNames);
   Refresh;
@@ -427,6 +428,7 @@ procedure TSDBrowserWindow.DoImportFolder(Sender: TObject);
 var
   Status: string;
 begin
+  AmsdosHeaders := False;
   Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
     nil, True, LongNames);
   Refresh;
@@ -442,7 +444,8 @@ begin
   Paths := TStringList.Create;
   try
     for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
-    Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
+    AmsdosHeaders := False;
+  Status := ImportFromPC(Settings.SDBrowserDir, False, @ImportExists, @ImportWrite, @ImportMakeDir,
       Paths, False, LongNames);
   finally
     Paths.Free;
@@ -625,6 +628,7 @@ begin
     ShowError('Could not read the file: ' + Error);
     Exit;
   end;
+  AmsdosHeaders := False;
   Status := ExportToPC(Names, Datas, Settings.SDBrowserDir);
   if Status <> '' then FStatus.SimpleText := Status;
 end;

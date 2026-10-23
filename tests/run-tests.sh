@@ -162,3 +162,9 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/autoplaytest.lpr" > 
 fpc -O2 -Fu"$ROOT/src" -Fu"$ROOT/src/lib" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/libtest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/libtest" "$ROOT/roms"
+
+# Amstrad CPC 464, 664 and 6128: firmware boot, banking, keyboard, sound, CDT
+# recording and loading, snapshots
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/cpctest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/cpctest" "$ROOT/roms"

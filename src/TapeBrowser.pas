@@ -64,6 +64,9 @@ procedure ShowTapeBrowser(Emu: TEmulator);
 { Before saving the tape as a .tap: if it has blocks a .tap can't keep (from
   a .tzx: turbo data, recordings, texts...), whether to save without them }
 function ConfirmTapSave(Emu: TEmulator): Boolean;
+{ Ask for a file and save the tape in it: .tap, or .tzx (and .cdt on an Amstrad
+  CPC, whose tapes are TZX files); False if cancelled or it failed }
+function SaveTapeDialog(Emu: TEmulator; const InitialName: string): Boolean;
 
 implementation
 
@@ -84,6 +87,63 @@ begin
     'tape''s other blocks (turbo timings, tones, pulses, recordings, pauses, texts and the like, ' +
     'from a .tzx) are left out, and turbo data is saved with the standard timings.' + LineEnding +
     LineEnding + 'Save it anyway?', mtWarning, [mbYes, mbNo], 0) = mrYes);
+end;
+
+function SaveTapeDialog(Emu: TEmulator; const InitialName: string): Boolean;
+var
+  Dlg: TSaveDialog;
+  Ext: string;
+  CPC: Boolean;
+begin
+  Result := False;
+  Emu.Lock;
+  try
+    CPC := Emu.Spec.CPC <> nil;
+  finally
+    Emu.Unlock;
+  end;
+  Dlg := TSaveDialog.Create(nil);
+  try
+    if CPC then
+    begin
+      Dlg.Filter := 'CPC tape images (*.cdt)|*.cdt|TZX tape images (*.tzx)|*.tzx';
+      Dlg.DefaultExt := 'cdt';
+    end
+    else
+    begin
+      Dlg.Filter := 'Tape images (*.tap)|*.tap|TZX tape images (*.tzx)|*.tzx';
+      Dlg.DefaultExt := 'tap';
+    end;
+    Dlg.InitialDir := Settings.LastDir;
+    Dlg.FileName := InitialName;
+    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
+    if not Dlg.Execute then Exit;
+    Ext := LowerCase(ExtractFileExt(Dlg.FileName));
+    if (Ext <> '.tzx') and (Ext <> '.cdt') and not ConfirmTapSave(Emu) then Exit;
+    Emu.Lock;
+    try
+      try
+        if (Ext = '.tzx') or (Ext = '.cdt') then Emu.Spec.Tape.SaveTZX(Dlg.FileName)
+        else Emu.Spec.Tape.SaveTAP(Dlg.FileName);
+        Result := True;
+      except
+        on E: Exception do
+        begin
+          Emu.Unlock;
+          try
+            MessageDlg('Save tape', 'Could not save ' + ExtractFileName(Dlg.FileName) + ':' +
+              LineEnding + E.Message, mtError, [mbOK], 0);
+          finally
+            Emu.Lock;
+          end;
+        end;
+      end;
+    finally
+      Emu.Unlock;
+    end;
+  finally
+    Dlg.Free;
+  end;
 end;
 
 procedure ShowTapeBrowser(Emu: TEmulator);
@@ -464,27 +524,8 @@ begin
 end;
 
 procedure TTapeBrowserWindow.DoSave(Sender: TObject);
-var
-  Dlg: TSaveDialog;
 begin
-  Dlg := TSaveDialog.Create(Self);
-  try
-    Dlg.Filter := 'Tape images (*.tap)|*.tap';
-    Dlg.DefaultExt := 'tap';
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.FileName := ExtractFileName(FEmu.Spec.Tape.FileName);
-    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not ConfirmTapSave(FEmu) or not Dlg.Execute then Exit;
-    FEmu.Lock;
-    try
-      FEmu.Spec.Tape.SaveTAP(Dlg.FileName);
-    finally
-      FEmu.Unlock;
-    end;
-  finally
-    Dlg.Free;
-  end;
-  Refresh(True);
+  if SaveTapeDialog(FEmu, ExtractFileName(FEmu.Spec.Tape.FileName)) then Refresh(True);
 end;
 
 { A right-click selects the block under the mouse (for its menu) }

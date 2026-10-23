@@ -23,12 +23,14 @@ type
 
   TSettingsDialog = class(TForm)
   private
-    FPages: TPageControl;
+    FPages, FCommon, FZX: TPageControl;   // the three main tabs; what is inside the Common and ZX Spectrum ones
+    FCrtc: TComboBox;
+    FCPCWait: TCheckBox;
     FModel: TComboBox;
     FRomDir: TEdit;
     FBrowse: TButton;
     FFastLoad, FAutoPlay, FTapeLoop, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
-    FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah: TCheckBox;
+    FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
     FFloppyNoise, FSaveOnExit: TCheckBox;
@@ -49,7 +51,8 @@ type
     FShownRomModel: Integer;
     FOwn: array[0..3] of Boolean;   // DivMMC, Timex, Radastan, ULAplus as set (not forced)
     FButtons: TButtonPanel;
-    function AddPage(const ACaption: string): TTabSheet;
+    function AddPage(PC: TPageControl; const ACaption: string): TTabSheet;
+    function AddTabs(Page: TTabSheet): TPageControl;
     function AddLabel(Page: TWinControl; const ACaption: string; ATop: Integer): TLabel;
     function AddCheck(Page: TWinControl; const ACaption: string; ATop: Integer): TCheckBox;
     { A short explanation in grey under an option }
@@ -116,8 +119,14 @@ begin
   FPages.Align := alClient;
   FPages.BorderSpacing.Around := 6;
 
-  // General
-  Page := AddPage('General');
+  // Three main tabs: what is common to every machine, what is the ZX
+  // Spectrum's (and its relatives') and what is the Amstrad CPC's. The
+  // Common and ZX Spectrum ones have tabs of their own inside.
+  FCommon := AddTabs(AddPage(FPages, 'Common'));
+  FZX := AddTabs(AddPage(FPages, 'ZX Spectrum'));
+
+  // Common: General
+  Page := AddPage(FCommon, 'General');
   Y := 14;
   AddLabel(Page, 'Machine:', Y + 4);
   FModel := AddCombo(Page, Y, 270);
@@ -134,6 +143,8 @@ begin
   FUI.Items.Add('Modern (dark)');
   Inc(Y, 40);
   FMonochrome := AddCheck(Page, 'Black and white display', Y);
+  Inc(Y, 28);
+  FScanlines := AddCheck(Page, 'Scanlines (window size 2x or more)', Y);
   Inc(Y, 28);
   FSound := AddCheck(Page, 'Mute sound', Y);
   Inc(Y, 34);
@@ -165,53 +176,33 @@ begin
   AddNote(Page, 'The Z80 runs this many times faster; interrupts stay at 50 per second.',
     Y + 56);
   Inc(Y, 96);
+  FRomEdit := AddCheck(Page, 'Allow writing to ROM', Y);
+  FRomEdit.Hint := 'From the debugger and with POKE';
+  Inc(Y, 32);
   FSaveOnExit := AddCheck(Page, 'Save the settings when pzx closes', Y);
   AddNote(Page, 'Off: changes made while running (window size, model, recent files...) ' +
     'are forgotten; OK in this dialog still saves.', Y + 22);
 
-  // Hardware connected to the machine
-  Page := AddPage('Hardware');
-  Y := 14;
-  FTurboSound := AddCheck(Page, 'TurboSound', Y);
-  FTurboSound.Hint := 'Two AY sound chips on the 128K and later models';
-  Inc(Y, 28);
-  FAY48 := AddCheck(Page, 'AY sound chip on the 16K and 48K', Y);
-  FAY48.Hint := 'An AY interface at the 128K''s ports (FFFD and BFFD)';
-  Inc(Y, 28);
-  FMouse := AddCheck(Page, 'Kempston mouse', Y);
-  FMouse.Hint := 'Moved with the PC mouse over the picture';
-  Inc(Y, 28);
-  FDivMMC := AddCheck(Page, 'DivMMC interface', Y);
-  FDivMMC.Hint := 'SD card with the esxDOS firmware (see the SD menu); changing it switches ' +
-    'the machine off and on';
-  Inc(Y, 28);
-  FCurrah := AddCheck(Page, 'Currah ' + #$C2#$B5 + 'Speech', Y);
-  FCurrah.Hint := 'Speech synthesizer for the 48K BASIC (LET s$="..."); changing it switches ' +
-    'the machine off and on';
-
-  // Tapes and disks
-  Page := AddPage('Storage');
-  Group := AddGroup(Page, 'Tape', 8, 144);
+  // Common: tapes and disks
+  Page := AddPage(FCommon, 'Storage');
+  Group := AddGroup(Page, 'Tape', 8, 116);
   Y := 8;
   FFastLoad := AddCheck(Group, 'Fast tape loading', Y);
   Inc(Y, 28);
-  FAutoPlay := AddCheck(Group, 'Start the tape automatically when the ROM loads (real-time mode)', Y);
-  Inc(Y, 28);
-  FSaveToTape := AddCheck(Group, 'SAVE writes the blocks to the tape', Y);
+  FAutoPlay := AddCheck(Group, 'Start the tape automatically when the machine loads', Y);
   Inc(Y, 28);
   FTapeLoop := AddCheck(Group, 'Continuous tape playback (from the start again at the end)', Y);
-  Group := AddGroup(Page, 'Floppy', 164, 116);
+  Group := AddGroup(Page, 'Floppy', 136, 116);
   Y := 8;
   FFastDisk := AddCheck(Group, 'Fast floppy disk access (no real drive timing)', Y);
   Inc(Y, 28);
-  FDriveB := AddCheck(Group, 'Drive B: connected (+3)', Y);
+  FDriveB := AddCheck(Group, 'Drive B: connected (+3, CPC 664 and 6128)', Y);
   Inc(Y, 28);
   FFloppyNoise := AddCheck(Group, 'Emulate floppy drive noise', Y);
   FFloppyNoise.Hint := 'Motor, head steps and reading, when the drive works at real speed';
 
-  // ROMs: the machine's, the DivMMC's and the ZX-Uno's (an empty file is
-  // the standard one)
-  Page := AddPage('ROMs');
+  // Common: the machines' ROMs (an empty file is the standard one)
+  Page := AddPage(FCommon, 'ROMs');
   Group := AddGroup(Page, 'ROMs', 8, 248);
   Y := 8;
   AddLabel(Group, 'Standard ROM folder:', Y + 4);
@@ -246,7 +237,69 @@ begin
     FRomBrowse[I].OnClick := @DoRomBrowse;
     Inc(Y, 32);
   end;
-  Group := AddGroup(Page, 'DivMMC', 266, 64);
+  AddNote(Page, 'On the CPC models ROM 0 is the 32K firmware (operating system and BASIC) and ROM 1 the ' +
+    'AMSDOS disc ROM.', 264);
+
+  // ZX Spectrum: hardware connected to the machine
+  Page := AddPage(FZX, 'Hardware');
+  Y := 14;
+  FTurboSound := AddCheck(Page, 'TurboSound', Y);
+  FTurboSound.Hint := 'Two AY sound chips on the 128K and later models';
+  Inc(Y, 28);
+  FAY48 := AddCheck(Page, 'AY sound chip on the 16K and 48K', Y);
+  FAY48.Hint := 'An AY interface at the 128K''s ports (FFFD and BFFD)';
+  Inc(Y, 28);
+  FMouse := AddCheck(Page, 'Kempston mouse', Y);
+  FMouse.Hint := 'Moved with the PC mouse over the picture';
+  Inc(Y, 28);
+  FDivMMC := AddCheck(Page, 'DivMMC interface', Y);
+  FDivMMC.Hint := 'SD card with the esxDOS firmware (see the SD menu); changing it switches ' +
+    'the machine off and on';
+  Inc(Y, 28);
+  FCurrah := AddCheck(Page, 'Currah ' + #$C2#$B5 + 'Speech', Y);
+  FCurrah.Hint := 'Speech synthesizer for the 48K BASIC (LET s$="..."); changing it switches ' +
+    'the machine off and on';
+  Inc(Y, 36);
+  FSaveToTape := AddCheck(Page, 'SAVE writes the blocks to the tape', Y);
+  FSaveToTape.Hint := 'The ROM''s SAVE adds its blocks to the inserted tape at once';
+
+  // ZX Spectrum: the machine
+  Page := AddPage(FZX, 'Machine');
+  Group := AddGroup(Page, 'Graphics', 8, 142);
+  Y := 8;
+  FULAPlus := AddCheck(Group, 'ULAplus (64-colour palette)', Y);
+  Inc(Y, 28);
+  FTimex := AddCheck(Group, 'Timex screen modes (second screen, hi-colour, 512x192 hi-res)', Y);
+  Inc(Y, 28);
+  FRadastan := AddCheck(Group, 'Radastan mode', Y);
+  Inc(Y, 30);
+  AddLabel(Group, 'Deinterlace:', Y + 4);
+  FDeinterlace := AddCombo(Group, Y, 270);
+  FDeinterlace.Left := 170;
+  for D := Low(TDeinterlace) to High(TDeinterlace) do FDeinterlace.Items.Add(DEINTERLACE_NAMES[D]);
+  FDeinterlace.Hint := 'The frames taken as the fields of an interlaced picture: needed by ' +
+    'demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)';
+  FDeinterlace.ShowHint := True;
+  Group := AddGroup(Page, 'Controls', 158, 82);
+  Y := 8;
+  AddLabel(Group, 'Keyboard (16K/48K):', Y);
+  Panel := AddRadioPanel(Group, Y - 2, 26);
+  FIssue2 := AddRadio(Panel, 'Issue 2', 0, 0);
+  FIssue3 := AddRadio(Panel, 'Issue 3', 100, 0);
+  Inc(Y, 30);
+  AddLabel(Group, 'Joystick (cursors + Ctrl):', Y + 4);
+  FJoystick := AddCombo(Group, Y, 270);
+  FJoystick.Left := 170;
+  for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
+  Group := AddGroup(Page, 'Core features', 248, 88);
+  Y := 8;
+  FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
+  Inc(Y, 28);
+  FSnow := AddCheck(Group, 'ULA snow (16K, 48K, 128K and +2)', Y);
+
+  // ZX Spectrum: firmware of the DivMMC, the ZX-Uno and the Next
+  Page := AddPage(FZX, 'Firmware');
+  Group := AddGroup(Page, 'DivMMC', 8, 64);
   Y := 8;
   AddLabel(Group, 'Firmware:', Y + 4);
   FFirmware := TEdit.Create(Self);
@@ -260,7 +313,7 @@ begin
   FFirmwareBrowse.Caption := 'Browse...';
   FFirmwareBrowse.SetBounds(366, Y, 80, 25);
   FFirmwareBrowse.OnClick := @DoFirmwareBrowse;
-  Group := AddGroup(Page, 'ZX-Uno', 340, 128);
+  Group := AddGroup(Page, 'ZX-Uno', 82, 128);
   Y := 8;
   FUnoFirmware := AddFileRow(Group, 'BIOS:', 'zxuno/FIRMWARE.ZX1', Y, 1);
   Inc(Y, 32);
@@ -270,7 +323,7 @@ begin
   FUnoCustom.Hint := 'A 16K ROM that runs as a 48K instead of the BIOS''s choice; changes ' +
     'switch the ZX-Uno off and on';
   FUnoCustom.ShowHint := True;
-  Group := AddGroup(Page, 'ZX Spectrum Next', 476, 124);
+  Group := AddGroup(Page, 'ZX Spectrum Next', 218, 124);
   Y := 8;
   FNextDir := AddFileRow(Group, 'Distribution:', 'the specnext folder', Y, 4);
   FNextDir.Hint := 'The folder with the ZX Spectrum Next''s system distribution (from ' +
@@ -284,51 +337,50 @@ begin
   FNextFirmware := AddCheck(Group, 'Start through its firmware (TBBLUE.FW: boot screen and menu)', Y);
   FNextFirmware.Hint := 'Off: NextZXOS starts directly, without the firmware''s screen';
 
-  // The rest of the machine, last
-  Page := AddPage('Miscellaneous');
-  Group := AddGroup(Page, 'Graphics', 8, 170);
+  // Amstrad CPC
+  Page := AddPage(FPages, 'Amstrad CPC');
+  Group := AddGroup(Page, 'Video', 8, 118);
   Y := 8;
-  FULAPlus := AddCheck(Group, 'ULAplus (64-colour palette)', Y);
-  Inc(Y, 28);
-  FScanlines := AddCheck(Group, 'Scanlines (window size 2x or more)', Y);
-  Inc(Y, 28);
-  FTimex := AddCheck(Group, 'Timex screen modes (second screen, hi-colour, 512x192 hi-res)', Y);
-  Inc(Y, 28);
-  FRadastan := AddCheck(Group, 'Radastan mode', Y);
-  Inc(Y, 30);
-  AddLabel(Group, 'Deinterlace:', Y + 4);
-  FDeinterlace := AddCombo(Group, Y, 270);
-  FDeinterlace.Left := 170;
-  for D := Low(TDeinterlace) to High(TDeinterlace) do FDeinterlace.Items.Add(DEINTERLACE_NAMES[D]);
-  FDeinterlace.Hint := 'The frames taken as the fields of an interlaced picture: needed by ' +
-    'demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)';
-  FDeinterlace.ShowHint := True;
-  Group := AddGroup(Page, 'Controls', 186, 82);
+  AddLabel(Group, 'CRTC chip:', Y + 4);
+  FCrtc := AddCombo(Group, Y, 270);
+  FCrtc.Left := 170;
+  FCrtc.Items.Add('The one the model came with (464: type 0; 664, 6128: type 1)');
+  FCrtc.Items.Add('Type 0: HD6845S / UM6845');
+  FCrtc.Items.Add('Type 1: UM6845R');
+  FCrtc.Items.Add('Type 2: MC6845');
+  FCrtc.Items.Add('Type 3: AMS40489 (CPC+ ASIC)');
+  FCrtc.Items.Add('Type 4: AMS40226 (pre-ASIC)');
+  FCrtc.Hint := 'The chips differ in which registers they read back, the VSYNC width, the ' +
+    'HSYNC of width 0, the display skew and when the sync and display compares happen';
+  FCrtc.ShowHint := True;
+  AddNote(Group, 'Programs detect the chip (and some demos need a particular one); the ' +
+    'registers written are kept when it is changed.', Y + 34);
+  Group := AddGroup(Page, 'Timing', 134, 64);
   Y := 8;
-  AddLabel(Group, 'Keyboard (16K/48K):', Y);
-  Panel := AddRadioPanel(Group, Y - 2, 26);
-  FIssue2 := AddRadio(Panel, 'Issue 2', 0, 0);
-  FIssue3 := AddRadio(Panel, 'Issue 3', 100, 0);
-  Inc(Y, 30);
-  AddLabel(Group, 'Joystick (cursors + Ctrl):', Y + 4);
-  FJoystick := AddCombo(Group, Y, 270);
-  FJoystick.Left := 170;
-  for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
-  Group := AddGroup(Page, 'Core features', 276, 116);
+  FCPCWait := AddCheck(Group, 'Gate Array wait states (every access on the 1 MHz grid)', Y);
+  FCPCWait.Hint := 'Real timing: instructions take a whole number of microseconds; off makes ' +
+    'every access take its nominal time';
+  Group := AddGroup(Page, 'Controls', 214, 64);
   Y := 8;
-  FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
-  Inc(Y, 28);
-  FSnow := AddCheck(Group, 'ULA snow (16K, 48K, 128K and +2)', Y);
-  Inc(Y, 28);
-  FRomEdit := AddCheck(Group, 'Allow writing to ROM', Y);
-  FRomEdit.Hint := 'From the debugger and with POKE';
+  FCPCJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as joystick 1', Y);
+  FCPCJoystick.Hint := 'On the CPC the cursor keys are always the cursor keys; with this on they ' +
+    'also move joystick 1, and the right Ctrl is its fire button';
   FShownRomModel := -1;
 end;
 
-function TSettingsDialog.AddPage(const ACaption: string): TTabSheet;
+function TSettingsDialog.AddPage(PC: TPageControl; const ACaption: string): TTabSheet;
 begin
-  Result := FPages.AddTabSheet;
+  Result := PC.AddTabSheet;
   Result.Caption := ACaption;
+end;
+
+{ A tab with tabs inside }
+function TSettingsDialog.AddTabs(Page: TTabSheet): TPageControl;
+begin
+  Result := TPageControl.Create(Self);
+  Result.Parent := Page;
+  Result.Align := alClient;
+  Result.BorderSpacing.Around := 2;
 end;
 
 function TSettingsDialog.AddLabel(Page: TWinControl; const ACaption: string; ATop: Integer): TLabel;
@@ -592,6 +644,9 @@ begin
   FMouse.Checked := S.KempstonMouse;
   FDivMMC.Checked := S.DivMMC;
   FCurrah.Checked := S.Currah;
+  FCPCJoystick.Checked := S.CPCJoystick;
+  FCPCWait.Checked := S.CPCWaitStates;
+  FCrtc.ItemIndex := S.CPCCrtc + 1;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
   FNextDir.Text := S.NextDir;
@@ -667,6 +722,9 @@ begin
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
   S.Currah := FCurrah.Checked;
+  S.CPCJoystick := FCPCJoystick.Checked;
+  S.CPCWaitStates := FCPCWait.Checked;
+  S.CPCCrtc := FCrtc.ItemIndex - 1;
   S.Monochrome := FMonochrome.Checked;
   S.Contention := FContention.Checked;
   S.UlaSnow := FSnow.Checked;

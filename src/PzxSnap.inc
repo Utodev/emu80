@@ -14,7 +14,49 @@ const
 
 function TSpectrum.NeedsOwnSnapshot: Boolean;
 begin
-  Result := IsNext or IsZXUno;
+  Result := IsNext or IsZXUno or FIsCPC;
+end;
+
+{ The Amstrad CPC: the CPU, the Gate Array, CRTC, PPI and PSG state and all
+  the RAM (TAmstrad.SaveState), and the PSG chip. What is not in it: the tape
+  (its position) and the discs (the images stay as they are inserted; a disc
+  transfer in progress is not kept). }
+procedure TSpectrum.CPCSnapIO(S: TStream; Save: Boolean);
+
+  procedure IO(var Buf; Size: Integer);
+  begin
+    if Save then S.WriteBuffer(Buf, Size) else S.ReadBuffer(Buf, Size);
+  end;
+
+var
+  Regs: array[0..15] of Byte;
+  Sel: Byte;
+  K, FrameT: Integer;
+  EIJust: Boolean;
+begin
+  IO(FCpu.A, 1); IO(FCpu.F, 1); IO(FCpu.A_, 1); IO(FCpu.F_, 1);
+  IO(FCpu.BC, 2); IO(FCpu.DE, 2); IO(FCpu.HL, 2); IO(FCpu.BC_, 2); IO(FCpu.DE_, 2);
+  IO(FCpu.HL_, 2); IO(FCpu.IX, 2); IO(FCpu.IY, 2); IO(FCpu.SP, 2); IO(FCpu.PC, 2);
+  IO(FCpu.WZ, 2);
+  IO(FCpu.I, 1); IO(FCpu.R, 1); IO(FCpu.R7, 1); IO(FCpu.IM, 1);
+  IO(FCpu.IFF1, 1); IO(FCpu.IFF2, 1); IO(FCpu.Halted, 1); IO(FCpu.Q, 1); IO(FCpu.LastQ, 1);
+  EIJust := FCpu.EIJust;
+  IO(EIJust, 1);
+  FCpu.EIJust := EIJust;
+  FrameT := U(FCpu.T);
+  IO(FrameT, SizeOf(FrameT));
+  if not Save then FCpu.T := FrameT * FSpeed;
+  if Save then FCPC.SaveState(S) else FCPC.LoadState(S);
+  for K := 0 to 15 do Regs[K] := FAY.GetRegister(K);
+  Sel := FAY.Selected;
+  IO(Regs, SizeOf(Regs));
+  IO(Sel, 1);
+  if not Save then
+  begin
+    FAY.Reset;
+    for K := 0 to 15 do FAY.WriteRegister(K, Regs[K]);
+    FAY.SelectRegister(Sel);
+  end;
 end;
 
 { The machine into S (Save) or from it, field by field }
@@ -33,6 +75,11 @@ var
   EIJust, Mapped: Boolean;
   DS: ^TDivState;
 begin
+  if FIsCPC then
+  begin
+    CPCSnapIO(S, Save);
+    Exit;
+  end;
   // The RAM kept (the SRAM pages of the ZX-Uno, the Next's 1792K)
   Banks := RamBanksUsed;
   IO(Banks, SizeOf(Banks));
@@ -247,6 +294,11 @@ begin
     SetSpeed(FUserSpeed);
     FUnoAutoLoad := -1;
     UpdatePaging;
+  end
+  else if FIsCPC then
+  begin
+    CPCPaging;
+    CPCSyncAutoKeys;
   end
   else if not IsNext then
     UpdatePaging

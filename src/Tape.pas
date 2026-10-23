@@ -161,8 +161,18 @@ type
     procedure LoadFile(const FileName: string);
     { Only the data blocks (standard, turbo and pure data) go into a TAP }
     procedure SaveTAP(const FileName: string);
+    { The whole tape as a TZX (.tzx, or .cdt for the Amstrad CPC: the same
+      format). Raises if it has blocks that can't be written (CSW recordings,
+      generalized data and flow control). }
+    procedure SaveTZX(const FileName: string);
+    { A recorded signal: the pulses (in T-states of a 3.5 MHz machine), as
+      pulse sequence blocks, after a pause of PauseMs }
+    procedure AddPulses(const Pulses: array of Integer; PauseMs: Integer);
     { Has blocks a TAP file can't keep (turbo, recordings, information...) }
     function HasNonStandard: Boolean;
+    { Blocks of a TZX kind (such as TZX_STANDARD: the Spectrum ROM's timing, which
+      an Amstrad CPC can't read) }
+    function CountKind(Kind: Byte): Integer;
     procedure Play(T: Integer);
     procedure Stop;
     procedure Rewind;
@@ -243,7 +253,12 @@ type
     FByte: Byte;
     FData: TBytes;
     FLen: Integer;
+    FRaw: Boolean;            // keep the pulses as they are (no decoding)
+    FPulses: array of Integer;
+    FPulseCount: Integer;
+    FSilence: Int64;          // T-states of silence before the pulses kept
     procedure Pulse(Len: Integer);
+    procedure FlushPulses;
     procedure AddBit(One: Boolean);
     procedure FinishBlock;
   public
@@ -255,6 +270,11 @@ type
     { No edge until T: ends a block that has stopped }
     procedure Idle(T: Int64);
     property Active: Boolean read FActive;
+    { The Amstrad CPC's recorder: every pulse is kept (a CDT can hold any
+      signal), and a pause of more than 40 ms starts the next group }
+    property Raw: Boolean read FRaw write FRaw;
+    { End what is being recorded }
+    procedure Flush;
   end;
 
 
@@ -575,7 +595,19 @@ end;
 
 procedure TTape.LoadFile(const FileName: string);
 begin
-  if LowerCase(ExtractFileExt(FileName)) = '.tzx' then LoadTZX(FileName) else LoadTAP(FileName);
+  // A .cdt (the Amstrad CPC's tape) is a TZX file
+  if (LowerCase(ExtractFileExt(FileName)) = '.tzx') or (LowerCase(ExtractFileExt(FileName)) = '.cdt') then
+    LoadTZX(FileName)
+  else LoadTAP(FileName);
+end;
+
+function TTape.CountKind(Kind: Byte): Integer;
+var
+  B: TTapeBlock;
+begin
+  Result := 0;
+  for B in FBlocks do
+    if B.Kind = Kind then Inc(Result);
 end;
 
 function TTape.HasNonStandard: Boolean;
@@ -870,6 +902,114 @@ begin
     Inc(FCurrent);
   FModified := True;
   Changed;
+end;
+
+procedure TTape.AddPulses(const Pulses: array of Integer; PauseMs: Integer);
+var
+  B: TTapeBlock;
+  I, N, K: Integer;
+begin
+  I := 0;
+  while I < Length(Pulses) do
+  begin
+    N := Min(255, Length(Pulses) - I);
+    B := TTapeBlock.CreateKind(TZX_PULSES);
+    SetLength(B.Pulses, N);
+    for K := 0 to N - 1 do B.Pulses[K] := Pulses[I + K];
+    FBlocks.Add(B);
+    Inc(I, N);
+  end;
+  if PauseMs > 0 then
+  begin
+    B := TTapeBlock.CreateKind(TZX_PAUSE);
+    B.PauseMs := PauseMs;
+    FBlocks.Add(B);
+  end;
+  FModified := True;
+  Changed;
+end;
+
+procedure TTape.SaveTZX(const FileName: string);
+var
+  S: TMemoryStream;
+  B: TTapeBlock;
+  I: Integer;
+
+  procedure W8(V: Integer);
+  var X: Byte;
+  begin
+    X := V and $FF;
+    S.WriteBuffer(X, 1);
+  end;
+
+  procedure W16(V: Integer);
+  begin
+    W8(V);
+    W8(V shr 8);
+  end;
+
+  procedure W24(V: Integer);
+  begin
+    W16(V);
+    W8(V shr 16);
+  end;
+
+  procedure WData;
+  begin
+    if Length(B.Data) > 0 then S.WriteBuffer(B.Data[0], Length(B.Data));
+  end;
+
+  procedure WStr(const T: string);
+  begin
+    W8(Length(T));
+    if T <> '' then S.WriteBuffer(T[1], Length(T));
+  end;
+
+var
+  F: TFileStream;
+begin
+  S := TMemoryStream.Create;
+  try
+    S.WriteBuffer('ZXTape!'#$1A, 8);
+    W8(1);
+    W8(20);
+    for B in FBlocks do
+    begin
+      W8(B.Kind);
+      case B.Kind of
+        TZX_STANDARD: begin W16(B.PauseMs); W16(Length(B.Data)); WData; end;
+        TZX_TURBO:
+          begin
+            W16(B.PilotLen); W16(B.Sync1Len); W16(B.Sync2Len); W16(B.ZeroLen); W16(B.OneLen);
+            W16(B.PilotCount); W8(B.UsedBits); W16(B.PauseMs); W24(Length(B.Data)); WData;
+          end;
+        TZX_TONE: begin W16(B.PilotLen); W16(B.PilotCount); end;
+        TZX_PULSES:
+          begin
+            W8(Length(B.Pulses));
+            for I := 0 to High(B.Pulses) do W16(B.Pulses[I]);
+          end;
+        TZX_PURE_DATA:
+          begin
+            W16(B.ZeroLen); W16(B.OneLen); W8(B.UsedBits); W16(B.PauseMs); W24(Length(B.Data)); WData;
+          end;
+        TZX_DIRECT: begin W16(B.SampleT); W16(B.PauseMs); W8(B.UsedBits); W24(Length(B.Data)); WData; end;
+        TZX_PAUSE: W16(B.PauseMs);
+        TZX_GROUP_START, TZX_TEXT: WStr(Copy(B.Text, 1, 255));
+        TZX_GROUP_END: ;
+      else
+        raise Exception.CreateFmt('The tape has a block (type %.2X) that can''t be saved as a TZX or CDT', [B.Kind]);
+      end;
+    end;
+    F := TFileStream.Create(FileName, fmCreate);
+    try
+      F.CopyFrom(S, 0);
+    finally
+      F.Free;
+    end;
+  finally
+    S.Free;
+  end;
 end;
 
 procedure TTape.AddBlock(const Data: TBytes);
@@ -1206,8 +1346,29 @@ begin
   FPilot := 0;
 end;
 
+procedure TTapeRecorder.Flush;
+begin
+  if FRaw then FlushPulses
+  else if FState = rsData then FinishBlock;
+  FHaveEdge := False;
+end;
+
+procedure TTapeRecorder.FlushPulses;
+var
+  Ms: Integer;
+begin
+  if FPulseCount > 0 then
+  begin
+    Ms := Integer(Min(FSilence * 1000 div 3500000, 5000));
+    FTape.AddPulses(Copy(FPulses, 0, FPulseCount), Max(Ms, 1));
+  end;
+  FPulseCount := 0;
+  FSilence := 0;
+end;
+
 procedure TTapeRecorder.Stop;
 begin
+  if FRaw then FlushPulses;
   if FState = rsData then FinishBlock;
   FActive := False;
   FState := rsIdle;
@@ -1216,6 +1377,27 @@ end;
 procedure TTapeRecorder.Edge(T: Int64);
 begin
   if not FActive then Exit;
+  if FRaw then
+  begin
+    if FHaveEdge then
+    begin
+      if (T - FLastEdge > 140000) or (T - FLastEdge > 65535) then
+      begin
+        // A silence: what came before is a group, this edge starts another
+        FlushPulses;
+        FSilence := T - FLastEdge;
+      end
+      else
+      begin
+        if FPulseCount >= Length(FPulses) then SetLength(FPulses, Length(FPulses) * 2 + 1024);
+        FPulses[FPulseCount] := Integer(T - FLastEdge);
+        Inc(FPulseCount);
+      end;
+    end;
+    FLastEdge := T;
+    FHaveEdge := True;
+    Exit;
+  end;
   if FHaveEdge then Pulse(Integer(Min(T - FLastEdge, 1000000)));
   FLastEdge := T;
   FHaveEdge := True;
@@ -1224,6 +1406,15 @@ end;
 procedure TTapeRecorder.Idle(T: Int64);
 begin
   // A block ends when nothing comes for a while (more than a long pulse)
+  if FRaw then
+  begin
+    if FActive and FHaveEdge and (T - FLastEdge > 140000) and (FPulseCount > 0) then
+    begin
+      FlushPulses;
+      FHaveEdge := False;
+    end;
+    Exit;
+  end;
   if FActive and FHaveEdge and (T - FLastEdge > 20000) then
   begin
     if FState = rsData then FinishBlock;

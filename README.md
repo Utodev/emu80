@@ -4,7 +4,7 @@ A free pascal / lazarus ZX Spectrum emulator
 
 Emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3 with T-state accurate
 Z80 timing, memory and I/O contention, floating bus, ULA snow and per-T-state
-video.
+video, and the Amstrad CPC 464, 664 and 6128.
 
 The full user manual, including every command line option, follows below (it is
 also shown by Help > Documentation, F1).
@@ -21,6 +21,7 @@ also shown by Help > Documentation, F1).
   - [Video modes](#video-modes)
   - [Deinterlacing](#deinterlacing)
   - [ZX Spectrum Next](#zx-spectrum-next)
+  - [Amstrad CPC](#amstrad-cpc)
   - [pzx snapshots (.pzs)](#pzx-snapshots-pzs)
 - [5. Tape browser](#5-tape-browser)
   - [TZX tapes](#tzx-tapes)
@@ -68,6 +69,10 @@ also shown by Help > Documentation, F1).
 - ZX Spectrum Next: Z80N, Next registers, 2 MB with its MMU, Layer 2, sprites, tilemap,
   copper, zxnDMA, three AY chips, its Multiface and `.nex` files, running NextZXOS from its
   official distribution (not included: see [ZX Spectrum Next](#zx-spectrum-next)).
+- Amstrad CPC 464, 664 and 6128 (see [Amstrad CPC](#amstrad-cpc)): Z80 at 4 MHz held to the Gate Array's
+  1 MHz grid, Gate Array (palette, modes 0-3, ROM and RAM banking, the interrupt counter), 6845 CRTC drawn
+  as the beam goes, 8255 PPI, AY-3-8912, the keyboard matrix, CDT and TZX tapes in real time (and
+  recording to CDT), the 664's and 6128's disc drive on DSK images, the 6128's 128K and .pzs snapshots.
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
@@ -81,7 +86,7 @@ also shown by Help > Documentation, F1).
   files (folders, +3DOS details, import/export, rename, delete, new folder).
 - Tape browser: play from any block, move and delete blocks, save the tape.
 - Menu, settings dialog and a quick toolbar to change model, reset and NMI.
-- Pause (F4), turbo (Shift+F11) and CPU speed x2 to x32 (Settings > General):
+- Pause (F4), turbo (Shift+F11) and CPU speed x2 to x32 (Settings > Common > General):
   the Z80 runs faster but interrupts stay at 50 per second.
 - SAVE writes to the inserted tape (or a new blank one, Tape > New blank tape).
 - REC button: records the cassette output in real time, decoding standard-speed
@@ -89,7 +94,7 @@ also shown by Help > Documentation, F1).
 - New blank disks for drive A: or B:, already formatted (+3 format, 40
   tracks, 9 sectors). Optional drive B: (Options > Settings). Disk access runs
   at real drive speed unless Floppy > Fast floppy disk access is on.
-- Keyboard issue 2 or issue 3 (Settings > Miscellaneous), affecting EAR bit 6.
+- Keyboard issue 2 or issue 3 (Settings > ZX Spectrum > Machine), affecting EAR bit 6.
 - POKEs (Machine > POKE..., F9): `35899,0 : 36000,201`, with the last 20
   POKEs and the file they were used with.
 - Screenshots as .SCR, or PNG at 1x or 2x, with or without the border.
@@ -107,7 +112,7 @@ also shown by Help > Documentation, F1).
 # pzx - ZX Spectrum emulator
 
 pzx emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
-and ROMs) and the ZX Spectrum Next (with its official distribution), with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
+and ROMs), the ZX Spectrum Next (with its official distribution) and the Amstrad CPC 464, 664 and 6128, with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
 per-T-state video, so games and demos run at their real speed. The screen and the border are
 drawn as the beam reaches them, each 8-pixel cell taking its bytes and border colour at the end
 of its 4 T-states (as Fuse does), so multicolour and border effects that race the beam show as
@@ -120,10 +125,11 @@ Supported files:
 
 | File | What it is |
 |---|---|
-| `.tap`, `.tzx` | tape images (TZX: see [TZX tapes](#tzx-tapes)). Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
-| `.sna` | snapshots (48K and 128K; on the ZX-Uno they switch to the 48K or 128K, as its ROM is the one its BIOS chose). |
+| `.cdt` | Amstrad CPC tape images (a CDT is a TZX file: see [TZX tapes](#tzx-tapes) and [Amstrad CPC](#amstrad-cpc)). Opening one switches to the CPC 464 if the machine is not a CPC, resets it and loads it (`RUN"`; `|TAPE` first on the 664 and 6128). |
+| `.tap`, `.tzx` | tape images (TZX: see [TZX tapes](#tzx-tapes)); a .tzx also loads on a CPC, but a .tap is a Spectrum tape and is refused there. Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
+| `.sna` | snapshots: the Spectrum's (48K and 128K; on the ZX-Uno they switch to the 48K or 128K, as its ROM is the one its BIOS chose) and the Amstrad CPC's (CPCEmu and Winape's, see [Amstrad CPC](#amstrad-cpc): opening one switches to the CPC model it says). |
 | `.z80` | snapshots, versions 1, 2 and 3. |
-| `.dsk` | +3 disk images (standard and extended). Opening one switches to the +3 if needed and boots it. |
+| `.dsk` | disk images (standard and extended), for the +3 and for the CPC 664 and 6128. Opening one switches to the +3 if needed (to the CPC 6128 if the machine is a CPC 464) and boots it (on a CPC, `RUN"` of the program it chooses, or `|CPM` for a boot disk; see [Amstrad CPC](#amstrad-cpc)). |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | `.pzs` | pzx's own snapshots, of any model (see [pzx snapshots](#pzx-snapshots-pzs)). Opening one switches to its machine. |
 
@@ -153,13 +159,36 @@ The keys that are two Spectrum keys at once (all of the above but Shift and Ctrl
 in its registers `B0` and `B1`, and a program can keep them out of the Spectrum keys (NR `68`
 bit 4), as on the real keyboard.
 
-**Joystick**: Settings > Miscellaneous chooses what the cursor keys plus either Ctrl key (fire)
+**Amstrad CPC keyboard.** On a CPC model each PC key is the CPC key in the same place (or with the same
+label); the CPC's matrix is read by the firmware as on the real machine, so SHIFT, CTRL, CAPS LOCK and the key
+combinations of the firmware (CTRL+SHIFT+ESC resets, CTRL+ESC...) work:
+
+| PC key | CPC |
+|---|---|
+| letters, digits, space, `,` `.` `/` `-` | the same |
+| Enter | RETURN |
+| Shift (either) | SHIFT |
+| Left Ctrl | CONTROL |
+| Right Ctrl | CONTROL (or joystick 1 fire, see below) |
+| Esc, Tab, Caps Lock | ESC, TAB, CAPS LOCK |
+| Backspace, Delete, Insert | DEL, CLR, COPY |
+| Cursor keys | the cursor keys (and joystick 1, see below) |
+| `=` `;` `'` `` ` `` `[` `]` `\` | `^` `;` `:` `@` `[` `]` `\` |
+| keypad 0-9 and `.` | the CPC's numeric keypad: F0-F9 and F. |
+| keypad `+` `*` `/` | SHIFT+`;` (+), SHIFT+`:` (*), `/` |
+
+The PC's function keys keep their pzx meaning. With "Amstrad CPC: cursor keys and right Ctrl as joystick 1"
+(Settings > Amstrad CPC, `--cpc_joystick`, on by default) the cursor keys also move joystick 1 (the CPC's keyboard
+matrix line 9) and the right Ctrl is its fire button; off, the right Ctrl is CONTROL too. The Spectrum joystick
+choice below does not apply to the CPC.
+
+**Joystick**: Settings > ZX Spectrum > Machine chooses what the cursor keys plus either Ctrl key (fire)
 emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
 Interface 2 joystick 1 (keys 6-0) or joystick 2 (keys 1-5), a Cursor/Protek/AGF joystick (keys
 5-8 and 0) or a Fuller joystick (port `7F`). Only the chosen interface is connected. By default
 it is a Kempston joystick.
 
-**Mouse**: with the Kempston mouse on (Settings > Hardware), moving the PC mouse over the picture
+**Mouse**: with the Kempston mouse on (Settings > ZX Spectrum > Hardware), moving the PC mouse over the picture
 moves the Spectrum's Kempston mouse (ports `FBDF` for X, `FFDF` for Y and `FADF` for the
 buttons, as in K-Mouse), one Spectrum pixel per zoomed pixel. The PC pointer is hidden over the
 picture; the program draws its own. Left, right and middle buttons are passed on. The mouse
@@ -198,12 +227,12 @@ the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
 (the ROM loader is skipped and blocks load instantly, also when the tape has been started with
 Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (see below),
 "SAVE writes to the tape" (SAVE adds its blocks to the inserted tape, or to a new blank one, instantly),
-continuous playback (Settings > Storage, `--tapeloop`, on by default: when the tape reaches its end it goes on from
+continuous playback (Settings > Common > Storage, `--tapeloop`, on by default: when the tape reaches its end it goes on from
 its start while a load asks for it, and a LOAD after the last block takes the first one again; off: **stop at the end of
 the tape**, as Spectaculator does: the tape stops at its end and Auto play doesn't start it again, even with the
 Spectrum still trying to load, until you rewind it, put another tape in, choose a block or press Play) and Record (REC).
 
-**Auto play/stop** (Tape > Auto play/stop, Settings > Storage, `--autoplay`, on by default) starts the tape when the
+**Auto play/stop** (Tape > Auto play/stop, Settings > Common > Storage, `--autoplay`, on by default) starts the tape when the
 Spectrum asks for data and stops it, where it is, when it no longer does, so multiload games work with TAP and TZX
 tapes: the next load goes on from the block the tape was left at (a block being played when it stops starts again
 from its beginning; if only its pause was left, the tape goes on after it). It knows a load in two ways:
@@ -221,7 +250,7 @@ play/stop off and use Play and Stop yourself. Tape > Fast loading, if it is on, 
 at once, and the custom loaders go as above. The state shows next to the block number ("playing", "stopped", "end of
 tape", or "stopped (auto play waits for the next load)").
 
-The tape plays at the CPU's pace: with the CPU faster than 1x (Settings > General, or a machine's
+The tape plays at the CPU's pace: with the CPU faster than 1x (Settings > Common > General, or a machine's
 own turbo: the ZX Spectrum Next's 7-28 MHz, the ZX-Uno's) real-time loading still works, and
 takes that many times less. A machine's own turbo ends with a reset or a change of model: the
 other models run at the speed setting.
@@ -238,7 +267,7 @@ and eject +3 disks in drives A: and B:, Insert recent disk (A:) and (B:) (the la
 both drives share the list), Save disk (into the file it was loaded from), Save disk as, Fast
 floppy disk access (off: the drive works at real speed, with seek and rotation times) and "Drive
 B: connected". Drive B: is not connected by default, and while it isn't, the menu entries for it
-are hidden. It is connected from this menu, from Options > Settings > Storage, with `--driveb` or
+are hidden. It is connected from this menu, from Options > Settings > Common > Storage, with `--driveb` or
 by giving it a disk (`--diskb`).
 
 Menu entries with a description show it in the status bar while the pointer is over them (the
@@ -279,36 +308,42 @@ drive's light.
 
 ## 4. Settings
 
-Options > Settings has five pages (sections of a page are boxes with a title):
+Options > Settings has three main tabs: **Common** (what is the same on every machine), **ZX Spectrum**
+(what belongs to the Spectrum models, the ZX-Uno and the Next) and **Amstrad CPC**. Common and ZX
+Spectrum have tabs of their own inside (sections of a page are boxes with a title):
 
-| Page | Contents |
+| Tab | Contents |
 |---|---|
-| General | machine model, window size, interface (classic or modern, see [Interface](#interface)), black and white display, mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention is not applied above 1x), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
-| Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on). Hovering over one explains it. |
-| Storage | Tape: fast loading, auto play, SAVE to tape and continuous tape playback. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
-| ROMs | ROMs: the folder with the standard ROMs and, for each model, the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
-| Miscellaneous | Graphics: ULAplus, scanlines, Timex screen modes, Radastan mode and deinterlacing (Weave by default; see [Deinterlacing](#deinterlacing)) (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time), ULA snow (on by default; only the 16K, 48K, 128K and +2 show it) and allow writing to ROM (from the debugger and with POKE; off by default). |
+| Common > General | machine model, window size, interface (classic or modern, see [Interface](#interface)), black and white display, scanlines (from window size 2x), mute sound (the same as Options > Mute sound), volume and CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). |
+| Common > Storage | Tape: fast loading, auto play and continuous tape playback. Floppy: fast floppy disk access, drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
+| Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
+| ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
+| ZX Spectrum > Machine | Graphics: ULAplus, Timex screen modes, Radastan mode and deinterlacing (Weave by default; see [Deinterlacing](#deinterlacing)) (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time) and ULA snow (on by default; only the 16K, 48K, 128K and +2 show it). |
+| ZX Spectrum > Firmware | DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
+| Amstrad CPC | Video: the CRTC chip (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
 
 Settings are kept in `pzx.ini` in the same folder as the program (next to pzx.app on macOS); on
 Linux, if that folder can't be written (pzx installed from a .deb or .rpm package), in
 `~/.config/pzx/pzx.ini`. See `--config` and `--config-add` below to use other files. `pzx.ini` is
 an ini file whose keys are named exactly as the command line options (see
 [Command line](#12-command-line)), with 1/0 for on/off options and the option's value for the
-others:
+others. The options of the ZX Spectrum models start with `zx_` and those of the Amstrad CPC with
+`cpc_`; the ones that are the same for every machine have no prefix:
 
 | Section | Keys |
 |---|---|
 | `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `bw`, `mute`, `volume`, `speed`, `saveonexit` |
-| `[Machine]` | `contention`, `snow`, `romedit`, `ulaplus`, `timex`, `radastan`, `scanlines`, `deinterlace`, `joystick`, `issue` |
-| `[Hardware]` | `turbosound`, `ay48`, `kmouse`, `divmmc`, `currah` |
-| `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `savetotape`, `fastdisk`, `driveb`, `floppynoise` |
-| `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`), `divmmcrom`, `zxunofirmware`, `zxunoroms`, `zxunocustomrom` |
-| `[ZXNext]` | `nextdir`, `nextcard`, `nextfirmware` (and `distroid`, the distribution the card was made from) |
-| `[Media]` | `sdcard`, `zxunocard` |
+| `[Machine]` | `romedit`, `scanlines` |
+| `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `fastdisk`, `driveb`, `floppynoise` |
+| `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
 | `[Screenshot]` | `pngborder` |
+| `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
+| `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
 
 The recent files, pokes and last folder are kept in sections of their own. A pzx.ini from an
-older version is read and rewritten with these keys.
+older version is read and rewritten with these keys; the names the options had before they took
+`zx_` and `cpc_` (`turbosound`, `joystick`, `issue`, `nextdir`, `sdcard`, `cpcjoystick`...) are still understood, in the file and on the
+command line, and the file is written with the new ones.
 
 ### Interface
 
@@ -318,7 +353,7 @@ modern one; the first time (no settings file yet) a warning says so for 5 second
 that changes to the classic one. The one in use is kept in pzx.ini (`[General] ui`) and can be
 changed at once, without restarting: with the half dark
 circle button (at the right end of the classic toolbar, left of the model in the modern header),
-Options > Modern interface, or Settings > General > Interface; or for a session with
+Options > Modern interface, or Settings > Common > General > Interface; or for a session with
 `--ui classic` or `--ui modern`.
 
 The modern interface (on Windows 10 and 11 its title bar is dark too):
@@ -356,7 +391,7 @@ boot screen, reads the ROMs from the flash, copies the chosen one into its 512K 
 8-11), sets the machine up through its registers (ports `FC3B` and `FD3B`) and starts it. The
 flash is built from `FIRMWARE.ZX1` (the BIOS) and `ROMS.ZX1` (its ROMs, as the BIOS upgrades them
 from an SD card: directory and 64 ROM slots), from the zxuno folder or as chosen in Settings >
-ROMs (`--zxunofirmware`, `--zxunoroms`; changing them switches the ZX-Uno off and on), with
+ROMs (`--zx_unofirmware`, `--zx_unoroms`; changing them switches the ZX-Uno off and on), with
 `esxdos/ESXMMC.BIN` for its DivMMC.
 
 While the boot screen shows, Edit (Shift+1) enters the BIOS setup and Break (Esc) its boot menu,
@@ -368,7 +403,7 @@ and starts the first ROM, the 48K. The boot screen lasts about a second and the 
 about two, as on the real board: the SCANCODE register returns the PS/2 keyboard's power-on
 self-test byte (`AA`), without which the BIOS waits five times longer.
 
-**Custom ROM** (Settings > ROMs, `--zxunocustomrom`): a 16K ROM file. If it exists, the BIOS
+**Custom ROM** (Settings > ZX Spectrum > Firmware, `--zx_unocustomrom`): a 16K ROM file. If it exists, the BIOS
 still runs, but the ROM it chooses is replaced by this one when it starts it, and the machine is
 set as a 48K (48K timing, no `7FFD` or `1FFD` paging). Empty or a missing file: the BIOS's
 choice. Changing it switches the ZX-Uno off and on.
@@ -376,8 +411,8 @@ choice. Changing it switches the ZX-Uno off and on.
 It always has a DivMMC (with ESXDOS, which the BIOS switches on; as in the core, its firmware is
 in SRAM page 12 and its 128K of RAM in pages 16-23, so MASTERMAPPER and the DivMMC see the same
 memory), the Timex screen modes, Radastan and ULAplus: in Settings they show on and greyed out
-(the values set are kept for the other models), and `--no-divmmc`, `--no-timex`, `--no-radastan`
-and `--no-ulaplus` are ignored with `--model zxuno`. Its own registers can switch them off
+(the values set are kept for the other models), and `--no-zx_divmmc`, `--no-zx_timex`, `--no-zx_radastan`
+and `--no-zx_ulaplus` are ignored with `--model zxuno`. Its own registers can switch them off
 (DEVCONTROL, DEVCTRL2).
 
 Emulated: MASTERCONF (boot mode, DivMMC, keyboard issue, 48K, 128K or Pentagon timing,
@@ -406,7 +441,7 @@ and .z80 can't hold its SRAM and registers.
 
 ### Video modes
 
-Settings > Miscellaneous can add these to any model (they are off by default):
+Settings > ZX Spectrum > Machine can add these to any model (they are off by default):
 
 | Mode | Description |
 |---|---|
@@ -425,7 +460,7 @@ The Spectrum sends a progressive picture: every frame (50 a second) is the same 
 odd or even one. Some demos (DeMarché's Mescaline and Paralactika, the end of Gasman's
 Ultraviolet) draw two different pictures in alternate frames, counting on a TV to mix them, so
 they flicker in stripes when each frame is shown on its own. Options > Deinterlace (also Settings
-> Miscellaneous, `--deinterlace`) takes each two frames in a row as the odd and even fields of an
+> ZX Spectrum > Machine, `--zx_deinterlace`) takes each two frames in a row as the odd and even fields of an
 interlaced picture of 352x576 (704x576 with Timex hi-res):
 
 | Method | What is shown |
@@ -448,7 +483,7 @@ firmware and NextZXOS with its ROMs, BASIC and programs, comes from its official
 which is not included (it has its own licence): download the latest one from
 [https://www.specnext.com/latestdistro/](https://www.specnext.com/latestdistro/) and unpack it
 into the `specnext` folder next to the program (it must have `machines/next` in it), or choose
-another folder in Settings > ROMs (`--nextdir`). When pzx is installed from a .deb or .rpm, the
+another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When pzx is installed from a .deb or .rpm, the
 folder is `~/.config/pzx/specnext` (the one next to the program can't be written).
 
 Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
@@ -463,11 +498,11 @@ links are not made. If it is a distribution, pzx says so and asks whether to sta
 (Yes: the machine changes to the Next, its SD card made at the usual size without asking; No: nothing
 else). If it isn't ("Distribución no valida", or a file that isn't a zip), pressing OK **deletes
 everything in the distribution's folder**, which is what that message means: don't point
-`--nextdir` at a folder with other things in it. A file that can't be read or written, or a damaged
+`--zx_nextdir` at a folder with other things in it. A file that can't be read or written, or a damaged
 zip, is reported as an error and installs nothing.
 
 **SD card.** The first time the Next is used, pzx makes its SD card, `zxnext.img` next to pzx.ini
-(Settings > ROMs, `--nextcard`), asking its size first (FAT16: the sizes the distribution fits in
+(Settings > ZX Spectrum > Firmware, `--zx_nextcard`), asking its size first (FAT16: the sizes the distribution fits in
 with room to spare, up to 2 GB; 512 MB proposed; Cancel leaves the machine as it was), with the
 whole distribution (long file names included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
 keep theirs, and what NextZXOS saves on it is kept (pzx saves it when leaving the Next and when it
@@ -487,10 +522,10 @@ flash (in memory only, empty at every start of pzx): cores can be installed into
 pzx emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
 and starts the Next again.
 
-**Starting.** By default (Settings > ROMs > "Start through its firmware", `--nextfirmware`) the
+**Starting.** By default (Settings > ZX Spectrum > Firmware > "Start through its firmware", `--zx_nextfirmware`) the
 Next starts as the real one: its boot ROM (`roms/tbblue_loader.rom`) loads the firmware
 (`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (pzx says it is an
-emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-nextfirmware`), NextZXOS starts
+emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-zx_nextfirmware`), NextZXOS starts
 directly from the distribution's ROMs, as if the firmware had chosen it. Hard reset (F6) starts
 it all again; Reset (Shift+F6) is the Next's soft reset.
 
@@ -537,6 +572,113 @@ the CPU, changes the rest of that line only: what has been drawn stays.
 **Debugger.** The disassembly, the instruction help and the assembler export know the Z80N
 instructions (the export adds `OPT --zxnext` for sjasmplus), and Next Regs (the chip button)
 shows and edits its registers.
+
+### Amstrad CPC
+
+The CPC 464 (tape, 64K), CPC 664 (3" disc drive, 64K) and CPC 6128 (disc drive, 128K in eight 16K banks) are
+chosen like any other machine: the chip button, Options > Settings, `--model cpc464`, `--model cpc664`,
+`--model cpc6128` (or just `pzx cpc464`). Their firmware is in `roms/` (`cpc464.rom`, `cpc664.rom`,
+`cpc6128.rom`: the 16K operating system followed by the 16K BASIC; `amsdos.rom`, the disc ROM of the 664
+and 6128), and each model's file can be replaced in Settings > Common > ROMs as for the Spectrum.
+
+What is emulated, in `src/Amstrad.pas` (the hardware) and `src/SpectrumCPC.inc` (its join to the Z80, the
+sound, the tape and the disc controller, which the Spectrum models share):
+
+- **The CPU at 4 MHz held to the Gate Array's 1 MHz grid**: every memory access and I/O cycle, and so every
+  instruction, takes a whole number of microseconds (4 T-states), as the NOP-count timings of the CPC say. The
+  "contended memory and I/O" setting switches this rounding off (and it is not applied above 1x speed).
+- **Gate Array**: the 16 pens and the border with the 27 colours (hardware colours 0-31), screen modes 0, 1, 2 and
+  3 (changed in mid-frame, even mid-line, at the character it happens), lower and upper ROM enable, the upper ROM
+  number (port `DFxx`: BASIC, and AMSDOS as ROM 7 on the 664 and 6128), the 6128's RAM banking (the eight
+  configurations `C0`-`C7`; the 464 and 664 ignore it), and the interrupt counter: 52 HSYNCs, the reset by the
+  CPU's acknowledge, by bit 4 of the ROM register and the synchronisation after the VSYNC (two HSYNCs).
+- **The CRTC chips**: the five that CPCs had, chosen in Settings > Amstrad CPC (`--cpc_crtc`, `cpc_crtc` in
+  `[AmstradCPC]`; by default the one the model came with: type 0 on the 464, type 1 on the 664 and 6128):
+  type 0 (HD6845S / UM6845), type 1 (UM6845R), type 2 (MC6845), type 3 (AMS40489, the CPC+'s ASIC) and type 4
+  (AMS40226, the pre-ASIC). What differs, as programs that detect the chip and demos rely on it:
+  which registers read back (types 0 and 4 read R12-R17, types 1 and 2 only R14-R17, type 3 shows 8 registers: the
+  light pen, two status registers and the screen address; what can't be read gives 0), the status register at
+  `BExx` (type 1: bit 5 in VSYNC; types 3 and 4: it shows the register data; types 0 and 2: nothing), the bits each
+  register keeps (types 1 and 2 have no VSYNC width in R3's high nibble, so a VSYNC of 16 lines, and no display
+  skew in R8), an HSYNC width of 0 (none on types 0 and 1, 16 characters on types 2 and 3), the display skew of
+  R8 (0 to 2 characters, on types 0, 3 and 4), the compares for the end of the displayed rows (R6) and the VSYNC
+  (R7), which all chips do by equality with the row counter (a value the counter has passed isn't met again
+  until it wraps) but the AMS40489 only on the first raster of a row, the UM6845R's start address (R12-R13)
+  taking effect in the first row too, and PPI port C (the CPC+'s ASIC doesn't clear it when the PPI's mode is
+  set, which is how a program tells type 3 from type 4). Tested with the detection routine of Amstrad
+  Diagnostics, which reports all five correctly.
+- **6845 CRTC**: registers 0-9 and 12-13 (horizontal and vertical totals, displayed, sync position and widths,
+  vertical adjust, raster count, start address) run character by character, so programs that change them in the
+  frame (split screens, vertical scroll, overscan, rupture) get what they set; the video address is built as the
+  hardware does (`MA13-12`, `RA`, `MA9-0`), and the screen and border are drawn as the beam reaches them.
+- **8255 PPI**: the keyboard matrix (10 lines), the PSG bus (latch, write, read), the VSYNC line, the 50 Hz and
+  manufacturer jumpers, the cassette input and output and the motor relay.
+- **AY-3-8912** at 1 MHz (the sound code is the Spectrum's, with its own clock); the joystick and the keyboard
+  are read through its register 14.
+- **Tape**: see below. **Disc**: the uPD765 of the Spectrum +3 (`FDC765.pas`), which is the same chip wired the
+  same way on the CPC, at ports `FA7E` (motor), `FB7E` (status) and `FB7F` (data), with the same DSK images
+  (standard and extended), at real drive speed unless "Fast floppy disk access" is on, and with the drive's
+  noise. The CPC 464 has no drive (the Floppy menu is hidden), and the SD menu (DivMMC) is hidden on every CPC.
+
+**The picture** is 44 characters (704 of the 640-pixel mode's pixels) by 288 lines: the 40-character screen with
+two characters of border each side, and the lines around the CRTC's VSYNC; the frame buffer has the size of the
+Spectrum's (352x288, twice as wide), so zoom, black and white, scanlines and the library work unchanged. At 1x each
+pair of columns is averaged (in the 640-pixel mode every column is a pixel); the CPC pixels are not square (in
+mode 2 they are twice as tall as wide), and 352x288 is the proportion of the monitor's 4:3 picture, as for the
+Spectrum. The picture follows the HSYNC and VSYNC the CRTC gives (it rolls if a program makes a frame of another
+length, as a monitor would). **Screenshots**: PNG at 1x (352x288, or 320x200 without the border) or 2x (704x576, or
+640x400), with the same menu as the Spectrum's, and `.SCR`: the 16K of screen memory the CRTC shows, behind an
+AMSDOS header (a binary for `&C000`, as `LOAD "x.scr",&C000` takes it), without the palette.
+
+**Tapes (.cdt and .tzx).** A CDT is a TZX file, so the same blocks (turbo data `11`, tones, pulses, pure data,
+direct recordings, pauses, loops...) are played, in real time, as the signal the CPC's tape input reads: the
+pulse lengths of a TZX are in the T-states of a 3.5 MHz machine and are scaled to the CPC's clock. The cassette
+motor is the program's (the PPI), so the tape moves only while the motor is on and Play is pressed (Tape > Play,
+F8) or **Auto play** is on (the default): when a program switches the motor on, the tape starts, and where the
+program stops it, it stops. `RUN"` shows "Press PLAY then any key": Opening a .cdt does that for you. Multi-block
+and multi-stage loads, pauses, and programs with their own loaders (they only read the input) work because it is
+the signal that is read. While the tape plays with "Fast loading" on, the emulator runs as fast as it can (the
+CPU and the tape keep their own clock, so a turbo loader sees the same pulses) and goes back to normal speed when
+the tape stops. A .tzx made for the Spectrum has blocks `10` (standard speed, the ROM's pilot and sync): they play
+as a signal, but the CPC's firmware can't read them; opening a tape that has them says so. A .tap is refused on
+a CPC (it is a Spectrum tape). Limitations: nothing is skipped by a ROM trap (there is none), so loading takes the
+tape's time unless the emulator runs fast; the 3.5 MHz scaling uses the exact 7/8.
+**Recording (REC)**: the tape output (PPI C bit 5, while the motor is on) is kept as it is, edge by edge, as
+pulse blocks and the pauses between them, so what the CPC `SAVE`s (also with its own save routines) is stored
+without being decoded: Tape > Save tape as writes it as a `.cdt` (or `.tzx`), which loads back in pzx and in other
+emulators. Limitations of that: the file is larger than a decoded CDT (two bytes a pulse), a pulse longer than
+18 ms or a silence longer than 5 s is cut (as a pause), and the blocks aren't named until the tape is loaded again.
+Tape > Save tape as can't write CSW recordings, generalized data blocks or flow control blocks (it says so).
+
+**Disks.** A DSK in drive A: (File > Open, the Floppy menu, `--disk`) works like the +3's; opening one on a CPC
+464 switches to a CPC 6128. Floppy > New disk in A: makes an empty disc in AMSDOS's data format (sector numbers C1-C9) on a CPC (the +3's format on the +3, which AMSDOS can't read), ready for `SAVE`. Opening a disk starts it as a user would, typing `RUN"` and a program name chosen from
+the directory: the one named as the disk image (GAME.BAS or GAME.BIN for GAME.DSK, or one named almost so: RASTAN.BIN
+for RASTAN1.DSK), else DISC, DISK, START, LOADER, GAME or RUN, else the first BASIC program, a file with no extension
+or the smallest binary (a loader is a few hundred bytes); empty files and names that can't be typed (the "1-------"
+decorations of cracked disks) are skipped. A disk whose directory AMSDOS can't read (a boot disk, as many commercial
+ones: the directory isn't where AMSDOS looks) is started with `|CPM`. It is a guess, as there is no standard: when it
+isn't the right one, type the command yourself. The Disk browser reads the CPC's CP/M directories (on a CPC the headers are AMSDOS ones: Import offers a binary with an AMSDOS header, loaded and run at the address you give, and Export asks whether to keep a file's header; a file that already has one is copied as it is. A `.SCR` is offered at `&C000`).
+
+**Snapshots**: File > Save snapshot writes a CPC `.sna` (the format of CPCEmu and Winape: the Z80, the Gate Array, CRTC,
+PPI and PSG registers and 64K or 128K of RAM, version 1; it records the model, which loading it switches to) or pzx's own `.pzs`
+(the same and more: the model, the whole CPU, the 64K or 128K RAM, the Gate Array, CRTC, PPI and PSG state with the CRTC
+chip, the PSG chip, the interrupt counter and where the beam is; the version-1 `.pzs`, with the model's name, as for the
+other models). A `.sna` doesn't say where the beam is or the CRTC's chip: the machine goes on from the start of a frame.
+Opening a `.sna` made with its memory in compressed chunks (some version 3 files), or of a CPC+ or a GX4000, says that it
+can't. The tape's position and a disc transfer in progress are in neither; the discs stay inserted as they are.
+
+**Debugger**: the same one: the disassembly, memory and registers show the memory as the CPU sees it (ROM
+paged in or RAM under it; the slot list shows `ROM0` operating system, `ROM1` BASIC, `ROM2` AMSDOS, `RAM0`-`RAM7`),
+breakpoints, port breakpoints and the port log work on the CPC's ports (`7Fxx` Gate Array, `BCxx`-`BFxx` CRTC,
+`DFxx` upper ROM, `F4xx`-`F7xx` PPI, `FA7E`-`FB7F` disc), step back included. The ROM labels are those of
+`cpc*.sym` next to the firmware, if you have them (none are supplied).
+
+**Not emulated**: the CPC+ range and the GX4000 (only its CRTC chip types are there, as above); the CRTC's cursor,
+light pen and interlace modes (R8 bits 0-1, R10, R11); the Gate Array's sub-microsecond pixel timing (colours and modes change at
+whole characters); the 464's DDI-1 and other disc interfaces; expansion RAM beyond the 6128's 128K and expansion
+ROMs; the printer port, the Multiface, the light gun, mouse and speech; the analogue RGB/green monitor choice;
+the exact CPC wait states of the less usual instructions (every cycle is rounded to 4 T-states, which matches the
+NOP counts of most, not verified for all of them against a real machine). 
 
 ### pzx snapshots (.pzs)
 
@@ -593,7 +735,9 @@ own T-state clock, pauses, loops and the rest of the flow included. With fast lo
 tape plays at the CPU's pace as always.
 
 Tapes are saved as .tap (Save tape as, and in the tape browser), which keeps only the data
-blocks: with blocks from a .tzx that a .tap can't keep, pzx asks first.
+blocks: with blocks from a .tzx that a .tap can't keep, pzx asks first. Or as .tzx (on the Amstrad CPC,
+.cdt: the same format), which keeps every block pzx can play except CSW recordings, generalized data and the
+flow control blocks (jumps, loops, calls and selections): it says so if the tape has any.
 
 ## 6. Disk browser
 
@@ -639,12 +783,12 @@ pzx emulates the DivMMC interface: 8K of EEPROM with its firmware, 128K of RAM a
 with automatic paging (at `0000`, `0008`, `0038`, `0066`, `04C6`, `0562` and `3Dxx`, and back at
 `1FF8`-`1FFF`) and ports `E3` (control), `E7` (card select) and `EB` (SPI data). It works on
 every model. The firmware is esxDOS 0.8.9 (`esxdos/ESXMMC.BIN`, from
-[http://www.esxdos.org](http://www.esxdos.org)); another one can be chosen in Settings > ROMs.
-The interface is connected in Settings > Hardware.
+[http://www.esxdos.org](http://www.esxdos.org)); another one can be chosen in Settings > ZX Spectrum > Firmware.
+The interface is connected in Settings > ZX Spectrum > Hardware.
 
 **Changing hardware.** The DivMMC and its card follow the machine, each one remembering the card last used in it
 (the card inserted from the SD menu, or saved as another file, while a machine is the current one is the one it
-remembers): the standard models share `sdcard`, the ZX-Uno has `zxunocard` and the Next `nextcard`.
+remembers): the standard models share `zx_sdcard`, the ZX-Uno has `zx_unocard` and the Next `zx_nextcard`.
 - Switching to the **Next**: the DivMMC is connected and the Next's last card goes in (made from its distribution
   the first time; see [ZX Spectrum Next](#zx-spectrum-next)).
 - Switching to the **ZX-Uno**: the DivMMC is connected and the ZX-Uno's last card goes in, if it has one (if not,
@@ -714,7 +858,7 @@ settings allow changing the ROM.
 
 ## 9. Sound
 
-The beeper and the AY-3-8912 (128K and later) are mixed in ABC stereo. Settings > Hardware turns
+The beeper and the AY-3-8912 (128K and later) are mixed in ABC stereo. Settings > ZX Spectrum > Hardware turns
 TurboSound on, and can add an AY chip to the 16K/48K, at the same ports as on the 128K (`FFFD`
 and `BFFD`), as the AY interfaces for the 48K did. Mute sound (Options menu) silences everything
 without changing the speed.
@@ -723,7 +867,7 @@ without changing the speed.
 
 The Currah µSpeech (MicroSpeech) is a speech synthesizer for the 48K, with a General Instrument
 SP0256-AL2 chip that speaks *allophones*, the sounds words are made of. It is connected in
-Settings > Hardware (or `--currah`, ini key `currah` in `[Hardware]`), which switches the machine
+Settings > ZX Spectrum > Hardware (or `--zx_currah`, ini key `zx_currah` in `[ZXSpectrum]`), which switches the machine
 off and on; its ROM then shows "Speech System (c) CURRAH 1983" at the top of the screen. It needs
 `currah.rom` (its 2K ROM) and `sp0256-al2.rom` (the chip's 2K mask ROM) in the ROM folder; both
 come with pzx.
@@ -905,7 +1049,7 @@ bytes as they are to a binary file (.bin).
 
 Import binary asks for an address (by default the first one shown) and a file, and loads the file
 there as it is. It doesn't wrap round: what would go past `FFFF` is not loaded, and a message says
-how much. Bytes on ROM are only written if Options > Settings > Miscellaneous allows changing the
+how much. Bytes on ROM are only written if Options > Settings > Common allows changing the
 ROM; RAM paged at `0000`-`3FFF` (the +2A/+3 all-RAM modes, the DivMMC's RAM at `2000`-`3FFF` when
 it is paged in) is written like any RAM, while the DivMMC's EEPROM counts as ROM. Editing bytes,
 Import text and POKE follow the same rules.
@@ -1085,7 +1229,7 @@ pzx --sym game.sym game.tap
 
 ### ROM
 
-The ROM can't be changed from the debugger unless Settings > Miscellaneous allows it. Changes
+The ROM can't be changed from the debugger unless Settings > Common > General allows it. Changes
 last until the model or its ROMs are loaded again.
 
 ## 11. Adventure Debugger
@@ -1253,18 +1397,18 @@ can be carried.
 pzx [options] [file]
 ```
 
-A file (.tap, .tzx, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
+A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
 automatically. Options start with `-` or `--` and take their value as the next argument or after
 "=" (`--model=128k`). Options are applied in this order whatever their position: machine, files,
 symbols, breakpoints, typed keys.
 
 | Option | Description |
 |---|---|
-| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext` (also `+2`, `+2b`, `+3`) |
-| `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > General) |
+| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128` (also `+2`, `+2b`, `+3`). A CPC can also be named alone: `pzx cpc6128`, `pzx cpc464 game.cdt` |
+| `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > Common > General) |
 | `--scale N` | window zoom 1 to 4 |
-| `--tape FILE` | insert a .tap or .tzx without starting it (combine with `--keyin`) |
-| `--disk FILE` | insert a .dsk in drive A: (switches to the +3 unless `--model` says otherwise); `--diska` is the same |
+| `--tape FILE` | insert a .tap, .tzx or .cdt without starting it (combine with `--keyin`) |
+| `--disk FILE` | insert a .dsk in drive A: (switches to the +3 unless `--model` says otherwise; a CPC 464 becomes a 6128); `--diska` is the same |
 | `--diskb FILE` | insert a .dsk in drive B: (connects drive B:) |
 | `--sym FILE` | load a symbol file (also `-s`); the breakpoints given on the command line can then use its symbols, both as addresses (`--bp MAIN`) and in conditions |
 | `--bp ADDR` | execution breakpoint at ADDR: hex or a symbol (`#NAME` forces the symbol) |
@@ -1274,11 +1418,11 @@ symbols, breakpoints, typed keys.
 | `--bpin PORT` | port read (IN) breakpoint; PORT is hex, up to FF matches any high byte |
 | `--bpout PORT` | port write (OUT) breakpoint |
 | `--bpio PORT` | port read or write breakpoint (any) |
-| `--keyin TEXT` | type TEXT on the Spectrum keyboard once the machine has started. Letters and digits are their keys (so in 48K BASIC keyword mode "J" is LOAD), symbols are typed with SYMBOL SHIFT (" is SYMBOL+P). `~` waits half a second. Escapes: `\n` ENTER, `\w` wait one second. Example: `--keyin 'J""\n'` |
-| `--sdcard FILE` | insert an SD card image (connects the DivMMC) |
-| `--zxunocard FILE` | the SD card the ZX-Uno uses (the last one used in it); empty = none |
-| `--sdfolder FOLDER` | use a PC folder as the SD card (as SD > Use a PC folder as SD card; connects the DivMMC) |
-| `--sdadd "FILE,FOLDER"` | copy a PC file onto that card, into FOLDER (such as `/GAMES` or `/GAMES/ARCADE`; missing folders are created; without ",FOLDER" it goes to the root). The name on the card is the 8.3 form of the file name, and a file with that name is replaced. Repeat it for more files. The machine is then switched off and on so esxDOS sees them. Example: `--sdcard my.img --sdadd "C:\games\jsw.tap,/GAMES"` |
+| `--keyin TEXT` | type TEXT on the keyboard once the machine has started (on a CPC: letters as they come, lower case, with SHIFT for upper case and the symbols of the CPC's keyboard, no escapes beyond `\n` RETURN, `\w` and `~`: `--model cpc464 --keyin 'run"\n'`). On the Spectrum: Letters and digits are their keys (so in 48K BASIC keyword mode "J" is LOAD), symbols are typed with SYMBOL SHIFT (" is SYMBOL+P). `~` waits half a second. Escapes: `\n` ENTER, `\w` wait one second. Example: `--keyin 'J""\n'` |
+| `--zx_sdcard FILE` | insert an SD card image (connects the DivMMC) |
+| `--zx_unocard FILE` | the SD card the ZX-Uno uses (the last one used in it); empty = none |
+| `--zx_sdfolder FOLDER` | use a PC folder as the SD card (as SD > Use a PC folder as SD card; connects the DivMMC) |
+| `--zx_sdadd "FILE,FOLDER"` | copy a PC file onto that card, into FOLDER (such as `/GAMES` or `/GAMES/ARCADE`; missing folders are created; without ",FOLDER" it goes to the root). The name on the card is the 8.3 form of the file name, and a file with that name is replaced. Repeat it for more files. The machine is then switched off and on so esxDOS sees them. Example: `--zx_sdcard my.img --zx_sdadd "C:\games\jsw.tap,/GAMES"` |
 
 Every breakpoint option takes an optional condition, after "if" or a comma:
 
@@ -1294,48 +1438,51 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 
 | Option | Setting | Where |
 |---|---|---|
-| `--ui classic\|modern` | the interface (see [Interface](#interface)); modern if not given | General |
-| `--bw` | black and white display | General |
-| `--mute` | mute the sound | General |
-| `--volume N` | volume 0 to 100 | General |
-| `--scale N`, `--speed N`, `--model M` | (see above) | General |
+| `--ui classic\|modern` | the interface (see [Interface](#interface)); modern if not given | Common > General |
+| `--bw` | black and white display | Common > General |
+| `--mute` | mute the sound | Common > General |
+| `--volume N` | volume 0 to 100 | Common > General |
+| `--scale N`, `--speed N`, `--model M` | (see above) | Common > General |
 | `--turbo` | run as fast as possible (this session) | Options menu |
-| `--contention` | contended memory and I/O | Miscellaneous |
-| `--snow` | ULA snow | Miscellaneous |
-| `--romedit` | allow changing the ROM | Miscellaneous |
-| `--ulaplus` | ULAplus 64-colour palette | Miscellaneous |
-| `--timex` | Timex screen modes | Miscellaneous |
-| `--radastan` | Radastan mode (ZX-Uno) | Miscellaneous |
-| `--scanlines` | scanlines, from window size 2x | Miscellaneous |
-| `--deinterlace M` | how the picture is deinterlaced: `progressive`, `bob` or `weave` (the default) (see [Deinterlacing](#deinterlacing)) | Miscellaneous, Options menu |
-| `--joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | Miscellaneous |
-| `--issue N` | keyboard issue 2 or 3 | Miscellaneous |
-| `--turbosound` | TurboSound | Hardware |
-| `--ay48` | AY chip on the 16K/48K | Hardware |
-| `--kmouse` | Kempston mouse | Hardware |
-| `--divmmc` | DivMMC interface | Hardware |
-| `--currah` | Currah µSpeech | Hardware |
-| `--fastload` | fast tape loading | Storage |
-| `--autoplay` | start the tape automatically | Storage |
-| `--tapeloop` | continuous tape playback: at the end the tape goes on from its start (on by default) | Storage |
-| `--savetotape` | SAVE writes to the tape | Storage |
-| `--fastdisk` | fast floppy disk access | Storage |
-| `--driveb` | drive B: connected (default: no) | Storage |
-| `--floppynoise` | emulate floppy drive noise | Storage |
-| `--saveonexit` | save the settings when pzx closes | General |
+| `--zx_contention` | contended memory and I/O | ZX Spectrum > Machine |
+| `--zx_snow` | ULA snow | ZX Spectrum > Machine |
+| `--romedit` | allow changing the ROM | Common > General |
+| `--zx_ulaplus` | ULAplus 64-colour palette | ZX Spectrum > Machine |
+| `--zx_timex` | Timex screen modes | ZX Spectrum > Machine |
+| `--zx_radastan` | Radastan mode (ZX-Uno) | ZX Spectrum > Machine |
+| `--scanlines` | scanlines, from window size 2x | Common > General |
+| `--zx_deinterlace M` | how the picture is deinterlaced: `progressive`, `bob` or `weave` (the default) (see [Deinterlacing](#deinterlacing)) | ZX Spectrum > Machine, Options menu |
+| `--zx_joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | ZX Spectrum > Machine |
+| `--zx_issue N` | keyboard issue 2 or 3 | ZX Spectrum > Machine |
+| `--zx_turbosound` | TurboSound | ZX Spectrum > Hardware |
+| `--zx_ay48` | AY chip on the 16K/48K | Hardware |
+| `--zx_kmouse` | Kempston mouse | ZX Spectrum > Hardware |
+| `--zx_divmmc` | DivMMC interface | ZX Spectrum > Hardware |
+| `--zx_currah` | Currah µSpeech | ZX Spectrum > Hardware |
+| `--cpc_crtc C` | Amstrad CPC: the CRTC chip, `auto` (the one the model came with: type 0 on the 464, type 1 on the 664 and 6128; the default) or `0` to `4` (see [Amstrad CPC](#amstrad-cpc)) | Amstrad CPC |
+| `--cpc_waitstates` | Amstrad CPC: the Gate Array's wait states, every access on the 1 MHz grid (on by default) | Amstrad CPC |
+| `--cpc_joystick` | Amstrad CPC: cursor keys and right Ctrl as joystick 1 (on by default) | Amstrad CPC |
+| `--fastload` | fast tape loading | Common > Storage |
+| `--autoplay` | start the tape automatically | Common > Storage |
+| `--tapeloop` | continuous tape playback: at the end the tape goes on from its start (on by default) | Common > Storage |
+| `--zx_savetotape` | SAVE writes to the tape | ZX Spectrum > Hardware |
+| `--fastdisk` | fast floppy disk access | Common > Storage |
+| `--driveb` | drive B: connected (default: no) | Common > Storage |
+| `--floppynoise` | emulate floppy drive noise | Common > Storage |
+| `--saveonexit` | save the settings when pzx closes | Common > General |
 | `--pngborder` | include the border in PNG screenshots | File menu |
-| `--romdir DIR` | the standard ROM folder | ROMs |
-| `--rom "MODEL,N,FILE"` | ROM N of a model (0 to 3, as many as the model has), e.g. `--rom "48k,0,C:\roms\mine.rom"`; an empty FILE goes back to the standard ROM | ROMs |
-| `--divmmcrom FILE` | the DivMMC firmware; empty = the bundled esxDOS | ROMs |
-| `--zxunofirmware FILE` | the ZX-Uno's BIOS; empty = `zxuno/FIRMWARE.ZX1` | ROMs |
-| `--zxunoroms FILE` | the ZX-Uno's ROMs; empty = `zxuno/ROMS.ZX1` | ROMs |
+| `--romdir DIR` | the standard ROM folder | Common > ROMs |
+| `--rom "MODEL,N,FILE"` | ROM N of a model (0 to 3, as many as the model has), e.g. `--rom "48k,0,C:\roms\mine.rom"`; an empty FILE goes back to the standard ROM | Common > ROMs |
+| `--zx_divmmcrom FILE` | the DivMMC firmware; empty = the bundled esxDOS | ZX Spectrum > Firmware |
+| `--zx_unofirmware FILE` | the ZX-Uno's BIOS; empty = `zxuno/FIRMWARE.ZX1` | ZX Spectrum > Firmware |
+| `--zx_unoroms FILE` | the ZX-Uno's ROMs; empty = `zxuno/ROMS.ZX1` | ZX Spectrum > Firmware |
 | `--breakpoints FILE` | breakpoints saved by the debugger (JSON), instead of any there were | |
 | `--watches FILE` | watches saved by the debugger (JSON) | |
 | `--daadbreakpoints FILE` | breakpoints saved by the Adventure Debugger (JSON); they act once that debugger is open (F11) | |
-| `--zxunocustomrom FILE` | a 16K ROM the ZX-Uno runs (as a 48K) instead of the one its BIOS chooses; empty = none | ROMs |
-| `--nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to pzx.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ROMs |
-| `--nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to pzx.ini | ROMs |
-| `--nextfirmware` | the ZX Spectrum Next starts through its firmware (boot screen; on by default); `--no-nextfirmware` starts NextZXOS directly | ROMs |
+| `--zx_unocustomrom FILE` | a 16K ROM the ZX-Uno runs (as a 48K) instead of the one its BIOS chooses; empty = none | ZX Spectrum > Firmware |
+| `--zx_nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to pzx.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ZX Spectrum > Firmware |
+| `--zx_nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to pzx.ini | ZX Spectrum > Firmware |
+| `--zx_nextfirmware` | the ZX Spectrum Next starts through its firmware (boot screen; on by default); `--no-zx_nextfirmware` starts NextZXOS directly | ZX Spectrum > Firmware |
 
 | Option | Description |
 |---|---|
@@ -1369,7 +1516,7 @@ bw=1
 |---|---|
 | `pzx` / `pzx.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
 | `pzx.ini` | settings, next to the program (created when pzx closes; `~/.config/pzx/` when installed from a package) |
-| `roms/` | Spectrum ROMs and their .sym label files, the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
+| `roms/` | Spectrum and Amstrad CPC ROMs (`cpc464.rom`, `cpc664.rom`, `cpc6128.rom`, `amsdos.rom`) and the Spectrum ROMs' .sym label files, the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
 | `specnext/` | empty: unpack the ZX Spectrum Next distribution here (it isn't included, as it has its own licence) |
 | `zxnext.img` | the ZX Spectrum Next's SD card, next to pzx.ini, made from the distribution the first time the Next is used |
 | `zxuno/` | the ZX-Uno's BIOS (`FIRMWARE.ZX1`) and ROMs (`ROMS.ZX1`) |
@@ -1390,7 +1537,7 @@ library for host applications (`pzxlib.dll`, or `libpzxlib.so`) and its document
 builds the library with `src/lib/build-lib.sh` if it is not built yet. They also have a `tests` folder with the
 C# host demo (`PzxHostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `PzxHostDemo.exe --selftest`).
 
-The Spectrum ROMs are copyright Amstrad, who allow their distribution.
+The Spectrum and CPC ROMs are copyright Amstrad, who allow their distribution.
 
 The ZX Spectrum Next's boot ROM (`roms/tbblue_loader.rom`, from the ZEsarUX distribution) is
 (c) Victor Trucco and Fabio Belavenuto (TBBlue), GPL v3. The Next's distribution (firmware,
@@ -1434,6 +1581,15 @@ or `build/macos/pzx.app`. Linux needs the GTK2 development package to build
 
 `tests/run-tests.sh` builds and runs the FUSE Z80 core tests with `fpc`
 (Linux, WSL or any platform with Free Pascal on the PATH).
+
+`tests/cpctest.lpr` (run by `run-tests.sh`) boots the three CPC models, checks the 6128's banking and the 464's lack
+of it, switching between the Spectrum and the CPC (and a missing firmware leaving the machine as it was), typing
+BASIC through the keyboard matrix, sound, recording a program with `SAVE` to a CDT and loading it back, and
+snapshots (the run after restoring one is the same run as the first time).
+`tests/cpcbatch.lpr` runs a disk or `.sna` for N frames and prints one line about the picture (for trying a
+collection of games), and `tests/CPC-MANUAL-TESTS.md` lists what was tried by hand and how it went.
+`tests/cpcrun.lpr` runs a CPC with a disk or tape for N frames and saves pictures
+(`cpcrun roms cpc6128 game.dsk 1500 out.png 500:early.png`), to try programs without the GUI.
 
 `tests/machinetest.lpr` runs any model headless, optionally loading a file
 and typing keys, and writes the screen as a PPM image plus the recognised

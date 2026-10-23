@@ -20,6 +20,9 @@ type
     Deinterlace: TDeinterlace;
     Mono: Boolean;
     Scanlines: Boolean;
+    { The Amstrad CPC's picture, whose columns are all different (the 640-pixel
+      mode): at 1x each pair is averaged }
+    Fine: Boolean;
   end;
 
 { The largest whole scale that fits an area (at least 1) }
@@ -103,7 +106,16 @@ begin
             (((P and $FF) + (Q and $FF)) shr 1) or $FF000000;
         end
         else
+        begin
           P := Cur[Src];
+          if Options.Fine and (Scale = 1) then
+          begin
+            Q := Cur[Src + 1];
+            P := ((((P shr 16) and $FF) + ((Q shr 16) and $FF)) shr 1) shl 16 or
+              ((((P shr 8) and $FF) + ((Q shr 8) and $FF)) shr 1) shl 8 or
+              (((P and $FF) + (Q and $FF)) shr 1) or $FF000000;
+          end;
+        end;
         if Options.Mono then
         begin
           Grey := (((P shr 16) and $FF) * 77 + ((P shr 8) and $FF) * 150 + (P and $FF) * 29) shr 8;

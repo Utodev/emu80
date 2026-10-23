@@ -20,7 +20,11 @@ instance) takes the frames with `pzx_get_frame` (32-bit BGRA, any whole scale), 
 the emulation thread) that one is ready. Drawing into a host window is Windows only; `pzx_get_frame` works everywhere.
 
 **Input** is the host's: it tells the keys (`pzx_key`, key = row * 5 + bit of the Spectrum's keyboard, 0 = CAPS
-SHIFT, 35 = SPACE, 36 = SYMBOL SHIFT) and the Kempston joystick (`pzx_set_kempston`).
+SHIFT, 35 = SPACE, 36 = SYMBOL SHIFT) and the Kempston joystick (`pzx_set_kempston`). On an Amstrad CPC model
+(8 = CPC 464, 9 = CPC 664, 10 = CPC 6128) the key is line * 8 + bit of the CPC's keyboard matrix (0 to 79, as the
+`CPCK_*` constants of `src/Amstrad.pas`: 0 = cursor up, 21 = SHIFT, 18 = RETURN, 47 = SPACE, 72-77 = joystick 1
+up, down, left, right, fire 1, fire 2, 79 = DEL); `pzx_load_file` takes `.cdt` tapes, and `pzx_ram_bank_count` is 4
+(CPC 464 and 664) or 8 (CPC 6128).
 
 **The API** is plain C (cdecl) with opaque handles, `int32` and pointers (see `src/lib/PzxApi.pas`; the C# wrapper is
 `tests/csharp/PzxHostDemo/Pzx.cs`). Calls return 0 (or a count) on success and a negative number on failure, with
@@ -28,7 +32,7 @@ SHIFT, 35 = SPACE, 36 = SYMBOL SHIFT) and the Kempston joystick (`pzx_set_kempst
 
 | Group | Calls |
 |---|---|
-| Instance | `pzx_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next), `pzx_destroy`, `pzx_set_model`, `pzx_get_model`, `pzx_set_next_dir`, `pzx_version`, `pzx_last_error` |
+| Instance | `pzx_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next, 8 = CPC 464, 9 = CPC 664, 10 = CPC 6128), `pzx_destroy`, `pzx_set_model`, `pzx_get_model`, `pzx_set_next_dir`, `pzx_version`, `pzx_last_error` |
 | Running | `pzx_start`, `pzx_stop` (the thread; `pzx_start` runs it again), `pzx_pause`, `pzx_resume`, `pzx_reset`, `pzx_set_sound`, `pzx_set_turbo` |
 | Screen | `pzx_attach_window`, `pzx_detach_window`, `pzx_set_display` (deinterlace 0-2, black and white, scanlines), `pzx_get_frame`, `pzx_set_frame_callback` |
 | CPU | `pzx_get_reg`, `pzx_set_reg` (AF, BC, DE, HL, their alternates, IX, IY, SP, PC, I, R, IM, IFF1, IFF2) |

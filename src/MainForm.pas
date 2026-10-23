@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Emulator, Config, Icons, PokeForm,
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Emulator, Config, Icons, PokeForm,
   Pokes, ScreenCapture, DocForm, ModernUI;
 
 type
@@ -58,7 +58,9 @@ type
     FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
     FPrevPixels: array of LongWord;   // the frame before (the other field)
     FPixelsOdd: Boolean;              // FPixels is the odd field
+    FFloppyTop, FSDTop: TMenuItem;           // menus that don't belong to every machine
     FKeyCount: array[0..39] of Integer;
+    FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
     FDriveNmiItem: TMenuItem;
     FExtCount: array[0..15] of Integer;      // two-key keys (EXT_*) held
     // The modern interface (MainModern.inc)
@@ -108,6 +110,7 @@ type
     procedure StatusTick(Sender: TObject);
     procedure UpdateKeyboard;
     procedure MapKey(Key: Word; Down: Boolean);
+    procedure MapKeyCPC(Key: Word; Down: Boolean);
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormDeactivate(Sender: TObject);
@@ -217,7 +220,7 @@ type
     procedure DoClearSymbols(Sender: TObject);
     procedure ProcessCommandLine;
     function CommandLineAddress(const AText: string; out Addr: Word): Boolean;
-    { --sdadd: copy PC files ("SOURCE,FOLDER") onto the SD card, then switch
+    { --zx_sdadd: copy PC files ("SOURCE,FOLDER") onto the SD card, then switch
       the machine off and on so the firmware sees them }
     procedure AddFilesToCard(Specs: TStrings; var Errors: string);
   public
@@ -254,6 +257,7 @@ type
     destructor Destroy; override;
     procedure OpenFile(const FileName: string; AutoStart: Boolean = True);
     procedure ChangeModel(M: TSpectrumModel);
+    procedure ApplyContention;
     procedure ApplyZXUnoFiles(Reload: Boolean);
     function ReleasedSide(Key: Word): Word;
     procedure StoreZXUnoBios;
@@ -266,7 +270,7 @@ var
 implementation
 
 uses
-  Snapshot, DSK, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
+  Snapshot, DSK, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
   SDBrowser, FatFS, DebugFiles, NextCard;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
@@ -277,9 +281,9 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.sna;*.z80;*.dsk;*.nex;*.pzs|' +
-    'Tape images (*.tap;*.tzx)|*.tap;*.tzx|' +
-    'Snapshots (*.sna;*.z80;*.pzs)|*.sna;*.z80;*.pzs|+3 disk images (*.dsk)|*.dsk|' +
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.pzs|' +
+    'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt|' +
+    'Snapshots (*.sna;*.z80;*.pzs)|*.sna;*.z80;*.pzs|Disk images (*.dsk)|*.dsk|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
@@ -563,6 +567,7 @@ begin
   FSaveToTapeItem := AddItem(TopItem, 'SA&VE writes to the tape', @DoSaveToTape);
 
   TopItem := AddItem(FMenu.Items, 'F&loppy', nil);
+  FFloppyTop := TopItem;
   FDiskBrowserItem := AddItem(TopItem, 'Disk &browser...', @DoDiskBrowser);
   AddItem(TopItem, '-', nil);
   Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert);
@@ -602,6 +607,7 @@ begin
 
   // DivMMC SD card (the interface is switched on in Settings > Hardware)
   TopItem := AddItem(FMenu.Items, '&SD', nil);
+  FSDTop := TopItem;
   FSDBrowserItem := AddItem(TopItem, 'SD card &browser...', @DoSDBrowser);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&Insert SD card image...', @DoSDInsert);
@@ -737,6 +743,22 @@ begin
   AddButton(ikTheme, 'Switch to the modern interface (dark)', @DoToggleTheme);
 end;
 
+{ Contention on the Spectrum models; the Gate Array's wait states and the CRTC
+  chip on the Amstrad CPC (the emulator is locked by the caller) }
+procedure TMainWindow.ApplyContention;
+begin
+  if FEmu.Spec.CPC <> nil then
+  begin
+    FEmu.Spec.ContentionOn := Settings.CPCWaitStates;
+    if Settings.CPCCrtc < 0 then
+      FEmu.Spec.CPC.CrtcType := TAmstrad.DefaultCrtcType(FEmu.Spec.Model)
+    else
+      FEmu.Spec.CPC.CrtcType := Settings.CPCCrtc;
+  end
+  else
+    FEmu.Spec.ContentionOn := Settings.Contention;
+end;
+
 procedure TMainWindow.ApplySettings;
 var
   Err: string;
@@ -759,7 +781,7 @@ begin
     FEmu.Spec.FloppyNoise := Settings.FloppyNoise;
     FEmu.Spec.Volume := Settings.Volume / 100;
     FEmu.Spec.TurboSound := Settings.TurboSound;
-    FEmu.Spec.ContentionOn := Settings.Contention;
+    ApplyContention;
     FEmu.Spec.SnowOn := Settings.UlaSnow;
     FEmu.Spec.RomWritable := Settings.AllowRomEdit;
     FEmu.Spec.ULAPlusEnabled := Settings.ULAPlus;
@@ -796,7 +818,7 @@ procedure TMainWindow.ApplyCurrah;
 var
   Dir, Err: string;
 begin
-  if Settings.Currah = FEmu.Spec.CurrahOn then Exit;
+  if (Settings.Currah = FEmu.Spec.CurrahOn) or (FEmu.Spec.CPC <> nil) then Exit;
   Err := '';
   FEmu.Lock;
   try
@@ -830,7 +852,7 @@ var
 begin
   Result := True;
   // The ZX-Uno and the Next have their own DivMMC
-  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext] then Exit;
+  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext, mkCPC] then Exit;
   if Settings.DivMMC = FEmu.Spec.DivMMCOn then Exit;
   Err := '';
   if Settings.DivMMC then
@@ -981,6 +1003,9 @@ begin
   FDriveBItem.Checked := Settings.DriveB;
   for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := Settings.DriveB;
   FDriveNmiItem.Visible := M = smZXNext;
+  // No drive built into a CPC 464, and no SD interface on any CPC
+  if FFloppyTop <> nil then FFloppyTop.Visible := M <> smCPC464;
+  if FSDTop <> nil then FSDTop.Visible := FEmu.Spec.CPC = nil;
   FBorderShotItem.Checked := Settings.ScreenshotBorder;
   FPauseItem.Checked := FEmu.Paused;
   FRecItem.Checked := FEmu.Spec.Recording;
@@ -1123,9 +1148,12 @@ var
   P, Native: LongWord;
 begin
   Scale := DisplayScale;
-  Options.Deinterlace := Settings.Deinterlace;
+  // A CPC picture is progressive: the frames aren't the fields of an interlaced one
+  if FEmu.Spec.CPC <> nil then Options.Deinterlace := dlProgressive
+  else Options.Deinterlace := Settings.Deinterlace;
   Options.Mono := Settings.Monochrome;
   Options.Scanlines := Settings.Scanlines;
+  Options.Fine := FEmu.Spec.CPC <> nil;
   W := SCREEN_WIDTH * Scale;
   H := SCREEN_HEIGHT * Scale;
   if (FBitmap.Width <> W) or (FBitmap.Height <> H) then FBitmap.SetSize(W, H);
@@ -1346,6 +1374,18 @@ var
   Value: Byte;
   Ext: Word;
 begin
+  if FEmu.Spec.Model in [smCPC464, smCPC664, smCPC6128] then
+  begin
+    // The CPC's matrix: 10 lines of 8 keys
+    for Row := 0 to 9 do
+    begin
+      Value := $FF;
+      for Bit := 0 to 7 do
+        if FCPCKeyCount[Row * 8 + Bit] > 0 then Value := Value and not (1 shl Bit);
+      FEmu.Spec.CPC.KeyMatrix[Row] := Value;
+    end;
+    Exit;
+  end;
   for Row := 0 to 7 do
   begin
     Value := $FF;
@@ -1394,6 +1434,11 @@ const
 var
   Dir: Integer;
 begin
+  if FEmu.Spec.Model in [smCPC464, smCPC664, smCPC6128] then
+  begin
+    MapKeyCPC(Key, Down);
+    Exit;
+  end;
   // Cursor keys and Ctrl (either) as a joystick
   if (Settings.Joystick <> jkNone) and
      (Key in [VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_CONTROL, VK_LCONTROL, VK_RCONTROL]) then
@@ -1448,6 +1493,64 @@ begin
     VK_DIVIDE, VK_OEM_2: begin Press(KEY_SYM); Press(KEY_V); end;
     VK_OEM_1: Ext(EXT_SEMICOLON);
     VK_OEM_7: Ext(EXT_QUOTE);
+  end;
+end;
+
+{ The same for the Amstrad CPC: each PC key is the CPC key in its place (or its
+  label); the numeric keypad is the CPC's F0-F9 and F.; the cursor keys are the
+  cursor keys and also joystick 1, with the right Ctrl as its fire button }
+procedure TMainWindow.MapKeyCPC(Key: Word; Down: Boolean);
+
+  procedure Press(K: Integer);
+  begin
+    if Down then Inc(FCPCKeyCount[K]) else if FCPCKeyCount[K] > 0 then Dec(FCPCKeyCount[K]);
+  end;
+
+const
+  Letters: array['A'..'Z'] of Integer = (
+    CPCK_A, CPCK_B, CPCK_C, CPCK_D, CPCK_E, CPCK_F, CPCK_G, CPCK_H, CPCK_I, CPCK_J, CPCK_K, CPCK_L,
+    CPCK_M, CPCK_N, CPCK_O, CPCK_P, CPCK_Q, CPCK_R, CPCK_S, CPCK_T, CPCK_U, CPCK_V, CPCK_W, CPCK_X,
+    CPCK_Y, CPCK_Z);
+  Digits: array['0'..'9'] of Integer = (
+    CPCK_0, CPCK_1, CPCK_2, CPCK_3, CPCK_4, CPCK_5, CPCK_6, CPCK_7, CPCK_8, CPCK_9);
+  FKeys: array[0..9] of Integer = (
+    CPCK_F0, CPCK_F1, CPCK_F2, CPCK_F3, CPCK_F4, CPCK_F5, CPCK_F6, CPCK_F7, CPCK_F8, CPCK_F9);
+begin
+  case Key of
+    VK_A..VK_Z: Press(Letters[Chr(Key)]);
+    VK_0..VK_9: Press(Digits[Chr(Key)]);
+    VK_NUMPAD0..VK_NUMPAD9: Press(FKeys[Key - VK_NUMPAD0]);
+    VK_DECIMAL: Press(CPCK_FDOT);
+    VK_RETURN: Press(CPCK_RETURN);
+    VK_SPACE: Press(CPCK_SPACE);
+    VK_SHIFT, VK_LSHIFT, VK_RSHIFT: Press(CPCK_SHIFT);
+    VK_LCONTROL: Press(CPCK_CONTROL);
+    VK_CONTROL: Press(CPCK_CONTROL);
+    VK_RCONTROL: if Settings.CPCJoystick then Press(CPCK_JFIRE1) else Press(CPCK_CONTROL);
+    VK_ESCAPE: Press(CPCK_ESC);
+    VK_TAB: Press(CPCK_TAB);
+    VK_CAPITAL: Press(CPCK_CAPSLOCK);
+    VK_BACK: Press(CPCK_DEL);
+    VK_DELETE: Press(CPCK_CLR);
+    VK_INSERT: Press(CPCK_COPY);
+    VK_LEFT: begin Press(CPCK_LEFT); if Settings.CPCJoystick then Press(CPCK_JLEFT); end;
+    VK_RIGHT: begin Press(CPCK_RIGHT); if Settings.CPCJoystick then Press(CPCK_JRIGHT); end;
+    VK_UP: begin Press(CPCK_UP); if Settings.CPCJoystick then Press(CPCK_JUP); end;
+    VK_DOWN: begin Press(CPCK_DOWN); if Settings.CPCJoystick then Press(CPCK_JDOWN); end;
+    VK_OEM_COMMA: Press(CPCK_COMMA);
+    VK_OEM_PERIOD: Press(CPCK_DOT);
+    VK_OEM_2: Press(CPCK_SLASH);
+    VK_OEM_MINUS, VK_SUBTRACT: Press(CPCK_MINUS);
+    VK_OEM_PLUS: Press(CPCK_CARET);
+    VK_OEM_1: Press(CPCK_SEMICOLON);
+    VK_OEM_7: Press(CPCK_COLON);
+    VK_OEM_3: Press(CPCK_AT);
+    VK_OEM_4: Press(CPCK_LBRACKET);
+    VK_OEM_6: Press(CPCK_RBRACKET);
+    VK_OEM_5: Press(CPCK_BACKSLASH);
+    VK_ADD: begin Press(CPCK_SHIFT); Press(CPCK_SEMICOLON); end;
+    VK_MULTIPLY: begin Press(CPCK_SHIFT); Press(CPCK_COLON); end;
+    VK_DIVIDE: Press(CPCK_SLASH);
   end;
 end;
 
@@ -1574,6 +1677,7 @@ begin
   end;
   for I := 0 to High(FKeyCount) do FKeyCount[I] := 0;
   for I := 0 to High(FExtCount) do FExtCount[I] := 0;
+  for I := 0 to High(FCPCKeyCount) do FCPCKeyCount[I] := 0;
   FKempstonBits := 0;
   FFullerBits := 0;
   UpdateKeyboard;
@@ -1675,7 +1779,9 @@ var
   M: TSpectrumModel;
   Ext: string;
   Disk: TDiskImage;
+  CPCNote: string;
 begin
+  CPCNote := '';
   Ext := LowerCase(ExtractFileExt(FileName));
   // Snapshots and disks switch the Next to a standard model: its card first
   if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk')) then
@@ -1685,6 +1791,19 @@ begin
   begin
     ChangeModel(smZXNext);
     if FEmu.Spec.Model <> smZXNext then Exit;
+  end;
+  // A CPC tape (.cdt) needs a CPC; a Spectrum tape (.tap) can't be loaded on one
+  if (Ext = '.cdt') and not (FEmu.Spec.Model in [smCPC464, smCPC664, smCPC6128]) then
+  begin
+    ChangeModel(smCPC464);
+    if FEmu.Spec.CPC = nil then Exit;
+  end;
+  if (Ext = '.tap') and (FEmu.Spec.CPC <> nil) then
+  begin
+    MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding +
+      'A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes.',
+      mtError, [mbOK], 0);
+    Exit;
   end;
   if Ext = '.pzs' then
   begin
@@ -1707,9 +1826,15 @@ begin
   FEmu.Lock;
   try
     try
-      if (Ext = '.tap') or (Ext = '.tzx') then
+      if (Ext = '.tap') or (Ext = '.tzx') or (Ext = '.cdt') then
       begin
         FEmu.Spec.Tape.LoadFile(FileName);
+        // A CPC reads its own signals: a Spectrum standard-speed block (what a
+        // .tzx made for the Spectrum has) plays, but nothing will load from it
+        if (FEmu.Spec.CPC <> nil) and (FEmu.Spec.Tape.CountKind(TZX_STANDARD) > 0) then
+          CPCNote := Format('%s has %d block(s) of the ZX Spectrum''s standard tape speed, which an ' +
+            'Amstrad CPC can''t load. The tape is inserted anyway; its other blocks play as they are.',
+            [ExtractFileName(FileName), FEmu.Spec.Tape.CountKind(TZX_STANDARD)]);
         // On the Next the tape is loaded from NextZXOS (LOAD "" or the Browser)
         if AutoStart and (FEmu.Spec.Model <> smZXNext) then FEmu.Spec.AutoLoad;
       end
@@ -1730,10 +1855,14 @@ begin
           Disk.Free;
           raise;
         end;
-        if not FEmu.Spec.Info.HasFDC then FEmu.Spec.SetModel(smPlus3);
+        // A CPC without a disc drive (the 464) becomes a 6128; the other models a +3
+        if not FEmu.Spec.Info.HasFDC then
+        begin
+          if FEmu.Spec.CPC <> nil then FEmu.Spec.SetModel(smCPC6128) else FEmu.Spec.SetModel(smPlus3);
+        end;
         FEmu.Spec.FDC.InsertDisk(0, Disk);
         Settings.AddRecentDisk(FileName);
-        if AutoStart then FEmu.Spec.AutoLoad;
+        if AutoStart then FEmu.Spec.AutoLoad(True);
       end
       else
         raise Exception.Create('Unsupported file type: ' + Ext);
@@ -1761,6 +1890,7 @@ begin
   UpdateChecks;
   Caption := 'pzx - ' + ExtractFileName(FileName);
   if TapeBrowserWindow <> nil then TapeBrowserWindow.Refresh(True);
+  if CPCNote <> '' then MessageDlg('Amstrad CPC tape', CPCNote, mtWarning, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoOpen(Sender: TObject);
@@ -1787,7 +1917,7 @@ begin
   Dlg := TOpenDialog.Create(Self);
   try
     Dlg.Title := 'Insert a tape';
-    Dlg.Filter := 'Tape images (*.tap;*.tzx)|*.tap;*.tzx';
+    Dlg.Filter := 'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then OpenFile(Dlg.FileName);
@@ -1813,7 +1943,13 @@ begin
   try
     // .z80 and .sna can't hold the Next or the ZX-Uno: pzx's own format;
     // the others have it as a choice, .z80 first
-    if FEmu.Spec.NeedsOwnSnapshot then
+    if FEmu.Spec.CPC <> nil then
+    begin
+      // The CPC's own .SNA (CPCEmu, Winape), or pzx's
+      Dlg.Filter := 'CPC snapshot (*.sna)|*.sna|pzx snapshot (*.pzs)|*.pzs';
+      Dlg.DefaultExt := 'sna';
+    end
+    else if FEmu.Spec.NeedsOwnSnapshot then
     begin
       Dlg.Filter := 'pzx snapshot (*.pzs)|*.pzs';
       Dlg.DefaultExt := 'pzs';
@@ -1830,7 +1966,14 @@ begin
     // The format: by the name's extension, else by the type chosen
     FileName := Dlg.FileName;
     Ext := LowerCase(ExtractFileExt(FileName));
-    if FEmu.Spec.NeedsOwnSnapshot then
+    if FEmu.Spec.CPC <> nil then
+    begin
+      if Ext <> '.pzs' then
+      begin
+        if (Ext <> '.sna') and (Dlg.FilterIndex = 2) then Ext := '.pzs' else Ext := '.sna';
+      end;
+    end
+    else if FEmu.Spec.NeedsOwnSnapshot then
       Ext := '.pzs'
     else if (Ext <> '.z80') and (Ext <> '.sna') and (Ext <> '.pzs') then
       case Dlg.FilterIndex of
@@ -2265,6 +2408,12 @@ begin
   end;
   Settings.Model := FEmu.Spec.Model;
   HardwareChanged(Old, FEmu.Spec.Model);
+  FEmu.Lock;
+  try
+    ApplyContention;
+  finally
+    FEmu.Unlock;
+  end;
   // Leaving the ZX-Uno (its own DivMMC): as Settings say again
   ApplyDivMMC;
   UpdateChecks;
@@ -2361,7 +2510,8 @@ procedure TMainWindow.DoTapePlay(Sender: TObject);
 begin
   FEmu.Lock;
   try
-    if FEmu.Spec.Tape.Playing then FEmu.Spec.StopTape else FEmu.Spec.PlayTape;
+    if FEmu.Spec.Tape.Playing or FEmu.Spec.CPCTapeArmed then FEmu.Spec.StopTape
+    else FEmu.Spec.PlayTape;
   finally
     FEmu.Unlock;
   end;
@@ -2410,25 +2560,8 @@ begin
 end;
 
 procedure TMainWindow.DoTapeSave(Sender: TObject);
-var
-  Dlg: TSaveDialog;
 begin
-  Dlg := TSaveDialog.Create(Self);
-  try
-    Dlg.Filter := 'Tape images (*.tap)|*.tap';
-    Dlg.DefaultExt := 'tap';
-    Dlg.InitialDir := Settings.LastDir;
-    Dlg.Options := Dlg.Options + [ofOverwritePrompt];
-    if not ConfirmTapSave(FEmu) or not Dlg.Execute then Exit;
-    FEmu.Lock;
-    try
-      FEmu.Spec.Tape.SaveTAP(Dlg.FileName);
-    finally
-      FEmu.Unlock;
-    end;
-  finally
-    Dlg.Free;
-  end;
+  SaveTapeDialog(FEmu, '');
 end;
 
 { The other interface (classic or modern), at once }
@@ -3081,9 +3214,10 @@ var
 begin
   Drive := (Sender as TComponent).Tag;
   if not ConfirmDiskChanges(Drive) then Exit;
-  // Already formatted (+3 standard format), ready for SAVE without FORMAT
+  // Already formatted (+3 standard format, or AMSDOS's data format on a CPC), ready
+  // for SAVE without FORMAT
   Disk := TDiskImage.Create;
-  Disk.CreatePlus3Formatted;
+  if FEmu.Spec.CPC <> nil then Disk.CreateCPCFormatted else Disk.CreatePlus3Formatted;
   FEmu.Lock;
   try
     FEmu.Spec.FDC.InsertDisk(Drive, Disk);
@@ -3091,7 +3225,7 @@ begin
     FEmu.Unlock;
   end;
   if not FEmu.Spec.Info.HasFDC then
-    MessageDlg('The disk is inserted, but only the +3 has a disk drive.', mtInformation, [mbOK], 0);
+    MessageDlg('The disk is inserted, but only the +3, the CPC 664 and the CPC 6128 have a disk drive.', mtInformation, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoDiskEject(Sender: TObject);
@@ -3315,7 +3449,8 @@ var
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'Spectrum screen (*.scr)|*.scr';
+    if FEmu.Spec.CPC <> nil then Dlg.Filter := 'CPC screen (*.scr)|*.scr'
+    else Dlg.Filter := 'Spectrum screen (*.scr)|*.scr';
     Dlg.DefaultExt := 'scr';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
@@ -3345,7 +3480,8 @@ begin
     if not Dlg.Execute then Exit;
     SetLength(Pixels, FB_WIDTH * SCREEN_HEIGHT);
     FEmu.CopyDisplay(@Pixels[0]);
-    SavePNG(Pixels, Dlg.FileName, (Sender as TComponent).Tag, Settings.ScreenshotBorder);
+    SavePNG(Pixels, Dlg.FileName, (Sender as TComponent).Tag, Settings.ScreenshotBorder,
+      FEmu.Spec.CPC <> nil);
   finally
     Dlg.Free;
   end;
@@ -3459,11 +3595,12 @@ var
       (Name = 'disk') or (Name = 'diska') or (Name = 'diskb') or (Name = 'sym') or (Name = 's') or
       (Name = 'bp') or (Name = 'bpr') or (Name = 'bpw') or (Name = 'bprw') or (Name = 'bpa') or
       (Name = 'bpin') or (Name = 'bpout') or (Name = 'bpio') or (Name = 'keyin') or
-      (Name = 'config') or (Name = 'config-add') or (Name = 'joystick') or (Name = 'deinterlace') or (Name = 'sdcard') or (Name = 'zxunocard') or
-      (Name = 'sdadd') or (Name = 'sdfolder') or (Name = 'volume') or (Name = 'issue') or
-      (Name = 'romdir') or (Name = 'rom') or (Name = 'divmmcrom') or
-      (Name = 'zxunofirmware') or (Name = 'zxunoroms') or (Name = 'zxunocustomrom') or
-      (Name = 'nextdir') or (Name = 'nextcard') or
+      (Name = 'config') or (Name = 'config-add') or (Name = 'zx_joystick') or
+      (Name = 'zx_deinterlace') or (Name = 'zx_sdcard') or (Name = 'zx_unocard') or
+      (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
+      (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
+      (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or
       (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -3497,7 +3634,10 @@ var
     end;
     FEmu.Lock;
     try
-      if not FEmu.Spec.Info.HasFDC and not HaveModel then FEmu.Spec.SetModel(smPlus3);
+      if not FEmu.Spec.Info.HasFDC and not HaveModel then
+      begin
+        if FEmu.Spec.CPC <> nil then FEmu.Spec.SetModel(smCPC6128) else FEmu.Spec.SetModel(smPlus3);
+      end;
       FEmu.Spec.FDC.InsertDisk(Drive, Disk);
     finally
       FEmu.Unlock;
@@ -3542,6 +3682,14 @@ begin
       Inc(I);
       if (Arg = '') or (Arg[1] <> '-') then
       begin
+        // The CPC machines by name: pzx cpc464, cpc664 or cpc6128 (as --model)
+        M := ModelFromName(LowerCase(Arg), smPlus3);
+        if IsCPCModel(M) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
+        begin
+          NewModel := M;
+          HaveModel := True;
+          Continue;
+        end;
         Files.Add(Arg);
         Continue;
       end;
@@ -3553,7 +3701,9 @@ begin
         Arg := Copy(Arg, 1, N - 1);
       end;
       while (Arg <> '') and (Arg[1] = '-') do Delete(Arg, 1, 1);
-      Arg := LowerCase(Arg);
+      // The options of the ZX Spectrum start zx_, those of the CPC cpc_; the
+      // names they had before are still taken
+      Arg := CurrentOptionName(LowerCase(Arg));
       if NeedsValue(Arg) and (N = 0) then
       begin
         if I > ParamCount then
@@ -3579,7 +3729,7 @@ begin
         Continue;
       end;
       // Hidden option (not documented, see CLAUDE.md): over the settings file's
-      if BoolName = 'realspecnext' then
+      if BoolName = 'zx_realspecnext' then
       begin
         if Value <> '' then BoolValue := (Value <> '0') and not SameText(Value, 'false');
         Settings.RealSpecNext := BoolValue;
@@ -3644,7 +3794,7 @@ begin
         if (N >= 0) and (N <= 100) then Settings.Volume := N
         else Errors := Errors + 'Volume must be 0 to 100' + LineEnding;
       end
-      else if Arg = 'issue' then
+      else if Arg = 'zx_issue' then
       begin
         if Value = '2' then Settings.Issue2 := True
         else if Value = '3' then Settings.Issue2 := False
@@ -3688,20 +3838,20 @@ begin
         if (Value <> 'classic') and (Value <> 'modern') then
           Errors := Errors + 'Unknown --ui (classic or modern): ' + Value + LineEnding;
       end
-      else if (Arg = 'zxunofirmware') or (Arg = 'zxunoroms') or (Arg = 'zxunocustomrom') then
+      else if (Arg = 'zx_unofirmware') or (Arg = 'zx_unoroms') or (Arg = 'zx_unocustomrom') then
       begin
         if (Value = '') or FileExists(Value) then
         begin
           if Value <> '' then Value := ExpandFileName(Value);
-          if Arg = 'zxunofirmware' then Settings.ZXUnoFirmware := Value
-          else if Arg = 'zxunoroms' then Settings.ZXUnoRoms := Value
+          if Arg = 'zx_unofirmware' then Settings.ZXUnoFirmware := Value
+          else if Arg = 'zx_unoroms' then Settings.ZXUnoRoms := Value
           else Settings.ZXUnoCustomRom := Value;
           UnoSet := True;
         end
         else
           Errors := Errors + 'File not found: ' + Value + LineEnding;
       end
-      else if Arg = 'divmmcrom' then
+      else if Arg = 'zx_divmmcrom' then
       begin
         if (Value = '') or FileExists(Value) then
         begin
@@ -3712,7 +3862,7 @@ begin
         else
           Errors := Errors + 'DivMMC firmware not found: ' + Value + LineEnding;
       end
-      else if Arg = 'nextdir' then
+      else if Arg = 'zx_nextdir' then
       begin
         if (Value = '') or DirectoryExists(Value) then
         begin
@@ -3723,21 +3873,28 @@ begin
         else
           Errors := Errors + 'Folder not found: ' + Value + LineEnding;
       end
-      else if Arg = 'nextcard' then
+      else if Arg = 'zx_nextcard' then
       begin
         // Made from the distribution if it doesn't exist yet
         if Value <> '' then Value := ExpandFileName(Value);
         Settings.NextCard := Value;
       end
-      else if Arg = 'sdcard' then SDFile := Value
-      else if Arg = 'zxunocard' then
+      else if Arg = 'zx_sdcard' then SDFile := Value
+      else if Arg = 'zx_unocard' then
       begin
         if Value <> '' then Value := ExpandFileName(Value);
         Settings.ZXUnoCard := Value;
       end
-      else if Arg = 'sdadd' then SDAdds.Add(Value)
-      else if Arg = 'sdfolder' then SDFolder := Value
-      else if Arg = 'deinterlace' then
+      else if Arg = 'zx_sdadd' then SDAdds.Add(Value)
+      else if Arg = 'zx_sdfolder' then SDFolder := Value
+      else if Arg = 'cpc_crtc' then
+      begin
+        Value := LowerCase(Value);
+        if Value = 'auto' then Settings.CPCCrtc := -1
+        else if (Length(Value) = 1) and (Value[1] in ['0'..'4']) then Settings.CPCCrtc := Ord(Value[1]) - 48
+        else Errors := Errors + 'Unknown --cpc_crtc (auto, or the chip 0 to 4): ' + Value + LineEnding;
+      end
+      else if Arg = 'zx_deinterlace' then
       begin
         Value := LowerCase(Value);
         N := -1;
@@ -3747,9 +3904,9 @@ begin
             Settings.Deinterlace := D;
             N := 0;
           end;
-        if N < 0 then Errors := Errors + 'Unknown --deinterlace (progressive, bob or weave): ' + Value + LineEnding;
+        if N < 0 then Errors := Errors + 'Unknown --zx_deinterlace (progressive, bob or weave): ' + Value + LineEnding;
       end
-      else if Arg = 'joystick' then
+      else if Arg = 'zx_joystick' then
       begin
         Value := LowerCase(Value);
         if Value = 'sinclair' then Value := 'sinclair1'
@@ -3966,7 +4123,7 @@ begin
   try
     if FEmu.Spec.DivMMC.Card = nil then
     begin
-      Errors := Errors + '--sdadd needs an SD card (--sdcard FILE)' + LineEnding;
+      Errors := Errors + '--zx_sdadd needs an SD card (--zx_sdcard FILE)' + LineEnding;
       Exit;
     end;
     try
@@ -3995,7 +4152,7 @@ begin
         end;
         if not FileExists(Source) then
         begin
-          Errors := Errors + '--sdadd: file not found: ' + Source + LineEnding;
+          Errors := Errors + '--zx_sdadd: file not found: ' + Source + LineEnding;
           Continue;
         end;
         try
@@ -4010,7 +4167,7 @@ begin
           Added := True;
         except
           on E: Exception do
-            Errors := Errors + '--sdadd ' + Specs[I] + ': ' + E.Message + LineEnding;
+            Errors := Errors + '--zx_sdadd ' + Specs[I] + ': ' + E.Message + LineEnding;
         end;
       end;
     finally

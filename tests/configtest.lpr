@@ -129,10 +129,40 @@ begin
       'the standard models, the ZX-Uno and the Next each have their own card');
     S.ZXUnoCard := 'other.img';
     S.Save;
-    Check(Pos('zxunocard=other.img', IniText) > 0, 'the ZX-Uno''s card is saved');
+    Check(Pos('zx_unocard=other.img', IniText) > 0, 'the ZX-Uno''s card is saved (as zx_unocard)');
     S.Free;
     S := Fresh;
     Check((S.ZXUnoCard = 'other.img') and (S.SDCardFile = 'normal.img'), 'and read back, the others untouched');
+    S.Free;
+
+    // The names: ZX Spectrum options start zx_, Amstrad CPC ones cpc_; a file
+    // with the older names is read, and written again with the new ones
+    WriteIni('[Hardware]'#10'turbosound=1'#10'currah=1'#10'cpcjoystick=0'#10'[Machine]'#10'joystick=sinclair1'#10 +
+      'issue=2'#10'contention=0'#10'deinterlace=bob'#10'[ROMs]'#10'zxunoroms=u.zx1'#10);
+    S := Fresh;
+    Check(S.TurboSound and S.Currah and not S.CPCJoystick, 'old [Hardware] names are read');
+    Check((S.Joystick = jkSinclair1) and S.Issue2 and not S.Contention and (S.Deinterlace = dlBob),
+      'old [Machine] names are read');
+    Check(S.ZXUnoRoms = 'u.zx1', 'old [ROMs] names are read');
+    S.CPCCrtc := 3;
+    S.CPCWaitStates := False;
+    S.Save;
+    Check((Pos('zx_turbosound=1', IniText) > 0) and (Pos('zx_joystick=sinclair1', IniText) > 0) and
+      (Pos('cpc_joystick=0', IniText) > 0) and (Pos('zx_unoroms=u.zx1', IniText) > 0),
+      'saved with the new names');
+    Check((Pos('cpc_crtc=3', IniText) > 0) and (Pos('cpc_waitstates=0', IniText) > 0) and
+      (Pos('[amstradcpc]', IniText) > 0) and (Pos('[zxspectrum]', IniText) > 0),
+      'the CPC options have their section, as the ZX Spectrum ones');
+    Check((Pos(#10'turbosound=', IniText) = 0) and (Pos(#10'currah=', IniText) = 0) and
+      (Pos(#10'cpcjoystick=', IniText) = 0) and (Pos(#10'joystick=', IniText) = 0) and
+      (Pos(#10'issue=', IniText) = 0), 'and the old names are gone');
+    S.Free;
+    S := Fresh;
+    Check((S.CPCCrtc = 3) and not S.CPCWaitStates and S.TurboSound and (S.Joystick = jkSinclair1),
+      'read back from the new names');
+    Check(CurrentOptionName('turbosound') = 'zx_turbosound', 'the command line takes an old name as the new');
+    Check(CurrentOptionName('no-divmmc') = 'no-zx_divmmc', '... also with no-');
+    Check(CurrentOptionName('speed') = 'speed', 'common options keep their names');
     S.Free;
 
     // NR 00: the emulator's ID unless told otherwise

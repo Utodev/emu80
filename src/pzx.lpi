@@ -60,6 +60,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="Amstrad.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="FDC765.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

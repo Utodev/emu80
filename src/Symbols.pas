@@ -263,7 +263,7 @@ begin
     if FileName <> Basic then LoadFile(FileName, I);
   end;
   // A replaced BASIC ROM has its own labels, if any
-  if (Info.BasicRom <= High(RomPaths)) and
+  if (Info.Memory <> mkCPC) and (Info.BasicRom <= High(RomPaths)) and
      (RomPaths[Info.BasicRom] = Dir + Info.RomFiles[Info.BasicRom]) then
     LoadFile(Basic, Info.BasicRom);
 end;

@@ -87,6 +87,10 @@ function AskImport(const FileName: string; Size: Integer; var AName: string; out
   out Addr: Word; DefaultHeader: Boolean; Remaining: Integer; out ForAll: Boolean;
   LongNames: Boolean = False): Boolean;
 function SuggestName(const FileName: string): string;
+var
+  { The headers of the files imported and exported are an Amstrad CPC's
+    AMSDOS ones (else the +3's): set by the browser before it calls those }
+  AmsdosHeaders: Boolean = False;
 { Import files and folders of the PC with Exists and Write: Paths (dropped
   on the browser), else the ones chosen in a dialog (PickFolder: a folder,
   else several files). With MakeDir, folders are made again with their
@@ -112,6 +116,22 @@ implementation
 
 uses
   Config;
+
+function HasFileHeader(const Data: TBytes): Boolean;
+begin
+  if AmsdosHeaders then Result := HasAmsdosHeader(Data) else Result := HasPlus3Header(Data);
+end;
+
+function WithFileHeader(const Data: TBytes; const AName: string; Addr: Word): TBytes;
+begin
+  if AmsdosHeaders then Result := AddAmsdosHeader(Data, AName, Addr, Addr)
+  else Result := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
+end;
+
+function HeaderName: string;
+begin
+  if AmsdosHeaders then Result := 'AMSDOS' else Result := '+3DOS';
+end;
 
 const
   ACT_LIST = 0;
@@ -369,7 +389,7 @@ begin
       AName := CardName(Files[I]);
       if Prefixes[I] <> '' then
         // In a folder imported with its contents: copied as it is
-      else if HasPlus3Header(Data) or (Length(Data) > 65535) then
+      else if HasFileHeader(Data) or (Length(Data) > 65535) then
       begin
         // Copied as it is
         if not ForAll then
@@ -381,14 +401,14 @@ begin
       end
       else if ForAll then
       begin
-        if SameHeader then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
+        if SameHeader then Data := WithFileHeader(Data, AName, Addr);
       end
       else
       begin
         if not AskImport(Files[I], Length(Data), AName, Header, Addr, DefaultHeader,
           Files.Count - 1 - I, ForAll, LongNames) then Break;
         SameHeader := Header;
-        if Header then Data := AddPlus3Header(Data, FT_BYTES, Addr, 32768);
+        if Header then Data := WithFileHeader(Data, AName, Addr);
       end;
       AName := Prefixes[I] + AName;
       Answer := mrNo;
@@ -438,21 +458,21 @@ begin
   // 128-byte +3DOS header in front
   WithHeader := 0;
   for I := 0 to High(Datas) do
-    if HasPlus3Header(Datas[I]) then Inc(WithHeader);
+    if HasFileHeader(Datas[I]) then Inc(WithHeader);
   if WithHeader > 0 then
   begin
     if Length(Names) = 1 then
-      Answer := MessageDlg('Export', 'The file has a +3DOS header. Keep it in the exported file?' +
+      Answer := MessageDlg('Export', 'The file has an ' + HeaderName + ' header. Keep it in the exported file?' +
         LineEnding + LineEnding + 'No: just the data (' + IntToStr(Length(Datas[0]) - PLUS3_HEADER_SIZE) +
         ' bytes).', mtConfirmation, [mbYes, mbNo, mbCancel], 0)
     else
-      Answer := MessageDlg('Export', Format('%d of the files have a +3DOS header. Keep it in the ' +
+      Answer := MessageDlg('Export', Format('%d of the files have a ' + HeaderName + ' header. Keep it in the ' +
         'exported files?', [WithHeader]) + LineEnding + LineEnding + 'No: just their data.',
         mtConfirmation, [mbYes, mbNo, mbCancel], 0);
     if Answer = mrCancel then Exit;
     if Answer = mrNo then
       for I := 0 to High(Datas) do
-        if HasPlus3Header(Datas[I]) then Datas[I] := Copy(Datas[I], PLUS3_HEADER_SIZE, MaxInt);
+        if HasFileHeader(Datas[I]) then Datas[I] := Copy(Datas[I], PLUS3_HEADER_SIZE, MaxInt);
   end;
   if Length(Names) = 1 then
   begin
@@ -897,6 +917,7 @@ begin
     if not WithDisk(ACT_READ, PtrInt(Items[I].Data)) then Exit;
     Datas[I] := ReadData;
   end;
+  AmsdosHeaders := FEmu.Spec.CPC <> nil;
   Status := ExportToPC(Names, Datas, Settings.DiskBrowserDir);
   if Status <> '' then FStatus.SimpleText := Status;
 end;
@@ -937,14 +958,16 @@ begin
     NameEdit.Text := AName;
     HeaderCheck := TCheckBox.Create(Dlg);
     HeaderCheck.Parent := Dlg;
-    HeaderCheck.Caption := 'Bytes (CODE) with a +3DOS header, at address:';
+    if AmsdosHeaders then HeaderCheck.Caption := 'Binary with an AMSDOS header, loaded and run at:'
+    else HeaderCheck.Caption := 'Bytes (CODE) with a +3DOS header, at address:';
     HeaderCheck.SetBounds(10, 50, 300, 24);
     HeaderCheck.Checked := DefaultHeader;
     AddrEdit := TEdit.Create(Dlg);
     AddrEdit.Parent := Dlg;
     AddrEdit.SetBounds(10, 80, 100, 24);
     // A screen loads at 16384; anything else by default at 32768
-    if (Size = 6912) or SameText(ExtractFileExt(FileName), '.scr') then AddrEdit.Text := '16384'
+    if AmsdosHeaders and SameText(ExtractFileExt(FileName), '.scr') then AddrEdit.Text := '49152'
+    else if (Size = 6912) or SameText(ExtractFileExt(FileName), '.scr') then AddrEdit.Text := '16384'
     else AddrEdit.Text := '32768';
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
@@ -1030,7 +1053,8 @@ var
   Status: string;
 begin
   // +3DOS files usually have a header: ticked by default
-  Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite);
+  AmsdosHeaders := FEmu.Spec.CPC <> nil;
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite);
   if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
 end;
 
@@ -1039,7 +1063,8 @@ var
   Status: string;
 begin
   // A +3 disk has no folders: the files in them all go side by side
-  Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite, nil, nil, True);
+  AmsdosHeaders := FEmu.Spec.CPC <> nil;
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite, nil, nil, True);
   if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
 end;
 
@@ -1052,7 +1077,8 @@ begin
   Paths := TStringList.Create;
   try
     for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
-    Status := ImportFromPC(Settings.DiskBrowserDir, True, @ImportExists, @ImportWrite, nil, Paths);
+    AmsdosHeaders := FEmu.Spec.CPC <> nil;
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite, nil, Paths);
   finally
     Paths.Free;
   end;

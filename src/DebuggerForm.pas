@@ -4015,7 +4015,7 @@ begin
     SetLength(FPortLog, FEmu.Spec.PortLogCount);
     for A := 0 to High(FPortLog) do FPortLog[A] := FEmu.Spec.PortLog(A);
     for A := 0 to 3 do FSlots[A] := FEmu.Spec.SlotBank(A);
-    FSlot3OK := (FEmu.Spec.Info.Memory <> mk48K) and ((FEmu.Spec.Port1FFD and 1) = 0);
+    FSlot3OK := not (FEmu.Spec.Info.Memory in [mk48K, mkCPC]) and ((FEmu.Spec.Port1FFD and 1) = 0);
   finally
     FEmu.Unlock;
   end;

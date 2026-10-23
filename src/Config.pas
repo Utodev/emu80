@@ -52,6 +52,9 @@ type
     AY48: Boolean;                // AY interface on the 16K/48K
     DivMMC: Boolean;              // DivMMC interface connected
     Currah: Boolean;              // Currah µSpeech connected
+    CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
+    CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
+    CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
@@ -118,8 +121,8 @@ type
 const
   MAX_RECENT = 8;
   MAX_POKES = 20;
-  { What the cursor keys emulate, as in --joystick and the settings file }
-  { As in --deinterlace and the settings file }
+  { What the cursor keys emulate, as in --zx_joystick and the settings file }
+  { As in --zx_deinterlace and the settings file }
   DEINTERLACE_KEYS: array[TDeinterlace] of string = ('progressive', 'bob', 'weave');
   JOYSTICK_KEYS: array[TJoystickKeys] of string = (
     'none', 'kempston', 'sinclair1', 'sinclair2', 'cursor', 'fuller');
@@ -132,30 +135,74 @@ type
   end;
 
 const
-  BOOL_OPTIONS: array[0..22] of TBoolOption = (
+  { Sections of the settings file: the options of the ZX Spectrum models (names
+    starting zx_) and of the Amstrad CPC (cpc_) have their own; those of
+    both, no prefix, the older ones }
+  SEC_ZX = 'ZXSpectrum';
+  SEC_CPC = 'AmstradCPC';
+
+  BOOL_OPTIONS: array[0..24] of TBoolOption = (
     (Name: 'bw'; Section: 'General'),
     (Name: 'saveonexit'; Section: 'General'),
-    (Name: 'contention'; Section: 'Machine'),
-    (Name: 'snow'; Section: 'Machine'),
+    (Name: 'zx_contention'; Section: SEC_ZX),
+    (Name: 'zx_snow'; Section: SEC_ZX),
     (Name: 'romedit'; Section: 'Machine'),
-    (Name: 'ulaplus'; Section: 'Machine'),
-    (Name: 'timex'; Section: 'Machine'),
-    (Name: 'radastan'; Section: 'Machine'),
+    (Name: 'zx_ulaplus'; Section: SEC_ZX),
+    (Name: 'zx_timex'; Section: SEC_ZX),
+    (Name: 'zx_radastan'; Section: SEC_ZX),
     (Name: 'scanlines'; Section: 'Machine'),
-    (Name: 'turbosound'; Section: 'Hardware'),
-    (Name: 'ay48'; Section: 'Hardware'),
-    (Name: 'kmouse'; Section: 'Hardware'),
-    (Name: 'divmmc'; Section: 'Hardware'),
-    (Name: 'currah'; Section: 'Hardware'),
-    (Name: 'nextfirmware'; Section: 'ZXNext'),
+    (Name: 'zx_turbosound'; Section: SEC_ZX),
+    (Name: 'zx_ay48'; Section: SEC_ZX),
+    (Name: 'zx_kmouse'; Section: SEC_ZX),
+    (Name: 'zx_divmmc'; Section: SEC_ZX),
+    (Name: 'zx_currah'; Section: SEC_ZX),
+    (Name: 'zx_nextfirmware'; Section: SEC_ZX),
+    (Name: 'zx_savetotape'; Section: SEC_ZX),
+    (Name: 'cpc_joystick'; Section: SEC_CPC),
+    (Name: 'cpc_waitstates'; Section: SEC_CPC),
     (Name: 'fastload'; Section: 'TapeDisk'),
     (Name: 'autoplay'; Section: 'TapeDisk'),
     (Name: 'tapeloop'; Section: 'TapeDisk'),
-    (Name: 'savetotape'; Section: 'TapeDisk'),
     (Name: 'fastdisk'; Section: 'TapeDisk'),
     (Name: 'driveb'; Section: 'TapeDisk'),
     (Name: 'floppynoise'; Section: 'TapeDisk'),
     (Name: 'pngborder'; Section: 'Screenshot'));
+
+  { Options that had another name (and another section in the file) before
+    the ones of the ZX Spectrum took zx_ and those of the CPC cpc_: the file
+    and the command line still understand the old names }
+  OPTION_RENAMES: array[0..28] of record
+    NewName, OldName, OldSection: string;
+  end = (
+    (NewName: 'zx_contention'; OldName: 'contention'; OldSection: 'Machine'),
+    (NewName: 'zx_snow'; OldName: 'snow'; OldSection: 'Machine'),
+    (NewName: 'zx_ulaplus'; OldName: 'ulaplus'; OldSection: 'Machine'),
+    (NewName: 'zx_timex'; OldName: 'timex'; OldSection: 'Machine'),
+    (NewName: 'zx_radastan'; OldName: 'radastan'; OldSection: 'Machine'),
+    (NewName: 'zx_turbosound'; OldName: 'turbosound'; OldSection: 'Hardware'),
+    (NewName: 'zx_ay48'; OldName: 'ay48'; OldSection: 'Hardware'),
+    (NewName: 'zx_kmouse'; OldName: 'kmouse'; OldSection: 'Hardware'),
+    (NewName: 'zx_divmmc'; OldName: 'divmmc'; OldSection: 'Hardware'),
+    (NewName: 'zx_currah'; OldName: 'currah'; OldSection: 'Hardware'),
+    (NewName: 'zx_nextfirmware'; OldName: 'nextfirmware'; OldSection: 'ZXNext'),
+    (NewName: 'zx_savetotape'; OldName: 'savetotape'; OldSection: 'TapeDisk'),
+    (NewName: 'cpc_joystick'; OldName: 'cpcjoystick'; OldSection: 'Hardware'),
+    (NewName: 'zx_joystick'; OldName: 'joystick'; OldSection: 'Machine'),
+    (NewName: 'zx_deinterlace'; OldName: 'deinterlace'; OldSection: 'Machine'),
+    (NewName: 'zx_issue'; OldName: 'issue'; OldSection: 'Machine'),
+    (NewName: 'zx_divmmcrom'; OldName: 'divmmcrom'; OldSection: 'ROMs'),
+    (NewName: 'zx_unofirmware'; OldName: 'zxunofirmware'; OldSection: 'ROMs'),
+    (NewName: 'zx_unoroms'; OldName: 'zxunoroms'; OldSection: 'ROMs'),
+    (NewName: 'zx_unocustomrom'; OldName: 'zxunocustomrom'; OldSection: 'ROMs'),
+    (NewName: 'zx_nextdir'; OldName: 'nextdir'; OldSection: 'ZXNext'),
+    (NewName: 'zx_nextcard'; OldName: 'nextcard'; OldSection: 'ZXNext'),
+    (NewName: 'zx_distroid'; OldName: 'distroid'; OldSection: 'ZXNext'),
+    (NewName: 'zx_sdcard'; OldName: 'sdcard'; OldSection: 'Media'),
+    (NewName: 'zx_unocard'; OldName: 'zxunocard'; OldSection: 'Media'),
+    (NewName: 'zx_sdfolder'; OldName: 'sdfolder'; OldSection: ''),
+    (NewName: 'zx_sdadd'; OldName: 'sdadd'; OldSection: ''),
+    (NewName: 'zx_realspecnext'; OldName: 'realspecnext'; OldSection: 'ZXNext'),
+    (NewName: 'zx_realspecnextok'; OldName: 'realspecnextok'; OldSection: 'ZXNext'));
 
   DEINTERLACE_NAMES: array[TDeinterlace] of string = (
     'Progressive (each frame on its own)', 'Bob (two frames blended)', 'Weave (two frames'' lines interleaved)');
@@ -166,6 +213,12 @@ const
 
 var
   Settings: TSettings;
+
+{ The current name of a command line option given by an old one (without the
+  dashes; "no-" is kept): 'turbosound' is 'zx_turbosound' }
+function CurrentOptionName(const Name: string): string;
+{ The section of the settings file an option of that name is in }
+function OptionSection(const NewName: string; const Default: string): string;
 
 { The standard ROM folder: "roms" next to the executable, or in the folder
   above it (when the executable is built inside src) }
@@ -310,6 +363,9 @@ begin
   ScreenshotBorder := True;
   TurboSound := False;
   Currah := False;
+  CPCJoystick := True;
+  CPCWaitStates := True;
+  CPCCrtc := -1;
   NextFirmware := True;
   RealSpecNext := False;
   RealSpecNextCmd := False;
@@ -391,23 +447,25 @@ begin
   case LowerCase(Name) of
     'bw': Result := @Monochrome;
     'saveonexit': Result := @SaveOnExit;
-    'contention': Result := @Contention;
-    'snow': Result := @UlaSnow;
+    'zx_contention': Result := @Contention;
+    'zx_snow': Result := @UlaSnow;
     'romedit': Result := @AllowRomEdit;
-    'ulaplus': Result := @ULAPlus;
-    'timex': Result := @Timex;
-    'radastan': Result := @Radastan;
+    'zx_ulaplus': Result := @ULAPlus;
+    'zx_timex': Result := @Timex;
+    'zx_radastan': Result := @Radastan;
     'scanlines': Result := @Scanlines;
-    'turbosound': Result := @TurboSound;
-    'ay48': Result := @AY48;
-    'kmouse': Result := @KempstonMouse;
-    'divmmc': Result := @DivMMC;
-    'currah': Result := @Currah;
-    'nextfirmware': Result := @NextFirmware;
+    'zx_turbosound': Result := @TurboSound;
+    'zx_ay48': Result := @AY48;
+    'zx_kmouse': Result := @KempstonMouse;
+    'zx_divmmc': Result := @DivMMC;
+    'zx_currah': Result := @Currah;
+    'cpc_joystick': Result := @CPCJoystick;
+    'cpc_waitstates': Result := @CPCWaitStates;
+    'zx_nextfirmware': Result := @NextFirmware;
     'fastload': Result := @FastLoad;
     'autoplay': Result := @AutoPlayTape;
     'tapeloop': Result := @TapeLoop;
-    'savetotape': Result := @SaveToTape;
+    'zx_savetotape': Result := @SaveToTape;
     'fastdisk': Result := @FastDisk;
     'driveb': Result := @DriveB;
     'floppynoise': Result := @FloppyNoise;
@@ -454,6 +512,65 @@ begin
   end;
 end;
 
+function CurrentOptionName(const Name: string): string;
+var
+  Prefix, Base: string;
+  I: Integer;
+begin
+  Prefix := '';
+  Base := LowerCase(Name);
+  if Copy(Base, 1, 3) = 'no-' then
+  begin
+    Prefix := 'no-';
+    Base := Copy(Base, 4, MaxInt);
+  end;
+  for I := 0 to High(OPTION_RENAMES) do
+    if Base = OPTION_RENAMES[I].OldName then Exit(Prefix + OPTION_RENAMES[I].NewName);
+  Result := Name;
+end;
+
+function OptionSection(const NewName: string; const Default: string): string;
+begin
+  if Copy(NewName, 1, 3) = 'zx_' then Result := SEC_ZX
+  else if Copy(NewName, 1, 4) = 'cpc_' then Result := SEC_CPC
+  else Result := Default;
+end;
+
+{ Where an option is in a file: under its name, or under the one it had
+  before (a file written by an older version) }
+procedure LocateOption(Ini: TCustomIniFile; const Section, Name: string; out Sec, Key: string);
+var
+  I: Integer;
+begin
+  Sec := Section;
+  Key := Name;
+  if Ini.ValueExists(Section, Name) then Exit;
+  for I := 0 to High(OPTION_RENAMES) do
+    if (OPTION_RENAMES[I].NewName = Name) and (OPTION_RENAMES[I].OldSection <> '') and
+       Ini.ValueExists(OPTION_RENAMES[I].OldSection, OPTION_RENAMES[I].OldName) then
+    begin
+      Sec := OPTION_RENAMES[I].OldSection;
+      Key := OPTION_RENAMES[I].OldName;
+      Exit;
+    end;
+end;
+
+function ReadOptString(Ini: TCustomIniFile; const Section, Name, Default: string): string;
+var
+  Sec, Key: string;
+begin
+  LocateOption(Ini, Section, Name, Sec, Key);
+  Result := Ini.ReadString(Sec, Key, Default);
+end;
+
+function ReadOptBool(Ini: TCustomIniFile; const Section, Name: string; Default: Boolean): Boolean;
+var
+  Sec, Key: string;
+begin
+  LocateOption(Ini, Section, Name, Sec, Key);
+  Result := Ini.ReadBool(Sec, Key, Default);
+end;
+
 { The options, named as on the command line }
 procedure TSettings.ReadOptions(Ini: TCustomIniFile);
 var
@@ -466,7 +583,7 @@ begin
   for I := 0 to High(BOOL_OPTIONS) do
   begin
     P := BoolField(BOOL_OPTIONS[I].Name);
-    P^ := Ini.ReadBool(BOOL_OPTIONS[I].Section, BOOL_OPTIONS[I].Name, P^);
+    P^ := ReadOptBool(Ini, BOOL_OPTIONS[I].Section, BOOL_OPTIONS[I].Name, P^);
   end;
   Sound := not Ini.ReadBool('General', 'mute', not Sound);
   Model := ModelFromName(LowerCase(Ini.ReadString('General', 'model', ModelKey(Model))), Model);
@@ -475,37 +592,46 @@ begin
   CpuSpeed := Ini.ReadInteger('General', 'speed', CpuSpeed);
   S := LowerCase(Ini.ReadString('General', 'ui', ''));
   if S = 'modern' then ModernUI := True else if S = 'classic' then ModernUI := False;
-  S := LowerCase(Ini.ReadString('Machine', 'joystick', JOYSTICK_KEYS[Joystick]));
+  S := LowerCase(ReadOptString(Ini, SEC_ZX, 'zx_joystick', JOYSTICK_KEYS[Joystick]));
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do
     if S = JOYSTICK_KEYS[J] then Joystick := J;
-  S := LowerCase(Ini.ReadString('Machine', 'deinterlace', DEINTERLACE_KEYS[Deinterlace]));
+  S := LowerCase(ReadOptString(Ini, SEC_ZX, 'zx_deinterlace', DEINTERLACE_KEYS[Deinterlace]));
   for D := Low(TDeinterlace) to High(TDeinterlace) do
     if S = DEINTERLACE_KEYS[D] then Deinterlace := D;
-  S := Ini.ReadString('Machine', 'issue', '');
+  S := ReadOptString(Ini, SEC_ZX, 'zx_issue', '');
   if S = '2' then Issue2 := True else if S = '3' then Issue2 := False;
+  S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_crtc', ''));
+  if S = 'auto' then CPCCrtc := -1
+  else if (Length(S) = 1) and (S[1] in ['0'..'4']) then CPCCrtc := Ord(S[1]) - 48;
   RomDir := Ini.ReadString('ROMs', 'romdir', RomDir);
   if Ini.ValueExists('ROMs', 'rom') then SetRomList(Ini.ReadString('ROMs', 'rom', ''));
-  DivMMCFirmware := Ini.ReadString('ROMs', 'divmmcrom', DivMMCFirmware);
-  ZXUnoFirmware := Ini.ReadString('ROMs', 'zxunofirmware', ZXUnoFirmware);
-  ZXUnoRoms := Ini.ReadString('ROMs', 'zxunoroms', ZXUnoRoms);
-  ZXUnoCustomRom := Ini.ReadString('ROMs', 'zxunocustomrom', ZXUnoCustomRom);
-  NextDir := Ini.ReadString('ZXNext', 'nextdir', NextDir);
-  NextCard := Ini.ReadString('ZXNext', 'nextcard', NextCard);
-  NextDistroId := Ini.ReadString('ZXNext', 'distroid', NextDistroId);
+  DivMMCFirmware := ReadOptString(Ini, SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
+  ZXUnoFirmware := ReadOptString(Ini, SEC_ZX, 'zx_unofirmware', ZXUnoFirmware);
+  ZXUnoRoms := ReadOptString(Ini, SEC_ZX, 'zx_unoroms', ZXUnoRoms);
+  ZXUnoCustomRom := ReadOptString(Ini, SEC_ZX, 'zx_unocustomrom', ZXUnoCustomRom);
+  NextDir := ReadOptString(Ini, SEC_ZX, 'zx_nextdir', NextDir);
+  NextCard := ReadOptString(Ini, SEC_ZX, 'zx_nextcard', NextCard);
+  NextDistroId := ReadOptString(Ini, SEC_ZX, 'zx_distroid', NextDistroId);
   // Older versions kept the README's version with its double spaces
   while Pos('  ', NextDistroId) > 0 do
     NextDistroId := StringReplace(NextDistroId, '  ', ' ', [rfReplaceAll]);
-  SDCardFile := Ini.ReadString('Media', 'sdcard', SDCardFile);
-  ZXUnoCard := Ini.ReadString('Media', 'zxunocard', ZXUnoCard);
+  SDCardFile := ReadOptString(Ini, SEC_ZX, 'zx_sdcard', SDCardFile);
+  ZXUnoCard := ReadOptString(Ini, SEC_ZX, 'zx_unocard', ZXUnoCard);
 end;
 
 procedure TSettings.WriteOptions(Ini: TCustomIniFile);
 
-  { Delete first, so the key takes the option's spelling }
+  { Delete first, so the key takes the option's spelling; and the key the
+    option had before it was renamed goes }
   procedure Put(const Section, Name, Value: string);
+  var
+    I: Integer;
   begin
     Ini.DeleteKey(Section, Name);
     Ini.WriteString(Section, Name, Value);
+    for I := 0 to High(OPTION_RENAMES) do
+      if (OPTION_RENAMES[I].NewName = Name) and (OPTION_RENAMES[I].OldSection <> '') then
+        Ini.DeleteKey(OPTION_RENAMES[I].OldSection, OPTION_RENAMES[I].OldName);
   end;
 
 var
@@ -521,22 +647,25 @@ begin
   if ModernUI then Put('General', 'ui', 'modern') else Put('General', 'ui', 'classic');
   Put('General', 'volume', IntToStr(Volume));
   Put('General', 'speed', IntToStr(CpuSpeed));
-  Put('Machine', 'joystick', JOYSTICK_KEYS[Joystick]);
-  Put('Machine', 'deinterlace', DEINTERLACE_KEYS[Deinterlace]);
-  if Issue2 then Put('Machine', 'issue', '2') else Put('Machine', 'issue', '3');
+  Put(SEC_ZX, 'zx_joystick', JOYSTICK_KEYS[Joystick]);
+  Put(SEC_ZX, 'zx_deinterlace', DEINTERLACE_KEYS[Deinterlace]);
+  if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
+  if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
   Put('ROMs', 'romdir', RomDir);
   Put('ROMs', 'rom', RomList);
-  Put('ROMs', 'divmmcrom', DivMMCFirmware);
-  Put('ROMs', 'zxunofirmware', ZXUnoFirmware);
-  Put('ROMs', 'zxunoroms', ZXUnoRoms);
-  Put('ROMs', 'zxunocustomrom', ZXUnoCustomRom);
-  Put('ZXNext', 'nextdir', NextDir);
-  Put('ZXNext', 'nextcard', NextCard);
-  Put('ZXNext', 'distroid', NextDistroId);
-  if RealSpecNextIni then Put('ZXNext', 'realspecnext', '1') else Ini.DeleteKey('ZXNext', 'realspecnext');
-  if RealSpecNextOk then Put('ZXNext', 'realspecnextok', '1') else Ini.DeleteKey('ZXNext', 'realspecnextok');
-  Put('Media', 'sdcard', SDCardFile);
-  Put('Media', 'zxunocard', ZXUnoCard);
+  Put(SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
+  Put(SEC_ZX, 'zx_unofirmware', ZXUnoFirmware);
+  Put(SEC_ZX, 'zx_unoroms', ZXUnoRoms);
+  Put(SEC_ZX, 'zx_unocustomrom', ZXUnoCustomRom);
+  Put(SEC_ZX, 'zx_nextdir', NextDir);
+  Put(SEC_ZX, 'zx_nextcard', NextCard);
+  Put(SEC_ZX, 'zx_distroid', NextDistroId);
+  if RealSpecNextIni then Put(SEC_ZX, 'zx_realspecnext', '1') else Ini.DeleteKey(SEC_ZX, 'zx_realspecnext');
+  if RealSpecNextOk then Put(SEC_ZX, 'zx_realspecnextok', '1') else Ini.DeleteKey(SEC_ZX, 'zx_realspecnextok');
+  if not RealSpecNextIni then Ini.DeleteKey('ZXNext', 'realspecnext');
+  if not RealSpecNextOk then Ini.DeleteKey('ZXNext', 'realspecnextok');
+  Put(SEC_ZX, 'zx_sdcard', SDCardFile);
+  Put(SEC_ZX, 'zx_unocard', ZXUnoCard);
 end;
 
 { Values missing from the file keep their current value, so the overlay only
@@ -583,9 +712,9 @@ begin
   ReadOptions(Ini);
   if not Overlay then
   begin
-    RealSpecNextIni := Ini.ReadBool('ZXNext', 'realspecnext', False);
+    RealSpecNextIni := ReadOptBool(Ini, SEC_ZX, 'zx_realspecnext', False);
     RealSpecNext := RealSpecNextIni;
-    RealSpecNextOk := Ini.ReadBool('ZXNext', 'realspecnextok', False);
+    RealSpecNextOk := ReadOptBool(Ini, SEC_ZX, 'zx_realspecnextok', False);
   end;
   if not Overlay or Ini.SectionExists('Pokes') then
   begin
@@ -600,6 +729,7 @@ begin
   DiskBrowserDir := Ini.ReadString('Files', 'DiskBrowserDir', DiskBrowserDir);
   SDBrowserDir := Ini.ReadString('Files', 'SDBrowserDir', SDBrowserDir);
   ZXUnoBios := Ini.ReadString('ZXUno', 'BiosSettings', ZXUnoBios);
+  ZXUnoBios := Ini.ReadString(SEC_ZX, 'zx_unobios', ZXUnoBios);
   ReadList(Ini, 'RecentDisks', RecentDisks, Overlay);
   ReadList(Ini, 'RecentCards', RecentCards, Overlay);
   if not Overlay or Ini.SectionExists('RecentSymbols') then
@@ -671,7 +801,8 @@ begin
   Ini.WriteString('Files', 'LastDir', LastDir);
   Ini.WriteString('Files', 'DiskBrowserDir', DiskBrowserDir);
   Ini.WriteString('Files', 'SDBrowserDir', SDBrowserDir);
-  if ZXUnoBios <> '' then Ini.WriteString('ZXUno', 'BiosSettings', ZXUnoBios);
+  Ini.DeleteKey('ZXUno', 'BiosSettings');
+  if ZXUnoBios <> '' then Ini.WriteString(SEC_ZX, 'zx_unobios', ZXUnoBios);
   WriteList(Ini, 'RecentDisks', RecentDisks);
   WriteList(Ini, 'RecentCards', RecentCards);
   Ini.EraseSection('RecentSymbols');
@@ -768,12 +899,13 @@ end;
 procedure TSettings.AcceptRealSpecNext;
 begin
   RealSpecNextOk := True;
-  ChangeFileKey(FFileName, FMainText, 'ZXNext', 'realspecnextok', '1');
+  ChangeFileKey(FFileName, FMainText, SEC_ZX, 'zx_realspecnextok', '1');
 end;
 
 procedure TSettings.ForgetRealSpecNext;
 begin
   RealSpecNextIni := False;
+  ChangeFileKey(FFileName, FMainText, SEC_ZX, 'zx_realspecnext', '');
   ChangeFileKey(FFileName, FMainText, 'ZXNext', 'realspecnext', '');
 end;
 

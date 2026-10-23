@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm;
+  Disasm, Amstrad;
 
 const
   SCREEN_WIDTH = 352;
@@ -101,7 +101,7 @@ type
   { One step of automatic typing: keys held (or none) for a number of frames }
   TAutoKeyStep = record
     Frames: Integer;
-    Rows: array[0..7] of Byte;   // bits cleared for pressed keys
+    Rows: array[0..9] of Byte;   // bits cleared for pressed keys (the CPC has 10 lines)
   end;
 
   TMemoryAt = (maRam, maRom, maNone);
@@ -130,6 +130,7 @@ type
     NextSel, PortDFFD: Byte;
     NextMMU: array[0..7] of Byte;
     CurrahPaged: Boolean;
+    CPCState: TBytes;                 // the Amstrad CPC's hardware (TAmstrad.SaveState)
     Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
     ULAPlusPal: array[0..63] of Byte;
     ZXReg: array[0..255] of Byte;
@@ -366,6 +367,32 @@ type
     FAutoKeys: array of TAutoKeyStep;
     FAutoKeyPos: Integer;
     FAutoKeyFrames: Integer;
+    { Amstrad CPC }
+    FIsCPC: Boolean;                        // a CPC model: FCPC is the machine's hardware
+    FCPC: TAmstrad;
+    FAYStep: Integer;                       // T-states per AY tick (16; 32 for the CPC's 1 MHz PSG)
+    FCPCArmed: Boolean;                     // the user pressed Play: the tape runs while the motor is on
+    procedure SetupCPC;
+    procedure CPCAutoType(Frames: Integer; const Keys: array of Integer);
+    function CPCTypeText(const Text: string; out Error: string): Boolean;
+    function CPCDiscProgram: string;
+    procedure CPCAutoLoad(FromDisk: Boolean);
+    procedure CPCSyncAutoKeys;
+    procedure CPCReset(Hard: Boolean);
+    procedure CPCPaging;
+    procedure CPCPsg(T: Integer; Reg, Value: Byte);
+    function CPCTapeIn(T: Integer): Boolean;
+    procedure CPCMotor(T: Integer; On_: Boolean);
+    procedure CPCTapeOut(T: Integer; Level: Boolean);
+    function CPCFdc(Write: Boolean; Reg: Integer; Value: Byte; T: Integer): Byte;
+    procedure CPCTapeUpdate(ChipT: Integer);
+    function CPCTapeT(ChipT: Integer): Integer; inline;
+    function ReadMemCPC(Addr: Word): Byte;
+    procedure WriteMemCPC(Addr: Word; Value: Byte);
+    function ReadPortCPC(Port: Word; var T: Integer): Byte;
+    procedure WritePortCPC(Port: Word; Value: Byte; var T: Integer);
+    procedure ExecuteOneCPC;
+    procedure FinishFrameCPC;
     procedure DaadRead(Addr: Word);
     procedure SetDivOn(Value: Boolean);
     procedure ZXUnoAutoLoadStep;
@@ -378,6 +405,7 @@ type
     function HasTimex: Boolean; inline;
     function HasRadastan: Boolean; inline;
     function IsZXUno: Boolean; inline;
+    function IsCPC: Boolean; inline;
     function IsNext: Boolean; inline;
     function RamBanksUsed: Integer;
     procedure NextLoadRoms;
@@ -421,6 +449,7 @@ type
     function NextFlashRead: Byte;
     procedure NexOnCard;
     procedure SnapIO(S: TStream; Save: Boolean);
+    procedure CPCSnapIO(S: TStream; Save: Boolean);
     procedure LoadZXUnoFlash;
     procedure ZXUnoBoot(Hard: Boolean);
     procedure SetZXUnoTiming;
@@ -565,7 +594,7 @@ type
     { Full path of ROM Index for the current model }
     function RomPath(Index: Integer): string;
     { Reset and load from tape the way a user would (LOAD "" or Loader menu). }
-    procedure AutoLoad;
+    procedure AutoLoad(FromDisk: Boolean = False);
     { Run until the end of the frame (video, audio and interrupt). Returns
       False if a breakpoint stopped it first; calling it again continues the
       same frame. }
@@ -663,6 +692,9 @@ type
       from the SD card. A short string: the emulation thread writes it. }
     LastMediaFile: ShortString;
     property StepCount: LongWord read FStepCount;
+    { Amstrad CPC .SNA snapshots (the model they say, 64K or 128K) }
+    procedure LoadCPCSna(const FileName: string);
+    procedure SaveCPCSna(const FileName: string);
     procedure RenderUpTo(T: Integer);
     { Draw the frame again from its first line (tests) }
     procedure RestartRender;
@@ -704,9 +736,13 @@ type
     property SampleCount: Integer read FSampleCount;
     property Model: TSpectrumModel read FModel;
     property Info: TModelInfo read FInfo;
+    { The Amstrad CPC's hardware (nil on the Spectrum models) }
+    property CPC: TAmstrad read FCPC;
     property Cpu: TZ80 read FCpu;
     property AY: TAY8912 read FAY;
     property Tape: TTape read FTape;
+    { Amstrad CPC: Play has been pressed (the tape runs while the motor is on) }
+    property CPCTapeArmed: Boolean read FCPCArmed;
     property FDC: TUPD765 read FFDC;
     property Border: Byte read FBorder write FBorder;
     property Port7FFD: Byte read FPort7FFD;
@@ -800,7 +836,7 @@ const
 implementation
 
 uses
-  ZStream, FatFS;
+  ZStream, FatFS, Plus3FS, DSK;
 
 type
   { Bus for the dry run of an instruction: reads memory without side
@@ -943,6 +979,7 @@ begin
   FCurrah.Free;
   FProbeCpu.Free;
   FProbeBus.Free;
+  FCPC.Free;
   FFDC.Free;
   FTape.Free;
   FAY3.Free;
@@ -958,6 +995,7 @@ var
   S: TFileStream;
   FileName: string;
 begin
+  if FInfo.Memory = mkCPC then Exit;   // SetupCPC
   if FInfo.Memory = mkZXUno then
   begin
     LoadZXUnoFlash;
@@ -994,12 +1032,18 @@ end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);
 var
-  WasUno, WasNext: Boolean;
+  WasUno, WasNext, WasCPC: Boolean;
+  OldModel: TSpectrumModel;
 begin
+  OldModel := FModel;
+  WasCPC := FIsCPC;
   WasUno := IsZXUno;
   WasNext := IsNext;
   FModel := AModel;
   FInfo := ModelInfo[AModel];
+  FIsCPC := FInfo.Memory = mkCPC;
+  if FIsCPC then FAYStep := 32 else FAYStep := 16;
+  FRecorder.Raw := FIsCPC;
   LoadRoms;
   // The ZX-Uno's DivMMC has its firmware in SRAM page 12 and its RAM in
   // pages 16-23 (so MASTERMAPPER sees it too); leaving it, the interface is
@@ -1028,6 +1072,26 @@ begin
   FTape.StopIf48K := FModel in [sm16K, sm48K];
   FFDC.ClockHz := FInfo.ClockHz;
   UpdateContend;
+  if FIsCPC then
+  begin
+    try
+      SetupCPC;
+    except
+      // No firmware: stay as we were
+      FModel := OldModel;
+      FInfo := ModelInfo[OldModel];
+      FIsCPC := WasCPC;
+      if FIsCPC then FAYStep := 32 else FAYStep := 16;
+      FRecorder.Raw := FIsCPC;
+      if not WasCPC then FreeAndNil(FCPC);
+      BuildContention;
+      FTape.ClockHz := FInfo.ClockHz;
+      FFDC.ClockHz := FInfo.ClockHz;
+      if WasCPC then FTape.ClockHz := 3500000;
+      raise;
+    end;
+  end
+  else FreeAndNil(FCPC);
   Reset(True);
 end;
 
@@ -1049,6 +1113,11 @@ procedure TSpectrum.Reset(Hard: Boolean);
 var
   I: Integer;
 begin
+  if FIsCPC then
+  begin
+    CPCReset(Hard);
+    Exit;
+  end;
   if Hard then
   begin
     for I := 0 to 7 do FillChar(FRam[I], SizeOf(TBank), 0);
@@ -1103,6 +1172,7 @@ end;
 
 procedure TSpectrum.RequestNMI;
 begin
+  if FIsCPC then Exit;   // the CPC has no NMI button
   // The Next's buttons work as NR 06 lets them (NextZXOS sets it)
   if IsNext then
   begin
@@ -1116,6 +1186,13 @@ procedure TSpectrum.PlayTape;
 begin
   // The user's Play: Auto play is free to act again, and the load under way,
   // if any, is the one to stop the tape at the end of
+  if FIsCPC then
+  begin
+    // Play pressed: the tape moves while the program has the motor on
+    FCPCArmed := True;
+    CPCTapeUpdate(FCPC.ChipT);
+    Exit;
+  end;
   FTapeHeld := False;
   FLoadedSincePlay := FLoadDemand;
   // With fast loading, a moment of silence first: the ROM's loader, if it
@@ -1126,7 +1203,9 @@ end;
 
 function TSpectrum.TapeStateText: string;
 begin
-  if FTape.Playing then Result := 'playing'
+  if FIsCPC and FCPCArmed and not FCPC.Motor and not FTape.Playing then
+    Result := 'play pressed, waiting for the motor'
+  else if FTape.Playing then Result := 'playing'
   else if (FTape.Count > 0) and (FTape.Current >= FTape.Count) then Result := 'end of tape'
   else if FTapeHeld and AutoPlayTape then Result := 'stopped (auto play waits for the next load)'
   else Result := 'stopped';
@@ -1134,6 +1213,12 @@ end;
 
 procedure TSpectrum.StopTape;
 begin
+  if FIsCPC then
+  begin
+    FCPCArmed := False;
+    CPCTapeUpdate(FCPC.ChipT);
+    Exit;
+  end;
   FTape.Stop;
   // Stopped with a load asking for the tape: not again for that one
   if FLoadDemand then FTapeHeld := True;
@@ -1220,6 +1305,7 @@ end;
 
 function TSpectrum.RamBank(Index: Integer): PBank;
 begin
+  if FIsCPC then Exit(PBank(FCPC.RamBank(Index)));
   if IsNext then Result := @FRam[Index mod RAM_BANKS] else Result := @FRam[Index and 7];
 end;
 
@@ -1230,6 +1316,11 @@ const
 var
   Slot, Bank, Rom: Integer;
 begin
+  if FIsCPC then
+  begin
+    CPCPaging;
+    Exit;
+  end;
   if IsNext then
   begin
     NextUpdatePaging;
@@ -1360,11 +1451,24 @@ begin
 end;
 
 function TSpectrum.SaveState: TMachineState;
+var
+  MS: TMemoryStream;
 begin
   Result := TMachineState.Create;
   Result.Model := FModel;
   Result.Cpu := TZ80.Create(FProbeBus);
   Result.Cpu.CopyStateFrom(FCpu);
+  if FIsCPC then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      FCPC.SaveState(MS);
+      SetLength(Result.CPCState, MS.Size);
+      Move(MS.Memory^, Result.CPCState[0], MS.Size);
+    finally
+      MS.Free;
+    end;
+  end;
   SetLength(Result.Ram, RamBanksUsed);
   Move(FRam, Result.Ram[0], RamBanksUsed * SizeOf(TBank));
   Move(FNextReg, Result.NextReg, SizeOf(FNextReg));
@@ -1418,10 +1522,23 @@ end;
 function TSpectrum.LoadState(S: TMachineState): Boolean;
 var
   I: Integer;
+  MS: TMemoryStream;
 begin
   Result := S.Model = FModel;
   if not Result then Exit;
   FCpu.CopyStateFrom(S.Cpu);
+  if FIsCPC and (Length(S.CPCState) > 0) then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      MS.WriteBuffer(S.CPCState[0], Length(S.CPCState));
+      MS.Position := 0;
+      FCPC.LoadState(MS);
+    finally
+      MS.Free;
+    end;
+    CPCPaging;
+  end;
   Move(S.Ram[0], FRam, Length(S.Ram) * SizeOf(TBank));
   Move(S.NextReg, FNextReg, SizeOf(FNextReg));
   Move(S.NextMMU, FNextMMU, SizeOf(FNextMMU));
@@ -1536,11 +1653,12 @@ end;
 procedure TSpectrum.RenderToCurrent;
 begin
   RenderUpTo(U(FCpu.T));
+  if FIsCPC then FCPC.PreviewFrame;
 end;
 
 function TSpectrum.SetSlot3Bank(Bank: Integer): Boolean;
 begin
-  Result := (FInfo.Memory <> mk48K) and ((FPort1FFD and 1) = 0);
+  Result := not (FInfo.Memory in [mk48K, mkCPC]) and ((FPort1FFD and 1) = 0);
   if not Result then Exit;
   FPort7FFD := (FPort7FFD and $F8) or (Bank and 7);
   UpdatePaging;
@@ -1650,12 +1768,24 @@ end;
 
 procedure TSpectrum.Contend(Addr: Word; Time: Integer; var T: Integer);
 begin
+  // The CPC: the Gate Array holds every memory access to the 1 MHz grid
+  if FIsCPC then
+  begin
+    Inc(T, Time);
+    if FContend then T := (T + 3) and not 3;
+    Exit;
+  end;
   if FContend and FSlotContended[Addr shr 14] then Inc(T, FContention[T]);
   Inc(T, Time);
 end;
 
 procedure TSpectrum.ContendNoMreq(Addr: Word; Time: Integer; var T: Integer);
 begin
+  if FIsCPC then
+  begin
+    Inc(T, Time);
+    Exit;
+  end;
   if FInfo.NoMreqContention and FContend and FSlotContended[Addr shr 14] then
     Inc(T, FContention[T]);
   Inc(T, Time);
@@ -1676,6 +1806,7 @@ function TSpectrum.ReadMem(Addr: Word; T: Integer): Byte;
 var
   L2: Integer;
 begin
+  if FIsCPC then Exit(ReadMemCPC(Addr));
   // The Next's Layer 2 mapped over the bottom of memory (port 123B), under
   // the DivMMC (the Next decodes 0000-3FFF: boot ROM, configuration
   // mapping, Multiface, DivMMC, Layer 2, MMU)
@@ -1832,6 +1963,7 @@ end;
 
 function TSpectrum.FetchMem(Addr: Word; T: Integer): Byte;
 begin
+  if FIsCPC then Exit(FCPC.Read(Addr));
   // Opcode fetches never trigger read breakpoints
   // The Next's Multiface pages in as its NMI fetches 0066
   if FMfNmi and (Addr = $0066) and not FMfOn then
@@ -1899,6 +2031,11 @@ procedure TSpectrum.WriteMem(Addr: Word; Value: Byte; T: Integer);
 var
   Slot: Integer;
 begin
+  if FIsCPC then
+  begin
+    WriteMemCPC(Addr, Value);
+    Exit;
+  end;
   Slot := Addr shr 14;
   if IsNext and ((FNextL2Port and 1) <> 0) and not ((Addr < $4000) and (FDiv.Active or FMfOn)) and
      not FNextBootOn and NextL2Bank(Addr, True, Slot) then
@@ -2004,6 +2141,7 @@ var
   Responded: Boolean;
   HighByte: Byte;
 begin
+  if FIsCPC then Exit(ReadPortCPC(Port, T));
   IOContendPre(Port, T);
   Result := $FF;
   Responded := False;
@@ -2170,6 +2308,11 @@ end;
 
 procedure TSpectrum.WritePort(Port: Word; Value: Byte; var T: Integer);
 begin
+  if FIsCPC then
+  begin
+    WritePortCPC(Port, Value, T);
+    Exit;
+  end;
   IOContendPre(Port, T);
   LogPort(Port, Value, True);
   CheckPortBreak(Port, True);
@@ -2431,6 +2574,7 @@ end;
   or the ZX-Uno's raster interrupt }
 function TSpectrum.IntActive: Boolean;
 begin
+  if FIsCPC then Exit(FCPC.IntLine);
   if IsNext then
   begin
     // ULA interrupt unless NR 22 (or port FF bit 6) disables it, and the
@@ -2953,6 +3097,12 @@ procedure TSpectrum.RenderUpTo(T: Integer);
 var
   CellT: Integer;
 begin
+  if FIsCPC then
+  begin
+    if T > FInfo.FrameT then T := FInfo.FrameT;
+    FCPC.Sync(T);
+    Exit;
+  end;
   if IsNext then
   begin
     NextRenderUpTo(T, True);
@@ -2986,6 +3136,11 @@ end;
 
 procedure TSpectrum.CopyFrameBuffer(Dest: PLongWord);
 begin
+  if FIsCPC then
+  begin
+    FCPC.CopyFrame(Dest);
+    Exit;
+  end;
   Move(FFrameBuffer[0], Dest^, FB_WIDTH * SCREEN_HEIGHT * SizeOf(LongWord));
 end;
 
@@ -3016,6 +3171,7 @@ end;
   frame T-states }
 procedure TSpectrum.TapeEdge(T: Integer; Level: Boolean);
 begin
+  if FIsCPC then Exit;
   UpdateBeeper(U(T));
 end;
 
@@ -3153,7 +3309,7 @@ begin
             A3 := A3 + TickA; B3 := B3 + TickB; C3 := C3 + TickC;
           end;
           Inc(TickCount);
-          Inc(FAYTickT, 16);
+          Inc(FAYTickT, FAYStep);
         end;
       NextT := EndT;
       if (EvIndex < FEventCount) and (FEvents[EvIndex].T < NextT) then NextT := FEvents[EvIndex].T;
@@ -3542,7 +3698,7 @@ begin
   N := Length(FAutoKeys);
   SetLength(FAutoKeys, N + 1);
   FAutoKeys[N].Frames := Frames;
-  FillChar(FAutoKeys[N].Rows, 8, $FF);
+  FillChar(FAutoKeys[N].Rows, SizeOf(FAutoKeys[N].Rows), $FF);
   for I := 0 to High(Keys) do
     FAutoKeys[N].Rows[Keys[I] div 5] := FAutoKeys[N].Rows[Keys[I] div 5] and not (1 shl (Keys[I] mod 5));
 end;
@@ -3584,6 +3740,7 @@ var
   end;
 
 begin
+  if FIsCPC then Exit(CPCTypeText(Text, Error));
   Result := False;
   Error := '';
   I := 1;
@@ -3634,11 +3791,16 @@ begin
   end;
 end;
 
-procedure TSpectrum.AutoLoad;
+procedure TSpectrum.AutoLoad(FromDisk: Boolean);
 begin
   Reset(True);
   FTape.Rewind;
   CancelAutoType;
+  if FIsCPC then
+  begin
+    CPCAutoLoad(FromDisk);
+    Exit;
+  end;
   if IsZXUno then
     // Its BIOS chooses the ROM: decided once it has started it
     FUnoAutoLoad := 0
@@ -4018,6 +4180,11 @@ end;
 { One step of the frame loop: an NMI, an accepted interrupt, or one instruction. }
 procedure TSpectrum.ExecuteOne;
 begin
+  if FIsCPC then
+  begin
+    ExecuteOneCPC;
+    Exit;
+  end;
   if FTrackPrev then
   begin
     FPrevRegs := FCpu.GetRegs;
@@ -4073,6 +4240,11 @@ end;
 
 procedure TSpectrum.FinishFrame;
 begin
+  if FIsCPC then
+  begin
+    FinishFrameCPC;
+    Exit;
+  end;
   if FUnoAutoLoad >= 0 then ZXUnoAutoLoadStep;
   RenderUpTo(MaxInt);
   if IsNext then
@@ -4180,6 +4352,7 @@ begin
   RenderUpTo(U(FCpu.T));
 end;
 
+{$I SpectrumCPC.inc}
 {$I NextVideo.inc}
 {$I NextDma.inc}
 {$I SpectrumNext.inc}

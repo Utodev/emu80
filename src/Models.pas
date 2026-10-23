@@ -6,7 +6,8 @@ unit Models;
 interface
 
 type
-  TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext);
+  TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext,
+    smCPC464, smCPC664, smCPC6128);
 
   { How the picture is shown, as if the Spectrum's frames were the fields of
     an interlaced picture: each frame on its own (progressive, as the
@@ -15,7 +16,7 @@ type
   TDeinterlace = (dlProgressive, dlBob, dlWeave);
 
   { Which memory/port architecture the model uses }
-  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext);
+  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext, mkCPC);
 
   TModelInfo = record
     Name: string;
@@ -92,17 +93,41 @@ const
      ClockHz: 3546900; FrameT: 70908; LineT: 228; PaperTopT: 14365;
      ContentionStartT: 14361; ContentionPattern: (1, 0, 7, 6, 5, 4, 3, 2);
      InterruptLength: 32; IOContention: False; NoMreqContention: False;
-     FloatingBus: False; HasAY: True; HasFDC: False)
+     FloatingBus: False; HasAY: True; HasFDC: False),
+    { Amstrad CPC: a Z80 at 4 MHz held by the Gate Array to 1 MHz accesses;
+      a frame is 312 lines of 64 us (the CRTC's power-on timing), which the
+      CRTC may change; RomFiles: the 32K firmware (system and BASIC) and the
+      AMSDOS disc ROM. The ULA fields mean nothing here. }
+    (Name: 'Amstrad CPC 464'; Memory: mkCPC;
+     RomFiles: ('cpc464.rom', '', '', ''); RomCount: 1; BasicRom: 0;
+     ClockHz: 4000000; FrameT: 79872; LineT: 256; PaperTopT: 0;
+     ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
+     InterruptLength: 0; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: True; HasFDC: False),
+    (Name: 'Amstrad CPC 664'; Memory: mkCPC;
+     RomFiles: ('cpc664.rom', 'amsdos.rom', '', ''); RomCount: 2; BasicRom: 0;
+     ClockHz: 4000000; FrameT: 79872; LineT: 256; PaperTopT: 0;
+     ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
+     InterruptLength: 0; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: True; HasFDC: True),
+    (Name: 'Amstrad CPC 6128'; Memory: mkCPC;
+     RomFiles: ('cpc6128.rom', 'amsdos.rom', '', ''); RomCount: 2; BasicRom: 0;
+     ClockHz: 4000000; FrameT: 79872; LineT: 256; PaperTopT: 0;
+     ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
+     InterruptLength: 0; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: True; HasFDC: True)
   );
 
 function ModelFromName(const S: string; Default: TSpectrumModel): TSpectrumModel;
 function ModelKey(M: TSpectrumModel): string;
+{ An Amstrad CPC (not a Spectrum) }
+function IsCPCModel(M: TSpectrumModel): Boolean;
 
 implementation
 
 const
   Keys: array[TSpectrumModel] of string = ('16k', '48k', '128k', 'plus2', 'plus2b', 'plus3', 'zxuno',
-    'zxnext');
+    'zxnext', 'cpc464', 'cpc664', 'cpc6128');
 
 function ModelKey(M: TSpectrumModel): string;
 begin
@@ -116,6 +141,11 @@ begin
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     if S = Keys[M] then Exit(M);
   Result := Default;
+end;
+
+function IsCPCModel(M: TSpectrumModel): Boolean;
+begin
+  Result := ModelInfo[M].Memory = mkCPC;
 end;
 
 end.
