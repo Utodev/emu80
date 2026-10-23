@@ -55,6 +55,7 @@ type
     CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
     CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
     CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
+    CPCMonitor: Integer;          // Amstrad CPC: 0 colour monitor, 1 green phosphor, 2 orange phosphor
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
@@ -102,6 +103,10 @@ type
     { The hidden option's file entries, changed on the spot (they don't wait
       for the settings to be saved): the warning accepted, and the file's
       own value dropped when the warning isn't accepted }
+    { All the settings as text, and back from it (the settings dialog's Cancel
+      after an Apply) }
+    function Snapshot: string;
+    procedure Restore(const Text: string);
     procedure AcceptRealSpecNext;
     procedure ForgetRealSpecNext;
     procedure AddRecent(const FileName: string);
@@ -124,6 +129,10 @@ const
   { What the cursor keys emulate, as in --zx_joystick and the settings file }
   { As in --zx_deinterlace and the settings file }
   DEINTERLACE_KEYS: array[TDeinterlace] of string = ('progressive', 'bob', 'weave');
+  CPC_MONITOR_KEYS: array[0..2] of string = ('color', 'green', 'orange');
+  { The CRTC chips, types 0 to 4 }
+  CRTC_NAMES: array[0..4] of string = ('HD6845S / UM6845', 'UM6845R', 'MC6845', 'AMS40489 (CPC+ ASIC)',
+    'AMS40226 (pre-ASIC)');
   JOYSTICK_KEYS: array[TJoystickKeys] of string = (
     'none', 'kempston', 'sinclair1', 'sinclair2', 'cursor', 'fuller');
 
@@ -366,6 +375,7 @@ begin
   CPCJoystick := True;
   CPCWaitStates := True;
   CPCCrtc := -1;
+  CPCMonitor := 0;
   NextFirmware := True;
   RealSpecNext := False;
   RealSpecNextCmd := False;
@@ -603,6 +613,9 @@ begin
   S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_crtc', ''));
   if S = 'auto' then CPCCrtc := -1
   else if (Length(S) = 1) and (S[1] in ['0'..'4']) then CPCCrtc := Ord(S[1]) - 48;
+  S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_monitor', ''));
+  for I := 0 to 2 do
+    if S = CPC_MONITOR_KEYS[I] then CPCMonitor := I;
   RomDir := Ini.ReadString('ROMs', 'romdir', RomDir);
   if Ini.ValueExists('ROMs', 'rom') then SetRomList(Ini.ReadString('ROMs', 'rom', ''));
   DivMMCFirmware := ReadOptString(Ini, SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
@@ -651,6 +664,7 @@ begin
   Put(SEC_ZX, 'zx_deinterlace', DEINTERLACE_KEYS[Deinterlace]);
   if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
+  Put(SEC_CPC, 'cpc_monitor', CPC_MONITOR_KEYS[CPCMonitor]);
   Put('ROMs', 'romdir', RomDir);
   Put('ROMs', 'rom', RomList);
   Put(SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
@@ -894,6 +908,45 @@ begin
   finally
     Ini.Free;
   end;
+end;
+
+function TSettings.Snapshot: string;
+var
+  Ini: TMemIniFile;
+  L: TStringList;
+begin
+  Ini := TMemIniFile.Create('');
+  L := TStringList.Create;
+  try
+    WriteTo(Ini);
+    Ini.GetStrings(L);
+    Result := L.Text;
+  finally
+    L.Free;
+    Ini.Free;
+  end;
+end;
+
+procedure TSettings.Restore(const Text: string);
+var
+  Ini: TMemIniFile;
+  L: TStringList;
+  Real, Cmd: Boolean;
+begin
+  Real := RealSpecNext;
+  Cmd := RealSpecNextCmd;
+  Ini := TMemIniFile.Create('');
+  L := TStringList.Create;
+  try
+    L.Text := Text;
+    Ini.SetStrings(L);
+    ReadFrom(Ini, False);
+  finally
+    L.Free;
+    Ini.Free;
+  end;
+  RealSpecNext := Real;
+  RealSpecNextCmd := Cmd;
 end;
 
 procedure TSettings.AcceptRealSpecNext;

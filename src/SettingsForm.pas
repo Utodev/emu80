@@ -9,8 +9,11 @@ uses
   Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, ButtonPanel,
   Graphics, Models, Config;
 
-{ Returns True if the user accepted the changes. }
-function ShowSettings: Boolean;
+{ Opens the settings window (not modal; brought forward if it is open). Apply
+  and OK write the changes into Settings and call OnApplied; Cancel puts back
+  what Settings was when it opened (calling OnApplied again if Apply had been
+  used) and closes. }
+procedure ShowSettings(OnApplied: TNotifyEvent);
 
 var
   { Set when the dialog changed the DivMMC firmware file }
@@ -24,7 +27,7 @@ type
   TSettingsDialog = class(TForm)
   private
     FPages, FCommon, FZX: TPageControl;   // the three main tabs; what is inside the Common and ZX Spectrum ones
-    FCrtc: TComboBox;
+    FCrtc, FMonitor: TComboBox;
     FCPCWait: TCheckBox;
     FModel: TComboBox;
     FRomDir: TEdit;
@@ -50,9 +53,22 @@ type
     FRomFiles: array[TSpectrumModel, 0..3] of string;   // being edited
     FShownRomModel: Integer;
     FOwn: array[0..3] of Boolean;   // DivMMC, Timex, Radastan, ULAplus as set (not forced)
-    FButtons: TButtonPanel;
+    FBottom: TPanel;
+    FOK, FApply, FCancel: TButton;
+    FBackup: string;               // Settings when the window opened
+    FApplied: Boolean;             // Apply was used
+    FOnApplied: TNotifyEvent;
+    procedure DoOK(Sender: TObject);
+    procedure DoApply(Sender: TObject);
+    procedure DoCancel(Sender: TObject);
+    procedure DoClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure Apply;
     function AddPage(PC: TPageControl; const ACaption: string): TTabSheet;
-    function AddTabs(Page: TTabSheet): TPageControl;
+    function AddTabs(Page: TTabSheet; Logo: Integer): TPageControl;
+    { A band at the top of a main tab, with a machine's logo and name (1 ZX Spectrum, 2 Amstrad CPC;
+      0: only the gap) }
+    function AddBand(Page: TTabSheet; Logo: Integer): TPaintBox;
+    procedure PaintLogo(Sender: TObject);
     function AddLabel(Page: TWinControl; const ACaption: string; ATop: Integer): TLabel;
     function AddCheck(Page: TWinControl; const ACaption: string; ATop: Integer): TCheckBox;
     { A short explanation in grey under an option }
@@ -79,17 +95,56 @@ type
     procedure SaveTo(S: TSettings);
   end;
 
-function ShowSettings: Boolean;
 var
-  Dlg: TSettingsDialog;
+  Window: TSettingsDialog = nil;
+
+procedure ShowSettings(OnApplied: TNotifyEvent);
 begin
-  Dlg := TSettingsDialog.Create(nil);
-  try
-    Dlg.LoadFrom(Settings);
-    Result := Dlg.ShowModal = mrOK;
-    if Result then Dlg.SaveTo(Settings);
-  finally
-    Dlg.Free;
+  if Window <> nil then
+  begin
+    Window.BringToFront;
+    Exit;
+  end;
+  Window := TSettingsDialog.Create(Application);
+  Window.FOnApplied := OnApplied;
+  Window.LoadFrom(Settings);
+  Window.FBackup := Settings.Snapshot;
+  Window.Show;
+end;
+
+procedure TSettingsDialog.Apply;
+begin
+  SaveTo(Settings);
+  FApplied := True;
+  if Assigned(FOnApplied) then FOnApplied(Self);
+end;
+
+procedure TSettingsDialog.DoApply(Sender: TObject);
+begin
+  Apply;
+end;
+
+procedure TSettingsDialog.DoOK(Sender: TObject);
+begin
+  Apply;
+  FApplied := False;
+  Close;
+end;
+
+{ Cancel: what was set when the window opened comes back }
+procedure TSettingsDialog.DoCancel(Sender: TObject);
+begin
+  Close;
+end;
+
+procedure TSettingsDialog.DoClose(Sender: TObject; var CloseAction: TCloseAction);
+begin
+  CloseAction := caFree;
+  Window := nil;
+  if FApplied then
+  begin
+    Settings.Restore(FBackup);
+    if Assigned(FOnApplied) then FOnApplied(Self);
   end;
 end;
 
@@ -110,9 +165,33 @@ begin
   ClientWidth := 500;
   ClientHeight := 710;
 
-  FButtons := TButtonPanel.Create(Self);
-  FButtons.Parent := Self;
-  FButtons.ShowButtons := [pbOK, pbCancel];
+  // OK applies and closes, Apply applies, Cancel undoes what was applied and
+  // closes (the window isn't modal)
+  PopupMode := pmExplicit;
+  PopupParent := Application.MainForm;
+  OnClose := @DoClose;
+  FBottom := TPanel.Create(Self);
+  FBottom.Parent := Self;
+  FBottom.Align := alBottom;
+  FBottom.Height := 44;
+  FBottom.BevelOuter := bvNone;
+  FApply := TButton.Create(Self);
+  FApply.Parent := FBottom;
+  FApply.Caption := 'Apply';
+  FApply.SetBounds(ClientWidth - 6 - 84, 8, 84, 28);
+  FApply.OnClick := @DoApply;
+  FCancel := TButton.Create(Self);
+  FCancel.Parent := FBottom;
+  FCancel.Caption := 'Cancel';
+  FCancel.Cancel := True;
+  FCancel.SetBounds(ClientWidth - 6 - 84 * 2 - 8, 8, 84, 28);
+  FCancel.OnClick := @DoCancel;
+  FOK := TButton.Create(Self);
+  FOK.Parent := FBottom;
+  FOK.Caption := 'OK';
+  FOK.Default := True;
+  FOK.SetBounds(ClientWidth - 6 - 84 * 3 - 16, 8, 84, 28);
+  FOK.OnClick := @DoOK;
 
   FPages := TPageControl.Create(Self);
   FPages.Parent := Self;
@@ -122,8 +201,8 @@ begin
   // Three main tabs: what is common to every machine, what is the ZX
   // Spectrum's (and its relatives') and what is the Amstrad CPC's. The
   // Common and ZX Spectrum ones have tabs of their own inside.
-  FCommon := AddTabs(AddPage(FPages, 'Common'));
-  FZX := AddTabs(AddPage(FPages, 'ZX Spectrum'));
+  FCommon := AddTabs(AddPage(FPages, 'Common'), 0);
+  FZX := AddTabs(AddPage(FPages, 'ZX Spectrum'), 1);
 
   // Common: General
   Page := AddPage(FCommon, 'General');
@@ -299,7 +378,7 @@ begin
 
   // ZX Spectrum: firmware of the DivMMC, the ZX-Uno and the Next
   Page := AddPage(FZX, 'Firmware');
-  Group := AddGroup(Page, 'DivMMC', 8, 64);
+  Group := AddGroup(Page, 'DivMMC', 6, 72);
   Y := 8;
   AddLabel(Group, 'Firmware:', Y + 4);
   FFirmware := TEdit.Create(Self);
@@ -313,7 +392,7 @@ begin
   FFirmwareBrowse.Caption := 'Browse...';
   FFirmwareBrowse.SetBounds(366, Y, 80, 25);
   FFirmwareBrowse.OnClick := @DoFirmwareBrowse;
-  Group := AddGroup(Page, 'ZX-Uno', 82, 128);
+  Group := AddGroup(Page, 'ZX-Uno', 90, 142);
   Y := 8;
   FUnoFirmware := AddFileRow(Group, 'BIOS:', 'zxuno/FIRMWARE.ZX1', Y, 1);
   Inc(Y, 32);
@@ -323,7 +402,7 @@ begin
   FUnoCustom.Hint := 'A 16K ROM that runs as a 48K instead of the BIOS''s choice; changes ' +
     'switch the ZX-Uno off and on';
   FUnoCustom.ShowHint := True;
-  Group := AddGroup(Page, 'ZX Spectrum Next', 218, 124);
+  Group := AddGroup(Page, 'ZX Spectrum Next', 240, 138);
   Y := 8;
   FNextDir := AddFileRow(Group, 'Distribution:', 'the specnext folder', Y, 4);
   FNextDir.Hint := 'The folder with the ZX Spectrum Next''s system distribution (from ' +
@@ -339,7 +418,8 @@ begin
 
   // Amstrad CPC
   Page := AddPage(FPages, 'Amstrad CPC');
-  Group := AddGroup(Page, 'Video', 8, 118);
+  AddBand(Page, 2);
+  Group := AddGroup(Page, 'Video', 60, 150);
   Y := 8;
   AddLabel(Group, 'CRTC chip:', Y + 4);
   FCrtc := AddCombo(Group, Y, 270);
@@ -355,12 +435,22 @@ begin
   FCrtc.ShowHint := True;
   AddNote(Group, 'Programs detect the chip (and some demos need a particular one); the ' +
     'registers written are kept when it is changed.', Y + 34);
-  Group := AddGroup(Page, 'Timing', 134, 64);
+  Inc(Y, 82);
+  AddLabel(Group, 'Monitor:', Y + 4);
+  FMonitor := AddCombo(Group, Y, 270);
+  FMonitor.Left := 170;
+  FMonitor.Items.Add('Colour');
+  FMonitor.Items.Add('Green phosphor (GT65)');
+  FMonitor.Items.Add('Orange phosphor');
+  FMonitor.Hint := 'A monochrome monitor shows the colours as shades of its phosphor; ' +
+    '"Black and white display" only applies to the colour monitor';
+  FMonitor.ShowHint := True;
+  Group := AddGroup(Page, 'Timing', 218, 64);
   Y := 8;
   FCPCWait := AddCheck(Group, 'Gate Array wait states (every access on the 1 MHz grid)', Y);
   FCPCWait.Hint := 'Real timing: instructions take a whole number of microseconds; off makes ' +
     'every access take its nominal time';
-  Group := AddGroup(Page, 'Controls', 214, 64);
+  Group := AddGroup(Page, 'Controls', 298, 64);
   Y := 8;
   FCPCJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as joystick 1', Y);
   FCPCJoystick.Hint := 'On the CPC the cursor keys are always the cursor keys; with this on they ' +
@@ -375,12 +465,101 @@ begin
 end;
 
 { A tab with tabs inside }
-function TSettingsDialog.AddTabs(Page: TTabSheet): TPageControl;
+function TSettingsDialog.AddTabs(Page: TTabSheet; Logo: Integer): TPageControl;
 begin
+  AddBand(Page, Logo);
   Result := TPageControl.Create(Self);
   Result.Parent := Page;
   Result.Align := alClient;
   Result.BorderSpacing.Around := 2;
+end;
+
+function TSettingsDialog.AddBand(Page: TTabSheet; Logo: Integer): TPaintBox;
+begin
+  Result := TPaintBox.Create(Self);
+  Result.Parent := Page;
+  Result.Align := alTop;
+  Result.Height := 50;
+  Result.Tag := Logo;
+  Result.OnPaint := @PaintLogo;
+end;
+
+{ The machine's logo, drawn in code: the Spectrum's rainbow over a black
+  keyboard, the CPC's coloured keys on a grey one }
+procedure TSettingsDialog.PaintLogo(Sender: TObject);
+var
+  Box: TPaintBox;
+  C: TCanvas;
+  X, Y, I: Integer;
+  Dark: Boolean;
+  Back, Edge, Ink, Body: TColor;
+  Title: string;
+const
+  SPEC: array[0..3] of TColor = ($0000E0, $00E0E0, $00D000, $E0D000);   // red, yellow, green, cyan (BGR)
+  CPCK: array[0..3] of TColor = ($2828F0, $F0A828, $28D0FF, $38C038);
+begin
+  Box := Sender as TPaintBox;
+  C := Box.Canvas;
+  Back := ColorToRGB(Box.Parent.Color);
+  Dark := (Red(Back) * 30 + Green(Back) * 59 + Blue(Back) * 11) div 100 < 128;
+  C.Brush.Color := Back;
+  C.FillRect(0, 0, Box.Width, Box.Height);
+  if Box.Tag = 0 then Exit;
+  // On a dark ground: a light outline and light lettering, the keyboards lighter
+  if Dark then
+  begin
+    Edge := $E0E0E0;
+    Ink := clWhite;
+  end
+  else
+  begin
+    Edge := $000000;
+    Ink := clWindowText;
+  end;
+  X := 22;
+  Y := 8;
+  if Box.Tag = 1 then
+  begin
+    if Dark then Body := $585858 else Body := $202020;
+    C.Brush.Color := Body;
+    C.Pen.Color := Edge;
+    C.Pen.Width := 2;
+    C.RoundRect(X, Y + 6, X + 56, Y + 32, 6, 6);
+    C.Pen.Width := 1;
+    C.Brush.Color := $A0A0A0;
+    for I := 0 to 3 do C.FillRect(X + 6 + I * 11, Y + 24, X + 14 + I * 11, Y + 28);
+    for I := 0 to 3 do
+    begin
+      C.Brush.Color := SPEC[I];
+      C.Pen.Color := SPEC[I];
+      C.Polygon([Point(X + 34 + I * 4, Y + 20), Point(X + 38 + I * 4, Y + 20),
+        Point(X + 50 + I * 4, Y + 6), Point(X + 46 + I * 4, Y + 6)]);
+    end;
+    Title := 'ZX Spectrum';
+  end
+  else
+  begin
+    if Dark then Body := $A8A8A8 else Body := $8C8C8C;
+    C.Brush.Color := Body;
+    C.Pen.Color := Edge;
+    C.Pen.Width := 2;
+    C.RoundRect(X, Y + 6, X + 56, Y + 32, 4, 4);
+    C.Pen.Width := 1;
+    C.Brush.Color := $303030;
+    for I := 0 to 5 do C.FillRect(X + 4 + I * 8, Y + 22, X + 10 + I * 8, Y + 28);
+    for I := 0 to 3 do
+    begin
+      C.Brush.Color := CPCK[I];
+      C.Pen.Color := $202020;
+      C.Rectangle(X + 6 + I * 11, Y + 10, X + 14 + I * 11, Y + 18);
+    end;
+    Title := 'Amstrad CPC';
+  end;
+  C.Brush.Style := bsClear;
+  C.Font.Style := [fsBold];
+  C.Font.Size := 13;
+  C.Font.Color := Ink;
+  C.TextOut(X + 72, Y + 12, Title);
 end;
 
 function TSettingsDialog.AddLabel(Page: TWinControl; const ACaption: string; ATop: Integer): TLabel;
@@ -647,6 +826,7 @@ begin
   FCPCJoystick.Checked := S.CPCJoystick;
   FCPCWait.Checked := S.CPCWaitStates;
   FCrtc.ItemIndex := S.CPCCrtc + 1;
+  FMonitor.ItemIndex := S.CPCMonitor;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
   FNextDir.Text := S.NextDir;
@@ -725,6 +905,7 @@ begin
   S.CPCJoystick := FCPCJoystick.Checked;
   S.CPCWaitStates := FCPCWait.Checked;
   S.CPCCrtc := FCrtc.ItemIndex - 1;
+  S.CPCMonitor := FMonitor.ItemIndex;
   S.Monochrome := FMonochrome.Checked;
   S.Contention := FContention.Checked;
   S.UlaSnow := FSnow.Checked;

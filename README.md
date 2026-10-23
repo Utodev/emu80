@@ -282,7 +282,8 @@ symbol files), Clear symbols and, at the bottom, Adventure Debugger (F11, see
 [Adventure Debugger](#11-adventure-debugger)).
 
 **Options**: Black and white display, Window size, Mute sound, Turbo speed (Shift+F11: as fast as
-possible), Deinterlace (Progressive, Bob or Weave; see [Deinterlacing](#deinterlacing)), Modern interface (dark; see [Interface](#interface)), Install Spectrum Next Distribution
+possible), Deinterlace (Progressive, Bob or Weave; see [Deinterlacing](#deinterlacing); only on the
+Spectrum models) or, on the Amstrad CPC, CRTC chip (the model's own, or type 0 to 4), Modern interface (dark; see [Interface](#interface)), Install Spectrum Next Distribution
 (only while the Next's distribution isn't installed; see [ZX Spectrum Next](#zx-spectrum-next)) and
 Settings (everything else is in Settings).
 
@@ -308,9 +309,13 @@ drive's light.
 
 ## 4. Settings
 
-Options > Settings has three main tabs: **Common** (what is the same on every machine), **ZX Spectrum**
+Options > Settings opens a window that is not modal (the emulator goes on and can be used while it is
+open): **OK** applies the changes and closes it, **Apply** applies them and leaves it open, and **Cancel**
+closes it putting back what the settings were when it was opened (what Apply had applied too).
+It has three main tabs: **Common** (what is the same on every machine), **ZX Spectrum**
 (what belongs to the Spectrum models, the ZX-Uno and the Next) and **Amstrad CPC**. Common and ZX
-Spectrum have tabs of their own inside (sections of a page are boxes with a title):
+Spectrum have tabs of their own inside, set apart under a band with the machine's logo (none under Common)
+(sections of a page are boxes with a title):
 
 | Tab | Contents |
 |---|---|
@@ -320,7 +325,7 @@ Spectrum have tabs of their own inside (sections of a page are boxes with a titl
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
 | ZX Spectrum > Machine | Graphics: ULAplus, Timex screen modes, Radastan mode and deinterlacing (Weave by default; see [Deinterlacing](#deinterlacing)) (all off by default; see [Video modes](#video-modes) below). Controls: keyboard issue 2 or 3 (16K/48K: affects bit 6 of port `FE`) as radio buttons, and the cursor keys joystick. Core features: contended memory and I/O (on by default: real timing; off makes every access take its nominal time) and ULA snow (on by default; only the 16K, 48K, 128K and +2 show it). |
 | ZX Spectrum > Firmware | DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
-| Amstrad CPC | Video: the CRTC chip (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
+| Amstrad CPC | Video: the CRTC chip and the monitor: colour, green phosphor or orange phosphor, which show the picture as shades of that phosphor ("Black and white display" only applies to the colour monitor) (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
 
 Settings are kept in `pzx.ini` in the same folder as the program (next to pzx.app on macOS); on
 Linux, if that folder can't be written (pzx installed from a .deb or .rpm package), in
@@ -338,7 +343,7 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
 | `[Screenshot]` | `pngborder` |
 | `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
-| `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
+| `[AmstradCPC]` | `cpc_crtc`, `cpc_monitor` (`color`, `green` or `orange`), `cpc_waitstates`, `cpc_joystick` |
 
 The recent files, pokes and last folder are kept in sections of their own. A pzx.ini from an
 older version is read and rewritten with these keys; the names the options had before they took
@@ -369,8 +374,10 @@ The modern interface (on Windows 10 and 11 its title bar is dark too):
   instead), the tape's name and block, Eject (puts in a tape: as File > Open,
   for .tap and .tzx files only), Rewind, Play/pause, Stop and Record, the tape browser and Fast loading (lit while
   on).
-- **Media palette**: drives A: and B: and the SD card, with their LEDs and the files in them, and
-  buttons for the disk and SD card browsers.
+- **Media palette**: drives A: and B: and the SD card, with their LEDs and the files in them (on
+  the left), and on the right, one above the other, the buttons for the disk and SD card browsers
+  and Fast disk (fast floppy disk access, lit while on: the same as Settings > Common > Storage,
+  as Fast loading is for the tape).
 - **Bottom bar**: the zoom (1x to 4x, the one in use lit; a zoom too big for the screen isn't
   shown, and can't be chosen in Options > Window size) and what the classic status bar says.
 
@@ -1460,6 +1467,7 @@ off as `--no-name` (`--no-fastload`, `--bw`...). In pzx.ini each one is a key wi
 | `--zx_divmmc` | DivMMC interface | ZX Spectrum > Hardware |
 | `--zx_currah` | Currah µSpeech | ZX Spectrum > Hardware |
 | `--cpc_crtc C` | Amstrad CPC: the CRTC chip, `auto` (the one the model came with: type 0 on the 464, type 1 on the 664 and 6128; the default) or `0` to `4` (see [Amstrad CPC](#amstrad-cpc)) | Amstrad CPC |
+| `--cpc_monitor M` | Amstrad CPC: the monitor, `color` (the default), `green` or `orange`; the last two show the picture in shades of their phosphor, and `--bw` only applies to the colour one | Amstrad CPC |
 | `--cpc_waitstates` | Amstrad CPC: the Gate Array's wait states, every access on the 1 MHz grid (on by default) | Amstrad CPC |
 | `--cpc_joystick` | Amstrad CPC: cursor keys and right Ctrl as joystick 1 (on by default) | Amstrad CPC |
 | `--fastload` | fast tape loading | Common > Storage |

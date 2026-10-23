@@ -61,6 +61,7 @@ var
   Sp: TSpectrum;
   Id: Byte;
   I: Integer;
+  Backup: string;
 begin
   Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'pzx-configtest-' + IntToStr(GetProcessID) + PathDelim;
   ForceDirectories(Dir);
@@ -145,21 +146,28 @@ begin
       'old [Machine] names are read');
     Check(S.ZXUnoRoms = 'u.zx1', 'old [ROMs] names are read');
     S.CPCCrtc := 3;
+    S.CPCMonitor := 2;
     S.CPCWaitStates := False;
     S.Save;
     Check((Pos('zx_turbosound=1', IniText) > 0) and (Pos('zx_joystick=sinclair1', IniText) > 0) and
       (Pos('cpc_joystick=0', IniText) > 0) and (Pos('zx_unoroms=u.zx1', IniText) > 0),
       'saved with the new names');
-    Check((Pos('cpc_crtc=3', IniText) > 0) and (Pos('cpc_waitstates=0', IniText) > 0) and
+    Check((Pos('cpc_crtc=3', IniText) > 0) and (Pos('cpc_monitor=orange', IniText) > 0) and (Pos('cpc_waitstates=0', IniText) > 0) and
       (Pos('[amstradcpc]', IniText) > 0) and (Pos('[zxspectrum]', IniText) > 0),
       'the CPC options have their section, as the ZX Spectrum ones');
     Check((Pos(#10'turbosound=', IniText) = 0) and (Pos(#10'currah=', IniText) = 0) and
       (Pos(#10'cpcjoystick=', IniText) = 0) and (Pos(#10'joystick=', IniText) = 0) and
       (Pos(#10'issue=', IniText) = 0), 'and the old names are gone');
+    Backup := S.Snapshot;
     S.Free;
     S := Fresh;
-    Check((S.CPCCrtc = 3) and not S.CPCWaitStates and S.TurboSound and (S.Joystick = jkSinclair1),
+    Check((S.CPCCrtc = 3) and (S.CPCMonitor = 2) and not S.CPCWaitStates and S.TurboSound and (S.Joystick = jkSinclair1),
       'read back from the new names');
+    // What a Cancel after an Apply does: the settings as they were
+    S.CPCMonitor := 1;
+    S.Joystick := jkFuller;
+    S.Restore(Backup);
+    Check((S.CPCMonitor = 2) and (S.Joystick = jkSinclair1), 'Restore puts the settings back as Snapshot took them');
     Check(CurrentOptionName('turbosound') = 'zx_turbosound', 'the command line takes an old name as the new');
     Check(CurrentOptionName('no-divmmc') = 'no-zx_divmmc', '... also with no-');
     Check(CurrentOptionName('speed') = 'speed', 'common options keep their names');

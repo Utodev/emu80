@@ -7,7 +7,7 @@ program cpctest;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Models, Spectrum, Amstrad, ScreenCapture, Tape, DSK, Plus3FS, Snapshot;
+  SysUtils, Classes, Models, Spectrum, Amstrad, ScreenCapture, Tape, DSK, Plus3FS, Snapshot, FramePresenter;
 
 var
   Failures: Integer = 0;
@@ -662,6 +662,51 @@ begin
   DeleteFile(Tmp);
 end;
 
+{ The CPC's monochrome monitors: a white picture is green or orange, black stays
+  black, and "black and white" only counts for the colour monitor }
+procedure TestMonitors;
+var
+  Cur, Prev: array of LongWord;
+  Dest: array of LongWord;
+  O: TPresentOptions;
+  I: Integer;
+
+  procedure Present;
+  begin
+    PresentFrame(@Cur[0], @Prev[0], False, 1, O, PByte(@Dest[0]), SCREEN_WIDTH * 4);
+  end;
+
+begin
+  WriteLn('--- CPC monitors');
+  SetLength(Cur, FB_WIDTH * SCREEN_HEIGHT);
+  SetLength(Prev, FB_WIDTH * SCREEN_HEIGHT);
+  SetLength(Dest, SCREEN_WIDTH * SCREEN_HEIGHT);
+  for I := 0 to High(Cur) do
+  begin
+    Cur[I] := $FFFFFFFF;
+    Prev[I] := $FFFFFFFF;
+  end;
+  Cur[0] := $FF000000; Cur[1] := $FF000000;
+  FillChar(O, SizeOf(O), 0);
+  O.Fine := True;
+  O.Monitor := 1;
+  Present;
+  Check(((Dest[5] shr 8) and $FF > 200) and ((Dest[5] shr 16) and $FF < 80), 'green phosphor: white is a bright green');
+  Check((Dest[0] and $00FFFFFF) = 0, '... and black stays black');
+  O.Monitor := 2;
+  Present;
+  Check(((Dest[5] shr 16) and $FF > 200) and ((Dest[5] and $FF) < 40) and ((Dest[5] shr 8) and $FF < (Dest[5] shr 16) and $FF),
+    'orange phosphor: white is orange');
+  O.Monitor := 0;
+  O.Mono := True;
+  Cur[5] := $FFFF0000; Cur[6] := $FFFF0000;
+  Present;
+  Check(((Dest[2] shr 16) and $FF) = ((Dest[2] shr 8) and $FF), 'colour monitor with black and white on: grey');
+  O.Monitor := 1;
+  Present;
+  Check(((Dest[2] shr 8) and $FF) > ((Dest[2] shr 16) and $FF) + 100, 'a green monitor ignores it: the phosphor, not grey');
+end;
+
 begin
   if ParamCount < 1 then
   begin
@@ -676,6 +721,7 @@ begin
   TestModelSwitch;
   TestSpeed;
   TestCRTC;
+  TestMonitors;
   TestTapeFormats;
   TestDisk(smCPC664);
   TestDisk(smCPC6128);

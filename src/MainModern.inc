@@ -22,7 +22,7 @@ const
     (Icon: ikDebugger; Caption: 'Debug'; Hint: 'Debugger (F12)'),
     (Icon: ikSettings; Caption: 'Settings'; Hint: 'Settings'));
 var
-  I, X, Y, BW, BH, Gap, Pad, W: Integer;
+  I, X, Y, BW, BH, Gap, Pad, W, RowH: Integer;
   Btn: TFlatButton;
   Lbl: TLabel;
   Box: TPaintBox;
@@ -185,20 +185,26 @@ begin
   FMMedia := TPaletteBox.Create(Self);
   FMMedia.Parent := FMRight;
   FMMedia.Caption := 'Media';
-  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + MUIScale(126));
+  // The LEDs and what is in each drive on the left, one row for each of the
+  // buttons on the right, one above the other
+  RowH := MUIScale(32) + Gap;
+  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + Gap + 3 * RowH);
+  BW := (W - 3 * Gap) div 2;
   FMMediaBox := TPaintBox.Create(Self);
   FMMediaBox.Parent := FMMedia;
-  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap, W - 2 * Gap, MUIScale(72));
+  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap div 2, W - BW - 3 * Gap, 3 * RowH);
   FMMediaBox.OnPaint := @PaintModernMedia;
-  BW := (W - 3 * Gap) div 2;
-  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, Gap,
-    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
+  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, 2 * Gap + (W - BW - 3 * Gap) ,
+    FMMedia.TitleHeight + Gap, BW, MUIScale(32));
   FMDiskBtn.Images := FSmallImages;
   FMDiskBtn.IconTop := False;
-  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD card', 'SD card browser', @DoSDBrowser, 2 * Gap + BW,
-    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
+  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD card', 'SD card browser', @DoSDBrowser,
+    2 * Gap + (W - BW - 3 * Gap), FMMedia.TitleHeight + Gap + RowH, BW, MUIScale(32));
   FMSDBtn.Images := FSmallImages;
   FMSDBtn.IconTop := False;
+  FMFastDisk := NewButton(FMMedia, -1, 'Fast disk', 'Fast floppy disk access: no real drive timing',
+    @DoFastDisk, 2 * Gap + (W - BW - 3 * Gap), FMMedia.TitleHeight + Gap + 2 * RowH, BW, MUIScale(32));
+  FMFastDisk.IconTop := False;
 
   // Bottom: zoom, and what the status bar says
   FMBottom := TDarkPanel.Create(Self);
@@ -367,7 +373,8 @@ const
   NAMES: array[0..2] of string = ('A:', 'B:', 'SD');
 var
   C: TCanvas;
-  I, Y, RowH, Led: Integer;
+  I, Y, RowH, Led, Room: Integer;
+  Shown: string;
 begin
   C := FMMediaBox.Canvas;
   C.Brush.Color := MUI_PANEL;
@@ -375,6 +382,7 @@ begin
   C.Font.Assign(Font);
   RowH := FMMediaBox.Height div 3;
   Led := MUIScale(10);
+  Room := FMMediaBox.Width;
   for I := 0 to 2 do
   begin
     Y := I * RowH + (RowH - Led) div 2;
@@ -389,10 +397,11 @@ begin
     C.TextOut(Led + MUIScale(8), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
     C.Font.Style := [];
     if FMediaNames[I] <> '' then C.Font.Color := MUI_DIM else C.Font.Color := $00808080;
-    if FMediaNames[I] <> '' then
-      C.TextOut(Led + MUIScale(36), I * RowH + (RowH - C.TextHeight('A')) div 2, FMediaNames[I])
-    else
-      C.TextOut(Led + MUIScale(36), I * RowH + (RowH - C.TextHeight('A')) div 2, '-');
+    // The name of what is in it, cut short (with ...) to the room there is
+    if FMediaNames[I] <> '' then Shown := FMediaNames[I] else Shown := '-';
+    while (Length(Shown) > 4) and (Led + MUIScale(36) + C.TextWidth(Shown) > Room) do
+      Shown := Copy(Shown, 1, Length(Shown) - 4) + '...';
+    C.TextOut(Led + MUIScale(36), I * RowH + (RowH - C.TextHeight('A')) div 2, Shown);
     C.Brush.Style := bsSolid;
   end;
 end;
@@ -491,6 +500,7 @@ begin
   FMTurbo.Down := FEmu.Turbo;
   FMRec.Down := FEmu.Spec.Recording;
   FMFast.Down := Settings.FastLoad;
+  FMFastDisk.Down := Settings.FastDisk;
   for I := 1 to 4 do
   begin
     FMZoom[I].Down := I = Settings.Scale;

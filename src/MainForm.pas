@@ -58,6 +58,9 @@ type
     FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
     FPrevPixels: array of LongWord;   // the frame before (the other field)
     FPixelsOdd: Boolean;              // FPixels is the odd field
+    FOldRomDir, FOldUno: string;             // what was set before the settings window's last Apply
+    FDeinterlaceTop, FCrtcTop: TMenuItem;   // Options entries of the Spectrum and of the CPC
+    FCrtcItems: array[0..5] of TMenuItem;    // automatic and chips 0-4
     FFloppyTop, FSDTop: TMenuItem;           // menus that don't belong to every machine
     FKeyCount: array[0..39] of Integer;
     FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
@@ -71,7 +74,7 @@ type
     FMirror: TPopupMenu;
     FMHeader, FMLeft, FMRight, FMBottom: TDarkPanel;
     FMMachine, FMTape, FMMedia: TPaletteBox;
-    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
+    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMFastDisk, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
     FMZoom: array[1..4] of TFlatButton;
     FMCassette: TCassette;
     FMTapeLabel: TLabel;
@@ -196,7 +199,9 @@ type
     function ConfirmTapeChanges: Boolean;
     procedure DoScale(Sender: TObject);
     procedure DoDeinterlace(Sender: TObject);
+    procedure DoCrtc(Sender: TObject);
     procedure DoSettings(Sender: TObject);
+    procedure SettingsApplied(Sender: TObject);
     procedure DoTapeInsert(Sender: TObject);
     procedure BuildModern;
     procedure ApplyStyle;
@@ -645,12 +650,25 @@ begin
     FScaleItems[S].GroupIndex := 2;
   end;
   Item := AddItem(TopItem, '&Deinterlace', nil);
+  FDeinterlaceTop := Item;
   for D := Low(TDeinterlace) to High(TDeinterlace) do
   begin
     FDeinterlaceItems[D] := AddItem(Item, DEINTERLACE_NAMES[D], @DoDeinterlace);
     FDeinterlaceItems[D].Tag := Ord(D);
     FDeinterlaceItems[D].RadioItem := True;
     FDeinterlaceItems[D].GroupIndex := 3;
+  end;
+  // The CPC's CRTC chip, in the place of the Spectrum's deinterlacing
+  Item := AddItem(TopItem, '&CRTC chip', nil);
+  FCrtcTop := Item;
+  for S := 0 to 5 do
+  begin
+    if S = 0 then FCrtcItems[S] := AddItem(Item, 'The model''s own', @DoCrtc)
+    else FCrtcItems[S] := AddItem(Item, Format('Type %d: %s', [S - 1,
+      CRTC_NAMES[S - 1]]), @DoCrtc);
+    FCrtcItems[S].Tag := S;
+    FCrtcItems[S].RadioItem := True;
+    FCrtcItems[S].GroupIndex := 4;
   end;
   FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
   FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
@@ -1017,6 +1035,10 @@ begin
   begin
     FScaleItems[S].Checked := S = Settings.Scale;
   FDeinterlaceItems[Settings.Deinterlace].Checked := True;
+  FCrtcItems[Settings.CPCCrtc + 1].Checked := True;
+  // Deinterlacing is the Spectrum's, the CRTC chip the CPC's
+  FDeinterlaceTop.Visible := FEmu.Spec.CPC = nil;
+  FCrtcTop.Visible := FEmu.Spec.CPC <> nil;
     // A zoom too big for the screen can't be chosen
     FScaleItems[S].Enabled := (S = 1) or ScaleFits(S);
   end;
@@ -1154,6 +1176,8 @@ begin
   Options.Mono := Settings.Monochrome;
   Options.Scanlines := Settings.Scanlines;
   Options.Fine := FEmu.Spec.CPC <> nil;
+  Options.Monitor := 0;
+  if FEmu.Spec.CPC <> nil then Options.Monitor := Settings.CPCMonitor;
   W := SCREEN_WIDTH * Scale;
   H := SCREEN_HEIGHT * Scale;
   if (FBitmap.Width <> W) or (FBitmap.Height <> H) then FBitmap.SetSize(W, H);
@@ -1198,6 +1222,18 @@ begin
   FEmu.CopyFields(@FPixels[0], @FPrevPixels[0], FPixelsOdd);
   RenderBitmap;
   FDisplay.Invalidate;
+end;
+
+procedure TMainWindow.DoCrtc(Sender: TObject);
+begin
+  Settings.CPCCrtc := (Sender as TMenuItem).Tag - 1;
+  FEmu.Lock;
+  try
+    ApplyContention;
+  finally
+    FEmu.Unlock;
+  end;
+  UpdateChecks;
 end;
 
 procedure TMainWindow.DoDeinterlace(Sender: TObject);
@@ -3494,14 +3530,22 @@ begin
 end;
 
 procedure TMainWindow.DoSettings(Sender: TObject);
+begin
+  FOldRomDir := Settings.RomDir;
+  FOldUno := Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom;
+  FirmwareChanged := False;
+  StoreZXUnoBios;
+  ShowSettings(@SettingsApplied);
+end;
+
+{ The settings window's Apply (and OK, and Cancel after an Apply): what changed
+  takes effect }
+procedure TMainWindow.SettingsApplied(Sender: TObject);
 var
   OldRomDir, OldUno: string;
 begin
-  OldRomDir := Settings.RomDir;
-  OldUno := Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom;
-  FirmwareChanged := False;
-  StoreZXUnoBios;
-  if not ShowSettings then Exit;
+  OldRomDir := FOldRomDir;
+  OldUno := FOldUno;
   // Other ZX-Uno BIOS, ROMs or custom ROM: switch it off and on with them
   if Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom <> OldUno then
     ApplyZXUnoFiles(FEmu.Spec.Model = smZXUno);
@@ -3540,6 +3584,9 @@ begin
   RenderBitmap;    // black and white may have changed
   FDisplay.Invalidate;
   Settings.Save;
+  FOldRomDir := Settings.RomDir;
+  FOldUno := Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom;
+  FirmwareChanged := False;
 end;
 
 procedure TMainWindow.DoDaadDebugger(Sender: TObject);
