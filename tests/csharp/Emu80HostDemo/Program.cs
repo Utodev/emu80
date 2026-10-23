@@ -295,8 +295,8 @@ namespace Emu80Host
             // 1. the library is in this process
             bool loaded = false;
             foreach (ProcessModule m in Process.GetCurrentProcess().Modules)
-                if (m.ModuleName.ToLower() == "emu80lib.dll") loaded = true;
-            Check(Emulator.ApiVersion == 1 && loaded, "emu80lib.dll is loaded in this process (API version " + Emulator.ApiVersion + ")");
+                if (m.ModuleName.ToLower() == "e80lib.dll") loaded = true;
+            Check(Emulator.ApiVersion == 1 && loaded, "e80lib.dll is loaded in this process (API version " + Emulator.ApiVersion + ")");
             Check(emu.State.Running == 1 && emu.State.Attached == 1, "the engine runs and the panel is attached");
 
             // 2. the screen is in the panel, no window of the engine

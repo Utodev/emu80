@@ -1,4 +1,4 @@
-// P/Invoke declarations for emu80lib.dll (the emu80 emulation engine as a native
+// P/Invoke declarations for e80lib.dll (the emu80 emulation engine as a native
 // library, loaded into this process) and a small managed wrapper. C# 5
 // compatible (it is built with the .NET Framework's csc).
 using System;
@@ -29,7 +29,7 @@ namespace Emu80Host
 
     static class Native
     {
-        const string Dll = "emu80lib.dll";
+        const string Dll = "e80lib.dll";
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern int emu80_version();
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern IntPtr emu80_create(int model, string romDir);
         [DllImport(Dll, CallingConvention = CallingConvention.Cdecl)] public static extern void emu80_destroy(IntPtr h);

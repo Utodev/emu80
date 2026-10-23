@@ -3,7 +3,7 @@ The user manual of the emu80 program is in [README.md](README.md). This file is 
 # Native library for a host application
 
 The emulation engine (the same one the program runs: the Z80, the memory, the video, the peripherals) can be
-built as a native library, `emu80lib.dll` (Windows) or `libemu80lib.so` (Linux), that a host application loads **into
+built as a native library, `e80lib.dll` (Windows) or `libe80.so` (Linux), that a host application loads **into
 its own process**: a C# GUI through P/Invoke, for instance. The program, `emu80.exe`, is unchanged and keeps
 working on its own; both use the same engine and the same code for the picture (`src/FramePresenter.pas`:
 scaling, black and white, scanlines and [deinterlacing](README.md#deinterlacing)).
@@ -39,14 +39,14 @@ up, down, left, right, fire 1, fire 2, 79 = DEL); `emu80_load_file` takes `.cdt`
 | Memory | `emu80_read_mem`, `emu80_write_mem` (as the CPU sees it), `emu80_set_rom_writable`, `emu80_ram_bank_count`, `emu80_read_ram_bank`, `emu80_write_ram_bank` (the physical 16K RAM banks) |
 | Paging | `emu80_get_paging` (7FFD, 1FFD, what is in each 16K slot, the DivMMC...), `emu80_write_port` (7FFD, 1FFD), `emu80_set_slot3_bank`, `emu80_next_reg_get`, `emu80_next_reg_set` (the Next's MMU is in its registers 50-57) |
 | Debugging | `emu80_set_breakpoint`, `emu80_get_breakpoint` (flags: 1 execution, 2 read, 4 write, 128 disabled), `emu80_clear_breakpoints`, `emu80_step_into`, `emu80_step_over`, `emu80_run_to` (they pause the machine first), `emu80_get_state` (running, paused, why it stopped, PC, frames, fps...), `emu80_get_break_reason` |
-| Loading | `emu80_load_ram` (bytes into memory, then `emu80_set_reg` PC), `emu80_load_file` (.sna, .z80, .pzs, .nex; a .tap or .tzx is inserted and loaded) |
+| Loading | `emu80_load_ram` (bytes into memory, then `emu80_set_reg` PC), `emu80_load_file` (.sna, .z80, .e80, .nex; a .tap or .tzx is inserted and loaded) |
 | Input | `emu80_key`, `emu80_set_kempston` |
 
 Every call that touches the machine takes the engine's lock, so a host can call from its UI thread while the
 machine runs.
 
-**Building.** `src/lib/build-lib.sh` (from WSL or Linux) makes `build/lib/emu80lib.dll` with the Windows compiler
-of Lazarus, or `libemu80lib.so` with `fpc` (`src/lib/build-lib.sh linux`). The Windows compiler of Lazarus is 32 bits, so
+**Building.** `src/lib/build-lib.sh` (from WSL or Linux) makes `build/lib/e80lib.dll` with the Windows compiler
+of Lazarus, or `libe80.so` with `fpc` (`src/lib/build-lib.sh linux`). The Windows compiler of Lazarus is 32 bits, so
 the DLL is 32 bits and the host program must be as well (`/platform:x86`); a 64-bit DLL needs a Win64 Free Pascal.
 Neither the library nor the host demo needs Lazarus's LCL.
 

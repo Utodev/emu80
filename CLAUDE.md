@@ -14,6 +14,9 @@ This is a Z80 machines emulator made with  Lazarus (Free Pascal) using LCL
   into `src/Release.inc`, which the About box shows:
   `printf "{ Release number: the build date and time (YYYYMMDDHHMM), written before every build (see CLAUDE.md) }\nconst\n  EMU80_RELEASE = '%s';\n" "$(date +%Y%m%d%H%M)" > src/Release.inc`
 
+- Lazbuild de Windows está en /mnt/c/lazarus/lazbuild.exe
+- Lazbuild de linux está en el path de WSL
+
 - `lazbuild src/emu80.lpi` writes `emu80.exe` into `src/` (so it builds from any folder or drive).
   When Claude builds it, move the result to the repository's top folder afterwards
   (`mv -f src/emu80.exe emu80.exe`) so it sits next to `roms/`, `esxdos/`, `README.md` and

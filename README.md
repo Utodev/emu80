@@ -331,7 +331,8 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 
 Settings are kept in `emu80.ini` in the same folder as the program (next to emu80.app on macOS); on
 Linux, if that folder can't be written (emu80 installed from a .deb or .rpm package), in
-`~/.config/emu80/emu80.ini`. See `--config` and `--config-add` below to use other files. `emu80.ini` is
+`~/.config/emu80/emu80.ini`. On Windows no other ini is ever read (not even an older one from another
+folder or from the user's profile). See `--config` and `--config-add` below to use other files. `emu80.ini` is
 an ini file whose keys are named exactly as the command line options (see
 [Command line](#12-command-line)), with 1/0 for on/off options and the option's value for the
 others. The options of the ZX Spectrum models start with `zx_` and those of the Amstrad CPC with
@@ -676,10 +677,20 @@ Opening a `.sna` made with its memory in compressed chunks (some version 3 files
 can't. The tape's position and a disc transfer in progress are in neither; the discs stay inserted as they are.
 
 **Debugger**: the same one: the disassembly, memory and registers show the memory as the CPU sees it (ROM
-paged in or RAM under it; the slot list shows `ROM0` operating system, `ROM1` BASIC, `ROM2` AMSDOS, `RAM0`-`RAM7`),
+paged in or RAM under it; the slot list shows `ROM0` operating system, `ROM1` BASIC, `ROM2` AMSDOS, `RAM0`-`RAM7`;
+click a slot to change what it holds, as the CPC itself would: the lower ROM at `0000` or RAM, the BASIC or AMSDOS ROM at
+`C000` or RAM, and the RAM banks the Gate Array's configurations allow in each slot (the 464 and 664 have the first four
+only)),
 breakpoints, port breakpoints and the port log work on the CPC's ports (`7Fxx` Gate Array, `BCxx`-`BFxx` CRTC,
-`DFxx` upper ROM, `F4xx`-`F7xx` PPI, `FA7E`-`FB7F` disc), step back included. The ROM labels are those of
-`cpc*.sym` next to the firmware, if you have them (none are supplied).
+`DFxx` upper ROM, `F4xx`-`F7xx` PPI, `FA7E`-`FB7F` disc), step back included. The 464, 664 and 6128 have labels
+(`roms/cpc464.sym`, `cpc664.sym` and `cpc6128.sym`): the firmware jumpblocks (`KM_WAIT_KEY`, `TXT_OUTPUT`...), the
+indirections, the kernel and its system variables, and the routines of the lower ROM, those the jumpblock leads to
+as `KM_WAIT_KEY_ROM` and the rest as in the 6128's commented source. Labels in the lower ROM (`0000`-`3FFF`) only
+show while it is switched in, and those in `C000`-`FFFF` while the BASIC ROM is; the jumpblocks and the variables
+are in RAM and always show (the low kernel at `0000`-`003F` too, as it is in RAM as well). The 664 and 6128 also
+have labels for the AMSDOS ROM (`roms/amsdos.sym`: the RSX commands, the BIOS and extended jumpblocks, the disc, FDC,
+cassette-over-disc and file routines, and the disc workspace variables), which show only while AMSDOS is the upper ROM in
+use (`ROM2` in the slot list).
 
 **Not emulated**: the CPC+ range and the GX4000 (only its CRTC chip types are there, as above); the CRTC's cursor,
 light pen and interlace modes (R8 bits 0-1, R10, R11); the Gate Array's sub-microsecond pixel timing (colours and modes change at
@@ -703,7 +714,6 @@ the SD card (the Next keeps its own card; on the others the card in use stays), 
 or the ZX-Uno's flash (made again from its BIOS and ROMs files). The file is `EMU80SNAP`, a
 version byte (1), the machine's `--model` name (a length byte and the name: `48k`, `zxnext`...),
 then the machine compressed with zlib in the order of `SnapIO` in `src/Emu80Snap.inc`.
-Snapshots made when the emulator was called pzx (`.pzs`, signature `PZXSNAP`) open too.
 
 ## 5. Tape browser
 
@@ -997,22 +1007,27 @@ if the last instruction made the access) and what each 16K slot holds (ROMn, RAM
 no memory on the 16K; DIV for the DivMMC and SPCH for the Currah µSpeech's ROM when they are
 paged in). The mouse wheel over the stack or the ports scrolls them (up to 50
 entries: the last 50 port accesses are kept); after a step they show the top again. On the 128K
-models, click slot 3 (or its arrow) to page another RAM bank in. A slot, or any of the DivMMC and
+models, click slot 3 (underlined) to page another RAM bank in. A slot, or any of the DivMMC and
 ZX-Uno values below, that the last instruction changed is dark red (128K/+3 paging, the DivMMC's
 MMU and automap, MASTERMAPPER).
 
 With the DivMMC connected, two more lines (the stack and port lists show 6 entries instead of 8)
 show its paging: what is at `0000` (EEPROM, or RAM3 with MAPRAM) and the RAM bank at
 `2000`-`3FFF`, and whether it is paged in or out; then CONMEM, MAPRAM and automatic paging
-(automap). Click the bank (or its arrow) to choose another one, CONMEM to switch it, and automap
+(automap). Click the bank (underlined) to choose another one, CONMEM to switch it, and automap
 to page the DivMMC in or out. MAPRAM can't be switched off, as on the real interface.
 
 On the ZX-Uno the DivMMC lines are always shown, and one more line below them (one stack/port
 entry fewer): BOOTM (boot mode, click to switch it), MAPPER (MASTERMAPPER: the SRAM page at
-`C000` in boot mode; a drop-down to choose another page; grey when not in boot mode, where it
+`C000` in boot mode; underlined, click to choose another page; grey when not in boot mode, where it
 does nothing) and LOCK. The debugger can change them even when MASTERCONF is locked. Slot 0 shows
 BOOT for the boot ROM; RAM numbers are SRAM pages (ROMs are pages 8-11, the DivMMC firmware page
 12 and its RAM pages 16-23).
+
+On the ZX Spectrum Next one more line (one stack/port entry fewer) shows the MMU: `MMU` and the eight registers
+(`$50`-`$57`), the 8K page of each slot from `0000` to `E000` in decimal (`ROM` is 255). Click one to choose another
+page from a two-level menu: `ROM` (only for the first two slots), and `1Mb` (pages 0-95) and `2Mb` (96-223), each a
+list of pages. It is written as a `NEXTREG` would, so the paging and the register read through the Next's ports follow.
 
 ### Memory
 
@@ -1228,7 +1243,11 @@ without adding it to the list.
 
 The ROM routines and system variables are labelled from the .sym files in the roms folder (48K:
 *The Complete Spectrum ROM Disassembly*; 128K, +2 and +3, including the +3DOS entry points: the
-ZXSpectrumVault disassemblies; `tools/make-rom-symbols.py` rebuilds them). ROM labels only apply
+ZXSpectrumVault disassemblies; `tools/make-rom-symbols.py` rebuilds them; Amstrad CPC 464: the firmware
+jumpblock, indirections and system variables from *Amstrad CPC464 Firmware Explained* and Don Thomasson's
+memory maps, and the 664 and 6128 from the commented source of the 6128 firmware; `tools/make-cpc-symbols.py`; AMSDOS: named from the comments of its commented disassembly,
+`tools/make-amsdos-symbols.py`).
+ROM labels only apply
 while that ROM is paged in. Your own symbols, as exported by SjASM / SjASMPlus
 (`LABEL: EQU 0x8000`), are loaded with Debug > Load symbols or `--sym` and take precedence:
 
@@ -1546,7 +1565,7 @@ program and its folders in `/usr/lib/emu80`, a `emu80` command, a desktop entry 
 need GTK 2 and recommend SDL2 (for sound). The version is the release number. `package.sh` also
 makes `emu80-VERSION-windows.zip` with `emu80.exe` (built with lazbuild) and its folders, to unpack
 anywhere. The three packages have a `lib` folder (`/usr/lib/emu80/lib` in the Linux ones) with the native
-library for host applications (`emu80lib.dll`, or `libemu80lib.so`) and its documentation, `LIBRARY.md`; `package.sh`
+library for host applications (`e80lib.dll`, or `libe80.so`) and its documentation, `LIBRARY.md`; `package.sh`
 builds the library with `src/lib/build-lib.sh` if it is not built yet. They also have a `tests` folder with the
 C# host demo (`Emu80HostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `Emu80HostDemo.exe --selftest`).
 
@@ -1616,5 +1635,9 @@ distribution but retain the copyright; see `roms/README.md`. The ROM labels in
 Spectrum ROM Disassembly* by Ian Logan and Frank O'Hara
 (github.com/skoolkid/rom, GPL v3). The 128K, +2 and +3 labels come from the
 disassemblies collected in github.com/ZXSpectrumVault/rom-disassemblies (Paul
-Farrow, Garry Lancaster and others). `roms/tbblue_loader.rom` is the ZX Spectrum
+Farrow, Garry Lancaster and others). The CPC labels (`roms/cpc464.sym`, `cpc664.sym`, `cpc6128.sym`) use the names of the 6128 firmware source by
+Bread80 (github.com/Bread80/CPC6128-Firmware-Source, from the commented disassembly of Kevin Thacker) and, for the
+jumpblock and some variables of the 464, those of *Amstrad CPC464
+Firmware Explained* (Locomotive Software) and *Amstrad: desensamblado de la ROM y mapa de memoria* (Don
+Thomasson). `roms/tbblue_loader.rom` is the ZX Spectrum
 Next's boot ROM (Victor Trucco and Fabio Belavenuto, GPL v3).

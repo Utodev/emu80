@@ -91,9 +91,7 @@ begin
   finally
     L.Free;
   end;
-  // The files made when it was called pzx say "pzx" instead
-  if not (Data is TJSONObject) or ((TJSONObject(Data).Get('emu80', '') <> Kind) and
-     (TJSONObject(Data).Get('pzx', '') <> Kind)) then
+  if not (Data is TJSONObject) or (TJSONObject(Data).Get('emu80', '') <> Kind) then
   begin
     Data.Free;
     Error := Format('not an emu80 %s file', [Kind]);

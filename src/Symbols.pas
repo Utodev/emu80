@@ -35,13 +35,21 @@ type
 
   { Labels for the ROMs of a model: roms/<rom file>.sym, plus roms/48.sym for
     the 48K BASIC ROM. ROM labels apply only while that ROM is paged in; RAM
-    labels (system variables) apply always. }
+    labels (system variables) apply always. On the Amstrad CPC the ROM at
+    0000-3FFF is the lower ROM and the one at C000-FFFF the upper ROM (BASIC):
+    labels in either apply only while that ROM is switched in (BASIC or, on the
+    models with a disc drive, AMSDOS, which has its own file), whereas the ones
+    in 4000-BFFF (firmware jumpblock and variables) apply always. }
   TRomSymbolSet = class
   private
     FRoms: array[0..3] of TSymbolTable;
     FRam: TSymbolTable;
+    FUpper: array[1..2] of TSymbolTable;   // CPC: labels at C000-FFFF of the upper ROMs (1 BASIC, 2 AMSDOS)
+    FCpc: Boolean;
     FLoadedKey: string;
   public
+    { CPC: the upper ROM switched in at C000-FFFF, 1 BASIC and 2 AMSDOS, 0 none (set by who looks labels up) }
+    UpperRom: Integer;
     constructor Create;
     destructor Destroy; override;
     { Load the labels for a model; does nothing if they are already loaded. }
@@ -208,6 +216,8 @@ begin
   inherited Create;
   for I := 0 to 3 do FRoms[I] := TSymbolTable.Create;
   FRam := TSymbolTable.Create;
+  FUpper[1] := TSymbolTable.Create;
+  FUpper[2] := TSymbolTable.Create;
 end;
 
 destructor TRomSymbolSet.Destroy;
@@ -216,6 +226,8 @@ var
 begin
   for I := 0 to 3 do FRoms[I].Free;
   FRam.Free;
+  FUpper[1].Free;
+  FUpper[2].Free;
   inherited Destroy;
 end;
 
@@ -240,8 +252,24 @@ var
   begin
     if not FileExists(Name) then Exit;
     try
-      if Rom >= 0 then FRoms[Rom].LoadFromFile(Name, 0, $3FFF);
-      FRam.LoadFromFile(Name, $4000, $FFFF);
+      if FCpc then
+      begin
+        // ROM 0 is the firmware: lower ROM and BASIC; ROM 1 is AMSDOS (upper ROM 2)
+        if Rom = 0 then
+        begin
+          FRoms[0].LoadFromFile(Name, 0, $3FFF);
+          FRam.LoadFromFile(Name, 0, $3F);     // the low kernel is in RAM too
+        end;
+        FRam.LoadFromFile(Name, $4000, $BFFF);
+        if Rom <= 1 then FUpper[Rom + 1].LoadFromFile(Name, $C000, $FFFF);
+      end
+      else if Rom >= 0 then
+      begin
+        FRoms[Rom].LoadFromFile(Name, 0, $3FFF);
+        FRam.LoadFromFile(Name, $4000, $FFFF);
+      end
+      else
+        FRam.LoadFromFile(Name, $4000, $FFFF);
     except
       // labels are optional: ignore unreadable files
     end;
@@ -254,6 +282,9 @@ begin
   FLoadedKey := Key;
   for I := 0 to 3 do FRoms[I].Clear;
   FRam.Clear;
+  FUpper[1].Clear;
+  FUpper[2].Clear;
+  FCpc := Info.Memory = mkCPC;
   Dir := IncludeTrailingPathDelimiter(RomDir);
   Basic := Dir + '48.sym';
   // The model's own files first: the first name for an address wins
@@ -270,7 +301,11 @@ end;
 
 function TRomSymbolSet.Lookup(Addr: Word; RomIndex: Integer): string;
 begin
-  if Addr >= $4000 then
+  if FCpc and (Addr >= $C000) then
+  begin
+    if (UpperRom >= 1) and (UpperRom <= 2) then Result := FUpper[UpperRom].Lookup(Addr) else Result := '';
+  end
+  else if (Addr >= $4000) or (FCpc and (Addr < $40)) then
     Result := FRam.Lookup(Addr)
   else if (RomIndex >= 0) and (RomIndex <= 3) then
     Result := FRoms[RomIndex].Lookup(Addr)
@@ -281,6 +316,7 @@ end;
 function TRomSymbolSet.Find(const Name: string; RomIndex: Integer; out Addr: Word): Boolean;
 begin
   Result := FRam.Find(Name, Addr) or
+    (FCpc and (UpperRom >= 1) and (UpperRom <= 2) and FUpper[UpperRom].Find(Name, Addr)) or
     ((RomIndex >= 0) and (RomIndex <= 3) and FRoms[RomIndex].Find(Name, Addr));
 end;
 

@@ -777,20 +777,14 @@ begin
   Old := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'emu80.ini';
   if FileExists(FFileName) then
     FMainText.LoadFromFile(FFileName)
+{$IFDEF WINDOWS};  // On Windows only the ini next to the executable is read
+{$ELSE}
   else if not FCustomFile and FileExists(ExtractFilePath(FFileName) + '..' + PathDelim + 'emu80.ini') then
     // Settings next to an executable that used to live one folder up
     FMainText.LoadFromFile(ExtractFilePath(FFileName) + '..' + PathDelim + 'emu80.ini')
   else if not FCustomFile and FileExists(Old) then
-    FMainText.LoadFromFile(Old)     // settings of older versions, kept per user
-  // The settings of pzx, which is what this emulator was called
-  else if not FCustomFile and FileExists(ExtractFilePath(FFileName) + 'pzx.ini') then
-    FMainText.LoadFromFile(ExtractFilePath(FFileName) + 'pzx.ini')
-  else if not FCustomFile and FileExists(ExtractFilePath(FFileName) + '..' + PathDelim + 'pzx.ini') then
-    FMainText.LoadFromFile(ExtractFilePath(FFileName) + '..' + PathDelim + 'pzx.ini')
-  else if not FCustomFile and FileExists(ExtractFilePath(ExcludeTrailingPathDelimiter(
-    ExtractFilePath(Old))) + 'pzx' + PathDelim + 'pzx.ini') then
-    FMainText.LoadFromFile(ExtractFilePath(ExcludeTrailingPathDelimiter(ExtractFilePath(Old))) +
-      'pzx' + PathDelim + 'pzx.ini');
+    FMainText.LoadFromFile(Old);    // settings of older versions, kept per user
+{$ENDIF}
   Ini := TMemIniFile.Create('');
   try
     Ini.SetStrings(FMainText);

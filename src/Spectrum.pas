@@ -569,7 +569,7 @@ type
     property ForeignCore: Integer read FForeignCore write FForeignCore;
     { The Next's Multiface is paged in (its NMI menu is running) }
     property MultifaceOn: Boolean read FMfOn;
-    { emu80's own snapshots (.pzs: see Emu80Snap.inc), for any model: whether
+    { emu80's own snapshots (.e80: see Emu80Snap.inc), for any model: whether
       it is the only kind this machine can have (the ZX Spectrum Next and
       the ZX-Uno), the machine a file is of (raises if it isn't one), save
       and load (the machine must be that model) }
@@ -682,6 +682,9 @@ type
     { Debugger: page RAM bank 0-7 in at C000 (128K/+2/+3 normal paging).
       Ignores the paging lock. False if this machine can't. }
     function SetSlot3Bank(Bank: Integer): Boolean;
+    { Debugger, CPC: what a slot can hold (as SlotBank) and putting it there }
+    function CPCSlotCanHold(Slot, What: Integer): Boolean;
+    function SetCPCSlot(Slot, What: Integer): Boolean;
     { What is at Addr now: RAM, ROM (also the DivMMC's EEPROM or its
       write-protected bank when paged in) or nothing }
     function MemoryAt(Addr: Word): TMemoryAt;
@@ -1666,6 +1669,17 @@ begin
   if not Result then Exit;
   FPort7FFD := (FPort7FFD and $F8) or (Bank and 7);
   UpdatePaging;
+end;
+
+function TSpectrum.CPCSlotCanHold(Slot, What: Integer): Boolean;
+begin
+  Result := FIsCPC and FCPC.SlotCanHold(Slot, What);
+end;
+
+function TSpectrum.SetCPCSlot(Slot, What: Integer): Boolean;
+begin
+  Result := FIsCPC and FCPC.SetSlot(Slot, What);
+  if Result then CPCPaging;
 end;
 
 function TSpectrum.PagedRom: Integer;

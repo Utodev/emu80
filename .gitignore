@@ -91,7 +91,6 @@ build/
 
 # Settings written next to the executable
 emu80.ini
-pzx.ini
 # The ZX Spectrum Next's SD card (and old ones kept when a new distribution comes)
 zxnext*.img
 

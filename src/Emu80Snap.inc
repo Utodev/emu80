@@ -1,8 +1,8 @@
-{ Emu80Snap.inc: emu80's own snapshots, .pzs (included by Spectrum.pas): the
+{ Emu80Snap.inc: emu80's own snapshots, .e80 (included by Spectrum.pas): the
   only ones for the machines that .z80 and .sna can't hold, the ZX Spectrum
   Next (2 MB, its registers, display, copper, DMA) and the ZX-Uno (its 512K
   of SRAM and registers), and a choice for the others (all their state,
-  the DivMMC's RAM, ULAplus, three AY chips...). The file: "EMU80SNAP" ("PZXSNAP" in those made when it was called pzx), a
+  the DivMMC's RAM, ULAplus, three AY chips...). The file: "EMU80SNAP", a
   version byte, the model's key (a length byte and its --model name), then
   the machine compressed with zlib, in the order of SnapIO. SD cards and
   disks aren't in it, nor the ZX-Uno's flash (made again from its BIOS and
@@ -10,11 +10,9 @@
 
 const
   E80_MAGIC = 'EMU80SNAP';
-  { Snapshots made when this emulator was called emu80 (.pzs) are read too }
-  OLD_MAGIC = 'PZXSNAP';
-  PZS_VERSION = 1;
+  EMU80_VERSION = 1;
 
-{ The header of a snapshot file: its signature (either), its version and the
+{ The header of a snapshot file: its signature, its version and the
   model's key; the stream is left at the machine's data. False if it isn't one. }
 function ReadSnapHeader(F: TStream; out Key: string): Boolean;
 var
@@ -24,15 +22,10 @@ begin
   Result := False;
   Key := '';
   if F.Read(Buf, 7) < 7 then Exit;
-  if CompareMem(@Buf, PChar(OLD_MAGIC), 7) then
-  else if CompareMem(@Buf, PChar(E80_MAGIC), 7) then
-  begin
-    if F.Read(Buf[7], 2) < 2 then Exit;
-    if not CompareMem(@Buf, PChar(E80_MAGIC), 9) then Exit;
-  end
-  else Exit;
+  if F.Read(Buf, 9) < 9 then Exit;
+  if not CompareMem(@Buf, PChar(E80_MAGIC), 9) then Exit;
   if F.Read(V, 1) < 1 then Exit;
-  if V <> PZS_VERSION then Exit;
+  if V <> EMU80_VERSION then Exit;
   if F.Read(Len, 1) < 1 then Exit;
   SetLength(Key, Len);
   if (Len > 0) and (F.Read(Key[1], Len) < Len) then Exit;
@@ -252,7 +245,7 @@ begin
   F := TFileStream.Create(FileName, fmCreate);
   try
     F.WriteBuffer(E80_MAGIC[1], Length(E80_MAGIC));
-    V := PZS_VERSION;
+    V := EMU80_VERSION;
     F.WriteBuffer(V, 1);
     Key := ModelKey(FModel);
     V := Length(Key);

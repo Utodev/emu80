@@ -37,11 +37,13 @@ type
     skIFF,        // click to toggle; Target = 1 or 2
     skIM,         // click to cycle 0, 1, 2
     skSlot3,      // click to choose the RAM bank at C000
+    skCpcSlot,    // CPC: click to choose what a slot holds (Target = slot)
     skDivBank,    // click to choose the DivMMC RAM bank at 2000
     skDivConmem,  // click to toggle CONMEM
     skDivMapped,  // click to page the DivMMC in or out
     skUnoBoot,    // click to toggle the ZX-Uno's boot mode (MASTERCONF bit 0)
-    skUnoMapper   // click to choose MASTERMAPPER's SRAM page
+    skUnoMapper,  // click to choose MASTERMAPPER's SRAM page
+    skNextMMU     // click to choose the page of an MMU register of the Next (Target = slot 0-7)
   );
 
   TRegId = (rAF, rHL, rDE, rBC, rAF_, rHL_, rDE_, rBC_, rIX, rIY, rI, rR, rSP, rPC);
@@ -308,18 +310,25 @@ type
     FPortLog: array of TPortAccess; // newest first
     FSlots: array[0..3] of Integer; // what is paged in each 16K slot
     FSlot3OK: Boolean;              // slot 3 can be changed (128K paging)
+    FIsCpc: Boolean;                // Amstrad CPC: every slot can be changed, as the CPC allows
+    FCpcSlot: Integer;              // the slot whose menu is open
     FDivActive: Boolean;            // the DivMMC is paged in at 0000-3FFF
     FCurrahPaged: Boolean;          // the Currah µSpeech's ROM is paged in
     FDivOn: Boolean;                // the DivMMC is connected
     FDivControl: Byte;              // its control register (port E3)
     FDivMapped: Boolean;            // paged in by the automatic paging
     FUnoOn: Boolean;                // the machine is a ZX-Uno
+    FNextOn: Boolean;               // the machine is a ZX Spectrum Next
+    FNextMMU: array[0..7] of Byte;  // its MMU registers (8K page of each slot, 255 = ROM)
     FUnoConf, FUnoMapper: Byte;     // its MASTERCONF and MASTERMAPPER
     FUnoButton: TToolButton;        // ZX-Uno registers (shown on a ZX-Uno)
     FUnoRegs: TZXUnoRegsWindow;
     FMapperMenu: TPopupMenu;
     FDivMenu: TPopupMenu;
     FSlotMenu: TPopupMenu;
+    FCpcMenu: TPopupMenu;           // CPC: what a slot can hold
+    FNextMenu: TPopupMenu;          // Next: the pages an MMU register can take
+    FNextSlot: Integer;             // the MMU register whose menu is open
     FWatches: array of Word;
     FWatchView: TDebugView;
     FBreakView: TDebugView;
@@ -423,12 +432,18 @@ type
     function PortLogEntry(Index: Integer): TPortAccess;
     function SlotBank(Slot: Integer): Integer;
     function Slot3Changeable: Boolean;
+    function CpcSlotChangeable: Boolean;
     function DivActive: Boolean;
     function CurrahPaged: Boolean;
     function DivOn: Boolean;
     function DivControl: Byte;
     function DivMappedNow: Boolean;
     function UnoOn: Boolean;
+    function NextOn: Boolean;
+    function NextMMU(Slot: Integer): Byte;
+    procedure SetNextMMU(Slot, Value: Integer);
+    procedure ChooseNextMMU(Slot: Integer);
+    procedure NextMMUClick(Sender: TObject);
     function UnoConf: Byte;
     function UnoMapper: Byte;
     procedure ToggleUnoBoot;
@@ -440,6 +455,8 @@ type
     procedure ToggleDivMapped;
     procedure ChooseSlot3;
     procedure Slot3Click(Sender: TObject);
+    procedure ChooseCpcSlot(Slot: Integer);
+    procedure CpcSlotClick(Sender: TObject);
     { Watches: addresses whose two bytes are shown in the watch zone }
     procedure AddWatch;
     procedure AddWatchAt(Addr: Word);
@@ -521,7 +538,8 @@ const
   MENU_LABEL = 107;
 
   CLICKABLE = [skRegister, skMemWord, skMemByte, skMemXorByte, skAscii, skFlag, skIFF, skIM,
-    skSlot3, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper];
+    skSlot3, skCpcSlot, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper,
+    skNextMMU];
 
 type
   { Breakpoint window: the end address follows the start until it is
@@ -707,10 +725,12 @@ begin
   Spot := FSpots[Index];
   case Spot.Kind of
     skRegister, skMemWord, skMemByte, skMemXorByte: BeginEdit(Spot);
+    skNextMMU: FOwnerWin.ChooseNextMMU(Spot.Target);
     skFlag: FOwnerWin.ToggleFlag(Spot.Target);
     skIFF: FOwnerWin.ToggleIFF(Spot.Target);
     skIM: FOwnerWin.CycleIM;
     skSlot3: FOwnerWin.ChooseSlot3;
+    skCpcSlot: FOwnerWin.ChooseCpcSlot(Spot.Target);
     skDivBank: FOwnerWin.ChooseDivBank;
     skDivConmem: FOwnerWin.ChangeDivControl($80);
     skDivMapped: FOwnerWin.ToggleDivMapped;
@@ -2910,6 +2930,7 @@ begin
   // ZX-Uno's), so the zone keeps its height
   if FOwnerWin.DivOn then Rows := STACK_ENTRIES - 2 else Rows := STACK_ENTRIES;
   if FOwnerWin.UnoOn then Dec(Rows);
+  if FOwnerWin.NextOn then Dec(Rows);
   Name(0, 'Stack');
   Name(17, 'Ports');
   Inc(Y, FLineH);
@@ -2974,19 +2995,35 @@ begin
     ValueColor := ChangedOrBlack((Bank <> PP.Slots[I]) or
       ((I = 0) and ((FOwnerWin.DivActive <> PP.DivActive) or
       (FOwnerWin.CurrahPaged <> PP.CurrahPaged))));
-    if (I = 3) and FOwnerWin.Slot3Changeable then
+    if ((I = 3) and FOwnerWin.Slot3Changeable) or FOwnerWin.CpcSlotChangeable then
     begin
-      // A drop-down: underlined, click to choose the bank
-      AddSpot(Col(9 + I * 7), Y, 6, skSlot3, Bank);   // the arrow too
+      // A drop-down: underlined, click to choose the bank (or the ROM, on the CPC)
+      if FOwnerWin.CpcSlotChangeable then
+        AddSpot(Col(9 + I * 7), Y, 6, skCpcSlot, Bank, 0, I)
+      else
+        AddSpot(Col(9 + I * 7), Y, 6, skSlot3, Bank);
       Canvas.Font := Font;
       Canvas.Font.Style := [fsUnderline];
       Canvas.Font.Color := ValueColor;
       Canvas.Brush.Style := bsClear;
-      Canvas.TextOut(Col(9 + I * 7), Y, Text_ + ' ' + #$E2#$96#$BE);
+      Canvas.TextOut(Col(9 + I * 7), Y, Text_);
       Canvas.Font := Font;
     end
     else
       DrawText(Col(9 + I * 7), Y, Text_, ValueColor, False);
+  end;
+
+  // Next: the MMU registers, the 8K page of each of the 8 slots (255 = ROM); click to choose
+  if FOwnerWin.NextOn then
+  begin
+    Inc(Y, FLineH);
+    Name(0, 'MMU');
+    for I := 0 to 7 do
+    begin
+      AddSpot(Col(7 + I * 4), Y, 3, skNextMMU, FOwnerWin.NextMMU(I), 0, I);
+      if FOwnerWin.NextMMU(I) = 255 then Text_ := 'ROM' else Text_ := IntToStr(FOwnerWin.NextMMU(I));
+      ClickValue(7 + I * 4, Text_, TC(clBlack));
+    end;
   end;
 
   // DivMMC paging: what it maps at 0000 and 2000 (bank: a drop-down), and
@@ -3006,7 +3043,7 @@ begin
     Canvas.Font.Style := [fsUnderline];
     Canvas.Font.Color := ChangedOrBlack(((Ctl xor OldCtl) and $0F) <> 0);
     Canvas.Brush.Style := bsClear;
-    Canvas.TextOut(Col(24), Y, 'RAM' + IntToStr(Ctl and $0F) + ' ' + #$E2#$96#$BE);
+    Canvas.TextOut(Col(24), Y, 'RAM' + IntToStr(Ctl and $0F));
     Canvas.Font := Font;
     // Paged in now (by automap or CONMEM) or not
     if FOwnerWin.DivActive <> PP.DivActive then ValueColor := ChangedOrBlack(True)
@@ -3050,7 +3087,7 @@ begin
     if Have and (FOwnerWin.UnoMapper <> PP.UnoMapper) then Canvas.Font.Color := ChangedColor
     else if (FOwnerWin.UnoConf and 1) = 0 then Canvas.Font.Color := TC(clGray);
     Canvas.Brush.Style := bsClear;
-    Canvas.TextOut(Col(22), Y, 'RAM' + IntToStr(FOwnerWin.UnoMapper) + ' ' + #$E2#$96#$BE);
+    Canvas.TextOut(Col(22), Y, 'RAM' + IntToStr(FOwnerWin.UnoMapper));
     Canvas.Font := Font;
     DrawText(Col(30), Y, 'LOCK', TC(clGray), False);
     DrawText(Col(35), Y, IntToStr(FOwnerWin.UnoConf shr 7), ChangedOrBlack(((FOwnerWin.UnoConf xor PP.UnoConf) and $80) <> 0), False);
@@ -3476,6 +3513,70 @@ begin
   Result := FDivControl;
 end;
 
+function TDebuggerWindow.NextOn: Boolean;
+begin
+  Result := FNextOn;
+end;
+
+function TDebuggerWindow.NextMMU(Slot: Integer): Byte;
+begin
+  Result := FNextMMU[Slot and 7];
+end;
+
+procedure TDebuggerWindow.ChooseNextMMU(Slot: Integer);
+var
+  Page: Integer;
+  Group: TMenuItem;
+  PickMenu: TPopupMenu;
+  P: TPoint;
+
+  function NewItem(Parent: TMenuItem; const ACaption: string; Value: Integer): TMenuItem;
+  begin
+    Result := TMenuItem.Create(PickMenu);
+    Result.Caption := ACaption;
+    Result.Tag := Value;
+    if Value >= 0 then
+    begin
+      Result.RadioItem := True;
+      Result.Checked := Value = FNextMMU[Slot and 7];
+      Result.OnClick := @NextMMUClick;
+    end;
+    Parent.Add(Result);
+  end;
+
+begin
+  FNextSlot := Slot and 7;
+  PickMenu := TPopupMenu.Create(Self);
+  // ROM only in the first two slots; the pages in two groups: the first 1Mb (0-95) and the next (96-223)
+  if FNextSlot < 2 then NewItem(PickMenu.Items, 'ROM', 255);
+  Group := NewItem(PickMenu.Items, '1Mb', -1);
+  for Page := 0 to 95 do NewItem(Group, IntToStr(Page), Page);
+  Group := NewItem(PickMenu.Items, '2Mb', -1);
+  for Page := 96 to 223 do NewItem(Group, IntToStr(Page), Page);
+  FNextMenu.Free;
+  FNextMenu := PickMenu;
+  P := Mouse.CursorPos;
+  FNextMenu.PopUp(P.X, P.Y);
+end;
+
+procedure TDebuggerWindow.NextMMUClick(Sender: TObject);
+begin
+  SetNextMMU(FNextSlot, (Sender as TMenuItem).Tag);
+  Refresh(False);
+end;
+
+procedure TDebuggerWindow.SetNextMMU(Slot, Value: Integer);
+begin
+  // As a program would: through the MMU register ($50-$57), so the paging follows
+  FEmu.Lock;
+  try
+    FEmu.Spec.SetNextRegister($50 + (Slot and 7), Value);
+  finally
+    FEmu.Unlock;
+  end;
+  PagingChangedByHand;
+end;
+
 function TDebuggerWindow.UnoOn: Boolean;
 begin
   Result := FUnoOn;
@@ -3554,6 +3655,11 @@ end;
 function TDebuggerWindow.Slot3Changeable: Boolean;
 begin
   Result := FSlot3OK;
+end;
+
+function TDebuggerWindow.CpcSlotChangeable: Boolean;
+begin
+  Result := FIsCpc;
 end;
 
 procedure TDebuggerWindow.ToggleUnoBoot;
@@ -3639,6 +3745,52 @@ begin
   FEmu.Lock;
   try
     FEmu.Spec.SetSlot3Bank((Sender as TMenuItem).Tag);
+  finally
+    FEmu.Unlock;
+  end;
+  PagingChangedByHand;
+  Refresh(False);
+end;
+
+procedure TDebuggerWindow.ChooseCpcSlot(Slot: Integer);
+var
+  What: Integer;
+  Item: TMenuItem;
+  PickMenu: TPopupMenu;
+  P: TPoint;
+begin
+  FCpcSlot := Slot;
+  // Only what the CPC can put in this slot: ROMs by their enable bits, RAM banks by
+  // the Gate Array's configurations (the 464 and 664 have the first four)
+  PickMenu := TPopupMenu.Create(Self);
+  FEmu.Lock;
+  try
+    for What := -3 to 7 do
+      if FEmu.Spec.CPCSlotCanHold(Slot, What) then
+      begin
+        Item := TMenuItem.Create(PickMenu);
+        if What < 0 then Item.Caption := 'ROM' + IntToStr(-1 - What)
+        else Item.Caption := 'RAM' + IntToStr(What);
+        Item.Tag := What;
+        Item.RadioItem := True;
+        Item.Checked := What = FSlots[Slot];
+        Item.OnClick := @CpcSlotClick;
+        PickMenu.Items.Add(Item);
+      end;
+  finally
+    FEmu.Unlock;
+  end;
+  FCpcMenu.Free;
+  FCpcMenu := PickMenu;
+  P := Mouse.CursorPos;
+  FCpcMenu.PopUp(P.X, P.Y);
+end;
+
+procedure TDebuggerWindow.CpcSlotClick(Sender: TObject);
+begin
+  FEmu.Lock;
+  try
+    FEmu.Spec.SetCPCSlot(FCpcSlot, (Sender as TMenuItem).Tag);
   finally
     FEmu.Unlock;
   end;
@@ -3902,12 +4054,17 @@ begin
     for A := 0 to High(Paths) do Paths[A] := FEmu.Spec.RomPath(A);
     RomLabels.Load(FEmu.Spec.RomDir, FEmu.Spec.Info, Paths);
     FRomIndex := FEmu.Spec.PagedRom;
+    // CPC: the upper ROM switched in (1 BASIC, 2 AMSDOS)
+    if FEmu.Spec.SlotBank(3) < 0 then RomLabels.UpperRom := -1 - FEmu.Spec.SlotBank(3)
+    else RomLabels.UpperRom := 0;
     // The DivMMC's memory hides the ROM: its labels don't apply
     FDivActive := FEmu.Spec.DivMMCOn and FEmu.Spec.DivMMC.Active;
     FDivOn := FEmu.Spec.DivMMCOn or (FEmu.Spec.Model = smZXUno);
     FDivControl := FEmu.Spec.DivMMC.Control;
     FDivMapped := FEmu.Spec.DivMMC.Mapped;
     FUnoOn := FEmu.Spec.Model = smZXUno;
+    FNextOn := FEmu.Spec.Model = smZXNext;
+    for A := 0 to 7 do FNextMMU[A] := FEmu.Spec.NextMMU(A);
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
     FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model = smZXNext);
@@ -4016,6 +4173,7 @@ begin
     for A := 0 to High(FPortLog) do FPortLog[A] := FEmu.Spec.PortLog(A);
     for A := 0 to 3 do FSlots[A] := FEmu.Spec.SlotBank(A);
     FSlot3OK := not (FEmu.Spec.Info.Memory in [mk48K, mkCPC]) and ((FEmu.Spec.Port1FFD and 1) = 0);
+    FIsCpc := FEmu.Spec.Info.Memory = mkCPC;
   finally
     FEmu.Unlock;
   end;

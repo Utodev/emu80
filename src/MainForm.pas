@@ -288,9 +288,9 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.e80;*.pzs|' +
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.e80|' +
     'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt|' +
-    'Snapshots (*.sna;*.z80;*.e80;*.pzs)|*.sna;*.z80;*.e80;*.pzs|Disk images (*.dsk)|*.dsk|' +
+    'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|Disk images (*.dsk)|*.dsk|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
@@ -1838,7 +1838,7 @@ begin
   // Snapshots and disks switch the Next to a standard model: its card first
   if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk')) then
     LeaveNext;
-  // A .nex program needs the Next; a .pzs snapshot its machine
+  // A .nex program needs the Next; an .e80 snapshot its machine
   if (Ext = '.nex') and (FEmu.Spec.Model <> smZXNext) then
   begin
     ChangeModel(smZXNext);
@@ -1857,7 +1857,7 @@ begin
       mtError, [mbOK], 0);
     Exit;
   end;
-  if (Ext = '.e80') or (Ext = '.pzs') then
+  if Ext = '.e80' then
   begin
     try
       M := TSpectrum.OwnSnapshotModel(FileName);
@@ -1896,7 +1896,7 @@ begin
         LoadZ80(FEmu.Spec, FileName)
       else if Ext = '.nex' then
         FEmu.Spec.LoadNex(FileName)
-      else if (Ext = '.e80') or (Ext = '.pzs') then
+      else if Ext = '.e80' then
         FEmu.Spec.LoadOwnSnapshot(FileName)
       else if Ext = '.dsk' then
       begin
@@ -2262,6 +2262,12 @@ begin
   if New = smZXUno then UseCard(Settings.ZXUnoCard, False)
   // Out of the ZX-Uno: the standard models' card (out of the Next, LeaveNext)
   else if (Old = smZXUno) and not (New in OWN) then UseCard(Settings.SDCardFile, True);
+  // The DivMMC is a Spectrum device: on a CPC it is simply switched off
+  if IsCPCModel(New) then
+  begin
+    Settings.DivMMC := False;
+    Exit;
+  end;
   // Out of either to a standard Spectrum: keep the DivMMC?
   if (Old in OWN) and not (New in OWN) and Settings.DivMMC then
     if MessageDlg('DivMMC', 'This is a standard ZX Spectrum. Do you want to switch off the DivMMC ' +
@@ -4274,6 +4280,8 @@ begin
   SetLength(Paths, FEmu.Spec.Info.RomCount);
   for I := 0 to High(Paths) do Paths[I] := FEmu.Spec.RomPath(I);
   RomLabels.Load(FEmu.Spec.RomDir, FEmu.Spec.Info, Paths);
+  if FEmu.Spec.SlotBank(3) < 0 then RomLabels.UpperRom := -1 - FEmu.Spec.SlotBank(3)
+  else RomLabels.UpperRom := 0;
   Result := RomLabels.Find(UpperCase(AName), FEmu.Spec.PagedRom, Addr);
 end;
 
@@ -4407,7 +4415,8 @@ begin
     'ROM labels (.sym files): 48K from "The Complete Spectrum ROM Disassembly" ' +
     '(Ian Logan and Frank O''Hara), via Richard Dymond''s SkoolKit disassembly; ' +
     '128K, +2 and +3 from the disassemblies by Paul Farrow, Garry Lancaster and ' +
-    'others (ZXSpectrumVault rom-disassemblies).' + LineEnding +
+    'others (ZXSpectrumVault rom-disassemblies); CPCs: names from Bread80''s ' +
+    '6128 firmware source, "Amstrad CPC464 Firmware Explained" and Don Thomasson''s memory maps.' + LineEnding +
     'ZX-Uno (its design, core, BIOS and ROMs pack): (C) ZX-Uno Team.' + LineEnding +
     'ZX Spectrum Next boot ROM (tbblue_loader.rom): (C) Victor Trucco and Fabio Belavenuto ' +
     '(TBBlue), GPL v3, via ZEsarUX. Its distribution (specnext.com) is not included.' + LineEnding +

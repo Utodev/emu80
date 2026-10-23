@@ -6,7 +6,7 @@
 #
 # The .zip has an emu80-VERSION-windows folder with emu80.exe, roms, esxdos,
 # zxuno, README.md and LICENSE (emu80.ini is made there when emu80 closes), and a
-# lib folder with the native library for host applications (emu80lib.dll) and
+# lib folder with the native library for host applications (e80lib.dll) and
 # its documentation (LIBRARY.md), and a tests folder with the C# host demo
 # (tests/csharp/Emu80HostDemo: its sources, build.bat and, in the .zip, the
 # program built, which runs with --selftest). The library is built, if it
@@ -17,7 +17,7 @@
 #
 # Installed layout: the program, roms, esxdos, zxuno, README.md and LICENSE
 # in /usr/lib/emu80 (emu80 finds them next to itself), and its lib folder with
-# libemu80lib.so and LIBRARY.md, and its tests folder with the C# demo's sources, /usr/bin/emu80 to start it,
+# libe80.so and LIBRARY.md, and its tests folder with the C# demo's sources, /usr/bin/emu80 to start it,
 # a desktop entry and the icon. The settings go to ~/.config/emu80/emu80.ini,
 # as /usr/lib/emu80 can't be written. The version is the release number
 # (src/Release.inc). Sound needs SDL2, recommended by both packages.
@@ -33,16 +33,16 @@ OUT="$ROOT/build/packages"
 mkdir -p "$OUT"
 
 # The native library, for the packages' lib folder (built here if needed)
-if [ ! -f build/lib/emu80lib.dll ]; then
-  src/lib/build-lib.sh >/dev/null 2>&1 || echo "Could not build emu80lib.dll: the .zip has no lib folder" >&2
+if [ ! -f build/lib/e80lib.dll ]; then
+  src/lib/build-lib.sh >/dev/null 2>&1 || echo "Could not build e80lib.dll: the .zip has no lib folder" >&2
 fi
-if [ ! -f build/lib/libemu80lib.so ]; then
-  src/lib/build-lib.sh linux >/dev/null 2>&1 || echo "Could not build libemu80lib.so: no lib folder in the .deb and .rpm" >&2
+if [ ! -f build/lib/libe80.so ]; then
+  src/lib/build-lib.sh linux >/dev/null 2>&1 || echo "Could not build libe80.so: no lib folder in the .deb and .rpm" >&2
 fi
 
 # The C# host demo, built (Windows only) for the .zip
 DEMO=tests/csharp/Emu80HostDemo
-if [ -f build/lib/emu80lib.dll ] && command -v cmd.exe >/dev/null; then
+if [ -f build/lib/e80lib.dll ] && command -v cmd.exe >/dev/null; then
   (cd "$DEMO" && cmd.exe /c build.bat >/dev/null 2>&1) || echo "Could not build the C# demo: the .zip has its sources only" >&2
 fi
 
@@ -64,15 +64,15 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
         else:
             z.write(name, os.path.join(top, name))
     # The native library and its documentation
-    if os.path.exists('build/lib/emu80lib.dll'):
-        z.write('build/lib/emu80lib.dll', top + '/lib/emu80lib.dll')
+    if os.path.exists('build/lib/e80lib.dll'):
+        z.write('build/lib/e80lib.dll', top + '/lib/e80lib.dll')
         z.write('LIBRARY.md', top + '/lib/LIBRARY.md')
     # The C# host demo: sources, build.bat, and the program built if it is
     for f in ('Emu80.cs', 'Program.cs', 'build.bat'):
         z.write('tests/csharp/Emu80HostDemo/' + f, top + '/tests/Emu80HostDemo/' + f)
-    if os.path.exists('build/csharp/Emu80HostDemo.exe') and os.path.exists('build/lib/emu80lib.dll'):
+    if os.path.exists('build/csharp/Emu80HostDemo.exe') and os.path.exists('build/lib/e80lib.dll'):
         z.write('build/csharp/Emu80HostDemo.exe', top + '/tests/Emu80HostDemo/Emu80HostDemo.exe')
-        z.write('build/lib/emu80lib.dll', top + '/tests/Emu80HostDemo/emu80lib.dll')
+        z.write('build/lib/e80lib.dll', top + '/tests/Emu80HostDemo/e80lib.dll')
     # The empty folder for the ZX Spectrum Next distribution (never its contents)
     z.writestr(top + '/specnext/', '')
 EOF
@@ -96,9 +96,9 @@ cp -R roms esxdos zxuno "$LIB/"
 mkdir -p "$LIB/specnext"
 cp README.md LICENSE "$LIB/"
 # The native library for host applications, with its documentation
-if [ -f build/lib/libemu80lib.so ]; then
+if [ -f build/lib/libe80.so ]; then
   mkdir -p "$LIB/lib"
-  cp build/lib/libemu80lib.so LIBRARY.md "$LIB/lib/"
+  cp build/lib/libe80.so LIBRARY.md "$LIB/lib/"
 fi
 # The C# host demo's sources (it is built on Windows)
 mkdir -p "$LIB/tests/Emu80HostDemo"
@@ -138,7 +138,7 @@ EOF
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$LIB/emu80" "$STAGE/usr/bin/emu80"
-[ ! -f "$LIB/lib/libemu80lib.so" ] || chmod 755 "$LIB/lib/libemu80lib.so"
+[ ! -f "$LIB/lib/libe80.so" ] || chmod 755 "$LIB/lib/libe80.so"
 SIZE=$(du -sk "$STAGE" | cut -f1)
 
 # .deb

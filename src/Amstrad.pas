@@ -158,6 +158,13 @@ type
     { Memory of a 16K slot as the CPU sees it: RAM bank number (0-7), or
       -1 - ROM (0 system, 1 BASIC, 2 AMSDOS) }
     function SlotBank(Slot: Integer): Integer;
+    { Debugger: what a 16K slot can hold on this hardware, as SlotBank says it
+      (RAM bank, or -1 - ROM number: ROM0 the lower ROM at 0000, ROM1 BASIC and
+      ROM2 AMSDOS at C000) }
+    function SlotCanHold(Slot, What: Integer): Boolean;
+    { Debugger: put it there the way the CPC does: the ROM enable bits, the upper
+      ROM number and the RAM configuration of the Gate Array. False if it can't. }
+    function SetSlot(Slot, What: Integer): Boolean;
     function RamBank(Index: Integer): PCPCBank;
     { The memory the CPU reads in a 16K slot }
     function ReadPtr(Slot: Integer): PByte;
@@ -354,6 +361,66 @@ begin
     FillChar(AutoMatrix, SizeOf(AutoMatrix), $FF);
     FillChar(FBuild[0], Length(FBuild) * SizeOf(LongWord), 0);
     FillChar(FShown[0], Length(FShown) * SizeOf(LongWord), 0);
+  end;
+  UpdateMemory;
+end;
+
+const
+  { The RAM banks the Gate Array's configurations (port 7Fxx, 11000cccb) put in each slot }
+  RAM_CONFIG: array[0..7, 0..3] of Integer = (
+    (0, 1, 2, 3), (0, 1, 2, 7), (4, 5, 6, 7), (0, 3, 2, 7),
+    (0, 4, 2, 3), (0, 5, 2, 3), (0, 6, 2, 3), (0, 7, 2, 3));
+
+function TAmstrad.SlotCanHold(Slot, What: Integer): Boolean;
+var
+  Cfg: Integer;
+begin
+  Result := False;
+  Slot := Slot and 3;
+  if What < 0 then
+    case -1 - What of
+      0: Result := Slot = 0;
+      1: Result := Slot = 3;
+      2: Result := (Slot = 3) and FHasDisc;
+    end
+  else
+    for Cfg := 0 to 7 do
+      if ((Cfg = 0) or (FRamBanks >= 8)) and (RAM_CONFIG[Cfg, Slot] = What) then Result := True;
+end;
+
+function TAmstrad.SetSlot(Slot, What: Integer): Boolean;
+var
+  Cfg, Best, BestScore, Score, S: Integer;
+begin
+  Slot := Slot and 3;
+  Result := SlotCanHold(Slot, What);
+  if not Result then Exit;
+  if What < 0 then
+  begin
+    if Slot = 0 then FRomReg := FRomReg and not 4        // lower ROM on
+    else
+    begin
+      FRomReg := FRomReg and not 8;                       // upper ROM on
+      if What = -3 then FUpperRom := 7
+      else if FUpperRom = 7 then FUpperRom := 0;
+    end;
+  end
+  else
+  begin
+    // The configuration that holds it and keeps the most of the other slots
+    Best := -1;
+    BestScore := -1;
+    for Cfg := 0 to 7 do
+      if ((Cfg = 0) or (FRamBanks >= 8)) and (RAM_CONFIG[Cfg, Slot] = What) then
+      begin
+        Score := 0;
+        for S := 0 to 3 do
+          if RAM_CONFIG[Cfg, S] = FSlotBank[S] then Inc(Score);
+        if Score > BestScore then begin Best := Cfg; BestScore := Score; end;
+      end;
+    FRamConfig := (FRamConfig and not 7) or Best;
+    if Slot = 0 then FRomReg := FRomReg or 4              // lower ROM off
+    else if Slot = 3 then FRomReg := FRomReg or 8;        // upper ROM off
   end;
   UpdateMemory;
 end;
