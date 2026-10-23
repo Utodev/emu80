@@ -87,7 +87,7 @@ var
 begin
   F := TFileStream.Create(ParamStr(3), fmCreate);
   try
-    FormatCard(F, 32, 'PZX TEST');
+    FormatCard(F, 32, 'EMU80 TEST');
     V := TFatVolume.Create(F);
     try
       V.MakeDir(0, 'SYS');

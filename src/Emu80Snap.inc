@@ -1,16 +1,43 @@
-{ PzxSnap.inc: pzx's own snapshots, .pzs (included by Spectrum.pas): the
+{ Emu80Snap.inc: emu80's own snapshots, .pzs (included by Spectrum.pas): the
   only ones for the machines that .z80 and .sna can't hold, the ZX Spectrum
   Next (2 MB, its registers, display, copper, DMA) and the ZX-Uno (its 512K
   of SRAM and registers), and a choice for the others (all their state,
-  the DivMMC's RAM, ULAplus, three AY chips...). The file: "PZXSNAP", a
+  the DivMMC's RAM, ULAplus, three AY chips...). The file: "EMU80SNAP" ("PZXSNAP" in those made when it was called pzx), a
   version byte, the model's key (a length byte and its --model name), then
   the machine compressed with zlib, in the order of SnapIO. SD cards and
   disks aren't in it, nor the ZX-Uno's flash (made again from its BIOS and
   ROMs files). }
 
 const
-  PZS_MAGIC: array[0..6] of Char = 'PZXSNAP';
+  E80_MAGIC = 'EMU80SNAP';
+  { Snapshots made when this emulator was called emu80 (.pzs) are read too }
+  OLD_MAGIC = 'PZXSNAP';
   PZS_VERSION = 1;
+
+{ The header of a snapshot file: its signature (either), its version and the
+  model's key; the stream is left at the machine's data. False if it isn't one. }
+function ReadSnapHeader(F: TStream; out Key: string): Boolean;
+var
+  Buf: array[0..8] of Char;
+  V, Len: Byte;
+begin
+  Result := False;
+  Key := '';
+  if F.Read(Buf, 7) < 7 then Exit;
+  if CompareMem(@Buf, PChar(OLD_MAGIC), 7) then
+  else if CompareMem(@Buf, PChar(E80_MAGIC), 7) then
+  begin
+    if F.Read(Buf[7], 2) < 2 then Exit;
+    if not CompareMem(@Buf, PChar(E80_MAGIC), 9) then Exit;
+  end
+  else Exit;
+  if F.Read(V, 1) < 1 then Exit;
+  if V <> PZS_VERSION then Exit;
+  if F.Read(Len, 1) < 1 then Exit;
+  SetLength(Key, Len);
+  if (Len > 0) and (F.Read(Key[1], Len) < Len) then Exit;
+  Result := True;
+end;
 
 function TSpectrum.NeedsOwnSnapshot: Boolean;
 begin
@@ -201,26 +228,18 @@ end;
 class function TSpectrum.OwnSnapshotModel(const FileName: string): TSpectrumModel;
 var
   F: TFileStream;
-  Magic: array[0..6] of Char;
-  V, Len: Byte;
   Key: string;
   M: TSpectrumModel;
 begin
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
-    F.ReadBuffer(Magic, SizeOf(Magic));
-    F.ReadBuffer(V, 1);
-    if not CompareMem(@Magic, @PZS_MAGIC, SizeOf(Magic)) or (V <> PZS_VERSION) then
-      raise Exception.Create('Not a pzx snapshot');
-    F.ReadBuffer(Len, 1);
-    SetLength(Key, Len);
-    if Len > 0 then F.ReadBuffer(Key[1], Len);
+    if not ReadSnapHeader(F, Key) then raise Exception.Create('Not an emu80 snapshot');
   finally
     F.Free;
   end;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     if Key = ModelKey(M) then Exit(M);
-  raise Exception.CreateFmt('A pzx snapshot of an unknown machine (%s)', [Key]);
+  raise Exception.CreateFmt('An emu80 snapshot of an unknown machine (%s)', [Key]);
 end;
 
 procedure TSpectrum.SaveOwnSnapshot(const FileName: string);
@@ -232,7 +251,7 @@ var
 begin
   F := TFileStream.Create(FileName, fmCreate);
   try
-    F.WriteBuffer(PZS_MAGIC, SizeOf(PZS_MAGIC));
+    F.WriteBuffer(E80_MAGIC[1], Length(E80_MAGIC));
     V := PZS_VERSION;
     F.WriteBuffer(V, 1);
     Key := ModelKey(FModel);
@@ -255,17 +274,14 @@ var
   F: TFileStream;
   Z: TDecompressionStream;
   P, I: Integer;
-  Skip: array[0..263] of Byte;
-  Len: Byte;
+  Key: string;
 begin
   if OwnSnapshotModel(FileName) <> FModel then
     raise Exception.Create('The snapshot is of another machine');
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     // The header, already checked
-    F.ReadBuffer(Skip, SizeOf(PZS_MAGIC) + 1);
-    F.ReadBuffer(Len, 1);
-    if Len > 0 then F.ReadBuffer(Skip, Len);
+    ReadSnapHeader(F, Key);
     Z := TDecompressionStream.Create(F);
     try
       try

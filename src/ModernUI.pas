@@ -1,8 +1,8 @@
-{ ModernUI: the pieces of pzx's modern interface (Settings > General >
+{ ModernUI: the pieces of emu80's modern interface (Settings > General >
   Interface, --ui modern), in the style of Multipaint: dark grey, palettes
   with a title strip and big flat buttons with an icon and a label, all
   drawn here so they look the same on every platform. Also the dialog that
-  asks which interface to use the first time pzx starts. }
+  asks which interface to use the first time emu80 starts. }
 unit ModernUI;
 
 {$mode objfpc}{$H+}
@@ -67,7 +67,7 @@ type
     constructor Create(AOwner: TComponent); override;
   end;
 
-  { The note shown the first time pzx starts: the interface is the modern
+  { The note shown the first time emu80 starts: the interface is the modern
     one, and the button (its icon from Images) that changes to the classic }
   TModernNotice = class(TCustomControl)
   public

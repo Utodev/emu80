@@ -1330,7 +1330,7 @@ begin
   // Boot sector
   FillChar(Sec, SizeOf(Sec), 0);
   Sec[0] := $EB; Sec[1] := $3C; Sec[2] := $90;
-  Move(PChar('PZX     ')^, Sec[3], 8);
+  Move(PChar('EMU80   ')^, Sec[3], 8);
   PutW(Sec, 11, 512);
   Sec[13] := SPC;
   PutW(Sec, 14, RESERVED);

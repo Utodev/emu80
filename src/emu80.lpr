@@ -1,4 +1,4 @@
-program pzx;
+program emu80;
 
 {$mode objfpc}{$H+}
 
@@ -12,7 +12,7 @@ uses
 
 begin
   RequireDerivedFormResource := False;
-  Application.Title := 'pzx';
+  Application.Title := 'emu80';
   Application.Scaled := True;
   Application.Initialize;
   Application.CreateForm(TMainWindow, MainWindow);

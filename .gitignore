@@ -79,25 +79,26 @@ __recovery/
 *.stat
 
 # Lazarus / Free Pascal build output
-lib/
 backup/
 *.lps
 *.res
 *.ppu
 *.compiled
-pzx
+*.o
+emu80
 tests/build/
 build/
 
 # Settings written next to the executable
+emu80.ini
 pzx.ini
 # The ZX Spectrum Next's SD card (and old ones kept when a new distribution comes)
 zxnext*.img
 
 #Other
 
-*.o
-*.ppu
+
+
 *.exe
 CLAUDE.md
 *.zip

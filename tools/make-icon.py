@@ -1,5 +1,5 @@
-# Draws the pzx icon (a ZX Spectrum 48K) and writes pzx.ico with PNG entries.
-#   python3 tools/make-icon.py src/pzx.ico preview.png
+# Draws the emu80 icon (a rubber-keyed computer's keyboard) and writes emu80.ico.
+#   python3 tools/make-icon.py src/emu80.ico preview.png
 import struct, zlib, sys
 N = 1024                      # supersampled canvas (4x the 256 icon)
 S = N / 256.0
@@ -48,11 +48,6 @@ for row in range(4):
         x = 20 + off + k * 21.5
         rrect(x, y, x + 17, y + 18, 4, KEY)
         rrect(x + 2, y + 2, x + 15, y + 11, 3, KEYTOP)
-# Rainbow stripe in the bottom right corner: red, yellow, green, cyan
-cols = [(216, 0, 0, 255), (230, 210, 0, 255), (0, 190, 0, 255), (0, 200, 220, 255)]
-for i, c in enumerate(cols):
-    x = 156 + i * 14
-    poly([(x, 200), (x + 14, 200), (x + 46, 168), (x + 32, 168)], c)
 
 def downsample(size):
     f = N // size

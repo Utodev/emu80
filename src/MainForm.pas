@@ -53,7 +53,7 @@ type
     FNextFromCommandLine: Boolean;
     FShowNotice: Boolean;            // first start: the modern interface's note
     FNotice: TModernNotice;
-    FNoticeTimer: TTimer;   // --model zxnext: pzx closes if it can't start
+    FNoticeTimer: TTimer;   // --model zxnext: emu80 closes if it can't start
     FFullerBits: Byte;
     FScaleItems: array[1..4] of TMenuItem;
     FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
@@ -288,9 +288,9 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.pzs|' +
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.e80;*.pzs|' +
     'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt|' +
-    'Snapshots (*.sna;*.z80;*.pzs)|*.sna;*.z80;*.pzs|Disk images (*.dsk)|*.dsk|' +
+    'Snapshots (*.sna;*.z80;*.e80;*.pzs)|*.sna;*.z80;*.e80;*.pzs|Disk images (*.dsk)|*.dsk|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
@@ -338,7 +338,7 @@ begin
           // A settings file asked for by name must exist (an extra one may not)
           if not FileExists(Value) then
           begin
-            MessageDlg('pzx', 'The settings file given with --config does not exist.' +
+            MessageDlg('emu80', 'The settings file given with --config does not exist.' +
               LineEnding + LineEnding + 'File: ' + ExtractFileName(Value) + LineEnding +
               'Folder: ' + ExtractFilePath(ExpandFileName(Value)), mtError, [mbOK], 0);
             Halt(1);
@@ -353,15 +353,15 @@ begin
   end;
 end;
 
-{ Cards made from folders that a pzx closed abruptly left behind (one still
-  in use by another pzx can't be deleted, and stays) }
+{ Cards made from folders that an emu80 closed abruptly left behind (one still
+  in use by another emu80 can't be deleted, and stays) }
 procedure RemoveStaleTempCards;
 var
   Info: TSearchRec;
   Dir: string;
 begin
   Dir := IncludeTrailingPathDelimiter(GetTempDir);
-  if FindFirst(Dir + 'pzx-sd-*.img', faAnyFile, Info) = 0 then
+  if FindFirst(Dir + 'emu80-sd-*.img', faAnyFile, Info) = 0 then
   try
     repeat
       DeleteFile(Dir + Info.Name);
@@ -377,7 +377,7 @@ var
   FirstRun: Boolean;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'pzx - ZX Spectrum emulator';
+  Caption := 'emu80 - ZX Spectrum emulator';
   Position := poScreenCenter;
   // Sizes here are real screen pixels (whole zoom factors); don't let LCL
   // multiply them by the desktop DPI scale
@@ -691,7 +691,7 @@ begin
   AddItem(TopItem, '&Documentation', @DoDocumentation, ShortCut(VK_F1, []));
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&License (GPL v3)', @DoLicense);
-  AddItem(TopItem, '&About pzx...', @DoAbout);
+  AddItem(TopItem, '&About emu80...', @DoAbout);
 end;
 
 function TMainWindow.AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
@@ -1331,7 +1331,7 @@ begin
   begin
     FEmu.Spec.ForeignCore := -1;
     MessageDlg('ZX Spectrum Next', 'The Next''s firmware tried to start another machine''s core ' +
-      '(an extra core, slots 8-31). pzx emulates only the ZX Spectrum Next core, so the Next ' +
+      '(an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next ' +
       'starts again instead.', mtInformation, [mbOK], 0);
   end;
   if FEmu.Paused then
@@ -1857,7 +1857,7 @@ begin
       mtError, [mbOK], 0);
     Exit;
   end;
-  if Ext = '.pzs' then
+  if (Ext = '.e80') or (Ext = '.pzs') then
   begin
     try
       M := TSpectrum.OwnSnapshotModel(FileName);
@@ -1896,7 +1896,7 @@ begin
         LoadZ80(FEmu.Spec, FileName)
       else if Ext = '.nex' then
         FEmu.Spec.LoadNex(FileName)
-      else if Ext = '.pzs' then
+      else if (Ext = '.e80') or (Ext = '.pzs') then
         FEmu.Spec.LoadOwnSnapshot(FileName)
       else if Ext = '.dsk' then
       begin
@@ -1940,7 +1940,7 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   UpdateChecks;
-  Caption := 'pzx - ' + ExtractFileName(FileName);
+  Caption := 'emu80 - ' + ExtractFileName(FileName);
   if TapeBrowserWindow <> nil then TapeBrowserWindow.Refresh(True);
   if CPCNote <> '' then MessageDlg('Amstrad CPC tape', CPCNote, mtWarning, [mbOK], 0);
 end;
@@ -1993,22 +1993,22 @@ var
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    // .z80 and .sna can't hold the Next or the ZX-Uno: pzx's own format;
+    // .z80 and .sna can't hold the Next or the ZX-Uno: emu80's own format;
     // the others have it as a choice, .z80 first
     if FEmu.Spec.CPC <> nil then
     begin
-      // The CPC's own .SNA (CPCEmu, Winape), or pzx's
-      Dlg.Filter := 'CPC snapshot (*.sna)|*.sna|pzx snapshot (*.pzs)|*.pzs';
+      // The CPC's own .SNA (CPCEmu, Winape), or emu80's
+      Dlg.Filter := 'CPC snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80';
       Dlg.DefaultExt := 'sna';
     end
     else if FEmu.Spec.NeedsOwnSnapshot then
     begin
-      Dlg.Filter := 'pzx snapshot (*.pzs)|*.pzs';
-      Dlg.DefaultExt := 'pzs';
+      Dlg.Filter := 'emu80 snapshot (*.e80)|*.e80';
+      Dlg.DefaultExt := 'e80';
     end
     else
     begin
-      Dlg.Filter := 'Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|pzx snapshot (*.pzs)|*.pzs';
+      Dlg.Filter := 'Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80';
       Dlg.DefaultExt := 'z80';
       Dlg.FilterIndex := 1;
     end;
@@ -2020,24 +2020,24 @@ begin
     Ext := LowerCase(ExtractFileExt(FileName));
     if FEmu.Spec.CPC <> nil then
     begin
-      if Ext <> '.pzs' then
+      if Ext <> '.e80' then
       begin
-        if (Ext <> '.sna') and (Dlg.FilterIndex = 2) then Ext := '.pzs' else Ext := '.sna';
+        if (Ext <> '.sna') and (Dlg.FilterIndex = 2) then Ext := '.e80' else Ext := '.sna';
       end;
     end
     else if FEmu.Spec.NeedsOwnSnapshot then
-      Ext := '.pzs'
-    else if (Ext <> '.z80') and (Ext <> '.sna') and (Ext <> '.pzs') then
+      Ext := '.e80'
+    else if (Ext <> '.z80') and (Ext <> '.sna') and (Ext <> '.e80') then
       case Dlg.FilterIndex of
         2: Ext := '.sna';
-        3: Ext := '.pzs';
+        3: Ext := '.e80';
       else
         Ext := '.z80';
       end;
     FileName := ChangeFileExt(FileName, Ext);
     FEmu.Lock;
     try
-      if Ext = '.pzs' then
+      if Ext = '.e80' then
         FEmu.Spec.SaveOwnSnapshot(FileName)
       else if Ext = '.sna' then
         SaveSNA(FEmu.Spec, FileName)
@@ -2119,8 +2119,8 @@ begin
   // First of all: what the Next says it is (and the warning, if it asks to be a real one)
   ConfirmRealSpecNext;
   Dir := NextDistroDir;
-  // Not there (it can't come with pzx): where to get it and how to install
-  // it; the machine stays as it was (or pzx closes, started on it)
+  // Not there (it can't come with emu80): where to get it and how to install
+  // it; the machine stays as it was (or emu80 closes, started on it)
   if not NextDistroReady(Dir) then
   begin
     NoNextDistro;
@@ -2168,7 +2168,7 @@ begin
       on E: Exception do
         MessageDlg('Could not use the SD card ' + Card + ': ' + E.Message, mtError, [mbOK], 0);
     end;
-    // Files that older versions of pzx left empty, mended from the distribution
+    // Files that older versions of emu80 left empty, mended from the distribution
     if Result then
       try
         Vol := TFatVolume.Create(FEmu.Spec.DivMMC.Card.Stream);
@@ -2187,7 +2187,7 @@ begin
   try
     if Repaired.Count > 0 then
       MessageDlg('ZX Spectrum Next', 'These files on the Next''s SD card were empty (an older ' +
-        'version of pzx didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
+        'version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
         'from the distribution:' + LineEnding + LineEnding + Repaired.Text, mtInformation, [mbOK], 0);
   finally
     Repaired.Free;
@@ -2272,7 +2272,7 @@ procedure TMainWindow.ApplyNextId;
 begin
   FEmu.Lock;
   try
-    // $0A: a ZX Spectrum Next; $08: an emulator, as pzx says it is
+    // $0A: a ZX Spectrum Next; $08: an emulator, as emu80 says it is
     if Settings.RealSpecNext and Settings.RealSpecNextOk then FEmu.Spec.NextMachineId := $0A
     else FEmu.Spec.NextMachineId := $08;
   finally
@@ -2914,10 +2914,10 @@ var
   Entries: TFatEntries;
 begin
   WithEsxdos := (Sender as TComponent).Tag = 1;
-  Esx := PzxPath('esxdos');
+  Esx := Emu80Path('esxdos');
   if WithEsxdos and (Esx = '') then
   begin
-    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to pzx.', mtError, [mbOK], 0);
+    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to emu80.', mtError, [mbOK], 0);
     Exit;
   end;
   if not AskCardSize(WithEsxdos, SizeMB) then Exit;
@@ -2943,7 +2943,7 @@ begin
       try
         S := TFileStream.Create(Dlg.FileName, fmCreate);
         try
-          FormatCard(S, SizeMB, 'PZX SD');
+          FormatCard(S, SizeMB, 'EMU80 SD');
           if WithEsxdos then
           begin
             Vol := TFatVolume.Create(S);
@@ -3144,10 +3144,10 @@ var
   Dirs: TFatEntries;
 begin
   Result := False;
-  Esx := PzxPath('esxdos');
+  Esx := Emu80Path('esxdos');
   if Esx = '' then
   begin
-    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to pzx.', mtError, [mbOK], 0);
+    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to emu80.', mtError, [mbOK], 0);
     Exit;
   end;
   if not ConfirmCardChanges then Exit;
@@ -3163,14 +3163,14 @@ begin
     Exit;
   end;
   TempFile := IncludeTrailingPathDelimiter(GetTempDir) +
-    Format('pzx-sd-%s.img', [FormatDateTime('yyyymmddhhnnsszzz', Now)]);
+    Format('emu80-sd-%s.img', [FormatDateTime('yyyymmddhhnnsszzz', Now)]);
   Err := '';
   Screen.Cursor := crHourGlass;
   try
     try
       S := TFileStream.Create(TempFile, fmCreate);
       try
-        FormatCard(S, SizeMB, 'PZX FOLDER');
+        FormatCard(S, SizeMB, 'EMU80 FOLDER');
         Vol := TFatVolume.Create(S);
         try
           Vol.MakeDir(0, 'SYS');
@@ -3747,7 +3747,7 @@ begin
       Inc(I);
       if (Arg = '') or (Arg[1] <> '-') then
       begin
-        // The CPC machines by name: pzx cpc464, cpc664 or cpc6128 (as --model)
+        // The CPC machines by name: emu80 cpc464, cpc664 or cpc6128 (as --model)
         M := ModelFromName(LowerCase(Arg), smPlus3);
         if IsCPCModel(M) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
         begin
@@ -4397,10 +4397,10 @@ end;
 procedure TMainWindow.DoAbout(Sender: TObject);
 {$I Release.inc}
 begin
-  MessageDlg('About pzx',
-    'pzx - ZX Spectrum emulator' + LineEnding +
-    'pzx stands for Pascal ZX.' + LineEnding +
-    'Release ' + PZX_RELEASE + LineEnding +
+  MessageDlg('About emu80',
+    'emu80 - ZX Spectrum emulator' + LineEnding +
+    'emu80 stands for Pascal ZX.' + LineEnding +
+    'Release ' + EMU80_RELEASE + LineEnding +
     '(C) Vivecoded by Uto - 2028' + LineEnding + LineEnding +
     'Written in Free Pascal with Lazarus.' + LineEnding + LineEnding +
     'Spectrum ROMs are copyright Amstrad, who allow their distribution.' + LineEnding +

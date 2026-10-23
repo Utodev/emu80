@@ -408,8 +408,8 @@ begin
         Queue([R1, $FE, $40, $0E, $00, $32, $5B, $59, $00, (CSize shr 16) and $3F,
           (CSize shr 8) and $FF, CSize and $FF, $7F, $80, $0A, $40, $00, $01, $FF, $FF]);
       end;
-    10: Queue([R1, $FE, $03, $50, $5A, $50, $5A, $58, $53, $44, $10, $00, $00, $00, $01,
-      $01, $50, $01, $FF, $FF]);   // CID: "PZPZXSD"
+    10: Queue([R1, $FE, $03, $45, $38, $45, $4D, $55, $38, $30, $10, $00, $00, $00, $01,
+      $01, $50, $01, $FF, $FF]);   // CID: manufacturer 3, OEM "E8", product "EMU80"
     12:
       begin
         FMultiRead := False;

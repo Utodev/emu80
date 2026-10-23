@@ -63,9 +63,9 @@ var
   I: Integer;
   Backup: string;
 begin
-  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'pzx-configtest-' + IntToStr(GetProcessID) + PathDelim;
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'emu80-configtest-' + IntToStr(GetProcessID) + PathDelim;
   ForceDirectories(Dir);
-  IniFile := Dir + 'pzx.ini';
+  IniFile := Dir + 'emu80.ini';
   try
     // Nothing set: it is off, and saving doesn't write it
     DeleteFile(IniFile);

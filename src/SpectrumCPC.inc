@@ -286,6 +286,16 @@ begin
   end;
 end;
 
+function TSpectrum.PeekRam(Addr: Word): Byte;
+begin
+  if FIsCPC then Result := FCPC.ReadRam(Addr) else Result := Peek(Addr);
+end;
+
+procedure TSpectrum.PokeRam(Addr: Word; Value: Byte);
+begin
+  if FIsCPC then FCPC.Write(Addr, Value) else Poke(Addr, Value);
+end;
+
 procedure TSpectrum.CPCPsg(T: Integer; Reg, Value: Byte);
 begin
   AddEvent(T, 1, Reg, Value);
@@ -344,6 +354,7 @@ end;
 function TSpectrum.ReadMemCPC(Addr: Word): Byte;
 begin
   Result := FCPC.Read(Addr);
+  if FDaadOn and (FDaadMap[Addr] <> 0) then DaadRead(Addr);
   if (FMemBreakpoints > 0) and not FSuppressBreaks and
      ((FBreakFlags[Addr] and (BP_READ or BP_DISABLED)) = BP_READ) and ConditionHolds(Addr) then
   begin
@@ -461,12 +472,12 @@ begin
     if H[$10] >= 3 then
     begin
       if KB = 0 then
-        raise Exception.Create('This snapshot keeps its memory in compressed chunks, which pzx doesn''t read');
+        raise Exception.Create('This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read');
     end;
     if (KB <> 64) and (KB <> 128) then
       raise Exception.CreateFmt('A CPC snapshot with %d KB of memory isn''t supported (64 or 128)', [KB]);
     if Kind in [4, 5, 6] then
-      raise Exception.Create('A snapshot of a CPC+ or a GX4000: pzx emulates the original CPC range only');
+      raise Exception.Create('A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only');
     Size := KB * 1024;
     if F.Size - SNA_HEADER < Size then raise Exception.Create('The snapshot is cut short');
     SetLength(Mem, Size);

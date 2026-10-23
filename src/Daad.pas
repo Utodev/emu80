@@ -31,6 +31,11 @@ uses
 
 const
   DDB_BASE = $8400;
+  { The machine code in the database's header (its second byte's high nibble) }
+  MACHINE_ZX = 1;
+  MACHINE_CPC = 3;
+  { The Amstrad CPC's interpreter loads the database here }
+  DDB_BASE_CPC = $2880;
   { Object locations with a meaning }
   LOC_NOT_CREATED = 252;
   LOC_WORN = 253;
@@ -109,6 +114,7 @@ type
     Compressed: Boolean;      // PAW, The Quill: texts use the abbreviations
     PosAbbreviations: Word;   // PAW: compressed text
     Base: Word;               // address of the header
+    Machine: Integer;         // the machine in its header: MACHINE_ZX or MACHINE_CPC
     Version: Integer;
     Language: Integer;        // 0 English, 1 Spanish
     NumObjects, NumLocations, NumMessages, NumSysMessages, NumProcesses: Integer;
@@ -119,7 +125,7 @@ type
     Condacts: array of TDaadCondact;
     { Read the game in Mem. False if there is no DAAD database (at 8400, or
       anywhere else in memory). }
-    function Load(const Mem: TDaadMemory): Boolean;
+    function Load(const Mem: TDaadMemory; AMachine: Integer = MACHINE_ZX): Boolean;
     function Engine: TAdvEngine;
     { The flags as the game sees them: how many there are, the flag with the
       player's location and where the object locations start (after IX) }
@@ -569,30 +575,42 @@ begin
     end;
 end;
 
-function TDaadGame.Load(const Mem: TDaadMemory): Boolean;
+function TDaadGame.Load(const Mem: TDaadMemory; AMachine: Integer): Boolean;
 var
-  A, Best, BestEntries: Integer;
+  A, Best, BestEntries, First, Home: Integer;
 begin
   Move(Mem, FMem, SizeOf(FMem));
+  Machine := AMachine;
   IsPAW := False;
   IsQuill := False;
   Compressed := False;
-  // Usually at 8400; older games elsewhere (La Diosa de Cozumel: 8380)
-  Result := TryAt(DDB_BASE);
+  // Usually at 8400 (2880 on the CPC); older games elsewhere (La Diosa de
+  // Cozumel: 8380)
+  if Machine = MACHINE_CPC then
+  begin
+    Home := DDB_BASE_CPC;
+    First := $0200;
+  end
+  else
+  begin
+    Home := DDB_BASE;
+    First := $5B00;
+  end;
+  Result := TryAt(Home);
   if Result then Exit;
   Best := -1;
   BestEntries := 0;
-  for A := $5B00 to $FF00 do
-    if (A <> DDB_BASE) and (FMem[A + 2] = 95) and ((FMem[A + 1] shr 4) = 1) and TryAt(A) and
+  for A := First to $FF00 do
+    if (A <> Home) and (FMem[A + 2] = 95) and ((FMem[A + 1] shr 4) = Machine) and TryAt(A) and
        (Length(Entries) > BestEntries) then
     begin
       Best := A;
       BestEntries := Length(Entries);
     end;
   Result := (Best >= 0) and TryAt(Best);
-  // Not DAAD: a PAW game? a Quill one?
-  if not Result then Result := TryPAW;
-  if not Result then Result := TryQuill;
+  // Not DAAD: a PAW game? a Quill one? (the Spectrum's)
+  if not Result and (Machine = MACHINE_ZX) then Result := TryPAW;
+  if not Result and (Machine = MACHINE_ZX) then Result := TryQuill;
 end;
 
 function TDaadGame.Engine: TAdvEngine;
@@ -923,7 +941,7 @@ begin
   SetLength(Entries, 0);
   SetLength(Condacts, 0);
   FillChar(FCondactAt, SizeOf(FCondactAt), 0);
-  if ((FMem[A + 1] shr 4) <> 1) or (FMem[A + 2] <> 95) or (A > $FF00) then Exit;
+  if ((FMem[A + 1] shr 4) <> Machine) or (FMem[A + 2] <> 95) or (A > $FF00) then Exit;
   Language := FMem[A + 1] and $0F;
   NumObjects := FMem[A + 3];
   NumLocations := FMem[A + 4];

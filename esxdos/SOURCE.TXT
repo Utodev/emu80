@@ -5,7 +5,7 @@ These files come unchanged from http://www.esxdos.org/files/esxdos089.zip
 are the property of their authors and are included for convenience, as they
 are freely available from esxdos.org.
 
-  ESXMMC.BIN       the DivMMC firmware (8K EEPROM image) used by pzx
-  SYS/ BIN/ TMP/   the files that go on the SD card; pzx copies them onto
+  ESXMMC.BIN       the DivMMC firmware (8K EEPROM image) used by emu80
+  SYS/ BIN/ TMP/   the files that go on the SD card; emu80 copies them onto
                    a new card with Disk > SD card > New card with ESXDOS
   README.TXT, ESX089.NFO, DOCS/   esxDOS documentation

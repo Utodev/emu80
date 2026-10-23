@@ -1,6 +1,6 @@
 { SpectrumNext.inc: the ZX Spectrum Next part of TSpectrum (included by
   Spectrum.pas). Its registers, MMU and ports follow the distribution's
-  docs/extra-hw/io-port-system/registers.txt and ports.txt. pzx boots
+  docs/extra-hw/io-port-system/registers.txt and ports.txt. emu80 boots
   NextZXOS directly, as the firmware would leave the machine: the ROMs from
   the distribution's machines/next folder, +3 timing and paging, the DivMMC
   with automatic mapping. }
@@ -833,7 +833,7 @@ const
   as with .nexload. If the program asks for its file, it gets a handle that
   esxDOS's F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from it; for
   DISK_FILEMAP (programs that stream it straight from the card) the file is
-  also copied onto the SD card, as /TMP/PZXNEX.NEX. }
+  also copied onto the SD card, as /TMP/EMU80NEX.NEX. }
 procedure TSpectrum.LoadNex(const FileName: string);
 const
   BANK_ORDER: array[0..7] of Integer = (5, 2, 0, 1, 3, 4, 6, 7);
@@ -1069,10 +1069,10 @@ begin
     Vol := TFatVolume.Create(FDiv.Card.Stream);
     try
       Dir := Vol.FindDir('/TMP', True);
-      Vol.PutFile(Dir, 'PZXNEX.NEX', FNexData);
+      Vol.PutFile(Dir, 'EMU80NEX.NEX', FNexData);
       E := Vol.ListDir(Dir);
       for I := 0 to High(E) do
-        if SameText(E[I].ShortName, 'PZXNEX.NEX') then FNexMap := Vol.FileMap(E[I]);
+        if SameText(E[I].ShortName, 'EMU80NEX.NEX') then FNexMap := Vol.FileMap(E[I]);
     finally
       Vol.Free;
     end;

@@ -7,13 +7,13 @@
   location, a valid location), and stepping over a PROCESS must come back
   to the next condact of the same entry.
 
-    daadtest <roms folder> <tests/daad folder> }
+    daadtest <roms folder> <tests/daad folder> [<CPC DAAD .dsk>] }
 program daadtest;
 
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, StrUtils, Classes, Models, Spectrum, Daad, DaadExport;
+  SysUtils, StrUtils, Classes, Models, Spectrum, Daad, DaadExport, DSK;
 
 var
   Failures: Integer = 0;
@@ -451,11 +451,83 @@ begin
   end;
 end;
 
+{ A DAAD game on the CPC (disc given as the third parameter; skipped when it is not there):
+  its database is at 2880 in the RAM, whatever ROM is paged over it, and the interpreter
+  is followed like on the Spectrum }
+procedure TestCPC(const RomDir, DskFile: string);
+var
+  Sp: TSpectrum;
+  Mem: TDaadMemory;
+  Game: TDaadGame;
+  Map: array[0..$FFFF] of Byte;
+  Disk: TDiskImage;
+  I, C, Steps: Integer;
+  Err: string;
+  Loaded: Boolean;
+begin
+  if (DskFile = '') or not FileExists(DskFile) then
+  begin
+    WriteLn('  CPC: no DAAD disc given, skipped');
+    Exit;
+  end;
+  Sp := TSpectrum.Create(smCPC6128, RomDir);
+  Game := TDaadGame.Create;
+  Disk := TDiskImage.Create;
+  try
+    Disk.LoadFromFile(DskFile);
+    Sp.FDC.InsertDisk(0, Disk);
+    Sp.AutoLoad(True);
+    Loaded := False;
+    for I := 1 to 3000 do
+    begin
+      Sp.RunFrame;
+      if I mod 50 = 0 then
+      begin
+        for C := 0 to $FFFF do Mem[C] := Sp.PeekRam(C);
+        if Game.Load(Mem, MACHINE_CPC) then
+        begin
+          Loaded := True;
+          Break;
+        end;
+      end;
+    end;
+    Check(Loaded, 'CPC: database found at 2880');
+    if not Loaded then Exit;
+    Check(Game.Base = DDB_BASE_CPC, 'CPC: database base 2880');
+    Check(Game.Machine = MACHINE_CPC, 'CPC: machine code');
+    Check(Length(Game.Condacts) > 50, 'CPC: condacts read');
+    Game.BuildMap(@Map);
+    Sp.SetDaadMap(@Map);
+    for I := 1 to 200 do Sp.RunFrame;
+    Sp.DaadStop := dsNext;
+    if not RunToStop(Sp, 100) then
+    begin
+      Sp.TypeText('i\n', Err);
+      Check(RunToStop(Sp, 900), 'CPC: stops at a condact');
+    end;
+    if Sp.BreakKind <> bkDaad then Exit;
+    Check(Sp.DaadFetchPC <> 0, 'CPC: fetch instruction learnt');
+    for Steps := 1 to 30 do
+    begin
+      C := Current(Sp, Game);
+      Check(C >= 0, Format('CPC: step %d is on a condact (%.4X)', [Steps, Sp.DaadFetch]));
+      Sp.DaadStop := dsNext;
+      Sp.SkipBreakpointOnce;
+      if not RunToStop(Sp, 600) then Break;
+    end;
+    WriteLn(Format('  CPC: v%d, %d condacts, fetch at %.4X', [Game.Version, Length(Game.Condacts), Sp.DaadFetchPC]));
+  finally
+    Game.Free;
+    Sp.Free;
+  end;
+end;
+
 begin
   TestConditions;
   TestPAW;
   TestGame(sm48K, ParamStr(1), IncludeTrailingPathDelimiter(ParamStr(2)) + 'test48.tap', '48K', $6234);
   TestGame(sm128K, ParamStr(1), IncludeTrailingPathDelimiter(ParamStr(2)) + 'test128.tap', '128K', $653A);
+  TestCPC(ParamStr(1), ParamStr(3));
   if Failures = 0 then
     WriteLn('Adventure Debugger (DAAD): all passed')
   else

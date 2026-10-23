@@ -79,7 +79,7 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/currahtest.lpr" > "$
 # Adventure Debugger: the DAAD Ready test game on the 48K and 128K interpreters
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/daadtest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
-"$BUILD/daadtest" "$ROOT/roms" "$ROOT/tests/daad"
+"$BUILD/daadtest" "$ROOT/roms" "$ROOT/tests/daad" "${DAAD_CPC_DSK:-}"
 
 # ULAplus, Timex screen modes and Radastan
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/videotest.lpr" > "$BUILD/fpc.log" || {

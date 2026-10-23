@@ -565,11 +565,11 @@ type
     { Play the tape from now (the tape runs in CPU T-states: see TapeEdge) }
     procedure PlayTape;
     { The Next's firmware started another machine's core (its slot, 8-31):
-      pzx emulates the Next's only, so the Next starts again; -1 if not }
+      emu80 emulates the Next's only, so the Next starts again; -1 if not }
     property ForeignCore: Integer read FForeignCore write FForeignCore;
     { The Next's Multiface is paged in (its NMI menu is running) }
     property MultifaceOn: Boolean read FMfOn;
-    { pzx's own snapshots (.pzs: see PzxSnap.inc), for any model: whether
+    { emu80's own snapshots (.pzs: see Emu80Snap.inc), for any model: whether
       it is the only kind this machine can have (the ZX Spectrum Next and
       the ZX-Uno), the machine a file is of (raises if it isn't one), save
       and load (the machine must be that model) }
@@ -627,6 +627,10 @@ type
     function PortLog(Index: Integer): TPortAccess;
     { Read memory as the CPU sees it, without side effects or breakpoints. }
     function Peek(Addr: Word): Byte;
+    { The RAM at Addr, also under a CPC's ROMs (what the Adventure Debugger reads and
+      writes: the game's database and flags); Peek and Poke on the others }
+    function PeekRam(Addr: Word): Byte;
+    procedure PokeRam(Addr: Word; Value: Byte);
     function FetchMem(Addr: Word; T: Integer): Byte; override;
     property Breakpoint[Addr: Word]: Byte read GetBreakpoint write SetBreakpoint;
     property PortBreakpoint[Port: Word]: Byte read GetPortBreakpoint write SetPortBreakpoint;
@@ -688,7 +692,7 @@ type
     property PrevPaging: TPagingState read FPrevPaging write FPrevPaging;
   public
     { Name (no folder) of the last game file loaded: a tape, disk or
-      snapshot opened in pzx, or a .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened
+      snapshot opened in emu80, or a .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened
       from the SD card. A short string: the emulation thread writes it. }
     LastMediaFile: ShortString;
     property StepCount: LongWord read FStepCount;
@@ -1916,7 +1920,7 @@ end;
 { Flag N of the game: IX points at the flags while a condact runs }
 function TSpectrum.DaadFlag(N: Byte): Byte;
 begin
-  Result := Peek(Word(FCpu.IX.W + N));
+  Result := PeekRam(Word(FCpu.IX.W + N));
 end;
 
 procedure TSpectrum.MarkDaadBreaks;
@@ -2849,7 +2853,7 @@ end;
 
 function TSpectrum.ZXUnoReadReg(Reg: Byte): Byte;
 const
-  CORE_ID = 'pzx-ZXUno';
+  CORE_ID = 'emu80-ZXUno';
 begin
   case Reg of
     2: if (FZXReg[0] and $80) <> 0 then Result := $FF else Result := SpiRead;
@@ -4356,6 +4360,6 @@ end;
 {$I NextVideo.inc}
 {$I NextDma.inc}
 {$I SpectrumNext.inc}
-{$I PzxSnap.inc}
+{$I Emu80Snap.inc}
 
 end.

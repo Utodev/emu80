@@ -24,6 +24,7 @@ CPC.
 | Reginald and the She Vampires `reg1.dsk` (github.com/davemoore22/cpcreg) | 6128 | DISC.BAS autoload, several files, mode 1 text | ok |
 | 8BP v43 `8bp_v43_001.dsk` (github.com/jjaranda13/8BP) | 6128 | a BASIC and binary library loading, a text window and graphics mode | ok: shows its menu |
 | DAAD `TEST.DSK` for the CPC (an Adventure Debugger test game made with DAAD; in the DAAD distribution) | 6128 | `DAAD.BIN` interpreter and a database loaded from disc, mode 2 text | ok: the game's text screen is shown after loading from disc |
+| DAAD games `RUR1.dsk` and `RUR2.dsk` (Las aventuras de Rudolphine Rur, Dwalin 2020; not in the repository) | 6128 | the Adventure Debugger on the CPC: `DAAD_CPC_DSK=RUR1.dsk tests/run-tests.sh` (or `daadtest`'s third parameter) finds the database at 2880, learns the interpreter's fetch (09B4) and stops on condacts | ok on both discs; the tape versions (`.CDT`) were not run through the test |
 | `azimut.cdt` (github.com/JuanLPerea/Azimuth-CPC-464) | 464 | a real CDT with a BASIC header, a turbo block with the loader and a screen: `RUN"`, motor control, real-time loading | ok: loads and runs |
 | `nwo.cdt` (github.com/mycodeself/nwo) | 464 | a 28 KB CDT in real time (it took 14000 frames, the tape's own length); "Loading NWO.BIN block N" messages | loads block by block; not run to the end here |
 

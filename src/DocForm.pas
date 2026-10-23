@@ -1,4 +1,4 @@
-{ DocForm: shows the files that come with pzx, README.md (how pzx works and
+{ DocForm: shows the files that come with emu80, README.md (how emu80 works and
   its command line options, in the Markdown viewer, with Find) and LICENSE
   (plain text), in non-modal windows. }
 unit DocForm;
@@ -14,8 +14,8 @@ const
   DOC_FILE = 'README.md';
   LICENSE_FILE = 'LICENSE';
 
-{ Full path of one of pzx's text files, or '' if it can't be found }
-function PzxFile(const Name: string): string;
+{ Full path of one of emu80's text files, or '' if it can't be found }
+function Emu80File(const Name: string): string;
 procedure ShowDocumentation;
 procedure ShowLicense;
 
@@ -24,7 +24,7 @@ implementation
 var
   DocWindow, LicenseWindow: TForm;
 
-function PzxFile(const Name: string): string;
+function Emu80File(const Name: string): string;
 var
   Dir: string;
 begin
@@ -69,11 +69,11 @@ begin
     {$ENDIF}
     {$ENDIF}
     Memo.Font.Size := 10;
-    FileName := PzxFile(Name);
+    FileName := Emu80File(Name);
     if FileName <> '' then
       Memo.Lines.LoadFromFile(FileName)
     else
-      Memo.Lines.Text := Name + ' was not found next to the pzx executable.';
+      Memo.Lines.Text := Name + ' was not found next to the emu80 executable.';
   end;
   Window.Show;
   Window.BringToFront;
@@ -102,7 +102,7 @@ var
   FileName: string;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'pzx documentation';
+  Caption := 'emu80 documentation';
   Width := 860;
   Height := 720;
   Position := poMainFormCenter;
@@ -145,9 +145,9 @@ begin
   FView := TMdView.Create(Self);
   FView.Parent := Self;
   FView.Align := alClient;
-  FileName := PzxFile(DOC_FILE);
+  FileName := Emu80File(DOC_FILE);
   if FileName <> '' then FView.LoadFromFile(FileName)
-  else FView.LoadFromText(DOC_FILE + ' was not found next to the pzx executable.');
+  else FView.LoadFromText(DOC_FILE + ' was not found next to the emu80 executable.');
   ActiveControl := FView;
 end;
 
@@ -202,7 +202,7 @@ end;
 
 procedure ShowLicense;
 begin
-  ShowTextFile(LicenseWindow, LICENSE_FILE, 'pzx license (GNU GPL v3)');
+  ShowTextFile(LicenseWindow, LICENSE_FILE, 'emu80 license (GNU GPL v3)');
 end;
 
 end.

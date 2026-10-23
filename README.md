@@ -1,6 +1,6 @@
-# pzx
+# emu80
 
-A free pascal / lazarus ZX Spectrum emulator
+An emulator of machines with a Z80 CPU or one derived from it, written in Free Pascal with Lazarus (LCL).
 
 Emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3 with T-state accurate
 Z80 timing, memory and I/O contention, floating bus, ULA snow and per-T-state
@@ -22,7 +22,7 @@ also shown by Help > Documentation, F1).
   - [Deinterlacing](#deinterlacing)
   - [ZX Spectrum Next](#zx-spectrum-next)
   - [Amstrad CPC](#amstrad-cpc)
-  - [pzx snapshots (.pzs)](#pzx-snapshots-pzs)
+  - [emu80 snapshots (.e80)](#emu80-snapshots-e80)
 - [5. Tape browser](#5-tape-browser)
   - [TZX tapes](#tzx-tapes)
 - [6. Disk browser](#6-disk-browser)
@@ -72,11 +72,11 @@ also shown by Help > Documentation, F1).
 - Amstrad CPC 464, 664 and 6128 (see [Amstrad CPC](#amstrad-cpc)): Z80 at 4 MHz held to the Gate Array's
   1 MHz grid, Gate Array (palette, modes 0-3, ROM and RAM banking, the interrupt counter), 6845 CRTC drawn
   as the beam goes, 8255 PPI, AY-3-8912, the keyboard matrix, CDT and TZX tapes in real time (and
-  recording to CDT), the 664's and 6128's disc drive on DSK images, the 6128's 128K and .pzs snapshots.
+  recording to CDT), the 664's and 6128's disc drive on DSK images, the 6128's 128K and .e80 snapshots.
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
-- SNA and Z80 (v1/v2/v3) snapshots, load and save; pzx's own .pzs snapshots of every model (the
+- SNA and Z80 (v1/v2/v3) snapshots, load and save; emu80's own .e80 snapshots of every model (the
   only kind for the ZX Spectrum Next and the ZX-Uno).
 - +3 disk drive (uPD765) with standard and extended DSK images, writable.
 - Disk browser: list the +3DOS files on a disk (type, start or autostart line,
@@ -101,17 +101,17 @@ also shown by Help > Documentation, F1).
 - Monitor: colour, black and white, or green or orange phosphor; contention and ULA snow can be switched off.
 - A ROM file of your choice for each ROM of each model; the ROM can only be
   changed from the debugger or with POKE if the settings allow it.
-- Settings in `pzx.ini` next to the program; `--config FILE` uses another
+- Settings in `emu80.ini` next to the program; `--config FILE` uses another
   file, which must exist, and `--config-add FILE` applies extra settings for
   one session (a missing extra file is ignored).
 - Command line: model, speed, zoom, tapes, disks, symbols, breakpoints and
-  typed keys, e.g. `pzx --model 48k --tape game.tap --keyin 'J""\n'`.
+  typed keys, e.g. `emu80 --model 48k --tape game.tap --keyin 'J""\n'`.
 
 ---
 
-# pzx - ZX Spectrum emulator
+# emu80 - emulator of Z80 machines
 
-pzx emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
+emu80 emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
 and ROMs), the ZX Spectrum Next (with its official distribution) and the Amstrad CPC 464, 664 and 6128, with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
 per-T-state video, so games and demos run at their real speed. The screen and the border are
 drawn as the beam reaches them, each 8-pixel cell taking its bytes and border colour at the end
@@ -131,7 +131,7 @@ Supported files:
 | `.z80` | snapshots, versions 1, 2 and 3. |
 | `.dsk` | disk images (standard and extended), for the +3 and for the CPC 664 and 6128. Opening one switches to the +3 if needed (to the CPC 6128 if the machine is a CPC 464) and boots it (on a CPC, `RUN"` of the program it chooses, or `|CPM` for a boot disk; see [Amstrad CPC](#amstrad-cpc)). |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
-| `.pzs` | pzx's own snapshots, of any model (see [pzx snapshots](#pzx-snapshots-pzs)). Opening one switches to its machine. |
+| `.e80` | emu80's own snapshots, of any model (see [emu80 snapshots](#emu80-snapshots-e80)). Opening one switches to its machine. |
 
 The machine model is chosen with the chip button on the toolbar (click it: ZX Spectrum above and Amstrad CPC
 below open the list of their machines) or in Options > Settings. On an Amstrad CPC the Spectrum's extra hardware
@@ -178,7 +178,7 @@ combinations of the firmware (CTRL+SHIFT+ESC resets, CTRL+ESC...) work:
 | keypad 0-9 and `.` | the CPC's numeric keypad: F0-F9 and F. |
 | keypad `+` `*` `/` | SHIFT+`;` (+), SHIFT+`:` (*), `/` |
 
-The PC's function keys keep their pzx meaning. With "Amstrad CPC: cursor keys and right Ctrl as joystick 1"
+The PC's function keys keep their emu80 meaning. With "Amstrad CPC: cursor keys and right Ctrl as joystick 1"
 (Settings > Amstrad CPC, `--cpc_joystick`, on by default) the cursor keys also move joystick 1 (the CPC's keyboard
 matrix line 9) and the right Ctrl is its fire button; off, the right Ctrl is CONTROL too. The Spectrum joystick
 choice below does not apply to the CPC.
@@ -216,7 +216,7 @@ stops when the pointer leaves the picture.
 
 In the menu bar, the storage menus (Tape, Floppy and SD) are between two separators (|).
 
-**File**: Open, Open recent, Save snapshot (.z80, the default, .sna or .pzs; only .pzs on the ZX
+**File**: Open, Open recent, Save snapshot (.z80, the default, .sna or .e80; only .e80 on the ZX
 Spectrum Next and the ZX-Uno), Screenshot (.SCR, or PNG at 1x or 2x
 with or without the border), Exit.
 
@@ -290,7 +290,7 @@ Spectrum models) or, on the Amstrad CPC, CRTC chip (the model's own, or type 0 t
 Settings (everything else is in Settings).
 
 **Help**: Documentation (F1, this text from README.md), License (the GNU GPL v3, from the
-`LICENSE` file) and About (pzx stands for Pascal ZX; it shows the release number, the build date
+`LICENSE` file) and About (emu80 stands for Pascal ZX; it shows the release number, the build date
 and time as YYYYMMDDHHMM, and the credits: the Spectrum ROMs (Amstrad), the authors of the ROM
 labels in the .sym files, the ZX-Uno (ZX-Uno Team), the Next's boot ROM (Victor Trucco and
 Fabio Belavenuto), esxDOS (Miguel Guerreiro) and the Currah
@@ -321,7 +321,7 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 
 | Tab | Contents |
 |---|---|
-| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default) and whether the settings are saved when pzx closes (on by default; when off, changes last only until pzx is closed). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
+| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default) and whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
 | Common > Storage | Tape: fast loading, Smart Tape Player (starts and stops the tape by itself when the machine loads: Auto play/stop in the Tape menu) and continuous tape playback (from the start again at the end). Floppy: fast floppy disk access (no real drive timing), drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
@@ -329,9 +329,9 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 | ZX Spectrum > Firmware | DivMMC: its firmware (empty = the bundled `esxdos/ESXMMC.BIN`). ZX-Uno: its BIOS and ROMs (empty = the ones in the zxuno folder) and its custom ROM (see [ZX-Uno](#zx-uno)). ZX Spectrum Next: its distribution folder, its SD card and whether it starts through its firmware (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | Amstrad CPC | Video: the CRTC chip (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
 
-Settings are kept in `pzx.ini` in the same folder as the program (next to pzx.app on macOS); on
-Linux, if that folder can't be written (pzx installed from a .deb or .rpm package), in
-`~/.config/pzx/pzx.ini`. See `--config` and `--config-add` below to use other files. `pzx.ini` is
+Settings are kept in `emu80.ini` in the same folder as the program (next to emu80.app on macOS); on
+Linux, if that folder can't be written (emu80 installed from a .deb or .rpm package), in
+`~/.config/emu80/emu80.ini`. See `--config` and `--config-add` below to use other files. `emu80.ini` is
 an ini file whose keys are named exactly as the command line options (see
 [Command line](#12-command-line)), with 1/0 for on/off options and the option's value for the
 others. The options of the ZX Spectrum models start with `zx_` and those of the Amstrad CPC with
@@ -347,17 +347,17 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 | `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
 | `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
 
-The recent files, pokes and last folder are kept in sections of their own. A pzx.ini from an
+The recent files, pokes and last folder are kept in sections of their own. An emu80.ini from an
 older version is read and rewritten with these keys; the names the options had before they took
 `zx_` and `cpc_` (`turbosound`, `joystick`, `issue`, `nextdir`, `sdcard`, `cpcjoystick`...) are still understood, in the file and on the
 command line, and the file is written with the new ones.
 
 ### Interface
 
-pzx has two interfaces with the same commands: **classic** (the menu bar, the toolbar and the
-status bar described above) and **modern** (dark, with palettes of big buttons). pzx starts in the
+emu80 has two interfaces with the same commands: **classic** (the menu bar, the toolbar and the
+status bar described above) and **modern** (dark, with palettes of big buttons). emu80 starts in the
 modern one; the first time (no settings file yet) a warning says so for 5 seconds, with the button
-that changes to the classic one. The one in use is kept in pzx.ini (`[General] ui`) and can be
+that changes to the classic one. The one in use is kept in emu80.ini (`[General] ui`) and can be
 changed at once, without restarting: with the half dark
 circle button (at the right end of the classic toolbar, left of the model in the modern header),
 Options > Modern interface, or Settings > Common > General > Layout > Theme; or for a session with
@@ -393,7 +393,7 @@ documentation's links and headings light blue.
 
 ### ZX-Uno
 
-The ZX-Uno is an FPGA board with many cores; pzx emulates its Spectrum core the way the real one
+The ZX-Uno is an FPGA board with many cores; emu80 emulates its Spectrum core the way the real one
 starts: the boot loader copies its BIOS from the SPI flash and runs it, and the BIOS shows its
 boot screen, reads the ROMs from the flash, copies the chosen one into its 512K of SRAM (pages
 8-11), sets the machine up through its registers (ports `FC3B` and `FD3B`) and starts it. The
@@ -405,7 +405,7 @@ ROMs (`--zx_unofirmware`, `--zx_unoroms`; changing them switches the ZX-Uno off 
 While the boot screen shows, Edit (Shift+1) enters the BIOS setup and Break (Esc) its boot menu,
 to start any of its ROMs. Its keys are the Spectrum's: cursors (CAPS + 5/6/7/8), ENTER, Break.
 The settings the BIOS saves (active ROM, boot timer, quiet boot, keyboard issue, timing,
-contention, DivMMC...) are kept in pzx.ini (`[ZXUno] BiosSettings`) and used from then on;
+contention, DivMMC...) are kept in emu80.ini (`[ZXUno] BiosSettings`) and used from then on;
 changes to the ROM list are not kept. Until something is saved, the BIOS shows its boot screen
 and starts the first ROM, the 48K. The boot screen lasts about a second and the ROM starts after
 about two, as on the real board: the SCANCODE register returns the PS/2 keyboard's power-on
@@ -444,7 +444,7 @@ as the Radastan video player `.playrmov`) need a 128K ROM: choose one in the boo
 make it the default in the BIOS setup (Edit).
 
 Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset (Shift+F6) restarts the ROM
-the BIOS chose. File > Save snapshot saves a .pzs (see [pzx snapshots](#pzx-snapshots-pzs)): .sna
+the BIOS chose. File > Save snapshot saves a .e80 (see [emu80 snapshots](#emu80-snapshots-e80)): .sna
 and .z80 can't hold its SRAM and registers.
 
 ### Video modes
@@ -491,48 +491,48 @@ firmware and NextZXOS with its ROMs, BASIC and programs, comes from its official
 which is not included (it has its own licence): download the latest one from
 [https://www.specnext.com/latestdistro/](https://www.specnext.com/latestdistro/) and unpack it
 into the `specnext` folder next to the program (it must have `machines/next` in it), or choose
-another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When pzx is installed from a .deb or .rpm, the
-folder is `~/.config/pzx/specnext` (the one next to the program can't be written).
+another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When emu80 is installed from a .deb or .rpm, the
+folder is `~/.config/emu80/specnext` (the one next to the program can't be written).
 
 Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
 says so in a window ("La distribución de Spectrum Next no está instalada...") with the download
-page as a link that opens in the browser, and the machine stays as it was (with `--model zxnext`, pzx closes). Download the .zip and
+page as a link that opens in the browser, and the machine stays as it was (with `--model zxnext`, emu80 closes). Download the .zip and
 choose Options > Install Spectrum Next Distribution (this entry is only there while the distribution
-isn't installed): pick the .zip file and pzx unpacks it into the folder (a distribution inside one
+isn't installed): pick the .zip file and emu80 unpacks it into the folder (a distribution inside one
 folder of the zip goes straight into it, with no extra level) and checks it, and only then moves it
 into place, so a broken file leaves nothing half installed. A path in the zip that would write
-outside the folder (`..`, an absolute path or another drive) makes pzx refuse the whole file, and
-links are not made. If it is a distribution, pzx says so and asks whether to start the Next now
+outside the folder (`..`, an absolute path or another drive) makes emu80 refuse the whole file, and
+links are not made. If it is a distribution, emu80 says so and asks whether to start the Next now
 (Yes: the machine changes to the Next, its SD card made at the usual size without asking; No: nothing
 else). If it isn't ("Distribución no valida", or a file that isn't a zip), pressing OK **deletes
 everything in the distribution's folder**, which is what that message means: don't point
 `--zx_nextdir` at a folder with other things in it. A file that can't be read or written, or a damaged
 zip, is reported as an error and installs nothing.
 
-**SD card.** The first time the Next is used, pzx makes its SD card, `zxnext.img` next to pzx.ini
+**SD card.** The first time the Next is used, emu80 makes its SD card, `zxnext.img` next to emu80.ini
 (Settings > ZX Spectrum > Firmware, `--zx_nextcard`), asking its size first (FAT16: the sizes the distribution fits in
 with room to spare, up to 2 GB; 512 MB proposed; Cancel leaves the machine as it was), with the
 whole distribution (long file names included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
-keep theirs, and what NextZXOS saves on it is kept (pzx saves it when leaving the Next and when it
-closes, without asking). When a newer distribution is unpacked, pzx asks whether to make a new
+keep theirs, and what NextZXOS saves on it is kept (emu80 saves it when leaving the Next and when it
+closes, without asking). When a newer distribution is unpacked, emu80 asks whether to make a new
 card from it; the old one is kept, renamed as `zxnext-YYYYMMDD-HHMM.img`. SD > New SD card with
 the Next distribution makes another one.
 
-Cards used with older versions of pzx may have files that NextZXOS or the firmware rewrote left
-empty (pzx didn't answer the card's status request, CMD13, so every write after the first block
+Cards used with older versions of emu80 may have files that NextZXOS or the firmware rewrote left
+empty (emu80 didn't answer the card's status request, CMD13, so every write after the first block
 failed): an empty `machines/next/config.ini` makes the firmware show its video test card at every
-start. When the Next's card is put in, pzx mends them: each empty file that isn't empty in the
+start. When the Next's card is put in, emu80 mends them: each empty file that isn't empty in the
 distribution is copied from it again, and an empty `config.ini` gets the default one; a message
 lists what was mended.
 
 **Extra cores.** The firmware's extra cores menu (C while it starts) works with an emulated 16 MB
-flash (in memory only, empty at every start of pzx): cores can be installed into slots 8-31, but
-pzx emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
+flash (in memory only, empty at every start of emu80): cores can be installed into slots 8-31, but
+emu80 emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
 and starts the Next again.
 
 **Starting.** By default (Settings > ZX Spectrum > Firmware > "Start through its firmware", `--zx_nextfirmware`) the
 Next starts as the real one: its boot ROM (`roms/tbblue_loader.rom`) loads the firmware
-(`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (pzx says it is an
+(`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (emu80 says it is an
 emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-zx_nextfirmware`), NextZXOS starts
 directly from the distribution's ROMs, as if the firmware had chosen it. Hard reset (F6) starts
 it all again; Reset (Shift+F6) is the Next's soft reset.
@@ -544,9 +544,9 @@ asks). A program that asks for its own file (to read more data from it: through 
 header asks for, or opening it again by name with F_OPEN) gets a handle that the esxDOS calls
 F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from the .nex; for
 DISK_FILEMAP, which programs use to stream data straight from the card, the file is also copied
-onto the Next's SD card as `/TMP/PZXNEX.NEX` (replaced each time). Tapes are only inserted (load
+onto the Next's SD card as `/TMP/EMU80NEX.NEX` (replaced each time). Tapes are only inserted (load
 them from NextZXOS's browser or with `LOAD ""`), and .sna, .z80 and .dsk files switch to their
-own model. File > Save snapshot saves a .pzs (see [pzx snapshots](#pzx-snapshots-pzs)).
+own model. File > Save snapshot saves a .e80 (see [emu80 snapshots](#emu80-snapshots-e80)).
 
 **Sound.** Three AY chips (TurboSound Next: port `FFFD` chooses one with `FF`, `FE` or `FD`, its
 bits 6 and 5 switching that chip's left and right outputs), each ABC or ACB stereo (NR `08` bit
@@ -585,7 +585,7 @@ shows and edits its registers.
 
 The CPC 464 (tape, 64K), CPC 664 (3" disc drive, 64K) and CPC 6128 (disc drive, 128K in eight 16K banks) are
 chosen like any other machine: the chip button, Options > Settings, `--model cpc464`, `--model cpc664`,
-`--model cpc6128` (or just `pzx cpc464`). Their firmware is in `roms/` (`cpc464.rom`, `cpc664.rom`,
+`--model cpc6128` (or just `emu80 cpc464`). Their firmware is in `roms/` (`cpc464.rom`, `cpc664.rom`,
 `cpc6128.rom`: the 16K operating system followed by the 16K BASIC; `amsdos.rom`, the disc ROM of the 664
 and 6128), and each model's file can be replaced in Settings > Common > ROMs as for the Spectrum.
 
@@ -653,7 +653,7 @@ a CPC (it is a Spectrum tape). Limitations: nothing is skipped by a ROM trap (th
 tape's time unless the emulator runs fast; the 3.5 MHz scaling uses the exact 7/8.
 **Recording (REC)**: the tape output (PPI C bit 5, while the motor is on) is kept as it is, edge by edge, as
 pulse blocks and the pauses between them, so what the CPC `SAVE`s (also with its own save routines) is stored
-without being decoded: Tape > Save tape as writes it as a `.cdt` (or `.tzx`), which loads back in pzx and in other
+without being decoded: Tape > Save tape as writes it as a `.cdt` (or `.tzx`), which loads back in emu80 and in other
 emulators. Limitations of that: the file is larger than a decoded CDT (two bytes a pulse), a pulse longer than
 18 ms or a silence longer than 5 s is cut (as a pause), and the blocks aren't named until the tape is loaded again.
 Tape > Save tape as can't write CSW recordings, generalized data blocks or flow control blocks (it says so).
@@ -668,9 +668,9 @@ ones: the directory isn't where AMSDOS looks) is started with `|CPM`. It is a gu
 isn't the right one, type the command yourself. The Disk browser reads the CPC's CP/M directories (on a CPC the headers are AMSDOS ones: Import offers a binary with an AMSDOS header, loaded and run at the address you give, and Export asks whether to keep a file's header; a file that already has one is copied as it is. A `.SCR` is offered at `&C000`).
 
 **Snapshots**: File > Save snapshot writes a CPC `.sna` (the format of CPCEmu and Winape: the Z80, the Gate Array, CRTC,
-PPI and PSG registers and 64K or 128K of RAM, version 1; it records the model, which loading it switches to) or pzx's own `.pzs`
+PPI and PSG registers and 64K or 128K of RAM, version 1; it records the model, which loading it switches to) or emu80's own `.e80`
 (the same and more: the model, the whole CPU, the 64K or 128K RAM, the Gate Array, CRTC, PPI and PSG state with the CRTC
-chip, the PSG chip, the interrupt counter and where the beam is; the version-1 `.pzs`, with the model's name, as for the
+chip, the PSG chip, the interrupt counter and where the beam is; the version-1 `.e80`, with the model's name, as for the
 other models). A `.sna` doesn't say where the beam is or the CRTC's chip: the machine goes on from the start of a frame.
 Opening a `.sna` made with its memory in compressed chunks (some version 3 files), or of a CPC+ or a GX4000, says that it
 can't. The tape's position and a disc transfer in progress are in neither; the discs stay inserted as they are.
@@ -688,11 +688,11 @@ ROMs; the printer port, the Multiface, the light gun, mouse and speech;
 the exact CPC wait states of the less usual instructions (every cycle is rounded to 4 T-states, which matches the
 NOP counts of most, not verified for all of them against a real machine). 
 
-### pzx snapshots (.pzs)
+### emu80 snapshots (.e80)
 
-.z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so pzx has its own
-format: File > Save snapshot (F3) saves a `.pzs` on those two machines, and on the others it is
-a choice in the dialog's file types (.z80 stays the default, then .sna and .pzs; the name's
+.z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so emu80 has its own
+format: File > Save snapshot (F3) saves a `.e80` on those two machines, and on the others it is
+a choice in the dialog's file types (.z80 stays the default, then .sna and .e80; the name's
 extension, or else the type chosen, decides). Opening one (File > Open, the command line or
 dropping it on the window) switches to its machine and carries on where it was saved. It holds
 the whole machine: the CPU, all the memory (the 128K models' eight banks; the ZX-Uno's 512K of
@@ -700,9 +700,10 @@ SRAM; the Next's 2 MB with its ROMs, Multiface and DivMMC memory), the registers
 display (ULAplus, Timex modes; the Next's palettes, sprites, copper, Layer 2), the Next's DMA,
 the AY chips, the DivMMC's paging and RAM and the Currah µSpeech's ROM paging. It doesn't hold
 the SD card (the Next keeps its own card; on the others the card in use stays), +3 disks, tapes
-or the ZX-Uno's flash (made again from its BIOS and ROMs files). The file is `PZXSNAP`, a
+or the ZX-Uno's flash (made again from its BIOS and ROMs files). The file is `EMU80SNAP`, a
 version byte (1), the machine's `--model` name (a length byte and the name: `48k`, `zxnext`...),
-then the machine compressed with zlib in the order of `SnapIO` in `src/PzxSnap.inc`.
+then the machine compressed with zlib in the order of `SnapIO` in `src/Emu80Snap.inc`.
+Snapshots made when the emulator was called pzx (`.pzs`, signature `PZXSNAP`) open too.
 
 ## 5. Tape browser
 
@@ -743,8 +744,8 @@ own T-state clock, pauses, loops and the rest of the flow included. With fast lo
 tape plays at the CPU's pace as always.
 
 Tapes are saved as .tap (Save tape as, and in the tape browser), which keeps only the data
-blocks: with blocks from a .tzx that a .tap can't keep, pzx asks first. Or as .tzx (on the Amstrad CPC,
-.cdt: the same format), which keeps every block pzx can play except CSW recordings, generalized data and the
+blocks: with blocks from a .tzx that a .tap can't keep, emu80 asks first. Or as .tzx (on the Amstrad CPC,
+.cdt: the same format), which keeps every block emu80 can play except CSW recordings, generalized data and the
 flow control blocks (jumps, loops, calls and selections): it says so if the tape has any.
 
 ## 6. Disk browser
@@ -764,7 +765,7 @@ The toolbar buttons (hover for a hint):
 | Button | Action |
 |---|---|
 | Refresh | read the directory again (it also refreshes by itself when the emulated +3 writes to the disk or the disk changes). |
-| Import | copies files from the PC onto the disk (several can be chosen at once). A file that already has a +3DOS header is copied as it is; for any other file you choose its name and either a Bytes (CODE) header with its load address (16384 is suggested for screens, 32768 otherwise) or no header at all (the header is ticked by default here). With several files, "The same for the other files" applies those choices to the rest, with their own names. If a file with that name is already on the disk, pzx asks whether to overwrite it (Yes to all with several files). |
+| Import | copies files from the PC onto the disk (several can be chosen at once). A file that already has a +3DOS header is copied as it is; for any other file you choose its name and either a Bytes (CODE) header with its load address (16384 is suggested for screens, 32768 otherwise) or no header at all (the header is ticked by default here). With several files, "The same for the other files" applies those choices to the rest, with their own names. If a file with that name is already on the disk, emu80 asks whether to overwrite it (Yes to all with several files). |
 | Import a folder | (a folder with a blue arrow) copies a folder of the PC with its contents onto the disk. A +3 disk has no folders, so all the files inside the folder and its subfolders are imported side by side. The usual questions (name, +3DOS header, overwrite) are asked, with "for all" to apply the choice to the rest; a progress bar shows meanwhile. |
 | Export | saves the selected files to the PC (also with a double-click): one with a save dialog, several into a folder you choose, asking before overwriting a file there. If they have a +3DOS header you can keep it or save only the data (a .bin, a screen...). |
 | Rename | (F2) gives the selected file a new name (8 characters and an optional extension of 3). |
@@ -776,10 +777,10 @@ side by side).
 
 Select several files with Ctrl or Shift + click. The import and export dialogs open in the
 folder the disk browser used last (the SD card browser remembers its own); it is kept in
-pzx.ini.
+emu80.ini.
 
 Changes are made on the disk image in memory and mark it as modified; save it with Floppy > Save
-disk (into its file) or Save disk as, or answer yes when pzx asks on exit or before the disk is
+disk (into its file) or Save disk as, or answer yes when emu80 asks on exit or before the disk is
 ejected or replaced. The disk browser understands the standard +3 format and the formats
 described by a disk specification (and the CPC system and data formats). A program running on
 the +3 that is using the disk at that moment may not notice changes until it reads the directory
@@ -787,7 +788,7 @@ again.
 
 ## 7. DivMMC and SD cards
 
-pzx emulates the DivMMC interface: 8K of EEPROM with its firmware, 128K of RAM and an SD card,
+emu80 emulates the DivMMC interface: 8K of EEPROM with its firmware, 128K of RAM and an SD card,
 with automatic paging (at `0000`, `0008`, `0038`, `0066`, `04C6`, `0562` and `3Dxx`, and back at
 `1FF8`-`1FFF`) and ports `E3` (control), `E7` (card select) and `EB` (SPI data). It works on
 every model. The firmware is esxDOS 0.8.9 (`esxdos/ESXMMC.BIN`, from
@@ -802,7 +803,7 @@ remembers): the standard models share `zx_sdcard`, the ZX-Uno has `zx_unocard` a
 - Switching to the **ZX-Uno**: the DivMMC is connected and the ZX-Uno's last card goes in, if it has one (if not,
   the card that was in stays).
 - Switching from the ZX-Uno or the Next to a **standard Spectrum**: the standard models' card comes back (the
-  ZX-Uno's or the Next's goes out, its changes first saved or asked about) and pzx asks whether to switch the DivMMC
+  ZX-Uno's or the Next's goes out, its changes first saved or asked about) and emu80 asks whether to switch the DivMMC
   off; if not, it stays connected.
 
 The SD menu:
@@ -811,7 +812,7 @@ The SD menu:
 |---|---|
 | SD card browser | see below (also the SD card toolbar button); only available with a card inserted. |
 | Insert recent SD card | one of the last 8 card images used. |
-| Use a PC folder as SD card | the card in the DivMMC is ejected (asking to save it if it was changed) and a temporary card is made with esxDOS (SYS, BIN, TMP) and the folder's files and subfolders in its root, their names turned into 8.3 names (two that would clash become `NAME~1`, `NAME~2`...). The machine then boots with it. The card lives in the temporary folder and is deleted when it is replaced, ejected or pzx closes; if it was changed, pzx offers to save it as an image file. The PC folder itself is never changed. |
+| Use a PC folder as SD card | the card in the DivMMC is ejected (asking to save it if it was changed) and a temporary card is made with esxDOS (SYS, BIN, TMP) and the folder's files and subfolders in its root, their names turned into 8.3 names (two that would clash become `NAME~1`, `NAME~2`...). The machine then boots with it. The card lives in the temporary folder and is deleted when it is replaced, ejected or emu80 closes; if it was changed, emu80 offers to save it as an image file. The PC folder itself is never changed. |
 | Insert SD card image | any raw card image (.img, .mmc, .hdf...). Inserting the one already in is refused. |
 | New SD card | an empty card of 16 MB to 2 GB, with one FAT16 partition. |
 | New SD card with ESXDOS | the same, with the esxDOS SYS, BIN and TMP folders already copied: ready to boot. |
@@ -822,7 +823,7 @@ The SD menu:
 
 What the Spectrum writes on the card, and what the SD card browser changes, is kept in memory
 (only the 512-byte blocks that changed) until the card is saved: the image file stays as it was.
-pzx asks whether to save a modified card when it closes, and before the card is ejected or
+emu80 asks whether to save a modified card when it closes, and before the card is ejected or
 replaced. Inserting or creating a card connects the DivMMC if it isn't. The card in use is
 remembered for the next session. With the DivMMC on, the machine boots through esxDOS (about 5
 seconds), and tapes and disks opened with File > Open wait for it. On the 128K models esxDOS
@@ -855,7 +856,7 @@ names made from the PC names, or the PC names themselves on the Next's card), me
 folders already on the card, and the files in them are copied as they are, without asking (no
 +3DOS header). Files imported on their own ask the usual questions (name, +3DOS header), with
 "for all" to apply the choice to the rest; overwriting a file is always asked. While several
-files are imported a progress bar shows, and pzx can't be used until it is over.
+files are imported a progress bar shows, and emu80 can't be used until it is over.
 
 ## 8. POKEs
 
@@ -878,7 +879,7 @@ SP0256-AL2 chip that speaks *allophones*, the sounds words are made of. It is co
 Settings > ZX Spectrum > Hardware (or `--zx_currah`, ini key `zx_currah` in `[ZXSpectrum]`), which switches the machine
 off and on; its ROM then shows "Speech System (c) CURRAH 1983" at the top of the screen. It needs
 `currah.rom` (its 2K ROM) and `sp0256-al2.rom` (the chip's 2K mask ROM) in the ROM folder; both
-come with pzx.
+come with emu80.
 
 From BASIC (as its manual explains):
 
@@ -1106,7 +1107,7 @@ removes the selected one. Right-click also saves them to a JSON file or loads th
 JSON files, with addresses and ports in hex:
 
 ```
-{"pzx": "breakpoints", "version": 1,
+{"emu80": "breakpoints", "version": 1,
  "memory": [{"address": "8000", "type": "exec", "enabled": true,
              "condition": "A = 3"}],
  "ports":  [{"port": "00FE", "type": "out", "enabled": true,
@@ -1117,11 +1118,11 @@ JSON files, with addresses and ports in hex:
 (memory types `exec`, `read`, `write`, `access`; port types `in`, `out`, `any`)
 
 ```
-{"pzx": "watches", "version": 1, "watches": ["5C3A", "8000"]}
+{"emu80": "watches", "version": 1, "watches": ["5C3A", "8000"]}
 ```
 
 ```
-{"pzx": "daad-breakpoints", "version": 1,
+{"emu80": "daad-breakpoints", "version": 1,
  "breakpoints": [{"address": "8A69", "enabled": true,
                   "condition": "f0 = 3", "condact": "P1 E5  NOUN2 251"}]}
 ```
@@ -1232,7 +1233,7 @@ while that ROM is paged in. Your own symbols, as exported by SjASM / SjASMPlus
 (`LABEL: EQU 0x8000`), are loaded with Debug > Load symbols or `--sym` and take precedence:
 
 ```
-pzx --sym game.sym game.tap
+emu80 --sym game.sym game.tap
 ```
 
 ### ROM
@@ -1251,6 +1252,10 @@ or 3, as written by DC 2.0 or later and DRC; La Diosa de Cozumel and later), usu
 looked for anywhere, with any of the 48K and 128K interpreters, English or Spanish. The status
 bar says where it is. (On the 128K, the interpreter's interrupt table overwrites the version byte
 at `8400`: the version is then told from the condacts used.)
+
+It also works on the Amstrad CPC (DAAD games for the 464, 664 and 6128, from disc or tape): the
+database is at `2880` in the RAM (the debugger reads the RAM even when the lower ROM is paged
+over it) and the machine code in its header is 3. PAW and Quill are Spectrum engines only.
 
 PAW games (48K, and the 128K ones on a 128K model) are found by the database the interpreter
 points at from the top of memory. PAW works like DAAD, with these differences: process 0 is the
@@ -1376,7 +1381,7 @@ and are left as markers; PAUSE and BEEP durations are the database's (DRC scales
 target); a v3 database needs DRF's `-v3` option (the DSF says so). The DSF file is ISO-8859-1 and
 the SCE code page 437.
 
-A PAW game is exported as it is to an SCE (PAW condacts, no object attributes). To a DSF, pzx asks
+A PAW game is exported as it is to an SCE (PAW condacts, no object attributes). To a DSF, emu80 asks
 whether to export it as a PAW game (the same) or to convert it to DAAD, as PAWS2DAAD does: DESC
 becomes RESTART, INVEN the SYSMESS/LISTAT entry, SAVE, LOAD and PARSE get their 0, PROMPT becomes
 LET fPrompt, TIMEOUT HASAT TIMEOUT, and condacts DAAD lacks (TURNS, SCORE, CHARSET, MODE, GRAPHIC,
@@ -1386,7 +1391,7 @@ database, whose definitions and processes 0, 1, 2 and 6 are added: the response 
 process 5, PAW processes 1 and 2 become 3 and 4, processes 3 to 6 go after the last one and the
 rest keep their numbers (PROCESS calls are renumbered too). The system messages DAAD has and PAW
 lacks come from the empty database, and process 1 gets the entry for PAW's auto-decrement flags
-as a comment (remove its semicolons if the game needs them). After converting, pzx reminds you
+as a comment (remove its semicolons if the game needs them). After converting, emu80 reminds you
 that the source needs checking by hand: PAW's flags and fonts are not DAAD's.
 
 A Quill game can only be exported as a DSF, converted to DAAD in the same way (there is no SCE
@@ -1402,17 +1407,17 @@ can be carried.
 ## 12. Command line
 
 ```
-pzx [options] [file]
+emu80 [options] [file]
 ```
 
-A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .nex or .pzs) is opened as with File > Open, so a tape or disk is loaded
+A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .nex or .e80) is opened as with File > Open, so a tape or disk is loaded
 automatically. Options start with `-` or `--` and take their value as the next argument or after
 "=" (`--model=128k`). Options are applied in this order whatever their position: machine, files,
 symbols, breakpoints, typed keys.
 
 | Option | Description |
 |---|---|
-| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128` (also `+2`, `+2b`, `+3`). A CPC can also be named alone: `pzx cpc6128`, `pzx cpc464 game.cdt` |
+| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128` (also `+2`, `+2b`, `+3`). A CPC can also be named alone: `emu80 cpc6128`, `emu80 cpc464 game.cdt` |
 | `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > Common > General) |
 | `--scale N` | window zoom 1 to 4 |
 | `--tape FILE` | insert a .tap, .tzx or .cdt without starting it (combine with `--keyin`) |
@@ -1441,7 +1446,7 @@ Every breakpoint option takes an optional condition, after "if" or a comma:
 
 **Settings and the Options menu.** Every setting has an option; what they set is kept in the
 settings file like a change made in Settings. On/off options turn the setting on as `--name` and
-off as `--no-name` (`--no-fastload`...). In pzx.ini each one is a key with the same name
+off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the same name
 (see [Settings](#4-settings)):
 
 | Option | Setting | Where |
@@ -1477,7 +1482,7 @@ off as `--no-name` (`--no-fastload`...). In pzx.ini each one is a key with the s
 | `--fastdisk` | fast floppy disk access | Common > Storage |
 | `--driveb` | drive B: connected (default: no) | Common > Storage |
 | `--floppynoise` | emulate floppy drive noise | Common > Storage |
-| `--saveonexit` | save the settings when pzx closes | Common > General |
+| `--saveonexit` | save the settings when emu80 closes | Common > General |
 | `--pngborder` | include the border in PNG screenshots | File menu |
 | `--romdir DIR` | the standard ROM folder | Common > ROMs |
 | `--rom "MODEL,N,FILE"` | ROM N of a model (0 to 3, as many as the model has), e.g. `--rom "48k,0,C:\roms\mine.rom"`; an empty FILE goes back to the standard ROM | Common > ROMs |
@@ -1488,14 +1493,14 @@ off as `--no-name` (`--no-fastload`...). In pzx.ini each one is a key with the s
 | `--watches FILE` | watches saved by the debugger (JSON) | |
 | `--daadbreakpoints FILE` | breakpoints saved by the Adventure Debugger (JSON); they act once that debugger is open (F11) | |
 | `--zx_unocustomrom FILE` | a 16K ROM the ZX-Uno runs (as a 48K) instead of the one its BIOS chooses; empty = none | ZX Spectrum > Firmware |
-| `--zx_nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to pzx.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ZX Spectrum > Firmware |
-| `--zx_nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to pzx.ini | ZX Spectrum > Firmware |
+| `--zx_nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to emu80.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ZX Spectrum > Firmware |
+| `--zx_nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to emu80.ini | ZX Spectrum > Firmware |
 | `--zx_nextfirmware` | the ZX Spectrum Next starts through its firmware (boot screen; on by default); `--no-zx_nextfirmware` starts NextZXOS directly | ZX Spectrum > Firmware |
 
 | Option | Description |
 |---|---|
-| `--config FILE` | use FILE as the settings file instead of pzx.ini; FILE must exist (pzx stops with an error if it doesn't) and changed settings are saved into it |
-| `--config-add FILE` | apply the settings in FILE on top of pzx.ini for this session; they are not written into pzx.ini. If FILE doesn't exist it is ignored, without an error |
+| `--config FILE` | use FILE as the settings file instead of emu80.ini; FILE must exist (emu80 stops with an error if it doesn't) and changed settings are saved into it |
+| `--config-add FILE` | apply the settings in FILE on top of emu80.ini for this session; they are not written into emu80.ini. If FILE doesn't exist it is ignored, without an error |
 | `--help` | show this documentation |
 
 The breakpoint, keyin and file options can be repeated.
@@ -1503,12 +1508,12 @@ The breakpoint, keyin and file options can be repeated.
 Examples:
 
 ```
-pzx game.tap
-pzx --model 128k --tape game.tap --keyin "\n"
-pzx --model 48k --tape game.tap --keyin 'J""\n'
-pzx --sym game.sym --bp START --bpw "5C78 if A=0" game.z80
-pzx --bpout "FE if A=2" --bpin 7FFE game.tap
-pzx --config-add bw.ini --scale 3 demo.sna
+emu80 game.tap
+emu80 --model 128k --tape game.tap --keyin "\n"
+emu80 --model 48k --tape game.tap --keyin 'J""\n'
+emu80 --sym game.sym --bp START --bpw "5C78 if A=0" game.z80
+emu80 --bpout "FE if A=2" --bpin 7FFE game.tap
+emu80 --config-add bw.ini --scale 3 demo.sna
 ```
 
 A settings file for `--config-add` only needs the values to change, e.g.:
@@ -1522,28 +1527,28 @@ bw=1
 
 | File | What it is |
 |---|---|
-| `pzx` / `pzx.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
-| `pzx.ini` | settings, next to the program (created when pzx closes; `~/.config/pzx/` when installed from a package) |
+| `emu80` / `emu80.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
+| `emu80.ini` | settings, next to the program (created when emu80 closes; `~/.config/emu80/` when installed from a package) |
 | `roms/` | Spectrum and Amstrad CPC ROMs (`cpc464.rom`, `cpc664.rom`, `cpc6128.rom`, `amsdos.rom`) and the Spectrum ROMs' .sym label files, the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
 | `specnext/` | empty: unpack the ZX Spectrum Next distribution here (it isn't included, as it has its own licence) |
-| `zxnext.img` | the ZX Spectrum Next's SD card, next to pzx.ini, made from the distribution the first time the Next is used |
+| `zxnext.img` | the ZX Spectrum Next's SD card, next to emu80.ini, made from the distribution the first time the Next is used |
 | `zxuno/` | the ZX-Uno's BIOS (`FIRMWARE.ZX1`) and ROMs (`ROMS.ZX1`) |
 | `esxdos/` | esxDOS 0.8.9: `ESXMMC.BIN` (the DivMMC firmware) and the SYS and BIN folders for new SD cards |
 | `README.md` | this file |
 | `LICENSE` | the license, GNU GPL v3 (Help > License) |
 
 `roms`, `README.md` and `LICENSE` are looked for next to the program and, if not there, in the
-folder above it (as when pzx is built inside the src folder of the sources).
+folder above it (as when emu80 is built inside the src folder of the sources).
 
 Linux packages: after `build.sh`, `package.sh` makes a .deb (with dpkg-deb) and a .rpm (with
 rpmbuild: on Debian or Ubuntu, `sudo apt install rpm`) in `build/packages`. Both install the
-program and its folders in `/usr/lib/pzx`, a `pzx` command, a desktop entry and the icon; they
+program and its folders in `/usr/lib/emu80`, a `emu80` command, a desktop entry and the icon; they
 need GTK 2 and recommend SDL2 (for sound). The version is the release number. `package.sh` also
-makes `pzx-VERSION-windows.zip` with `pzx.exe` (built with lazbuild) and its folders, to unpack
-anywhere. The three packages have a `lib` folder (`/usr/lib/pzx/lib` in the Linux ones) with the native
-library for host applications (`pzxlib.dll`, or `libpzxlib.so`) and its documentation, `LIBRARY.md`; `package.sh`
+makes `emu80-VERSION-windows.zip` with `emu80.exe` (built with lazbuild) and its folders, to unpack
+anywhere. The three packages have a `lib` folder (`/usr/lib/emu80/lib` in the Linux ones) with the native
+library for host applications (`emu80lib.dll`, or `libemu80lib.so`) and its documentation, `LIBRARY.md`; `package.sh`
 builds the library with `src/lib/build-lib.sh` if it is not built yet. They also have a `tests` folder with the
-C# host demo (`PzxHostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `PzxHostDemo.exe --selftest`).
+C# host demo (`Emu80HostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `Emu80HostDemo.exe --selftest`).
 
 The Spectrum and CPC ROMs are copyright Amstrad, who allow their distribution.
 
@@ -1570,7 +1575,7 @@ out of its use, even if advised of the possibility of such damage.
 
 ## Building
 
-**Windows:** open `src/pzx.lpi` in Lazarus and build, or run `lazbuild src/pzx.lpi`.
+**Windows:** open `src/emu80.lpi` in Lazarus and build, or run `lazbuild src/emu80.lpi`.
 The executable is written next to the project, in `src`, so it builds from any
 drive or folder; it finds `roms`, `README.md` and `LICENSE` in its own folder
 or in the one above. To distribute it, put them next to the executable.
@@ -1581,9 +1586,9 @@ changed in Options > Settings).
 installed (GTK2 on Linux, Cocoa on macOS); otherwise point it at a Lazarus
 source tree with `LAZARUS_DIR=/path/to/lazarus ./build.sh` and it compiles
 with `fpc` alone. The result, with its `roms` folder, goes to `build/linux/`
-or `build/macos/pzx.app`. Linux needs the GTK2 development package to build
+or `build/macos/emu80.app`. Linux needs the GTK2 development package to build
 (`libgtk2.0-dev`). Sound uses SDL2 at run time (`libsdl2-2.0-0` on Linux,
-`brew install sdl2` on macOS); without it pzx runs silently at the right speed.
+`brew install sdl2` on macOS); without it emu80 runs silently at the right speed.
 
 ## Tests
 

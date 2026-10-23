@@ -71,7 +71,7 @@ begin
   end;
 end;
 
-{ An empty config.ini (as older versions of pzx left it) is mended }
+{ An empty config.ini (as older versions of emu80 left it) is mended }
 procedure TestRepair(const Distro, Card: string);
 var
   F: TFileStream;
@@ -147,10 +147,10 @@ begin
     Run(Sp, 100);
     Check(Sp.Peek(32768) = 42, Mode + 'POKE in NextBASIC');
     // SAVE: NextZXOS asks the card for its status (CMD13) after each block
-    Sp.TypeText('SAVE "pzxtest.bas"\n', Err);
+    Sp.TypeText('SAVE "e80test.bas"\n', Err);
     WaitTyping(Sp);
     Run(Sp, 150);
-    Check(CardFileSize(Sp, 'PZXTEST.BAS') > 0, Mode + 'SAVE writes the file on the card');
+    Check(CardFileSize(Sp, 'E80TEST.BAS') > 0, Mode + 'SAVE writes the file on the card');
     // The M1 button: NextZXOS's Multiface menu (NR 06 lets the button work)
     Check(Sp.NextRegister($06) and $08 <> 0, Mode + 'NextZXOS lets the M1 button work');
     Sp.RequestNMI;

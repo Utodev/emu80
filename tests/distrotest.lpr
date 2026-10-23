@@ -83,7 +83,7 @@ var
   F: TFileStream;
   R: TDistroInstall;
 begin
-  Base := IncludeTrailingPathDelimiter(GetTempDir) + 'pzx-distrotest-' + IntToStr(GetProcessID) + PathDelim;
+  Base := IncludeTrailingPathDelimiter(GetTempDir) + 'emu80-distrotest-' + IntToStr(GetProcessID) + PathDelim;
   ForceDirectories(Base);
   Zip := Base + 'test.zip';
   try
@@ -96,7 +96,7 @@ begin
     Check(FileExists(Dir + 'machines/next/enNextZX.rom') and FileExists(Dir + 'TBBLUE.FW') and
       FileExists(Dir + 'docs/readme.txt'), 'its files are where the emulator looks');
     Check(NextDistroReady(Dir), 'it is recognised as a distribution');
-    Check(not DirectoryExists(Dir + '.pzx-install'), 'no work folder is left');
+    Check(not DirectoryExists(Dir + '.emu80-install'), 'no work folder is left');
 
     // Inside one folder of the zip: no extra level
     Dir := Fresh('b');
@@ -123,7 +123,7 @@ begin
     R := InstallNextDistroZip(Zip, Dir, Msg);
     Check(R = diInvalid, 'a zip without the ROMs is not a distribution');
     Check(FileExists(Dir + 'keep.txt') and not FileExists(Dir + 'hello.txt') and
-      not DirectoryExists(Dir + '.pzx-install'), 'nothing of it is left');
+      not DirectoryExists(Dir + '.emu80-install'), 'nothing of it is left');
     MakeZip(Zip, ['machines/next/enNextZX.rom', 'machines/next/other.rom']);
     R := InstallNextDistroZip(Zip, Dir, Msg);
     Check(R = diInvalid, 'a zip with only some of the ROMs is not a distribution');
@@ -147,9 +147,9 @@ begin
     R := InstallNextDistroZip(Zip, Dir, Msg);
     Check((R = diError) and not FileExists(Base + 'evil2.txt') and (Count(Dir) = 0),
       'a backslash .. path is refused');
-    MakeZip(Zip, ['machines/next/enNextZX.rom', 'machines/next/enNxtmmc.rom', '/tmp/pzx-evil3.txt']);
+    MakeZip(Zip, ['machines/next/enNextZX.rom', 'machines/next/enNxtmmc.rom', '/tmp/emu80-evil3.txt']);
     R := InstallNextDistroZip(Zip, Dir, Msg);
-    Check((R = diError) and not FileExists('/tmp/pzx-evil3.txt') and (Count(Dir) = 0),
+    Check((R = diError) and not FileExists('/tmp/emu80-evil3.txt') and (Count(Dir) = 0),
       'an absolute path is refused');
     MakeZip(Zip, ['machines/next/enNextZX.rom', 'machines/next/enNxtmmc.rom', 'C:/evil4.txt']);
     R := InstallNextDistroZip(Zip, Dir, Msg);

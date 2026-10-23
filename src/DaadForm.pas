@@ -1476,11 +1476,13 @@ var
 begin
   FEmu.Lock;
   try
-    for A := 0 to $FFFF do FMem[A] := FEmu.Spec.Peek(A);
+    for A := 0 to $FFFF do FMem[A] := FEmu.Spec.PeekRam(A);
   finally
     FEmu.Unlock;
   end;
-  Result := FGame.Load(FMem);
+  // The CPC's database has its own machine code, and is where its interpreter puts it
+  if FEmu.Spec.CPC <> nil then Result := FGame.Load(FMem, MACHINE_CPC)
+  else Result := FGame.Load(FMem);
   if Result then FEngineLabel.Caption := EngineName(FGame.Engine) else FEngineLabel.Caption := '';
   if not Result then Exit;
   // A different game (or a new one loaded): follow its condacts
@@ -1527,8 +1529,8 @@ begin
   try
     // The flags, then the object locations (after the flags in The Quill)
     for I := 0 to 255 do
-      if I < FGame.FlagCount then FFlags[I] := FEmu.Spec.Peek(Word(FUser + I)) else FFlags[I] := 0;
-    for I := 0 to 255 do FFlags[256 + I] := FEmu.Spec.Peek(Word(FUser + FGame.ObjectsOffset + I));
+      if I < FGame.FlagCount then FFlags[I] := FEmu.Spec.PeekRam(Word(FUser + I)) else FFlags[I] := 0;
+    for I := 0 to 255 do FFlags[256 + I] := FEmu.Spec.PeekRam(Word(FUser + FGame.ObjectsOffset + I));
   finally
     FEmu.Unlock;
   end;
@@ -1618,8 +1620,8 @@ begin
   FPrevFlags[N] := Value;   // a change made here is not the condact's
   FEmu.Lock;
   try
-    if N >= 256 then FEmu.Spec.Poke(Word(FUser + FGame.ObjectsOffset + N - 256), Value)
-    else FEmu.Spec.Poke(Word(FUser + N), Value);
+    if N >= 256 then FEmu.Spec.PokeRam(Word(FUser + FGame.ObjectsOffset + N - 256), Value)
+    else FEmu.Spec.PokeRam(Word(FUser + N), Value);
   finally
     FEmu.Unlock;
   end;

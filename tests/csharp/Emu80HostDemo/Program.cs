@@ -1,11 +1,11 @@
-// A C# (WinForms) host for the pzx library: the Spectrum's screen is drawn by
-// the engine, inside a panel of this form (no window of pzx's own; the library
+// A C# (WinForms) host for the emu80 library: the Spectrum's screen is drawn by
+// the engine, inside a panel of this form (no window of emu80's own; the library
 // is loaded into this process). The buttons show the rest of the API:
 // pause, registers, memory, paging, breakpoints, destroying and creating the
 // panel without losing the machine.
 //
-//   PzxHostDemo.exe [romsFolder]            the demo window
-//   PzxHostDemo.exe --selftest [romsFolder] the same, running a script of checks
+//   Emu80HostDemo.exe [romsFolder]            the demo window
+//   Emu80HostDemo.exe --selftest [romsFolder] the same, running a script of checks
 //                                           (screenshots and selftest.log next
 //                                           to the exe; exit code 0 if all pass)
 using System;
@@ -18,7 +18,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Forms;
 
-namespace PzxHost
+namespace Emu80Host
 {
     // A panel the engine draws in: it leaves the painting to it
     class ScreenPanel : Panel
@@ -55,7 +55,7 @@ namespace PzxHost
         {
             this.romDir = romDir;
             this.selfTest = selfTest;
-            Text = "pzx library in a C# host";
+            Text = "emu80 library in a C# host";
             ClientSize = new Size(1040, 640);
             KeyPreview = true;
 
@@ -170,9 +170,9 @@ namespace PzxHost
         void Refresh_()
         {
             if (emu == null) return;
-            PzxState s = emu.State;
+            Emu80State s = emu.State;
             pauseButton.Text = s.Paused != 0 ? "Resume" : "Pause";
-            PzxPaging pg = emu.Paging;
+            Emu80Paging pg = emu.Paging;
             regs.Text = string.Format(
                 "AF {0:X4}  BC {1:X4}\r\nDE {2:X4}  HL {3:X4}\r\nIX {4:X4}  IY {5:X4}\r\nSP {6:X4}  PC {7:X4}\r\n" +
                 "7FFD {8:X2}  1FFD {9:X2}\r\nslots {10} {11} {12} {13}\r\nbreak: {14}",
@@ -295,8 +295,8 @@ namespace PzxHost
             // 1. the library is in this process
             bool loaded = false;
             foreach (ProcessModule m in Process.GetCurrentProcess().Modules)
-                if (m.ModuleName.ToLower() == "pzxlib.dll") loaded = true;
-            Check(Emulator.ApiVersion == 1 && loaded, "pzxlib.dll is loaded in this process (API version " + Emulator.ApiVersion + ")");
+                if (m.ModuleName.ToLower() == "emu80lib.dll") loaded = true;
+            Check(Emulator.ApiVersion == 1 && loaded, "emu80lib.dll is loaded in this process (API version " + Emulator.ApiVersion + ")");
             Check(emu.State.Running == 1 && emu.State.Attached == 1, "the engine runs and the panel is attached");
 
             // 2. the screen is in the panel, no window of the engine
@@ -317,7 +317,7 @@ namespace PzxHost
             byte[] fb = emu.GetFrame(1, out w, out h);
             bool anyColour = false;
             for (int i = 0; i < fb.Length; i += 4) if (fb[i] != 0 || fb[i + 1] != 0 || fb[i + 2] != 0) { anyColour = true; break; }
-            Check(w == 352 && h == 288 && fb.Length == 352 * 288 * 4 && anyColour, "pzx_get_frame gives the picture (" + w + "x" + h + ")");
+            Check(w == 352 && h == 288 && fb.Length == 352 * 288 * 4 && anyColour, "emu80_get_frame gives the picture (" + w + "x" + h + ")");
 
             // 4. resizing
             Size[] sizes = { new Size(1300, 800), new Size(820, 520), new Size(1040, 640) };
@@ -366,7 +366,7 @@ namespace PzxHost
             // 7. breakpoint and stepping
             emu.SetBreakpoint(0x8001, Emulator.BpExec);
             Wait(500);
-            PzxState st = emu.State;
+            Emu80State st = emu.State;
             Check(st.Paused == 1 && st.BreakKind == 1 && st.PC == 0x8001 && emu.BreakReason.Length > 0,
                 "execution breakpoint at 8001: stopped at " + st.PC.ToString("X4") + " (" + emu.BreakReason + ")");
             emu.ClearBreakpoints();

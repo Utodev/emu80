@@ -178,10 +178,10 @@ begin
       Spec.FDC.InsertDisk(0, Disk);
     end;
   end;
-  // PZX_SLOW=1 loads tapes in real time instead of through the ROM trap
-  Spec.FastLoad := GetEnvironmentVariable('PZX_SLOW') <> '1';
+  // EMU80_SLOW=1 loads tapes in real time instead of through the ROM trap
+  Spec.FastLoad := GetEnvironmentVariable('EMU80_SLOW') <> '1';
   if (ParamCount >= 5) and (ParamStr(5) = 'auto') then Spec.AutoLoad;
-  TextEvery := StrToIntDef(GetEnvironmentVariable('PZX_TEXT_EVERY'), 0);
+  TextEvery := StrToIntDef(GetEnvironmentVariable('EMU80_TEXT_EVERY'), 0);
   TextLog := TStringList.Create;
   Started := GetTickCount64;
   ScrollUntil := -1;

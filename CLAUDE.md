@@ -4,7 +4,7 @@ This is a Z80 machines emulator made with  Lazarus (Free Pascal) using LCL
 
 # Documentation
 
-- `README.md` (shown by Help > Documentation and `--help`) explains how pzx works and all
+- `README.md` (shown by Help > Documentation and `--help`) explains how emu80 works and all
   its command line options. ALWAYS keep it up to date (the native library for host applications is documented in `LIBRARY.md`, not in the README, and the same goes for it; the packages put both in their `lib` folder, and the C# demo in `tests`): any change to features, menus, keys,
   settings or command line options must be reflected in it in the same change.
 
@@ -12,11 +12,11 @@ This is a Z80 machines emulator made with  Lazarus (Free Pascal) using LCL
 
 - Release number: before EVERY build, write the current date and time as the release number (YYYYMMDDHHMM)
   into `src/Release.inc`, which the About box shows:
-  `printf "{ Release number: the build date and time (YYYYMMDDHHMM), written before every build (see CLAUDE.md) }\nconst\n  PZX_RELEASE = '%s';\n" "$(date +%Y%m%d%H%M)" > src/Release.inc`
+  `printf "{ Release number: the build date and time (YYYYMMDDHHMM), written before every build (see CLAUDE.md) }\nconst\n  EMU80_RELEASE = '%s';\n" "$(date +%Y%m%d%H%M)" > src/Release.inc`
 
-- `lazbuild src/pzx.lpi` writes `pzx.exe` into `src/` (so it builds from any folder or drive).
+- `lazbuild src/emu80.lpi` writes `emu80.exe` into `src/` (so it builds from any folder or drive).
   When Claude builds it, move the result to the repository's top folder afterwards
-  (`mv -f src/pzx.exe pzx.exe`) so it sits next to `roms/`, `esxdos/`, `README.md` and
+  (`mv -f src/emu80.exe emu80.exe`) so it sits next to `roms/`, `esxdos/`, `README.md` and
   `LICENSE`. When the user builds it from Lazarus it stays in `src/`, which also works.
 
 # Beware

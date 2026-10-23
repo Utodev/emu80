@@ -236,7 +236,7 @@ begin
   FRomEdit := AddCheck(Group, 'Allow writing to ROM', Y);
   FRomEdit.Hint := 'From the debugger and with POKE';
   Inc(Y, 26);
-  FSaveOnExit := AddCheck(Group, 'Save the settings when pzx closes', Y);
+  FSaveOnExit := AddCheck(Group, 'Save the settings when emu80 closes', Y);
   FSaveOnExit.Hint := 'Off: changes made while running (zoom, machine, recent files...) are forgotten; ' +
     'OK in this window still saves';
   Group := AddGroup(Page, 'Layout', 164, 98);
@@ -418,7 +418,7 @@ begin
     'specnext.com), with machines/next in it';
   FNextDir.ShowHint := True;
   Inc(Y, 32);
-  FNextCard := AddFileRow(Group, 'SD card:', 'zxnext.img next to pzx.ini', Y, 5);
+  FNextCard := AddFileRow(Group, 'SD card:', 'zxnext.img next to emu80.ini', Y, 5);
   FNextCard.Hint := 'Its SD card image, made from the distribution if it doesn''t exist';
   FNextCard.ShowHint := True;
   Inc(Y, 32);

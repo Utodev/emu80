@@ -152,6 +152,8 @@ type
     procedure Reset(Hard: Boolean);
     { Memory as the CPU sees it }
     function Read(Addr: Word): Byte; inline;
+    { The RAM at Addr, also where a ROM covers it }
+    function ReadRam(Addr: Word): Byte;
     procedure Write(Addr: Word; Value: Byte); inline;
     { Memory of a 16K slot as the CPU sees it: RAM bank number (0-7), or
       -1 - ROM (0 system, 1 BASIC, 2 AMSDOS) }
@@ -403,6 +405,11 @@ end;
 procedure TAmstrad.Write(Addr: Word; Value: Byte);
 begin
   FWriteSlot[Addr shr 14]^[Addr and $3FFF] := Value;
+end;
+
+function TAmstrad.ReadRam(Addr: Word): Byte;
+begin
+  Result := FWriteSlot[Addr shr 14]^[Addr and $3FFF];
 end;
 
 function TAmstrad.SlotBank(Slot: Integer): Integer;

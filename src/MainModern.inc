@@ -60,17 +60,20 @@ begin
   FMHeader.Color := MUI_TITLE;
   Lbl := TLabel.Create(Self);
   Lbl.Parent := FMHeader;
-  Lbl.Caption := 'pzx';
+  Lbl.Caption := 'emu80';
   Lbl.Font.Color := MUI_TEXT;
   Lbl.Font.Style := [fsBold];
   Lbl.Font.Height := -MUIScale(17);
   Lbl.Left := MUIScale(14);
-  Lbl.Top := (FMHeader.Height - Lbl.Canvas.TextHeight('pzx')) div 2;
+  Lbl.Top := (FMHeader.Height - Lbl.Canvas.TextHeight('emu80')) div 2;
+  // The four colours as little squares, two above and two below, after the name
+  Lbl.Canvas.Font.Assign(Lbl.Font);
   Box := TPaintBox.Create(Self);
   Box.Parent := FMHeader;
-  Box.SetBounds(MUIScale(52), MUIScale(11), MUIScale(44), MUIScale(18));
+  Box.SetBounds(Lbl.Left + Lbl.Canvas.TextWidth(Lbl.Caption) + MUIScale(10), MUIScale(11), MUIScale(18),
+    MUIScale(18));
   Box.OnPaint := @PaintStripes;
-  X := MUIScale(108);
+  X := Box.Left + Box.Width + MUIScale(18);
   for I := 0 to FMenu.Items.Count - 1 do
   begin
     Item := FMenu.Items[I];
@@ -282,19 +285,19 @@ const
   COLOURS: array[0..3] of TColor = ($003D26D7, $005ED3F4, $0073B23B, $00FF901E);
 var
   B: TPaintBox;
-  I, W: Integer;
+  I, Q, Gap: Integer;
 begin
   B := Sender as TPaintBox;
-  W := B.Width div 4;
   B.Canvas.Brush.Color := MUI_TITLE;
   B.Canvas.FillRect(0, 0, B.Width, B.Height);
+  // Four squares: red and yellow above, green and cyan below
+  Gap := MUIScale(2);
+  Q := (B.Width - Gap) div 2;
   for I := 0 to 3 do
   begin
-    // A slanted stripe each, as on the 128K's case
     B.Canvas.Brush.Color := COLOURS[I];
-    B.Canvas.Pen.Color := COLOURS[I];
-    B.Canvas.Polygon([Point(I * W + W div 2, 0), Point(I * W + W, 0), Point(I * W + W div 2, B.Height),
-      Point(I * W, B.Height)]);
+    B.Canvas.FillRect((I mod 2) * (Q + Gap), (I div 2) * (Q + Gap), (I mod 2) * (Q + Gap) + Q,
+      (I div 2) * (Q + Gap) + Q);
   end;
 end;
 
