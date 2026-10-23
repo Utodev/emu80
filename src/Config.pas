@@ -55,7 +55,6 @@ type
     CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
     CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
     CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
-    CPCMonitor: Integer;          // Amstrad CPC: 0 colour monitor, 1 green phosphor, 2 orange phosphor
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
@@ -76,7 +75,7 @@ type
     SDCardFile: string;           // the SD card image inserted (the standard models')
     ZXUnoCard: string;            // the last one inserted in the ZX-Uno ('' = none); the Next's is NextCard
     KempstonMouse: Boolean;
-    Monochrome: Boolean;          // black and white display
+    Monitor: Integer;             // 0 colour, 1 black and white, 2 green phosphor, 3 orange phosphor
     Contention: Boolean;          // memory and I/O contention
     UlaSnow: Boolean;             // ULA snow on the models that have it
     AllowRomEdit: Boolean;        // debugger and POKEs may change the ROM
@@ -129,7 +128,10 @@ const
   { What the cursor keys emulate, as in --zx_joystick and the settings file }
   { As in --zx_deinterlace and the settings file }
   DEINTERLACE_KEYS: array[TDeinterlace] of string = ('progressive', 'bob', 'weave');
-  CPC_MONITOR_KEYS: array[0..2] of string = ('color', 'green', 'orange');
+  { The monitors, as in --monitor and the settings file }
+  MONITOR_KEYS: array[0..3] of string = ('color', 'bw', 'green', 'orange');
+  MONITOR_NAMES: array[0..3] of string = ('Colour', 'Black and white', 'Green phosphor',
+    'Orange phosphor');
   { The CRTC chips, types 0 to 4 }
   CRTC_NAMES: array[0..4] of string = ('HD6845S / UM6845', 'UM6845R', 'MC6845', 'AMS40489 (CPC+ ASIC)',
     'AMS40226 (pre-ASIC)');
@@ -150,8 +152,7 @@ const
   SEC_ZX = 'ZXSpectrum';
   SEC_CPC = 'AmstradCPC';
 
-  BOOL_OPTIONS: array[0..24] of TBoolOption = (
-    (Name: 'bw'; Section: 'General'),
+  BOOL_OPTIONS: array[0..23] of TBoolOption = (
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'zx_contention'; Section: SEC_ZX),
     (Name: 'zx_snow'; Section: SEC_ZX),
@@ -375,13 +376,12 @@ begin
   CPCJoystick := True;
   CPCWaitStates := True;
   CPCCrtc := -1;
-  CPCMonitor := 0;
   NextFirmware := True;
   RealSpecNext := False;
   RealSpecNextCmd := False;
   RealSpecNextIni := False;
   RealSpecNextOk := False;
-  Monochrome := False;
+  Monitor := 0;
   Contention := True;
   UlaSnow := True;
   AllowRomEdit := False;
@@ -455,7 +455,6 @@ const
 function TSettings.BoolField(const Name: string): PBoolean;
 begin
   case LowerCase(Name) of
-    'bw': Result := @Monochrome;
     'saveonexit': Result := @SaveOnExit;
     'zx_contention': Result := @Contention;
     'zx_snow': Result := @UlaSnow;
@@ -613,9 +612,11 @@ begin
   S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_crtc', ''));
   if S = 'auto' then CPCCrtc := -1
   else if (Length(S) = 1) and (S[1] in ['0'..'4']) then CPCCrtc := Ord(S[1]) - 48;
-  S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_monitor', ''));
-  for I := 0 to 2 do
-    if S = CPC_MONITOR_KEYS[I] then CPCMonitor := I;
+  // The monitor; older files had "bw", an on/off for the black and white display
+  if Ini.ValueExists('General', 'bw') and Ini.ReadBool('General', 'bw', False) then Monitor := 1;
+  S := LowerCase(Ini.ReadString('General', 'monitor', ''));
+  for I := 0 to 3 do
+    if S = MONITOR_KEYS[I] then Monitor := I;
   RomDir := Ini.ReadString('ROMs', 'romdir', RomDir);
   if Ini.ValueExists('ROMs', 'rom') then SetRomList(Ini.ReadString('ROMs', 'rom', ''));
   DivMMCFirmware := ReadOptString(Ini, SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
@@ -664,7 +665,8 @@ begin
   Put(SEC_ZX, 'zx_deinterlace', DEINTERLACE_KEYS[Deinterlace]);
   if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
-  Put(SEC_CPC, 'cpc_monitor', CPC_MONITOR_KEYS[CPCMonitor]);
+  Put('General', 'monitor', MONITOR_KEYS[Monitor]);
+  Ini.DeleteKey('General', 'bw');
   Put('ROMs', 'romdir', RomDir);
   Put('ROMs', 'rom', RomList);
   Put(SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
@@ -703,7 +705,7 @@ begin
   SDCardFile := Ini.ReadString('DivMMC', 'Card', SDCardFile);
   KempstonMouse := Ini.ReadBool('Input', 'KempstonMouse', KempstonMouse);
   Scale := Ini.ReadInteger('Display', 'Scale', Scale);
-  Monochrome := Ini.ReadBool('Display', 'Monochrome', Monochrome);
+  if Ini.ReadBool('Display', 'Monochrome', False) then Monitor := 1;
   I := Ini.ReadInteger('Input', 'Joystick', Ord(Joystick));
   if (I >= Ord(Low(TJoystickKeys))) and (I <= Ord(High(TJoystickKeys))) then
     Joystick := TJoystickKeys(I);

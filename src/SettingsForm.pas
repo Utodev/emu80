@@ -33,7 +33,7 @@ type
     FRomDir: TEdit;
     FBrowse: TButton;
     FFastLoad, FAutoPlay, FTapeLoop, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
-    FTurboSound, FMonochrome, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick: TCheckBox;
+    FTurboSound, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
     FFloppyNoise, FSaveOnExit: TCheckBox;
@@ -53,6 +53,7 @@ type
     FRomFiles: array[TSpectrumModel, 0..3] of string;   // being edited
     FShownRomModel: Integer;
     FOwn: array[0..3] of Boolean;   // DivMMC, Timex, Radastan, ULAplus as set (not forced)
+    FForced: array[0..3] of Boolean;   // ... and whether they are forced on now (the ZX-Uno)
     FBottom: TPanel;
     FOK, FApply, FCancel: TButton;
     FBackup: string;               // Settings when the window opened
@@ -206,61 +207,66 @@ begin
 
   // Common: General
   Page := AddPage(FCommon, 'General');
-  Y := 14;
-  AddLabel(Page, 'Machine:', Y + 4);
-  FModel := AddCombo(Page, Y, 270);
+  // The machine is chosen from the toolbar's menu: the window only holds it
+  // (what the Spectrum's extras follow) and doesn't show it
+  FModel := AddCombo(Page, 0, 10);
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do FModel.Items.Add(ModelInfo[M].Name);
-  FModel.OnChange := @DoModelChange;
-  Inc(Y, 36);
-  AddLabel(Page, 'Window size:', Y + 4);
-  FScale := AddCombo(Page, Y, 100);
-  for S := 1 to 4 do FScale.Items.Add(Format('%dx', [S]));
-  Inc(Y, 36);
-  AddLabel(Page, 'Interface:', Y + 4);
-  FUI := AddCombo(Page, Y, 270);
-  FUI.Items.Add('Classic (menus and toolbar)');
-  FUI.Items.Add('Modern (dark)');
-  Inc(Y, 40);
-  FMonochrome := AddCheck(Page, 'Black and white display', Y);
-  Inc(Y, 28);
-  FScanlines := AddCheck(Page, 'Scanlines (window size 2x or more)', Y);
-  Inc(Y, 28);
-  FSound := AddCheck(Page, 'Mute sound', Y);
-  Inc(Y, 34);
-  AddLabel(Page, 'Volume:', Y + 4);
-  FVolume := TTrackBar.Create(Self);
-  FVolume.Parent := Page;
-  FVolume.SetBounds(180, Y, 270, 30);
-  FVolume.Min := 0;
-  FVolume.Max := 100;
-  FVolume.Frequency := 10;
-
-  // CPU speed: 1x to 32x in powers of two, with the value under each mark
-  Inc(Y, 48);
-  AddLabel(Page, 'CPU speed:', Y + 4);
+  FModel.Visible := False;
+  Group := AddGroup(Page, 'General', 6, 150);
+  Y := 8;
+  AddLabel(Group, 'CPU speed:', Y + 4);
   FSpeed := TTrackBar.Create(Self);
-  FSpeed.Parent := Page;
-  FSpeed.SetBounds(180, Y, 270, 30);
+  FSpeed.Parent := Group;
+  FSpeed.SetBounds(150, Y, 280, 30);
   FSpeed.Min := 0;
   FSpeed.Max := 5;
   FSpeed.Frequency := 1;
+  // CPU speed: 1x to 32x in powers of two, with the value under each mark
   for S := 0 to 5 do
-    with AddLabel(Page, Format('%dx', [1 shl S]), Y + 32) do
+    with AddLabel(Group, Format('%dx', [1 shl S]), Y + 30) do
     begin
       AutoSize := False;
       Alignment := taCenter;
       // The marks run between the thumb's half-widths at both ends
-      SetBounds(180 + 11 + S * (270 - 22) div 5 - 20, Y + 32, 40, 18);
+      SetBounds(150 + 11 + S * (280 - 22) div 5 - 20, Y + 30, 40, 18);
     end;
-  AddNote(Page, 'The Z80 runs this many times faster; interrupts stay at 50 per second.',
-    Y + 56);
-  Inc(Y, 96);
-  FRomEdit := AddCheck(Page, 'Allow writing to ROM', Y);
+  FSpeed.Hint := 'The Z80 runs this many times faster; interrupts stay at 50 per second';
+  FSpeed.ShowHint := True;
+  Inc(Y, 56);
+  FRomEdit := AddCheck(Group, 'Allow writing to ROM', Y);
   FRomEdit.Hint := 'From the debugger and with POKE';
-  Inc(Y, 32);
-  FSaveOnExit := AddCheck(Page, 'Save the settings when pzx closes', Y);
-  AddNote(Page, 'Off: changes made while running (window size, model, recent files...) ' +
-    'are forgotten; OK in this dialog still saves.', Y + 22);
+  Inc(Y, 26);
+  FSaveOnExit := AddCheck(Group, 'Save the settings when pzx closes', Y);
+  FSaveOnExit.Hint := 'Off: changes made while running (zoom, machine, recent files...) are forgotten; ' +
+    'OK in this window still saves';
+  Group := AddGroup(Page, 'Layout', 164, 98);
+  AddLabel(Group, 'Theme:', 8 + 4);
+  FUI := AddCombo(Group, 8, 200);
+  FUI.Left := 150;
+  FUI.Items.Add('Classic (menus and toolbar)');
+  FUI.Items.Add('Modern (dark)');
+  AddLabel(Group, 'Zoom:', 8 + 36 + 4);
+  FScale := AddCombo(Group, 8 + 36, 100);
+  FScale.Left := 150;
+  for S := 1 to 4 do FScale.Items.Add(Format('%dx', [S]));
+  Group := AddGroup(Page, 'Video', 270, 88);
+  AddLabel(Group, 'Monitor:', 8 + 4);
+  FMonitor := AddCombo(Group, 8, 200);
+  FMonitor.Left := 150;
+  for S := 0 to 3 do FMonitor.Items.Add(MONITOR_NAMES[S]);
+  FMonitor.Hint := 'How the picture is shown: in colour, in black and white, or in the shades of a green or ' +
+    'orange phosphor';
+  FMonitor.ShowHint := True;
+  FScanlines := AddCheck(Group, 'Scanlines (zoom 2x or more)', 8 + 36);
+  Group := AddGroup(Page, 'Sound', 366, 88);
+  AddLabel(Group, 'Volume:', 8 + 4);
+  FVolume := TTrackBar.Create(Self);
+  FVolume.Parent := Group;
+  FVolume.SetBounds(150, 8, 280, 30);
+  FVolume.Min := 0;
+  FVolume.Max := 100;
+  FVolume.Frequency := 10;
+  FSound := AddCheck(Group, 'Mute sound', 8 + 40);
 
   // Common: tapes and disks
   Page := AddPage(FCommon, 'Storage');
@@ -268,14 +274,17 @@ begin
   Y := 8;
   FFastLoad := AddCheck(Group, 'Fast tape loading', Y);
   Inc(Y, 28);
-  FAutoPlay := AddCheck(Group, 'Start the tape automatically when the machine loads', Y);
+  FAutoPlay := AddCheck(Group, 'Smart Tape Player', Y);
+  FAutoPlay.Hint := 'Start/stop the tape automatically when the machine loads';
   Inc(Y, 28);
-  FTapeLoop := AddCheck(Group, 'Continuous tape playback (from the start again at the end)', Y);
+  FTapeLoop := AddCheck(Group, 'Continuous tape playback', Y);
+  FTapeLoop.Hint := 'From the start again at the end';
   Group := AddGroup(Page, 'Floppy', 136, 116);
   Y := 8;
-  FFastDisk := AddCheck(Group, 'Fast floppy disk access (no real drive timing)', Y);
+  FFastDisk := AddCheck(Group, 'Fast floppy disk access', Y);
+  FFastDisk.Hint := 'No real drive timing';
   Inc(Y, 28);
-  FDriveB := AddCheck(Group, 'Drive B: connected (+3, CPC 664 and 6128)', Y);
+  FDriveB := AddCheck(Group, 'Drive B: connected', Y);
   Inc(Y, 28);
   FFloppyNoise := AddCheck(Group, 'Emulate floppy drive noise', Y);
   FFloppyNoise.Hint := 'Motor, head steps and reading, when the drive works at real speed';
@@ -359,7 +368,7 @@ begin
   FDeinterlace.Hint := 'The frames taken as the fields of an interlaced picture: needed by ' +
     'demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)';
   FDeinterlace.ShowHint := True;
-  Group := AddGroup(Page, 'Controls', 158, 82);
+  Group := AddGroup(Page, 'Controls', 158, 100);
   Y := 8;
   AddLabel(Group, 'Keyboard (16K/48K):', Y);
   Panel := AddRadioPanel(Group, Y - 2, 26);
@@ -370,7 +379,7 @@ begin
   FJoystick := AddCombo(Group, Y, 270);
   FJoystick.Left := 170;
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
-  Group := AddGroup(Page, 'Core features', 248, 88);
+  Group := AddGroup(Page, 'Core features', 266, 88);
   Y := 8;
   FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
   Inc(Y, 28);
@@ -419,38 +428,29 @@ begin
   // Amstrad CPC
   Page := AddPage(FPages, 'Amstrad CPC');
   AddBand(Page, 2);
-  Group := AddGroup(Page, 'Video', 60, 150);
+  Group := AddGroup(Page, 'Video', 60, 118);
   Y := 8;
   AddLabel(Group, 'CRTC chip:', Y + 4);
   FCrtc := AddCombo(Group, Y, 270);
   FCrtc.Left := 170;
-  FCrtc.Items.Add('The one the model came with (464: type 0; 664, 6128: type 1)');
+  FCrtc.Items.Add('The model''s own');
   FCrtc.Items.Add('Type 0: HD6845S / UM6845');
   FCrtc.Items.Add('Type 1: UM6845R');
   FCrtc.Items.Add('Type 2: MC6845');
   FCrtc.Items.Add('Type 3: AMS40489 (CPC+ ASIC)');
   FCrtc.Items.Add('Type 4: AMS40226 (pre-ASIC)');
-  FCrtc.Hint := 'The chips differ in which registers they read back, the VSYNC width, the ' +
+  FCrtc.Hint := 'The model''s own: type 0 on the 464, type 1 on the 664 and 6128. The chips differ in which registers they read back, the VSYNC width, the ' +
     'HSYNC of width 0, the display skew and when the sync and display compares happen';
   FCrtc.ShowHint := True;
   AddNote(Group, 'Programs detect the chip (and some demos need a particular one); the ' +
     'registers written are kept when it is changed.', Y + 34);
-  Inc(Y, 82);
-  AddLabel(Group, 'Monitor:', Y + 4);
-  FMonitor := AddCombo(Group, Y, 270);
-  FMonitor.Left := 170;
-  FMonitor.Items.Add('Colour');
-  FMonitor.Items.Add('Green phosphor (GT65)');
-  FMonitor.Items.Add('Orange phosphor');
-  FMonitor.Hint := 'A monochrome monitor shows the colours as shades of its phosphor; ' +
-    '"Black and white display" only applies to the colour monitor';
-  FMonitor.ShowHint := True;
-  Group := AddGroup(Page, 'Timing', 218, 64);
+
+  Group := AddGroup(Page, 'Timing', 186, 64);
   Y := 8;
   FCPCWait := AddCheck(Group, 'Gate Array wait states (every access on the 1 MHz grid)', Y);
   FCPCWait.Hint := 'Real timing: instructions take a whole number of microseconds; off makes ' +
     'every access take its nominal time';
-  Group := AddGroup(Page, 'Controls', 298, 64);
+  Group := AddGroup(Page, 'Controls', 266, 64);
   Y := 8;
   FCPCJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as joystick 1', Y);
   FCPCJoystick.Hint := 'On the CPC the cursor keys are always the cursor keys; with this on they ' +
@@ -782,32 +782,41 @@ begin
 end;
 
 { The ZX-Uno always has its DivMMC, Timex modes, Radastan and ULAplus: shown
-  on and greyed out, keeping what is set for the other models }
+  on and greyed out, keeping what is set for the other models. On an Amstrad
+  CPC the Spectrum's hardware (TurboSound, AY, mouse, DivMMC, Currah) is off:
+  greyed out, with what is set kept. }
 procedure TSettingsDialog.DoModelChange(Sender: TObject);
 var
   Boxes: TCheckBoxArray4;
   I: Integer;
-  ZXUno: Boolean;
+  ZXUno, CPC: Boolean;
 begin
   Boxes := ForcedBoxes;
   ZXUno := FModel.ItemIndex = Ord(smZXUno);
+  CPC := (FModel.ItemIndex >= Ord(smCPC464)) and (FModel.ItemIndex <= Ord(smCPC6128));
   for I := 0 to 3 do
   begin
-    if ZXUno and Boxes[I].Enabled then
+    if ZXUno and not FForced[I] then
     begin
       FOwn[I] := Boxes[I].Checked;
       Boxes[I].Checked := True;
-      Boxes[I].Enabled := False;
+      FForced[I] := True;
       Boxes[I].Hint := 'The ZX-Uno always has it (its own registers can switch it off)';
       Boxes[I].ShowHint := True;
     end
-    else if not ZXUno and not Boxes[I].Enabled then
+    else if not ZXUno and FForced[I] then
     begin
-      Boxes[I].Enabled := True;
       Boxes[I].Checked := FOwn[I];
+      FForced[I] := False;
       Boxes[I].ShowHint := False;
     end;
+    Boxes[I].Enabled := not FForced[I];
   end;
+  FDivMMC.Enabled := not FForced[0] and not CPC;
+  FTurboSound.Enabled := not CPC;
+  FAY48.Enabled := not CPC;
+  FMouse.Enabled := not CPC;
+  FCurrah.Enabled := not CPC;
 end;
 
 procedure TSettingsDialog.LoadFrom(S: TSettings);
@@ -826,7 +835,6 @@ begin
   FCPCJoystick.Checked := S.CPCJoystick;
   FCPCWait.Checked := S.CPCWaitStates;
   FCrtc.ItemIndex := S.CPCCrtc + 1;
-  FMonitor.ItemIndex := S.CPCMonitor;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
   FNextDir.Text := S.NextDir;
@@ -846,7 +854,7 @@ begin
   FIssue3.Checked := not S.Issue2;
   FSound.Checked := not S.Sound;
   FTurboSound.Checked := S.TurboSound;
-  FMonochrome.Checked := S.Monochrome;
+  FMonitor.ItemIndex := S.Monitor;
   FContention.Checked := S.Contention;
   FSnow.Checked := S.UlaSnow;
   FRomEdit.Checked := S.AllowRomEdit;
@@ -872,13 +880,12 @@ var
   I: Integer;
 begin
   StoreRomEdits;
-  S.Model := TSpectrumModel(FModel.ItemIndex);
   S.RomDir := FRomDir.Text;
   S.FastLoad := FFastLoad.Checked;
   S.AutoPlayTape := FAutoPlay.Checked;
   S.TapeLoop := FTapeLoop.Checked;
   S.KempstonMouse := FMouse.Checked;
-  if FDivMMC.Enabled then S.DivMMC := FDivMMC.Checked else S.DivMMC := FOwn[0];
+  if not FForced[0] then S.DivMMC := FDivMMC.Checked else S.DivMMC := FOwn[0];
   S.ZXUnoFirmware := Trim(FUnoFirmware.Text);
   S.NextDir := Trim(FNextDir.Text);
   S.NextCard := Trim(FNextCard.Text);
@@ -905,14 +912,13 @@ begin
   S.CPCJoystick := FCPCJoystick.Checked;
   S.CPCWaitStates := FCPCWait.Checked;
   S.CPCCrtc := FCrtc.ItemIndex - 1;
-  S.CPCMonitor := FMonitor.ItemIndex;
-  S.Monochrome := FMonochrome.Checked;
+  S.Monitor := FMonitor.ItemIndex;
   S.Contention := FContention.Checked;
   S.UlaSnow := FSnow.Checked;
   S.AllowRomEdit := FRomEdit.Checked;
-  if FULAPlus.Enabled then S.ULAPlus := FULAPlus.Checked else S.ULAPlus := FOwn[3];
-  if FTimex.Enabled then S.Timex := FTimex.Checked else S.Timex := FOwn[1];
-  if FRadastan.Enabled then S.Radastan := FRadastan.Checked else S.Radastan := FOwn[2];
+  if not FForced[3] then S.ULAPlus := FULAPlus.Checked else S.ULAPlus := FOwn[3];
+  if not FForced[1] then S.Timex := FTimex.Checked else S.Timex := FOwn[1];
+  if not FForced[2] then S.Radastan := FRadastan.Checked else S.Radastan := FOwn[2];
   S.Scanlines := FScanlines.Checked;
   S.Volume := FVolume.Position;
   S.CpuSpeed := 1 shl FSpeed.Position;

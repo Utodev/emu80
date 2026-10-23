@@ -44,7 +44,8 @@ type
     FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
     FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
     FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem: TMenuItem;
-    FMonoItem: TMenuItem;
+    FMonitorItems: array[0..3] of TMenuItem;
+    FModelMenuTop: array[0..1] of TMenuItem;   // ZX Spectrum and Amstrad CPC in the machine menu
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
     FLastFile: string;          // last file opened, for the POKE history
     FStarted: Boolean;          // command line processed
@@ -178,7 +179,8 @@ type
     procedure DoDiskSave(Sender: TObject);
     procedure DoDiskNew(Sender: TObject);
     procedure DoMute(Sender: TObject);
-    procedure DoMonochrome(Sender: TObject);
+    procedure DoMonitor(Sender: TObject);
+    function MouseOn: Boolean;
     procedure DoDocumentation(Sender: TObject);
     procedure ApplyRomFiles;
     procedure DisplayMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -640,8 +642,16 @@ begin
 
   TopItem := AddItem(FMenu.Items, '&Options', nil);
   TopItem.OnClick := @UpdateInstallNextItem;
-  FMonoItem := AddItem(TopItem, '&Black and white display', @DoMonochrome);
-  Item := AddItem(TopItem, '&Window size', nil);
+  // The monitor, for both machines
+  Item := AddItem(TopItem, '&Monitor', nil);
+  for S := 0 to 3 do
+  begin
+    FMonitorItems[S] := AddItem(Item, MONITOR_NAMES[S], @DoMonitor);
+    FMonitorItems[S].Tag := S;
+    FMonitorItems[S].RadioItem := True;
+    FMonitorItems[S].GroupIndex := 5;
+  end;
+  Item := AddItem(TopItem, '&Zoom', nil);
   for S := 1 to 4 do
   begin
     FScaleItems[S] := AddItem(Item, Format('%dx', [S]), @DoScale);
@@ -726,7 +736,14 @@ begin
   AddSeparator;
 
   // Machine model: a chip button that drops down the list of models
+  // Two levels: the family (ZX Spectrum above, Amstrad CPC below), then its machines
   FModelMenu := TPopupMenu.Create(Self);
+  FModelMenuTop[0] := TMenuItem.Create(FModelMenu);
+  FModelMenuTop[0].Caption := 'ZX Spectrum';
+  FModelMenu.Items.Add(FModelMenuTop[0]);
+  FModelMenuTop[1] := TMenuItem.Create(FModelMenu);
+  FModelMenuTop[1].Caption := 'Amstrad CPC';
+  FModelMenu.Items.Add(FModelMenuTop[1]);
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
   begin
     FModelPopupItems[M] := TMenuItem.Create(FModelMenu);
@@ -735,7 +752,7 @@ begin
     FModelPopupItems[M].RadioItem := True;
     FModelPopupItems[M].GroupIndex := 1;
     FModelPopupItems[M].OnClick := @DoModel;
-    FModelMenu.Items.Add(FModelPopupItems[M]);
+    FModelMenuTop[Ord(IsCPCModel(M))].Add(FModelPopupItems[M]);
   end;
   FModelButton := AddButton(ikModel, 'Machine model', @DoModelButton);
   AddSeparator;
@@ -788,8 +805,9 @@ begin
     FEmu.Spec.AutoPlayTape := Settings.AutoPlayTape;
     FEmu.Spec.Tape.Loop := Settings.TapeLoop;
     FEmu.Spec.KempstonEnabled := Settings.Joystick = jkKempston;
-    FEmu.Spec.MouseEnabled := Settings.KempstonMouse;
-    FEmu.Spec.AYOn48K := Settings.AY48;
+    FEmu.Spec.MouseEnabled := MouseOn;
+    // The Spectrum's extras are off on a CPC
+    FEmu.Spec.AYOn48K := Settings.AY48 and (FEmu.Spec.CPC = nil);
     FEmu.Spec.FullerEnabled := Settings.Joystick = jkFuller;
     FEmu.Spec.Issue2 := Settings.Issue2;
     FEmu.Spec.SetSpeed(Settings.CpuSpeed);
@@ -798,7 +816,7 @@ begin
     FEmu.Spec.FDC.DriveB := Settings.DriveB;
     FEmu.Spec.FloppyNoise := Settings.FloppyNoise;
     FEmu.Spec.Volume := Settings.Volume / 100;
-    FEmu.Spec.TurboSound := Settings.TurboSound;
+    FEmu.Spec.TurboSound := Settings.TurboSound and (FEmu.Spec.CPC = nil);
     ApplyContention;
     FEmu.Spec.SnowOn := Settings.UlaSnow;
     FEmu.Spec.RomWritable := Settings.AllowRomEdit;
@@ -1002,20 +1020,20 @@ end;
 
 procedure TMainWindow.UpdateChecks;
 var
-  M: TSpectrumModel;
+  M, MM: TSpectrumModel;
   S, I: Integer;
 begin
   M := FEmu.Spec.Model;
-  FModelPopupItems[M].Checked := True;
+  for MM := Low(TSpectrumModel) to High(TSpectrumModel) do FModelPopupItems[MM].Checked := MM = M;
   FModelButton.Hint := 'Machine: ' + ModelInfo[M].Name + ' (click to change)';
   FFastLoadItem.Checked := Settings.FastLoad;
   FModernItem.Checked := Settings.ModernUI;
   FAutoPlayItem.Checked := Settings.AutoPlayTape;
   FMuteItem.Checked := not Settings.Sound;
-  FMonoItem.Checked := Settings.Monochrome;
+  FMonitorItems[Settings.Monitor].Checked := True;
   UpdateInstallNextItem(nil);
   // The Spectrum draws its own pointer: hide the PC one over the picture
-  if Settings.KempstonMouse then FDisplay.Cursor := crNone else FDisplay.Cursor := crDefault;
+  if MouseOn then FDisplay.Cursor := crNone else FDisplay.Cursor := crDefault;
   FSaveToTapeItem.Checked := Settings.SaveToTape;
   FFastDiskItem.Checked := Settings.FastDisk;
   FDriveBItem.Checked := Settings.DriveB;
@@ -1173,11 +1191,9 @@ begin
   // A CPC picture is progressive: the frames aren't the fields of an interlaced one
   if FEmu.Spec.CPC <> nil then Options.Deinterlace := dlProgressive
   else Options.Deinterlace := Settings.Deinterlace;
-  Options.Mono := Settings.Monochrome;
+  Options.Monitor := Settings.Monitor;
   Options.Scanlines := Settings.Scanlines;
   Options.Fine := FEmu.Spec.CPC <> nil;
-  Options.Monitor := 0;
-  if FEmu.Spec.CPC <> nil then Options.Monitor := Settings.CPCMonitor;
   W := SCREEN_WIDTH * Scale;
   H := SCREEN_HEIGHT * Scale;
   if (FBitmap.Width <> W) or (FBitmap.Height <> H) then FBitmap.SetSize(W, H);
@@ -2444,12 +2460,8 @@ begin
   end;
   Settings.Model := FEmu.Spec.Model;
   HardwareChanged(Old, FEmu.Spec.Model);
-  FEmu.Lock;
-  try
-    ApplyContention;
-  finally
-    FEmu.Unlock;
-  end;
+  // What the machine has: the Spectrum's extras are off on a CPC, back on again
+  ApplySettings;
   // Leaving the ZX-Uno (its own DivMMC): as Settings say again
   ApplyDivMMC;
   UpdateChecks;
@@ -3324,12 +3336,18 @@ begin
 end;
 
 
-procedure TMainWindow.DoMonochrome(Sender: TObject);
+procedure TMainWindow.DoMonitor(Sender: TObject);
 begin
-  Settings.Monochrome := not Settings.Monochrome;
+  Settings.Monitor := (Sender as TMenuItem).Tag;
   UpdateChecks;
   RenderBitmap;
   FDisplay.Invalidate;
+end;
+
+{ The Kempston mouse is the Spectrum's }
+function TMainWindow.MouseOn: Boolean;
+begin
+  Result := Settings.KempstonMouse and (FEmu.Spec.CPC = nil);
 end;
 
 procedure TMainWindow.DoDocumentation(Sender: TObject);
@@ -3345,7 +3363,7 @@ procedure TMainWindow.DisplayMouseMove(Sender: TObject; Shift: TShiftState; X, Y
 var
   Scale, DX, DY: Integer;
 begin
-  if not Settings.KempstonMouse then Exit;
+  if not MouseOn then Exit;
   if FMouseHave then
   begin
     Scale := DisplayScale;
@@ -3374,14 +3392,14 @@ end;
 procedure TMainWindow.DisplayMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  if Settings.KempstonMouse then
+  if MouseOn then
     FEmu.Spec.MouseButtons := FEmu.Spec.MouseButtons and not MouseBit(Button);
 end;
 
 procedure TMainWindow.DisplayMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  if Settings.KempstonMouse then
+  if MouseOn then
     FEmu.Spec.MouseButtons := FEmu.Spec.MouseButtons or MouseBit(Button);
 end;
 
@@ -3611,7 +3629,7 @@ type
     Port: Boolean;
   end;
 var
-  I, N, Speed: Integer;
+  I, N, S, Speed: Integer;
   Arg, Value, Errors, Err: string;
   Files, Tapes, KeyTexts: TStringList;
   Disks: array[0..1] of string;
@@ -3647,7 +3665,7 @@ var
       (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
-      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'monitor') or
       (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -3768,6 +3786,13 @@ begin
       if BoolTarget <> nil then
       begin
         BoolTarget^ := BoolValue;
+        Continue;
+      end;
+      // --bw (the black and white display) is the black and white monitor
+      if BoolName = 'bw' then
+      begin
+        if BoolValue then Settings.Monitor := 1
+        else if Settings.Monitor = 1 then Settings.Monitor := 0;
         Continue;
       end;
       if BoolName = 'mute' then
@@ -3934,6 +3959,18 @@ begin
       end
       else if Arg = 'zx_sdadd' then SDAdds.Add(Value)
       else if Arg = 'zx_sdfolder' then SDFolder := Value
+      else if Arg = 'monitor' then
+      begin
+        Value := LowerCase(Value);
+        N := -1;
+        for S := 0 to 3 do
+          if Value = MONITOR_KEYS[S] then
+          begin
+            Settings.Monitor := S;
+            N := 0;
+          end;
+        if N < 0 then Errors := Errors + 'Unknown --monitor (color, bw, green or orange): ' + Value + LineEnding;
+      end
       else if Arg = 'cpc_crtc' then
       begin
         Value := LowerCase(Value);

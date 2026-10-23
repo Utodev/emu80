@@ -662,8 +662,8 @@ begin
   DeleteFile(Tmp);
 end;
 
-{ The CPC's monochrome monitors: a white picture is green or orange, black stays
-  black, and "black and white" only counts for the colour monitor }
+{ The monochrome monitors (any machine): a white picture is green or orange, black
+  stays black, and black and white is grey }
 procedure TestMonitors;
 var
   Cur, Prev: array of LongWord;
@@ -677,7 +677,7 @@ var
   end;
 
 begin
-  WriteLn('--- CPC monitors');
+  WriteLn('--- monitors');
   SetLength(Cur, FB_WIDTH * SCREEN_HEIGHT);
   SetLength(Prev, FB_WIDTH * SCREEN_HEIGHT);
   SetLength(Dest, SCREEN_WIDTH * SCREEN_HEIGHT);
@@ -687,24 +687,22 @@ begin
     Prev[I] := $FFFFFFFF;
   end;
   Cur[0] := $FF000000; Cur[1] := $FF000000;
+  Cur[4] := $FFFF0000; Cur[5] := $FFFF0000;
   FillChar(O, SizeOf(O), 0);
-  O.Fine := True;
-  O.Monitor := 1;
-  Present;
-  Check(((Dest[5] shr 8) and $FF > 200) and ((Dest[5] shr 16) and $FF < 80), 'green phosphor: white is a bright green');
-  Check((Dest[0] and $00FFFFFF) = 0, '... and black stays black');
   O.Monitor := 2;
   Present;
-  Check(((Dest[5] shr 16) and $FF > 200) and ((Dest[5] and $FF) < 40) and ((Dest[5] shr 8) and $FF < (Dest[5] shr 16) and $FF),
-    'orange phosphor: white is orange');
-  O.Monitor := 0;
-  O.Mono := True;
-  Cur[5] := $FFFF0000; Cur[6] := $FFFF0000;
+  Check(((Dest[7] shr 8) and $FF > 200) and ((Dest[7] shr 16) and $FF < 80), 'green phosphor: white is a bright green');
+  Check((Dest[0] and $00FFFFFF) = 0, '... and black stays black');
+  O.Monitor := 3;
   Present;
-  Check(((Dest[2] shr 16) and $FF) = ((Dest[2] shr 8) and $FF), 'colour monitor with black and white on: grey');
+  Check(((Dest[7] shr 16) and $FF > 200) and ((Dest[7] and $FF) < 40) and ((Dest[7] shr 8) and $FF < (Dest[7] shr 16) and $FF),
+    'orange phosphor: white is orange');
   O.Monitor := 1;
   Present;
-  Check(((Dest[2] shr 8) and $FF) > ((Dest[2] shr 16) and $FF) + 100, 'a green monitor ignores it: the phosphor, not grey');
+  Check(((Dest[2] shr 16) and $FF) = ((Dest[2] shr 8) and $FF), 'black and white: a colour is grey');
+  O.Monitor := 0;
+  Present;
+  Check((Dest[2] shr 16) and $FF > (Dest[2] shr 8) and $FF + 100, 'colour: it is left as it is');
 end;
 
 begin

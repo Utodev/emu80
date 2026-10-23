@@ -1,6 +1,6 @@
 # Project
 
-This is a ZX Spectrum Emulator made with  Lazarus (Free Pascal) using LCL
+This is a Z80 machines emulator made with  Lazarus (Free Pascal) using LCL
 
 # Documentation
 

@@ -74,6 +74,8 @@ begin
   for I := 0 to FMenu.Items.Count - 1 do
   begin
     Item := FMenu.Items[I];
+    // The Machine menu is the classic interface's: here its commands are buttons
+    if Item.Caption = '&Machine' then Continue;
     if Item.Caption = '|' then
     begin
       Inc(X, MUIScale(10));
@@ -176,7 +178,7 @@ begin
     MUIScale(30));
   Btn.Images := FSmallImages;
   Btn.IconTop := False;
-  FMFast := NewButton(FMTape, -1, 'Fast loading', 'Fast loading: the ROM loader is skipped and blocks ' +
+  FMFast := NewButton(FMTape, -1, 'Fast', 'Fast loading: the ROM loader is skipped and blocks ' +
     'load at once', @DoFastLoad, 2 * Gap + BW, Y, BW, MUIScale(30));
   FMFast.IconTop := False;
   Inc(Y, MUIScale(30) + Gap);
@@ -185,25 +187,24 @@ begin
   FMMedia := TPaletteBox.Create(Self);
   FMMedia.Parent := FMRight;
   FMMedia.Caption := 'Media';
-  // The LEDs and what is in each drive on the left, one row for each of the
-  // buttons on the right, one above the other
-  RowH := MUIScale(32) + Gap;
-  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + Gap + 3 * RowH);
-  BW := (W - 3 * Gap) div 2;
+  // The LEDs and what is in each drive above; below them three buttons: the
+  // disk and SD card browsers, and fast floppy disk access
+  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + MUIScale(126));
   FMMediaBox := TPaintBox.Create(Self);
   FMMediaBox.Parent := FMMedia;
-  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap div 2, W - BW - 3 * Gap, 3 * RowH);
+  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap, W - 2 * Gap, MUIScale(72));
   FMMediaBox.OnPaint := @PaintModernMedia;
-  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, 2 * Gap + (W - BW - 3 * Gap) ,
-    FMMedia.TitleHeight + Gap, BW, MUIScale(32));
+  BW := (W - 4 * Gap) div 3;
+  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, Gap,
+    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
   FMDiskBtn.Images := FSmallImages;
   FMDiskBtn.IconTop := False;
-  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD card', 'SD card browser', @DoSDBrowser,
-    2 * Gap + (W - BW - 3 * Gap), FMMedia.TitleHeight + Gap + RowH, BW, MUIScale(32));
+  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD', 'SD card browser', @DoSDBrowser, 2 * Gap + BW,
+    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
   FMSDBtn.Images := FSmallImages;
   FMSDBtn.IconTop := False;
-  FMFastDisk := NewButton(FMMedia, -1, 'Fast disk', 'Fast floppy disk access: no real drive timing',
-    @DoFastDisk, 2 * Gap + (W - BW - 3 * Gap), FMMedia.TitleHeight + Gap + 2 * RowH, BW, MUIScale(32));
+  FMFastDisk := NewButton(FMMedia, -1, 'Fast', 'Fast floppy disk access: no real drive timing',
+    @DoFastDisk, 3 * Gap + 2 * BW, FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
   FMFastDisk.IconTop := False;
 
   // Bottom: zoom, and what the status bar says
@@ -220,7 +221,7 @@ begin
   Lbl.Top := (FMBottom.Height - Lbl.Canvas.TextHeight('Zoom')) div 2;
   for I := 1 to 4 do
   begin
-    FMZoom[I] := NewButton(FMBottom, -1, Format('%dx', [I]), Format('Window size %dx', [I]), @DoScale,
+    FMZoom[I] := NewButton(FMBottom, -1, Format('%dx', [I]), Format('Zoom %dx', [I]), @DoScale,
       MUIScale(56) + (I - 1) * MUIScale(40), MUIScale(6), MUIScale(36), MUIScale(24));
     FMZoom[I].IconTop := False;
     FMZoom[I].Tag := I;

@@ -136,6 +136,14 @@ begin
     Check((S.ZXUnoCard = 'other.img') and (S.SDCardFile = 'normal.img'), 'and read back, the others untouched');
     S.Free;
 
+    // The old black and white option is the black and white monitor
+    WriteIni('[General]'#10'bw=1'#10);
+    S := Fresh;
+    Check(S.Monitor = 1, 'bw=1 of an older file is the black and white monitor');
+    S.Save;
+    Check((Pos('monitor=bw', IniText) > 0) and (Pos(#10'bw=', IniText) = 0), '... and is saved as monitor=bw');
+    S.Free;
+
     // The names: ZX Spectrum options start zx_, Amstrad CPC ones cpc_; a file
     // with the older names is read, and written again with the new ones
     WriteIni('[Hardware]'#10'turbosound=1'#10'currah=1'#10'cpcjoystick=0'#10'[Machine]'#10'joystick=sinclair1'#10 +
@@ -146,13 +154,13 @@ begin
       'old [Machine] names are read');
     Check(S.ZXUnoRoms = 'u.zx1', 'old [ROMs] names are read');
     S.CPCCrtc := 3;
-    S.CPCMonitor := 2;
+    S.Monitor := 3;
     S.CPCWaitStates := False;
     S.Save;
     Check((Pos('zx_turbosound=1', IniText) > 0) and (Pos('zx_joystick=sinclair1', IniText) > 0) and
       (Pos('cpc_joystick=0', IniText) > 0) and (Pos('zx_unoroms=u.zx1', IniText) > 0),
       'saved with the new names');
-    Check((Pos('cpc_crtc=3', IniText) > 0) and (Pos('cpc_monitor=orange', IniText) > 0) and (Pos('cpc_waitstates=0', IniText) > 0) and
+    Check((Pos('cpc_crtc=3', IniText) > 0) and (Pos('monitor=orange', IniText) > 0) and (Pos('cpc_waitstates=0', IniText) > 0) and
       (Pos('[amstradcpc]', IniText) > 0) and (Pos('[zxspectrum]', IniText) > 0),
       'the CPC options have their section, as the ZX Spectrum ones');
     Check((Pos(#10'turbosound=', IniText) = 0) and (Pos(#10'currah=', IniText) = 0) and
@@ -161,13 +169,13 @@ begin
     Backup := S.Snapshot;
     S.Free;
     S := Fresh;
-    Check((S.CPCCrtc = 3) and (S.CPCMonitor = 2) and not S.CPCWaitStates and S.TurboSound and (S.Joystick = jkSinclair1),
+    Check((S.CPCCrtc = 3) and (S.Monitor = 3) and not S.CPCWaitStates and S.TurboSound and (S.Joystick = jkSinclair1),
       'read back from the new names');
     // What a Cancel after an Apply does: the settings as they were
-    S.CPCMonitor := 1;
+    S.Monitor := 2;
     S.Joystick := jkFuller;
     S.Restore(Backup);
-    Check((S.CPCMonitor = 2) and (S.Joystick = jkSinclair1), 'Restore puts the settings back as Snapshot took them');
+    Check((S.Monitor = 3) and (S.Joystick = jkSinclair1), 'Restore puts the settings back as Snapshot took them');
     Check(CurrentOptionName('turbosound') = 'zx_turbosound', 'the command line takes an old name as the new');
     Check(CurrentOptionName('no-divmmc') = 'no-zx_divmmc', '... also with no-');
     Check(CurrentOptionName('speed') = 'speed', 'common options keep their names');

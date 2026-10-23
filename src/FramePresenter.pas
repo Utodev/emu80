@@ -18,13 +18,12 @@ uses
 type
   TPresentOptions = record
     Deinterlace: TDeinterlace;
-    Mono: Boolean;
     Scanlines: Boolean;
     { The Amstrad CPC's picture, whose columns are all different (the 640-pixel
       mode): at 1x each pair is averaged }
     Fine: Boolean;
-    { An Amstrad CPC's monochrome monitor: 0 colour, 1 green phosphor, 2 orange
-      phosphor (the picture as shades of its phosphor, whatever the colours) }
+    { The monitor: 0 colour; 1 black and white, 2 green phosphor, 3 orange
+      phosphor (the picture as shades of grey or of its phosphor) }
     Monitor: Byte;
   end;
 
@@ -121,17 +120,15 @@ begin
         end;
         if Options.Monitor <> 0 then
         begin
-          // A monochrome monitor: the brightness of the colour, in its phosphor's
+          // A monochrome monitor: the brightness of the colour, in grey or in
+          // its phosphor's colour
           Grey := (((P shr 16) and $FF) * 77 + ((P shr 8) and $FF) * 150 + (P and $FF) * 29) shr 8;
-          if Options.Monitor = 1 then
-            P := $FF000000 or ((Grey * 40 div 255) shl 16) or ((Grey * 255 div 255) shl 8) or (Grey * 60 div 255)
+          case Options.Monitor of
+            2: P := $FF000000 or ((Grey * 40 div 255) shl 16) or (Grey shl 8) or (Grey * 60 div 255);
+            3: P := $FF000000 or (Grey shl 16) or ((Grey * 150 div 255) shl 8) or (Grey * 10 div 255);
           else
-            P := $FF000000 or (Grey shl 16) or ((Grey * 150 div 255) shl 8) or (Grey * 10 div 255);
-        end
-        else if Options.Mono then
-        begin
-          Grey := (((P shr 16) and $FF) * 77 + ((P shr 8) and $FF) * 150 + (P and $FF) * 29) shr 8;
-          P := $FF000000 or (Grey shl 16) or (Grey shl 8) or Grey;
+            P := $FF000000 or (Grey shl 16) or (Grey shl 8) or Grey;
+          end;
         end;
         Lines[K][X] := P or $FF000000;
         if Scan then Darks[K][X] := Darker(P);
