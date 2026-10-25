@@ -17,7 +17,7 @@ type
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
     ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder, ikFolder,
-    ikEject, ikTheme);
+    ikEject, ikTheme, ikMenu, ikKeyboard);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
@@ -431,6 +431,13 @@ begin
         D.C.Brush.Style := bsClear;
         D.C.TextOut((D.S(16) - D.C.TextWidth('Z80')) div 2, (D.S(16) - D.C.TextHeight('Z80')) div 2, 'Z80');
       end;
+    ikMenu:
+      begin
+        // A menu drops down: a triangle pointing down
+        if DarkIcons then begin D.Pen(LightGrey); D.Fill(LightGrey); end
+        else begin D.Pen(DarkGrey); D.Fill(DarkGrey); end;
+        D.Poly([3.5, 6, 12.5, 6, 8, 11.5]);
+      end;
     ikTheme:
       begin
         // Half light, half dark: the interface's look
@@ -439,6 +446,22 @@ begin
         D.Circle(8, 8, 6);
         D.Fill(DarkGrey);
         D.C.Chord(D.S(2), D.S(2), D.S(14), D.S(14), D.S(8), D.S(2), D.S(8), D.S(14));
+      end;
+    ikKeyboard:
+      begin
+        // A Spectrum key: dark, with a letter and the stripe of colours
+        D.Pen(DarkGrey); D.Fill($585048);
+        D.RoundRect(1.5, 3, 14.5, 14, 2.5);
+        D.Pen(Red); D.Line(9, 5.2, 10.4, 5.2);
+        D.Pen(Yellow); D.Line(10.4, 5.2, 11.8, 5.2);
+        D.Pen(Green); D.Line(11.8, 5.2, 13.2, 5.2);
+        D.C.Font.Name := 'Arial';
+        D.C.Font.Style := [fsBold];
+        D.C.Font.Height := -D.S(8);
+        D.C.Font.Quality := fqNonAntialiased;
+        D.C.Font.Color := clWhite;
+        D.C.Brush.Style := bsClear;
+        D.C.TextOut(D.S(3.5), D.S(5.5), 'K');
       end;
     ikGoTo:
       begin

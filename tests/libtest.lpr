@@ -11,7 +11,7 @@ program libtest;
 
 uses
   {$IFDEF UNIX}cthreads,{$ENDIF}
-  SysUtils, Emu80Api;
+  SysUtils, Classes, Emu80Api;
 
 var
   Failures: Integer = 0;
@@ -36,6 +36,10 @@ var
   Prog: array[0..7] of Byte = ($F3, $3A, $00, $C0, $D3, $FE, $18, $F9);
   Err: array[0..255] of AnsiChar;
   F1: Int64;
+  H2: Pointer;
+  SamDir: string;
+  Rom: array[0..32767] of Byte;
+  F: TFileStream;
 begin
   Check(emu80_version = 1, 'API version');
   Check(emu80_create(99, PAnsiChar(ParamStr(1))) = nil, 'an unknown model is refused');
@@ -143,5 +147,40 @@ begin
   Check((S.Running = 1) and (S.Paused = 0), 'running again');
   emu80_destroy(H);
   Check(emu80_pause(H) < 0, 'a destroyed handle is refused');
+
+  // The SAM Coupe (model 11): its ROM isn't distributed, so a machine can't be made without one;
+  // with one (here a made-up 32K of NOPs) the API takes it: RAM pages, keys, paging, ports
+  if not FileExists(IncludeTrailingPathDelimiter(ParamStr(1)) + 'samcoupe.rom') then
+    Check(emu80_create(11, PAnsiChar(ParamStr(1))) = nil, 'a SAM Coupe without its ROM is refused');
+  SamDir := IncludeTrailingPathDelimiter(GetTempDir(False)) + 'emu80-libtest-sam';
+  ForceDirectories(SamDir);
+  FillChar(Rom, SizeOf(Rom), 0);
+  F := TFileStream.Create(IncludeTrailingPathDelimiter(SamDir) + 'samcoupe.rom', fmCreate);
+  try
+    F.WriteBuffer(Rom, SizeOf(Rom));
+  finally
+    F.Free;
+  end;
+  H2 := emu80_create(11, PAnsiChar(SamDir));
+  Check(H2 <> nil, 'a SAM Coupe is created');
+  if H2 <> nil then
+  begin
+    Check(emu80_get_model(H2) = 11, 'it is model 11');
+    Check(emu80_ram_bank_count(H2) = 32, '32 pages of RAM (512K)');
+    Check(emu80_key(H2, 71, 1) = 0, 'the last key of the matrix goes down');
+    Check(emu80_key(H2, 72, 1) < 0, 'a key past the 72 is refused');
+    emu80_key(H2, 71, 0);
+    Check(emu80_write_port(H2, $00FB, 5) = 0, 'HMPR 5');
+    Check(emu80_get_paging(H2, @P) = 0, 'paging');
+    Check((P.Slot2 = 5) and (P.Slot3 = 6) and (P.Port1FFD = 5), 'pages 5 and 6 at 8000 and C000 (HMPR in Port1FFD)');
+    Check(P.Slot0 = -1, 'ROM0 at 0000');
+    Check(emu80_write_port(H2, $00FA, $24) = 0, 'LMPR with RAM at 0000');
+    emu80_get_paging(H2, @P);
+    Check((P.Slot0 = 4) and (P.Slot1 = 5) and (P.Port7FFD = $24), 'pages 4 and 5 at 0000 (LMPR in Port7FFD)');
+    Check(emu80_write_port(H2, $03F8, $77) = 0, 'a CLUT entry (the high byte says which)');
+    Check(emu80_write_port(H2, $1234, 1) < 0, 'a port the SAM doesn''t have is refused');
+    Check(emu80_set_slot3_bank(H2, 3) < 0, 'the +3''s slot 3 bank means nothing on a SAM Coupe');
+    emu80_destroy(H2);
+  end;
   if Failures = 0 then WriteLn('Native library API: all passed') else Halt(1);
 end.

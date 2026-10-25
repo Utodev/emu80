@@ -200,6 +200,109 @@ begin
   end;
 end;
 
+{ The PSG's register number is latched when the latch cycle ends, from what is on port A then: a
+  player may start the cycle first and put the number on the bus after (as Baba's Palace's does);
+  and a frame shorter than 312 lines still gives a picture }
+procedure TestPsgLatchAndShortFrame;
+var
+  Sp: TSpectrum;
+  R: TCPCRegisters;
+  F: array of LongWord;
+  I, Lit: Integer;
+
+  procedure WriteReg(Reg, Value: Byte);
+  begin
+    // latch cycle first, the number on port A during it, then data and write
+    Sp.CPC.OutPort($F6C0, $C0, 0);
+    Sp.CPC.OutPort($F400, Reg, 0);
+    Sp.CPC.OutPort($F600, $00, 0);
+    Sp.CPC.OutPort($F400, Value, 0);
+    Sp.CPC.OutPort($F680, $80, 0);
+    Sp.CPC.OutPort($F600, $00, 0);
+  end;
+
+begin
+  WriteLn('--- the PSG latch, and a short frame');
+  Sp := TSpectrum.Create(smCPC6128, ParamStr(1));
+  try
+    Frames(Sp, 60);
+    WriteReg(2, $5E);
+    WriteReg(8, $0F);
+    Sp.CPC.GetRegisters(R);
+    Check((R.Psg[2] = $5E) and (R.Psg[8] = $0F), 'a register number put on the bus after the latch cycle began is the one latched');
+    // A frame of 38 rows of 8 lines + 6 (310 lines), 23 rows displayed: its picture is shown
+    Sp.CPC.OutPort($BC00, 4, 0); Sp.CPC.OutPort($BD00, 37, 0);
+    Sp.CPC.OutPort($BC00, 5, 0); Sp.CPC.OutPort($BD00, 6, 0);
+    Sp.CPC.OutPort($BC00, 6, 0); Sp.CPC.OutPort($BD00, 23, 0);
+    Sp.CPC.OutPort($BC00, 7, 0); Sp.CPC.OutPort($BD00, 30, 0);
+    Frames(Sp, 10);
+    SetLength(F, FB_WIDTH * SCREEN_HEIGHT);
+    Sp.CopyFrameBuffer(@F[0]);
+    Lit := 0;
+    for I := 0 to High(F) do if (F[I] and $FFFFFF) <> 0 then Inc(Lit);
+    Check(Lit > 1000, 'a frame shorter than 312 lines still shows its picture');
+  finally
+    Sp.Free;
+  end;
+end;
+
+{ A program that stops the tape motor in the middle of a block (it read what it wanted of it) finds the
+  tape where it was when the motor goes on again: not at the start of the block }
+procedure TestTapeHold;
+var
+  Sp: TSpectrum;
+  F: TFileStream;
+  Hdr: array[0..9] of Byte = (Ord('Z'), Ord('X'), Ord('T'), Ord('a'), Ord('p'), Ord('e'), Ord('!'), $1A, 1, 0);
+  Blk: array[0..17] of Byte;
+  Data: array of Byte;
+  I, Pos1, Pos2, Len: Integer;
+  Name: string;
+begin
+  WriteLn('--- tape stopped in a block');
+  Len := 600;
+  Name := '/tmp/cpc-hold-test.tzx';
+  // One turbo block: pilot, sync, 0 and 1 bits, 8 bits in the last byte, no pause
+  FillChar(Blk, SizeOf(Blk), 0);
+  Blk[0] := $11;
+  Blk[1] := $E0; Blk[2] := $01;          // pilot 480
+  Blk[3] := $E0; Blk[4] := $00;          // sync 1: 224
+  Blk[5] := $E0; Blk[6] := $00;          // sync 2
+  Blk[7] := $E0; Blk[8] := $00;          // bit 0
+  Blk[9] := $C0; Blk[10] := $01;         // bit 1: 448
+  Blk[11] := $40; Blk[12] := $00;        // 64 pilot pulses
+  Blk[13] := 8;
+  Blk[14] := 0; Blk[15] := 0;            // pause 0
+  Blk[16] := Len and 255; Blk[17] := Len shr 8;
+  SetLength(Data, Len + 1);
+  Data[0] := 0;                          // the block's 3rd length byte
+  for I := 1 to Len do Data[I] := (I * 37) and 255;
+  F := TFileStream.Create(Name, fmCreate);
+  try
+    F.WriteBuffer(Hdr[0], SizeOf(Hdr));
+    F.WriteBuffer(Blk[0], SizeOf(Blk));
+    F.WriteBuffer(Data[0], Length(Data));
+  finally
+    F.Free;
+  end;
+  Sp := TSpectrum.Create(smCPC464, ParamStr(1));
+  try
+    Sp.Tape.LoadFile(Name);
+    Sp.Tape.Play(0);
+    Sp.Tape.AdvanceTo(1500000);
+    Pos1 := Sp.Tape.BytePosition;
+    Check(Pos1 > 20, Format('the tape is in the data of the block (byte %d)', [Pos1]));
+    Sp.Tape.Hold;
+    Check(not Sp.Tape.Playing, 'Hold stops it');
+    Check(Sp.Tape.Resume(1500000), 'Resume says it goes on');
+    Sp.Tape.AdvanceTo(1800000);
+    Pos2 := Sp.Tape.BytePosition;
+    Check((Pos2 >= Pos1) and (Pos2 < Pos1 + 80), Format('and it goes on from where it was (byte %d, then %d)', [Pos1, Pos2]));
+  finally
+    Sp.Free;
+  end;
+  DeleteFile(Name);
+end;
+
 procedure TestTapeRoundTrip(M: TSpectrumModel);
 var
   Sp: TSpectrum;
@@ -730,6 +833,8 @@ begin
   TestSna(smCPC6128);
   TestSnapshot(smCPC464);
   TestSnapshot(smCPC6128);
+  TestPsgLatchAndShortFrame;
+  TestTapeHold;
   TestTapeRoundTrip(smCPC464);
   TestTapeRoundTrip(smCPC6128);
   if Failures > 0 then Halt(1);

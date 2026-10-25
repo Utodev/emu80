@@ -359,6 +359,7 @@ type
     procedure DoClearBreakpoints(Sender: TObject);
     procedure DoGoTo(Sender: TObject);
     procedure DoAddWatch(Sender: TObject);
+    procedure RegsChanged(Sender: TObject);
     procedure DoUnoRegs(Sender: TObject);
     procedure DoZ80Opcodes(Sender: TObject);
     function MakeColumn(AParent: TWinControl; const ACaption: string; AWidth: Integer;
@@ -3765,7 +3766,7 @@ begin
   PickMenu := TPopupMenu.Create(Self);
   FEmu.Lock;
   try
-    for What := -3 to 7 do
+    for What := -3 to 31 do
       if FEmu.Spec.CPCSlotCanHold(Slot, What) then
       begin
         Item := TMenuItem.Create(PickMenu);
@@ -4067,9 +4068,11 @@ begin
     for A := 0 to 7 do FNextMMU[A] := FEmu.Spec.NextMMU(A);
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
-    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model = smZXNext);
+    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model in [smZXNext, smSAM]);
     if FEmu.Spec.Model = smZXNext then
       FUnoButton.Hint := 'Next Regs: the ZX Spectrum Next''s registers (MMU, speed, interrupts...)'
+    else if FEmu.Spec.Model = smSAM then
+      FUnoButton.Hint := 'SAM Regs: the SAM Coupe''s ports (paging LMPR and HMPR, video, border, CLUT, sound)'
     else
       FUnoButton.Hint := 'ZXUno Regs: the ZX-Uno''s registers';
     FCurrahPaged := FEmu.Spec.CurrahOn and FEmu.Spec.Currah.Paged;
@@ -4172,8 +4175,9 @@ begin
     SetLength(FPortLog, FEmu.Spec.PortLogCount);
     for A := 0 to High(FPortLog) do FPortLog[A] := FEmu.Spec.PortLog(A);
     for A := 0 to 3 do FSlots[A] := FEmu.Spec.SlotBank(A);
-    FSlot3OK := not (FEmu.Spec.Info.Memory in [mk48K, mkCPC]) and ((FEmu.Spec.Port1FFD and 1) = 0);
-    FIsCpc := FEmu.Spec.Info.Memory = mkCPC;
+    FSlot3OK := not (FEmu.Spec.Info.Memory in [mk48K, mkCPC, mkSAM]) and ((FEmu.Spec.Port1FFD and 1) = 0);
+    // Every slot can be changed, as the CPC and the SAM Coupe allow (the SAM's by its paging registers)
+    FIsCpc := FEmu.Spec.Info.Memory in [mkCPC, mkSAM];
   finally
     FEmu.Unlock;
   end;
@@ -4689,9 +4693,20 @@ begin
   Refresh(False);
 end;
 
+{ A register edited in the ports window (the SAM's LMPR or HMPR, the ZX-Uno's MMU...) changes what
+  the CPU sees: read it all again }
+procedure TDebuggerWindow.RegsChanged(Sender: TObject);
+begin
+  Refresh(False);
+end;
+
 procedure TDebuggerWindow.DoUnoRegs(Sender: TObject);
 begin
-  if FUnoRegs = nil then FUnoRegs := TZXUnoRegsWindow.CreateFor(Self, FEmu);
+  if FUnoRegs = nil then
+  begin
+    FUnoRegs := TZXUnoRegsWindow.CreateFor(Self, FEmu);
+    FUnoRegs.OnChanged := @RegsChanged;
+  end;
   FUnoRegs.UpdateValues;
   FUnoRegs.Show;
   FUnoRegs.BringToFront;

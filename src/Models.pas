@@ -7,7 +7,7 @@ interface
 
 type
   TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext,
-    smCPC464, smCPC664, smCPC6128);
+    smCPC464, smCPC664, smCPC6128, smSAM);
 
   { How the picture is shown, as if the Spectrum's frames were the fields of
     an interlaced picture: each frame on its own (progressive, as the
@@ -16,7 +16,7 @@ type
   TDeinterlace = (dlProgressive, dlBob, dlWeave);
 
   { Which memory/port architecture the model uses }
-  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext, mkCPC);
+  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext, mkCPC, mkSAM);
 
   TModelInfo = record
     Name: string;
@@ -115,19 +115,31 @@ const
      ClockHz: 4000000; FrameT: 79872; LineT: 256; PaperTopT: 0;
      ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
      InterruptLength: 0; IOContention: False; NoMreqContention: False;
-     FloatingBus: False; HasAY: True; HasFDC: True)
+     FloatingBus: False; HasAY: True; HasFDC: True),
+    { SAM Coupe: a 6 MHz Z80B and the ASIC, 512K of RAM in 16K pages; a frame
+      is 312 lines of 384 T-states (50 Hz); RomFiles: the 32K ROM (ROM0 and
+      ROM1). It has a SAA1099, not an AY, and a WD1772 floppy controller; the
+      ULA fields mean nothing here. }
+    (Name: 'SAM Coup'#$C3#$A9; Memory: mkSAM;
+     RomFiles: ('samcoupe.rom', '', '', ''); RomCount: 1; BasicRom: 0;
+     ClockHz: 6000000; FrameT: 119808; LineT: 384; PaperTopT: 0;
+     ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
+     InterruptLength: 0; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: False; HasFDC: True)
   );
 
 function ModelFromName(const S: string; Default: TSpectrumModel): TSpectrumModel;
 function ModelKey(M: TSpectrumModel): string;
 { An Amstrad CPC (not a Spectrum) }
 function IsCPCModel(M: TSpectrumModel): Boolean;
+{ A SAM Coupe (not a Spectrum) }
+function IsSAMModel(M: TSpectrumModel): Boolean;
 
 implementation
 
 const
   Keys: array[TSpectrumModel] of string = ('16k', '48k', '128k', 'plus2', 'plus2b', 'plus3', 'zxuno',
-    'zxnext', 'cpc464', 'cpc664', 'cpc6128');
+    'zxnext', 'cpc464', 'cpc664', 'cpc6128', 'sam');
 
 function ModelKey(M: TSpectrumModel): string;
 begin
@@ -146,6 +158,11 @@ end;
 function IsCPCModel(M: TSpectrumModel): Boolean;
 begin
   Result := ModelInfo[M].Memory = mkCPC;
+end;
+
+function IsSAMModel(M: TSpectrumModel): Boolean;
+begin
+  Result := ModelInfo[M].Memory = mkSAM;
 end;
 
 end.

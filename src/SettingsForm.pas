@@ -28,6 +28,8 @@ type
   private
     FPages, FCommon, FZX: TPageControl;   // the three main tabs; what is inside the Common and ZX Spectrum ones
     FCrtc, FMonitor: TComboBox;
+    FSamMemory: TComboBox;
+    FSamSaa, FSamJoystick, FSamAutoDos, FSamMouse, FSamClock: TCheckBox;
     FCPCWait: TCheckBox;
     FModel: TComboBox;
     FRomDir: TEdit;
@@ -455,6 +457,44 @@ begin
   FCPCJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as joystick 1', Y);
   FCPCJoystick.Hint := 'On the CPC the cursor keys are always the cursor keys; with this on they ' +
     'also move joystick 1, and the right Ctrl is its fire button';
+
+  // SAM Coupe
+  Page := AddPage(FPages, 'SAM Coup'#$C3#$A9);
+  AddBand(Page, 3);
+  Group := AddGroup(Page, 'Memory', 60, 96);
+  Y := 8;
+  AddLabel(Group, 'RAM:', Y + 4);
+  FSamMemory := AddCombo(Group, Y, 270);
+  FSamMemory.Left := 170;
+  FSamMemory.Items.Add('256K');
+  FSamMemory.Items.Add('512K');
+  FSamMemory.Hint := 'The basic machine has 256K, with 256K more on its expansion connector. ' +
+    'Changing it resets the machine';
+  FSamMemory.ShowHint := True;
+  AddNote(Group, 'The ROM tells the size by trying the pages: 512K is the usual machine.', Y + 34);
+  Group := AddGroup(Page, 'Sound', 166, 64);
+  Y := 8;
+  FSamSaa := AddCheck(Group, 'Philips SAA1099 sound generator', Y);
+  FSamSaa.Hint := 'Six tone generators, two noise generators and two envelopes, in stereo; ' +
+    'off leaves just the beeper (the generator keeps running)';
+  Group := AddGroup(Page, 'Controls', 240, 64);
+  Y := 8;
+  FSamJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as a joystick', Y);
+  FSamJoystick.Hint := 'On the SAM Coupe the cursor keys are always the cursor keys; with this on they ' +
+    'also move a Kempston joystick (port 31), and the right Ctrl is its fire button';
+  Group := AddGroup(Page, 'Peripherals', 314, 92);
+  Y := 8;
+  FSamMouse := AddCheck(Group, 'Mouse', Y);
+  FSamMouse.Hint := 'Moving the PC mouse over the picture moves the SAM''s mouse (left, right and middle buttons); ' +
+    'the pointer is hidden over the picture';
+  Inc(Y, 28);
+  FSamClock := AddCheck(Group, 'Clock (SAMBUS interface)', Y);
+  FSamClock.Hint := 'A real-time clock, the one of the SAMBUS interface, that follows the PC''s';
+  Group := AddGroup(Page, 'DOS', 414, 64);
+  Y := 8;
+  FSamAutoDos := AddCheck(Group, 'Boot SAMDOS automatically', Y);
+  FSamAutoDos.Hint := 'On start, on reset and on choosing the SAM Coup'#$C3#$A9' with drive 1 empty, ' +
+    'the SAMDOS2.dsk disk of the roms folder is inserted and booted';
   FShownRomModel := -1;
 end;
 
@@ -495,6 +535,7 @@ var
   Back, Edge, Ink, Body: TColor;
   Title: string;
 const
+  SAMK: array[0..5] of TColor = ($2828F0, $28A8F0, $28E0F0, $38C038, $F0C028, $F03890);
   SPEC: array[0..3] of TColor = ($0000E0, $00E0E0, $00D000, $E0D000);   // red, yellow, green, cyan (BGR)
   CPCK: array[0..3] of TColor = ($2828F0, $F0A828, $28D0FF, $38C038);
 begin
@@ -536,6 +577,26 @@ begin
         Point(X + 50 + I * 4, Y + 6), Point(X + 46 + I * 4, Y + 6)]);
     end;
     Title := 'ZX Spectrum';
+  end
+  else if Box.Tag = 3 then
+  begin
+    // The SAM Coupe: a slim dark case with a row of rainbow keys
+    if Dark then Body := $484848 else Body := $303030;
+    C.Brush.Color := Body;
+    C.Pen.Color := Edge;
+    C.Pen.Width := 2;
+    C.RoundRect(X, Y + 8, X + 56, Y + 30, 4, 4);
+    C.Pen.Width := 1;
+    for I := 0 to 5 do
+    begin
+      C.Brush.Color := SAMK[I];
+      C.Pen.Color := SAMK[I];
+      C.Rectangle(X + 5 + I * 8, Y + 12, X + 11 + I * 8, Y + 16);
+    end;
+    C.Brush.Color := $B0B0B0;
+    C.Pen.Color := $B0B0B0;
+    for I := 0 to 5 do C.Rectangle(X + 5 + I * 8, Y + 21, X + 11 + I * 8, Y + 25);
+    Title := 'SAM Coup'#$C3#$A9;
   end
   else
   begin
@@ -793,7 +854,9 @@ var
 begin
   Boxes := ForcedBoxes;
   ZXUno := FModel.ItemIndex = Ord(smZXUno);
-  CPC := (FModel.ItemIndex >= Ord(smCPC464)) and (FModel.ItemIndex <= Ord(smCPC6128));
+  // What belongs to the Spectrum is off on the machines that aren't one: the CPC and the SAM Coupe
+  CPC := ((FModel.ItemIndex >= Ord(smCPC464)) and (FModel.ItemIndex <= Ord(smCPC6128))) or
+    (FModel.ItemIndex = Ord(smSAM));
   for I := 0 to 3 do
   begin
     if ZXUno and not FForced[I] then
@@ -835,6 +898,12 @@ begin
   FCPCJoystick.Checked := S.CPCJoystick;
   FCPCWait.Checked := S.CPCWaitStates;
   FCrtc.ItemIndex := S.CPCCrtc + 1;
+  FSamSaa.Checked := S.SamSaa;
+  FSamJoystick.Checked := S.SamJoystick;
+  FSamAutoDos.Checked := S.SamAutoDos;
+  FSamMouse.Checked := S.SamMouse;
+  FSamClock.Checked := S.SamClock;
+  if S.SamMemory = 256 then FSamMemory.ItemIndex := 0 else FSamMemory.ItemIndex := 1;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
   FNextDir.Text := S.NextDir;
@@ -912,6 +981,12 @@ begin
   S.CPCJoystick := FCPCJoystick.Checked;
   S.CPCWaitStates := FCPCWait.Checked;
   S.CPCCrtc := FCrtc.ItemIndex - 1;
+  S.SamSaa := FSamSaa.Checked;
+  S.SamJoystick := FSamJoystick.Checked;
+  S.SamAutoDos := FSamAutoDos.Checked;
+  S.SamMouse := FSamMouse.Checked;
+  S.SamClock := FSamClock.Checked;
+  if FSamMemory.ItemIndex = 0 then S.SamMemory := 256 else S.SamMemory := 512;
   S.Monitor := FMonitor.ItemIndex;
   S.Contention := FContention.Checked;
   S.UlaSnow := FSnow.Checked;

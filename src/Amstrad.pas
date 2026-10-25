@@ -99,14 +99,20 @@ type
     FInAdjust: Boolean;
     FRowStart: Integer;              // MA of the row's first character
     FHsyncLeft, FVsyncLeft: Integer;
-    FHsyncSeen: Boolean;
-    FXChars: Integer;                // characters since the HSYNC ended
-    FYLines: Integer;                // lines since the VSYNC began
+    FHsyncSeen: Boolean;             // (kept in snapshots only)
+    FXChars: Integer;                // (kept in snapshots only: FMonX rounded)
+    { The monitor's horizontal oscillator: it runs by itself and the HSYNCs pull it a little at a time, in
+      absolute time, so the picture's lines are its sweeps, not the CRTC's lines }
+    FMonX: Double;                   // characters since the beam went back to the left
+    FMonPeriod: Double;              // the length of its sweep, in characters (64 at 15625 Hz)
+    FMonInit: Boolean;               // locked to the HSYNC (not after a reset)
+    FYLines: Integer;                // the monitor's lines since the VSYNC began
     FVsyncRose: Boolean;
     { Video output }
     FLine: array[0..CPC_WIDTH - 1] of LongWord;
     FBuild: array of LongWord;       // the picture being drawn
     FShown: array of LongWord;       // the last picture completed
+    FShownDone: Boolean;             // this frame's picture has gone to FShown
     FLineX: Integer;
     { PPI }
     FPpiA, FPpiB, FPpiC, FPpiCtl: Byte;
@@ -127,7 +133,7 @@ type
     procedure BuildPalette;
     procedure UpdateMemory;
     procedure CharStep;
-    procedure EndOfLine;
+    procedure MonitorLine;
     procedure StartFrame;
     procedure HsyncEnded;
     procedure VsyncBegan;
@@ -341,7 +347,9 @@ begin
   FRowStart := (FCrtc[12] and $3F) shl 8 or FCrtc[13];
   FHsyncLeft := 0; FVsyncLeft := 0;
   FHsyncSeen := False;
-  FXChars := 4;
+  FMonX := 4;
+  FMonPeriod := 64;
+  FMonInit := False;
   FYLines := 0;
   FVsyncRose := False;
   FLineX := 0;
@@ -573,8 +581,11 @@ end;
 
 procedure TAmstrad.PsgFunction(Fn: Byte; T: Integer);
 begin
+  // The address is latched when the latch cycle ends, from what is on the bus then: a player may put
+  // the register number on port A after it has started the cycle (OUT C,latch; OUT A,reg; OUT C,inactive)
+  if (FPsgFn = 3) and (Fn <> 3) then FPsgSel := FPpiA and 15;
   case Fn of
-    3: FPsgSel := FPpiA and 15;                       // latch the register number
+    3: FPsgSel := FPpiA and 15;                       // latch the register number (again at its end)
     2:                                                // write
       begin
         FPsgRegs[FPsgSel and 15] := FPpiA;
@@ -736,9 +747,28 @@ begin
 end;
 
 procedure TAmstrad.HsyncEnded;
+var
+  Err: Double;
 begin
-  FXChars := 0;
-  FHsyncSeen := True;
+  // The monitor doesn't follow every HSYNC: its oscillator is pulled towards them in a few lines, by
+  // when they come and not where the CRTC's line starts. A program that moves the HSYNC from line to
+  // line (R2 alternating, say) doesn't shift the picture line by line, and one that makes short lines
+  // whose HSYNCs still come every 64 microseconds (Pinball Dreams' tables scroll that way) doesn't
+  // shift it at all, just as on the real thing. With a steady HSYNC the HSYNC's end is the left edge.
+  if not FMonInit then
+  begin
+    FMonX := 0;
+    FMonPeriod := 64;
+    FMonInit := True;
+  end
+  else
+  begin
+    // How late the HSYNC came after the beam went back (negative: early)
+    Err := FMonX;
+    if Err > FMonPeriod / 2 then Err := Err - FMonPeriod;
+    FMonX := FMonX - Err / 8;
+    FMonPeriod := Min(72, Max(56, FMonPeriod + Err / 32));
+  end;
   // The Gate Array counts the HSYNCs: 52 raise the interrupt
   Inc(FIntCounter);
   if FIntCounter >= 52 then
@@ -761,13 +791,23 @@ end;
 
 procedure TAmstrad.VsyncBegan;
 var
-  W: Integer;
+  W, Row: Integer;
 begin
   W := FCrtc[3] shr 4;
   if W = 0 then W := 16;
   FVsyncLeft := W;
   FVsyncRose := True;
   FVsyncDelay := 2;
+  // A frame shorter than the 312 lines a picture takes (a program with its own CRTC values, a
+  // screen of 23 rows of 32 characters, say) never reached the last line: its picture is what it
+  // drew, black below
+  Row := FYLines - CPC_TOP_LINES;
+  if not FShownDone and (Row > 0) and (Row < CPC_HEIGHT) then
+  begin
+    FillChar(FBuild[Row * CPC_WIDTH], (CPC_HEIGHT - Row) * CPC_WIDTH * SizeOf(LongWord), 0);
+    Move(FBuild[0], FShown[0], Length(FBuild) * SizeOf(LongWord));
+  end;
+  FShownDone := False;
   FYLines := 0;
 end;
 
@@ -781,8 +821,9 @@ var
   Col: LongWord;
   Dst: PLongWord;
 begin
-  if (FXChars < CPC_LEFT_CHARS) or (FXChars >= CPC_LEFT_CHARS + CPC_CHARS) then Exit;
-  X := (FXChars - CPC_LEFT_CHARS) * 16;
+  X := Round(FMonX);
+  if (X < CPC_LEFT_CHARS) or (X >= CPC_LEFT_CHARS + CPC_CHARS) then Exit;
+  X := (X - CPC_LEFT_CHARS) * 16;
   Dst := @FLine[X];
   if Blank then
   begin
@@ -842,22 +883,23 @@ begin
   end;
 end;
 
-procedure TAmstrad.EndOfLine;
+{ The monitor's beam went back to the left: its line into the picture, if it is inside it }
+procedure TAmstrad.MonitorLine;
 var
   Row: Integer;
 begin
-  // The line into the picture, if it is inside it
   Row := FYLines - CPC_TOP_LINES;
   if (Row >= 0) and (Row < CPC_HEIGHT) then
   begin
     Move(FLine[0], FBuild[Row * CPC_WIDTH], CPC_WIDTH * SizeOf(LongWord));
     if Row = CPC_HEIGHT - 1 then
+    begin
       Move(FBuild[0], FShown[0], Length(FBuild) * SizeOf(LongWord));
+      FShownDone := True;
+    end;
   end;
   Inc(FYLines);
   if FYLines > 100000 then FYLines := 100000;
-  if not FHsyncSeen then FXChars := 4;
-  FHsyncSeen := False;
 end;
 
 { The compares the CRTC makes at the start of every line (and when R6 or R7 is
@@ -894,7 +936,12 @@ begin
   // This character's output
   Blank := (FHsyncLeft > 0) or (FVsyncLeft > 0);
   DrawChar(Blank, Dispen);
-  Inc(FXChars);
+  FMonX := FMonX + 1;
+  if FMonX >= FMonPeriod then
+  begin
+    FMonX := FMonX - FMonPeriod;
+    MonitorLine;
+  end;
   // Then the counters
   if FHsyncLeft > 0 then
   begin
@@ -915,7 +962,6 @@ begin
   end;
   // End of line: the counter met R0
   FHcc := 0;
-  EndOfLine;
   if FVsyncLeft > 0 then
   begin
     Dec(FVsyncLeft);
@@ -926,6 +972,7 @@ begin
     Inc(FVadj);
     if FVadj >= FCrtc[5] then StartFrame;
   end
+  // The raster counter ends a row when it meets R9 (lowered below it, it goes on to 31 and round to R9)
   else if FVlc = (FCrtc[9] and $1F) then
   begin
     FVlc := 0;
@@ -1125,7 +1172,9 @@ begin
   FIntCounter := 0;
   FIntPending := False;
   FVsyncDelay := 0;
-  FXChars := 4;
+  FMonX := 4;
+  FMonPeriod := 64;
+  FMonInit := False;
   FYLines := 0;
   FChipT := 0;
 end;
@@ -1193,6 +1242,7 @@ begin
   S.WriteBuffer(FInAdjust, 1);
   S.WriteBuffer(FRowStart, SizeOf(FRowStart));
   S.WriteBuffer(FHsyncLeft, SizeOf(FHsyncLeft)); S.WriteBuffer(FVsyncLeft, SizeOf(FVsyncLeft));
+  FXChars := Round(FMonX);
   S.WriteBuffer(FHsyncSeen, 1);
   S.WriteBuffer(FXChars, SizeOf(FXChars)); S.WriteBuffer(FYLines, SizeOf(FYLines));
   S.WriteBuffer(FVsyncRose, 1);
@@ -1239,6 +1289,9 @@ begin
   S.ReadBuffer(FHsyncLeft, SizeOf(FHsyncLeft)); S.ReadBuffer(FVsyncLeft, SizeOf(FVsyncLeft));
   S.ReadBuffer(FHsyncSeen, 1);
   S.ReadBuffer(FXChars, SizeOf(FXChars)); S.ReadBuffer(FYLines, SizeOf(FYLines));
+  FMonX := FXChars;
+  FMonPeriod := 64;
+  FMonInit := False;
   S.ReadBuffer(FVsyncRose, 1);
   S.ReadBuffer(FPpiA, 1); S.ReadBuffer(FPpiB, 1); S.ReadBuffer(FPpiC, 1);
   S.ReadBuffer(FPpiCtl, 1);

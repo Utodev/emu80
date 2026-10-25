@@ -1,11 +1,11 @@
 { Daad: reads the database (DDB) of a DAAD game from a copy of the
-  Spectrum's memory, for the Adventure Debugger.
+  Spectrum's (CPC's, SAM Coupe's) memory, for the Adventure Debugger.
 
   The DDB is usually at 8400 (DAAD v2 and v3, as written by DC 2.0+ and
   DRC); older games have it elsewhere (La Diosa de Cozumel at 8380), so the
   rest of memory is searched too. Its header (all addresses absolute,
   little endian):
-    0  version (2 or 3)        1  machine (high nibble, 1 = ZX) and language
+    0  version (2 or 3)        1  machine (high nibble: 1 ZX, 3 CPC, 9 SAM) and language
     2  95                      3  objects   4 locations   5 user messages
     6  system messages         7  processes
     8  tokens                 10  process table   12 object texts
@@ -34,8 +34,11 @@ const
   { The machine code in the database's header (its second byte's high nibble) }
   MACHINE_ZX = 1;
   MACHINE_CPC = 3;
+  MACHINE_SAM = 9;
   { The Amstrad CPC's interpreter loads the database here }
   DDB_BASE_CPC = $2880;
+  { The SAM Coupe's: at the start of the page the interpreter has in section A (0100) }
+  DDB_BASE_SAM = $0100;
   { Object locations with a meaning }
   LOC_NOT_CREATED = 252;
   LOC_WORN = 253;
@@ -114,7 +117,7 @@ type
     Compressed: Boolean;      // PAW, The Quill: texts use the abbreviations
     PosAbbreviations: Word;   // PAW: compressed text
     Base: Word;               // address of the header
-    Machine: Integer;         // the machine in its header: MACHINE_ZX or MACHINE_CPC
+    Machine: Integer;         // the machine in its header: MACHINE_ZX, MACHINE_CPC or MACHINE_SAM
     Version: Integer;
     Language: Integer;        // 0 English, 1 Spanish
     NumObjects, NumLocations, NumMessages, NumSysMessages, NumProcesses: Integer;
@@ -584,12 +587,17 @@ begin
   IsPAW := False;
   IsQuill := False;
   Compressed := False;
-  // Usually at 8400 (2880 on the CPC); older games elsewhere (La Diosa de
-  // Cozumel: 8380)
+  // Usually at 8400 (2880 on the CPC, 0100 on the SAM Coupe); older games elsewhere
+  // (La Diosa de Cozumel: 8380)
   if Machine = MACHINE_CPC then
   begin
     Home := DDB_BASE_CPC;
     First := $0200;
+  end
+  else if Machine = MACHINE_SAM then
+  begin
+    Home := DDB_BASE_SAM;
+    First := $0100;
   end
   else
   begin

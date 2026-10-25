@@ -10,6 +10,9 @@
   + Currah
   + Multiface
 
-- Buscar los simbolos para las ROMs del CPC
-- quitar la ventana que avisa de que se puede poner otro theme
+
+------------------
+
+- El fast load no parece funcionar en CPC. El Turbo sí.
+- hacer una ayuda de teclado para todas las maquinas, pero especialmente para el Spectrum
 

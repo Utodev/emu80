@@ -168,3 +168,10 @@ fpc -O2 -Fu"$ROOT/src" -Fu"$ROOT/src/lib" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/l
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/cpctest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/cpctest" "$ROOT/roms"
+
+# SAM Coupe: ASIC, screen modes, WD1772, SAA1099, disk formats and which machine takes which,
+# snapshots. The ROM and SAMDOS tests need the real ROM (it isn't distributed): put
+# samcoupe.rom and SAMDOSVersion2.0.dsk in a folder and set SAM_TEST_DIR to it
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/samtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/samtest" "$ROOT/roms" "$BUILD" "${SAM_TEST_DIR:-}"

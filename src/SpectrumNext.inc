@@ -15,6 +15,7 @@ begin
   case FInfo.Memory of
     mkZXNext: Result := RAM_BANKS;
     mkZXUno: Result := ZXUNO_PAGES;
+    mkSAM: Result := SAM_PAGES;
   else
     Result := 8;
   end;

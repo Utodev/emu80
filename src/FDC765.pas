@@ -99,6 +99,9 @@ type
     property Activity: Integer read FActivity;
     { When the drive was last read or written (GetTickCount64), for a LED }
     function LastAccess(Drive: Integer): QWord;
+    { The cylinder each drive's head is on (for snapshots: a program's own disk routines may count on it) }
+    function GetPCN(Drive: Integer): Byte;
+    procedure SetPCN(Drive: Integer; Value: Byte);
   end;
 
 implementation
@@ -203,6 +206,16 @@ end;
 function TUPD765.Disk(Drive: Integer): TDiskImage;
 begin
   Result := FDisks[Drive and 1];
+end;
+
+function TUPD765.GetPCN(Drive: Integer): Byte;
+begin
+  Result := FPCN[Drive and 1];
+end;
+
+procedure TUPD765.SetPCN(Drive: Integer; Value: Byte);
+begin
+  FPCN[Drive and 1] := Value;
 end;
 
 function TUPD765.LastAccess(Drive: Integer): QWord;

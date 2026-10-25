@@ -23,7 +23,7 @@ interface
 
 uses
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  Classes, SysUtils, SyncObjs, Models, Z80Core, Spectrum, Emulator, FramePresenter, Snapshot, Tape, Disasm;
+  Classes, SysUtils, SyncObjs, Models, Z80Core, Spectrum, Sam, Emulator, FramePresenter, Snapshot, Tape, Disasm;
 
 type
   TEmu80FrameCallback = procedure(User: Pointer); cdecl;
@@ -731,6 +731,7 @@ begin
     mkZXNext: Result := RAM_BANKS;
     mkZXUno: Result := 32;
     mkCPC: Result := Spec.CPC.RamBanks;
+    mkSAM: Result := Spec.SamMemoryKB div 16;
   else
     Result := 8;
   end;
@@ -796,6 +797,14 @@ begin
     P^.CurrahPaged := Ord(S.CurrahPaged);
     P^.UnoConf := S.UnoConf;
     P^.UnoMapper := S.UnoMapper;
+    // A SAM Coupe: its paging registers are what the +3's and the ZX-Uno's fields hold
+    if IsSAMModel(Inst.Emu.Spec.Model) then
+    begin
+      P^.Port7FFD := Inst.Emu.Spec.SamRegister($FA);   // LMPR
+      P^.Port1FFD := Inst.Emu.Spec.SamRegister($FB);   // HMPR
+      P^.UnoConf := Inst.Emu.Spec.SamRegister($FC);    // VMPR
+      P^.UnoMapper := 0;
+    end;
   finally
     Inst.Emu.Unlock;
   end;
@@ -811,6 +820,18 @@ begin
   Result := 0;
   Inst.Emu.Lock;
   try
+    if IsSAMModel(Inst.Emu.Spec.Model) then
+    begin
+      // The SAM Coupe's: F9 (line interrupt), FA (LMPR), FB (HMPR), FC (VMPR), FE (border);
+      // F8 with the CLUT entry in the high byte
+      case Port and $FF of
+        $F9, $FA, $FB, $FC, $FE: Inst.Emu.Spec.SetSamRegister(Port and $FF, Value and $FF);
+        $F8: Inst.Emu.Spec.SetSamRegister($100 + ((Port shr 8) and $0F), Value and $7F);
+      else
+        Result := -2;
+      end;
+    end
+    else
     case Port and $FFFF of
       $7FFD: Inst.Emu.Spec.WritePaging7FFD(Value and $FF);
       $1FFD: Inst.Emu.Spec.WritePaging1FFD(Value and $FF);
@@ -1026,6 +1047,20 @@ var
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
+  // A SAM Coupe: row * 8 + bit of its keyboard matrix (0-71; the SAMK_* of Sam.pas)
+  if IsSAMModel(Inst.Emu.Spec.Model) then
+  begin
+    if (Key < 0) or (Key >= SAMK_COUNT) then Exit(-2);
+    Inst.Emu.Lock;
+    try
+      with Inst.Emu.Spec.SAM do
+        if Down <> 0 then Keys[Key div 8] := Keys[Key div 8] or (1 shl (Key mod 8))
+        else Keys[Key div 8] := Keys[Key div 8] and not (1 shl (Key mod 8));
+    finally
+      Inst.Emu.Unlock;
+    end;
+    Exit(0);
+  end;
   // An Amstrad CPC: line * 8 + bit of its keyboard matrix (0-79)
   if Inst.Emu.Spec.CPC <> nil then
   begin

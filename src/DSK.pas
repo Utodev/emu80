@@ -48,9 +48,11 @@ type
     procedure FormatTrack(Cylinder, Side: Integer; const IDs: array of Byte; SectorCount: Integer;
       N, Gap3, Filler: Byte);
     procedure MarkModified;
+    { The disk was saved to FileName in another format: it is that file now, unchanged }
+    procedure MarkSaved(const AFileName: string);
     property Cylinders: Integer read GetCylinders;
     property Sides: Integer read FSides;
-    property FileName: string read FFileName;
+    property FileName: string read FFileName write FFileName;
     property Modified: Boolean read FModified;
     property WriteProtected: Boolean read FWriteProtected write FWriteProtected;
   end;
@@ -144,6 +146,12 @@ end;
 procedure TDiskImage.MarkModified;
 begin
   FModified := True;
+end;
+
+procedure TDiskImage.MarkSaved(const AFileName: string);
+begin
+  FFileName := AFileName;
+  FModified := False;
 end;
 
 procedure TDiskImage.FormatTrack(Cylinder, Side: Integer; const IDs: array of Byte; SectorCount: Integer;

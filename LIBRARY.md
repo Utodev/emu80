@@ -24,7 +24,10 @@ SHIFT, 35 = SPACE, 36 = SYMBOL SHIFT) and the Kempston joystick (`emu80_set_kemp
 (8 = CPC 464, 9 = CPC 664, 10 = CPC 6128) the key is line * 8 + bit of the CPC's keyboard matrix (0 to 79, as the
 `CPCK_*` constants of `src/Amstrad.pas`: 0 = cursor up, 21 = SHIFT, 18 = RETURN, 47 = SPACE, 72-77 = joystick 1
 up, down, left, right, fire 1, fire 2, 79 = DEL); `emu80_load_file` takes `.cdt` tapes, and `emu80_ram_bank_count` is 4
-(CPC 464 and 664) or 8 (CPC 6128).
+(CPC 464 and 664) or 8 (CPC 6128). On a SAM Coupé (11) the key is row * 8 + bit of its matrix (0 to 71, as the `SAMK_*` constants of
+`src/Sam.pas`: 0 = SHIFT, 48 = RETURN, 56 = SPACE, 57 = SYMBOL, 64 = CTRL, 65-68 = cursor up, down, left, right),
+`emu80_set_kempston` is its joystick (port 31), and `emu80_ram_bank_count` is 32 (16K pages of its 512K). Its 32K ROM is
+the `roms` folder's `samcoupe.rom`: `emu80_create(11, folder)` needs it in the folder (it fails, with `emu80_last_error`, if it is not there).
 
 **The API** is plain C (cdecl) with opaque handles, `int32` and pointers (see `src/lib/Emu80Api.pas`; the C# wrapper is
 `tests/csharp/Emu80HostDemo/Emu80.cs`). Calls return 0 (or a count) on success and a negative number on failure, with
@@ -32,12 +35,12 @@ up, down, left, right, fire 1, fire 2, 79 = DEL); `emu80_load_file` takes `.cdt`
 
 | Group | Calls |
 |---|---|
-| Instance | `emu80_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next, 8 = CPC 464, 9 = CPC 664, 10 = CPC 6128), `emu80_destroy`, `emu80_set_model`, `emu80_get_model`, `emu80_set_next_dir`, `emu80_version`, `emu80_last_error` |
+| Instance | `emu80_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next, 8 = CPC 464, 9 = CPC 664, 10 = CPC 6128, 11 = SAM Coupé), `emu80_destroy`, `emu80_set_model`, `emu80_get_model`, `emu80_set_next_dir`, `emu80_version`, `emu80_last_error` |
 | Running | `emu80_start`, `emu80_stop` (the thread; `emu80_start` runs it again), `emu80_pause`, `emu80_resume`, `emu80_reset`, `emu80_set_sound`, `emu80_set_turbo` |
 | Screen | `emu80_attach_window`, `emu80_detach_window`, `emu80_set_display` (deinterlace 0-2, black and white, scanlines), `emu80_get_frame`, `emu80_set_frame_callback` |
 | CPU | `emu80_get_reg`, `emu80_set_reg` (AF, BC, DE, HL, their alternates, IX, IY, SP, PC, I, R, IM, IFF1, IFF2) |
 | Memory | `emu80_read_mem`, `emu80_write_mem` (as the CPU sees it), `emu80_set_rom_writable`, `emu80_ram_bank_count`, `emu80_read_ram_bank`, `emu80_write_ram_bank` (the physical 16K RAM banks) |
-| Paging | `emu80_get_paging` (7FFD, 1FFD, what is in each 16K slot, the DivMMC...), `emu80_write_port` (7FFD, 1FFD), `emu80_set_slot3_bank`, `emu80_next_reg_get`, `emu80_next_reg_set` (the Next's MMU is in its registers 50-57) |
+| Paging | `emu80_get_paging` (7FFD, 1FFD, what is in each 16K slot, the DivMMC...; on the SAM Coupé: `Port7FFD` is LMPR, `Port1FFD` is HMPR, `UnoConf` is VMPR, and the slots hold a RAM page, -1 for ROM0 or -2 for ROM1), `emu80_write_port` (7FFD, 1FFD; on the SAM Coupé `FA` LMPR, `FB` HMPR, `FC` VMPR, `FE` border, `F9` line interrupt, and `F8` with the CLUT entry in the high byte), `emu80_set_slot3_bank`, `emu80_next_reg_get`, `emu80_next_reg_set` (the Next's MMU is in its registers 50-57) |
 | Debugging | `emu80_set_breakpoint`, `emu80_get_breakpoint` (flags: 1 execution, 2 read, 4 write, 128 disabled), `emu80_clear_breakpoints`, `emu80_step_into`, `emu80_step_over`, `emu80_run_to` (they pause the machine first), `emu80_get_state` (running, paused, why it stopped, PC, frames, fps...), `emu80_get_break_reason` |
 | Loading | `emu80_load_ram` (bytes into memory, then `emu80_set_reg` PC), `emu80_load_file` (.sna, .z80, .e80, .nex; a .tap or .tzx is inserted and loaded) |
 | Input | `emu80_key`, `emu80_set_kempston` |

@@ -7,7 +7,7 @@
 
 procedure TMainWindow.BuildModern;
 const
-  MACHINE: array[0..9] of record
+  MACHINE: array[0..10] of record
     Icon: TIconKind;
     Caption, Hint: string;
   end = (
@@ -20,13 +20,14 @@ const
     (Icon: ikTurbo; Caption: 'Turbo'; Hint: 'Run as fast as possible (Shift+F11)'),
     (Icon: ikRename; Caption: 'POKE'; Hint: 'POKE (F9)'),
     (Icon: ikDebugger; Caption: 'Debug'; Hint: 'Debugger (F12)'),
-    (Icon: ikSettings; Caption: 'Settings'; Hint: 'Settings'));
+    (Icon: ikSettings; Caption: 'Settings'; Hint: 'Settings'),
+    (Icon: ikKeyboard; Caption: 'Keyboard'; Hint: 'The keyboard guide: the keywords of the keys'));
 var
   I, X, Y, BW, BH, Gap, Pad, W, RowH: Integer;
   Btn: TFlatButton;
   Lbl: TLabel;
   Box: TPaintBox;
-  Handlers: array[0..9] of TNotifyEvent;
+  Handlers: array[0..10] of TNotifyEvent;
   Item: TMenuItem;
 
   function NewButton(AParent: TWinControl; AIcon: Integer; const ACaption, AHint: string;
@@ -79,6 +80,8 @@ begin
     Item := FMenu.Items[I];
     // The Machine menu is the classic interface's: here its commands are buttons
     if Item.Caption = '&Machine' then Continue;
+    // The Floppy and SD menus are the Media palette's: a button on each drive and on the card reader
+    if (Item = FTapeTop) or (Item = FFloppyTop) or (Item = FSDTop) then Continue;
     if Item.Caption = '|' then
     begin
       Inc(X, MUIScale(10));
@@ -120,7 +123,7 @@ begin
   FMMachine.Caption := 'Machine';
   BW := MUIScale(60);
   BH := MUIScale(58);
-  FMMachine.SetBounds(Pad, Pad, 2 * BW + 3 * Gap, FMMachine.TitleHeight + Gap + 5 * (BH + Gap));
+  FMMachine.SetBounds(Pad, Pad, 2 * BW + 3 * Gap, FMMachine.TitleHeight + Gap + 6 * (BH + Gap));
   Handlers[0] := @DoOpen;
   Handlers[1] := @DoSaveSnapshot;
   Handlers[2] := @DoHardReset;
@@ -131,12 +134,14 @@ begin
   Handlers[7] := @DoPoke;
   Handlers[8] := @DoDebugger;
   Handlers[9] := @DoSettings;
+  Handlers[10] := @DoKeyboardGuide;
   for I := 0 to High(MACHINE) do
   begin
     Btn := NewButton(FMMachine, Ord(MACHINE[I].Icon), MACHINE[I].Caption, MACHINE[I].Hint, Handlers[I],
       Gap + (I mod 2) * (BW + Gap), FMMachine.TitleHeight + Gap + (I div 2) * (BH + Gap), BW, BH);
     if I = 5 then FMPause := Btn;
     if I = 6 then FMTurbo := Btn;
+    if I = 10 then FMKeyboard := Btn;
   end;
 
   // Right: the tape and the media
@@ -148,34 +153,39 @@ begin
   FMTape := TPaletteBox.Create(Self);
   FMTape.Parent := FMRight;
   FMTape.Caption := 'Tape';
-  FMTape.SetBounds(Pad, Pad, W, FMTape.TitleHeight + MUIScale(274));
+  FMTape.SetBounds(Pad, Pad, W, FMTape.TitleHeight + MUIScale(220));
   Y := FMTape.TitleHeight + Gap;
   FMCassette := TCassette.Create(Self);
   FMCassette.Parent := FMTape;
   FMCassette.SetBounds(Gap, Y, W - 2 * Gap, MUIScale(124));
-  FMCassette.Hint := 'Tape browser (F7)';
+  FMCassette.Hint := 'Click to insert a tape';
   FMCassette.ShowHint := True;
-  FMCassette.OnClick := @DoTapeBrowser;
+  FMCassette.OnClick := @DoTapeInsert;
   Inc(Y, MUIScale(124) + Gap);
   FMTapeLabel := TLabel.Create(Self);
   FMTapeLabel.Parent := FMTape;
   FMTapeLabel.Font.Color := MUI_DIM;
   FMTapeLabel.AutoSize := False;
-  FMTapeLabel.WordWrap := True;
-  FMTapeLabel.SetBounds(Gap, Y, W - 2 * Gap, MUIScale(32));
-  Inc(Y, MUIScale(32) + Gap);
+  FMTapeLabel.WordWrap := False;
+  // One line, a carousel when it is long (ModernTick)
+  FMTapeLabel.SetBounds(Gap, Y - Gap div 2, W - 2 * Gap, MUIScale(18));
+  Inc(Y, MUIScale(18) + Gap div 3);
   BW := (W - 6 * Gap) div 5;
-  NewButton(FMTape, Ord(ikEject), '', 'Eject: insert a tape (.tap)', @DoTapeInsert, Gap, Y, BW,
-    MUIScale(38));
-  NewButton(FMTape, Ord(ikRewind), '', 'Rewind the tape', @DoTapeRewind, Gap + (BW + Gap), Y, BW,
-    MUIScale(38));
-  FMTapePlay := NewButton(FMTape, Ord(ikPlay), '', 'Play/pause tape (F8)', @DoTapePlay, Gap + 2 * (BW + Gap), Y, BW,
-    MUIScale(38));
-  NewButton(FMTape, Ord(ikStop), '', 'Stop tape (Shift+F8)', @DoTapeStop, Gap + 3 * (BW + Gap), Y, BW,
-    MUIScale(38));
+  NewButton(FMTape, Ord(ikRewind), '', 'Rewind the tape', @DoTapeRewind, Gap, Y, BW,
+    MUIScale(26));
+  FMTapePlay := NewButton(FMTape, Ord(ikPlay), '', 'Play/pause tape (F8)', @DoTapePlay, Gap + (BW + Gap), Y, BW,
+    MUIScale(26));
+  NewButton(FMTape, Ord(ikStop), '', 'Stop tape (Shift+F8)', @DoTapeStop, Gap + 2 * (BW + Gap), Y, BW,
+    MUIScale(26));
   FMRec := NewButton(FMTape, Ord(ikRecord), '', 'Record onto the tape (REC)', @DoTapeRecord,
-    Gap + 4 * (BW + Gap), Y, BW, MUIScale(38));
-  Inc(Y, MUIScale(38) + Gap);
+    Gap + 3 * (BW + Gap), Y, BW, MUIScale(26));
+  // In the place left, the Tape menu, with a button like those of the drives
+  Btn := NewButton(FMTape, Ord(ikMenu), '', 'Tape menu', @ModernMenuClick, Gap + 4 * (BW + Gap), Y, BW,
+    MUIScale(26));
+  Btn.Images := FSmallImages;
+  Btn.IconTop := False;
+  Btn.Tag := FTapeTop.MenuIndex;
+  Inc(Y, MUIScale(26) + Gap);
   BW := (W - 3 * Gap) div 2;
   Btn := NewButton(FMTape, Ord(ikTape), 'Browser', 'Tape browser (F7)', @DoTapeBrowser, Gap, Y, BW,
     MUIScale(30));
@@ -192,23 +202,45 @@ begin
   FMMedia.Caption := 'Media';
   // The LEDs and what is in each drive above; below them three buttons: the
   // disk and SD card browsers, and fast floppy disk access
-  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + MUIScale(126));
+  // Two drives and an SD card reader drawn in a row each, with what is in them and a button to insert something;
+  // below them three buttons: the disk and SD card browsers, and fast floppy disk access
+  RowH := MUIScale(34);
+  FMMedia.SetBounds(Pad, FMTape.Top + FMTape.Height + Pad, W, FMMedia.TitleHeight + 3 * RowH + MUIScale(60));
+  BW := MUIScale(30);
   FMMediaBox := TPaintBox.Create(Self);
   FMMediaBox.Parent := FMMedia;
-  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap, W - 2 * Gap, MUIScale(72));
+  FMMediaBox.SetBounds(Gap, FMMedia.TitleHeight + Gap, W - 3 * Gap - BW, 3 * RowH);
   FMMediaBox.OnPaint := @PaintModernMedia;
+  // Clicking a drive (or the card reader) inserts something in it; its button opens its menu
+  FMMediaBox.OnMouseUp := @ModernMediaClick;
+  FMMediaBox.Cursor := crHandPoint;
+  FMMediaBox.ShowHint := True;
+  FMMediaBox.Hint := 'Click a drive or the card reader to insert a disk or an SD card image';
+  for I := 0 to 2 do
+  begin
+    if I < 2 then
+      FMMenuBtn[I] := NewButton(FMMedia, Ord(ikMenu), '', Format('Floppy menu (drive %s:)', [Chr(Ord('A') + I)]),
+        @ModernMenuClick, W - Gap - BW, FMMedia.TitleHeight + Gap + I * RowH + (RowH - MUIScale(26)) div 2, BW, MUIScale(26))
+    else
+      FMMenuBtn[I] := NewButton(FMMedia, Ord(ikMenu), '', 'SD menu', @ModernMenuClick,
+        W - Gap - BW, FMMedia.TitleHeight + Gap + I * RowH + (RowH - MUIScale(26)) div 2, BW, MUIScale(26));
+    if I < 2 then FMMenuBtn[I].Tag := FFloppyTop.MenuIndex else FMMenuBtn[I].Tag := FSDTop.MenuIndex;
+    FMMenuBtn[I].Images := FSmallImages;
+    FMMenuBtn[I].IconTop := False;
+  end;
+  Y := FMMedia.TitleHeight + 2 * Gap + 3 * RowH;
   BW := (W - 4 * Gap) div 3;
-  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, Gap,
-    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
+  FMDiskBtn := NewButton(FMMedia, Ord(ikDisk), 'Disks', 'Disk browser', @DoDiskBrowser, Gap, Y, BW, MUIScale(32));
   FMDiskBtn.Images := FSmallImages;
   FMDiskBtn.IconTop := False;
-  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD', 'SD card browser', @DoSDBrowser, 2 * Gap + BW,
-    FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
+  FMSDBtn := NewButton(FMMedia, Ord(ikSDCard), 'SD', 'SD card browser', @DoSDBrowser, 2 * Gap + BW, Y, BW,
+    MUIScale(32));
   FMSDBtn.Images := FSmallImages;
   FMSDBtn.IconTop := False;
   FMFastDisk := NewButton(FMMedia, -1, 'Fast', 'Fast floppy disk access: no real drive timing',
-    @DoFastDisk, 3 * Gap + 2 * BW, FMMedia.TitleHeight + MUIScale(80), BW, MUIScale(32));
+    @DoFastDisk, 3 * Gap + 2 * BW, Y, BW, MUIScale(32));
   FMFastDisk.IconTop := False;
+  FMMedia.Height := Y + MUIScale(32) + Gap;
 
   // Bottom: zoom, and what the status bar says
   FMBottom := TDarkPanel.Create(Self);
@@ -324,6 +356,9 @@ begin
   for I := 0 to Src.Count - 1 do
   begin
     S := Src[I];
+    // What the modern interface has as buttons is not in its menus; no separator is left first, last or doubled
+    if FModernHide.IndexOf(S) >= 0 then Continue;
+    if (S.Caption = '-') and ((Dst.Count = 0) or (Dst[Dst.Count - 1].Caption = '-')) then Continue;
     N := TMenuItem.Create(FMirror);
     N.Caption := S.Caption;
     N.ShortCut := S.ShortCut;
@@ -337,6 +372,7 @@ begin
     else if S.Caption <> '-' then N.OnClick := @MirrorClick;
     Dst.Add(N);
   end;
+  if (Dst.Count > 0) and (Dst[Dst.Count - 1].Caption = '-') then Dst.Delete(Dst.Count - 1);
 end;
 
 procedure TMainWindow.MirrorClick(Sender: TObject);
@@ -372,42 +408,174 @@ begin
   Result := (Wanted <> 0) and Find(FMenu.Items);
 end;
 
+{ The text of a name or message that may be longer than its room: the whole of it if it fits, else its start, and
+  every so often it scrolls to the end and back (the carousel) }
+function TMainWindow.MarqueeText(Index: Integer; const Full: string; C: TCanvas; Room: Integer): string;
+begin
+  if FMarquee[Index].Full <> Full then
+  begin
+    FMarquee[Index].Full := Full;
+    FMarquee[Index].Offset := 0;
+    FMarquee[Index].Pause := 12;       // 3 seconds before it first moves
+  end;
+  Result := Full;
+  if C.TextWidth(Full) <= Room then
+  begin
+    FMarquee[Index].Offset := 0;
+    Exit;
+  end;
+  with FMarquee[Index] do
+  begin
+    if Pause > 0 then
+      Dec(Pause)
+    else if C.TextWidth(Copy(Full, Offset + 1, MaxInt)) > Room then
+      Inc(Offset)                      // a character a tick
+    else
+    begin
+      // At the end: a moment, then to the start and a long wait
+      Offset := 0;
+      Pause := 40;
+    end;
+    Result := Copy(Full, Offset + 1, MaxInt);
+  end;
+end;
+
 procedure TMainWindow.PaintModernMedia(Sender: TObject);
 const
   NAMES: array[0..2] of string = ('A:', 'B:', 'SD');
 var
   C: TCanvas;
-  I, Y, RowH, Led, Room: Integer;
-  Shown: string;
+  I, Y, RowH, Led, LedH, X0, DW, TX, TW: Integer;
+  Has: Boolean;
+  Dim: Boolean;
+
+  { A colour, darker when the drive isn't there }
+  function Cl(R, G, B: Integer): TColor;
+  begin
+    if Dim then Result := RGBToColor(R * 45 div 100, G * 45 div 100, B * 45 div 100)
+    else Result := RGBToColor(R, G, B);
+  end;
+
+  { A 3.5" drive seen from the front: its body, the slot and, with a disk in, the disk coming out of the slot }
+  procedure DrawDrive(X, Top, Wd, Ht: Integer; Disk: Boolean);
+  var
+    SlotY, SH, SX, SW, ST: Integer;
+  begin
+    C.Pen.Color := Cl(120, 120, 128);
+    C.Brush.Color := Cl(68, 68, 74);
+    C.RoundRect(X, Top, X + Wd, Top + Ht, MUIScale(5), MUIScale(5));
+    SlotY := Top + Ht - MUIScale(8);
+    if Disk then
+    begin
+      // A 3" disk goes in edge first, so what shows is its spine: a black edge, the label that wraps round
+      // it (light, with a line of writing) and another black edge
+      SH := MUIScale(12);
+      SX := X + MUIScale(6);
+      SW := Wd - MUIScale(14);
+      ST := SlotY + MUIScale(2) - SH;
+      C.Pen.Color := clBlack;
+      C.Brush.Color := Cl(18, 18, 20);
+      C.Rectangle(SX, ST, SX + SW, ST + SH);
+      C.Pen.Color := Cl(150, 150, 140);
+      C.Brush.Color := Cl(214, 211, 198);
+      C.Rectangle(SX + 1, ST + MUIScale(3), SX + SW - 1, ST + SH - MUIScale(3));
+      C.Pen.Color := Cl(70, 70, 70);
+      C.MoveTo(SX + MUIScale(4), ST + SH div 2);
+      C.LineTo(SX + SW - MUIScale(10), ST + SH div 2);
+      C.Pen.Color := Cl(150, 40, 40);
+      C.MoveTo(SX + SW - MUIScale(8), ST + SH div 2);
+      C.LineTo(SX + SW - MUIScale(3), ST + SH div 2);
+    end;
+    // The slot, over the disk's lower edge
+    C.Pen.Color := clBlack;
+    C.Brush.Color := Cl(8, 8, 10);
+    C.Rectangle(X + MUIScale(4), SlotY, X + Wd - MUIScale(6), SlotY + MUIScale(4));
+    // The drive's button
+    C.Pen.Color := Cl(150, 150, 156);
+    C.Brush.Color := Cl(96, 96, 104);
+    C.Rectangle(X + Wd - MUIScale(5), SlotY - MUIScale(1), X + Wd - MUIScale(1), SlotY + MUIScale(5));
+  end;
+
+  { An SD card reader: its slot and, with a card in, a thick card with the cut corner and the contacts }
+  procedure DrawSD(X, Top, Wd, Ht: Integer; Card: Boolean);
+  var
+    CW, CH, CX, SlotY: Integer;
+  begin
+    C.Pen.Color := Cl(120, 120, 128);
+    C.Brush.Color := Cl(68, 68, 74);
+    C.RoundRect(X, Top, X + Wd, Top + Ht, MUIScale(5), MUIScale(5));
+    SlotY := Top + Ht - MUIScale(6);
+    if Card then
+    begin
+      // A card in a real reader sticks out of it by a little: its end, a bit narrower than the slot, with the
+      // cut corner
+      CW := Wd - MUIScale(22);
+      CX := X + MUIScale(11);
+      CH := MUIScale(7);
+      C.Pen.Color := Cl(8, 20, 70);
+      C.Brush.Color := Cl(30, 70, 170);
+      C.Polygon([Point(CX, SlotY - CH), Point(CX + CW - MUIScale(5), SlotY - CH),
+        Point(CX + CW, SlotY - CH + MUIScale(5)), Point(CX + CW, SlotY + MUIScale(2)), Point(CX, SlotY + MUIScale(2))]);
+      // Its label's edge
+      C.Pen.Color := Cl(200, 205, 230);
+      C.Brush.Color := Cl(236, 238, 248);
+      C.Rectangle(CX + MUIScale(4), SlotY - CH + MUIScale(3), CX + CW - MUIScale(9), SlotY);
+    end;
+    // The slot (narrow, as the card is)
+    C.Pen.Color := clBlack;
+    C.Brush.Color := Cl(8, 8, 10);
+    C.Rectangle(X + MUIScale(8), SlotY, X + Wd - MUIScale(8), SlotY + MUIScale(4));
+  end;
+
 begin
   C := FMMediaBox.Canvas;
   C.Brush.Color := MUI_PANEL;
   C.FillRect(0, 0, FMMediaBox.Width, FMMediaBox.Height);
   C.Font.Assign(Font);
   RowH := FMMediaBox.Height div 3;
-  Led := MUIScale(10);
-  Room := FMMediaBox.Width;
+  Led := MUIScale(14);
+  LedH := MUIScale(7);
+  X0 := Led + MUIScale(30);
+  DW := MUIScale(52);
+  TX := X0 + DW + MUIScale(8);
+  TW := FMMediaBox.Width - TX;
   for I := 0 to 2 do
   begin
-    Y := I * RowH + (RowH - Led) div 2;
+    Y := I * RowH + (RowH - LedH) div 2;
     // The drive's LED: light red while it is read or written
     C.Pen.Color := $00202020;
     if (FMediaState and ($10 shl I)) <> 0 then C.Brush.Color := RGBToColor(255, 92, 92)
     else C.Brush.Color := RGBToColor(107, 34, 34);
-    C.Ellipse(0, Y, Led, Y + Led);
+    C.Rectangle(0, Y, Led, Y + LedH);
     C.Brush.Style := bsClear;
     C.Font.Color := MUI_TEXT;
     C.Font.Style := [fsBold];
-    C.TextOut(Led + MUIScale(8), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
+    C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
     C.Font.Style := [];
-    if FMediaNames[I] <> '' then C.Font.Color := MUI_DIM else C.Font.Color := $00808080;
-    // The name of what is in it, cut short (with ...) to the room there is
-    if FMediaNames[I] <> '' then Shown := FMediaNames[I] else Shown := '-';
-    while (Length(Shown) > 4) and (Led + MUIScale(36) + C.TextWidth(Shown) > Room) do
-      Shown := Copy(Shown, 1, Length(Shown) - 4) + '...';
-    C.TextOut(Led + MUIScale(36), I * RowH + (RowH - C.TextHeight('A')) div 2, Shown);
+    C.Brush.Style := bsSolid;
+    Has := FMediaNames[I] <> '';
+    Dim := not FMediaOn[I];
+    if I < 2 then DrawDrive(X0, I * RowH + MUIScale(4), DW, RowH - MUIScale(8), Has)
+    else DrawSD(X0, I * RowH + MUIScale(4), DW, RowH - MUIScale(8), Has);
+    // What is in it (a carousel if it is long)
+    C.Brush.Style := bsClear;
+    if Has then C.Font.Color := MUI_DIM else C.Font.Color := $00808080;
+    if Has then C.TextOut(TX, I * RowH + (RowH - C.TextHeight('A')) div 2, FMediaShown[I])
+    else if Dim then C.TextOut(TX, I * RowH + (RowH - C.TextHeight('A')) div 2, 'not available')
+    else C.TextOut(TX, I * RowH + (RowH - C.TextHeight('A')) div 2, 'empty');
     C.Brush.Style := bsSolid;
   end;
+end;
+
+{ A click on a drive or on the card reader inserts a disk or an SD card image in it }
+procedure TMainWindow.ModernMediaClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+var
+  Row: Integer;
+begin
+  if Button <> mbLeft then Exit;
+  Row := Y div (FMMediaBox.Height div 3);
+  if (Row < 0) or (Row > 2) or not FMediaOn[Row] then Exit;
+  if Row < 2 then InsertDiskDialog(Row) else DoSDInsert(Sender);
 end;
 
 procedure TMainWindow.PaintModernStatus(Sender: TObject);
@@ -434,9 +602,12 @@ var
   Spec: TSpectrum;
   TapeText, TapeName: string;
   Progress: Double;
-  Playing, HaveDisk, HaveCard, HaveTape: Boolean;
+  Playing, HaveDisk, HaveCard, HaveTape, HaveKeys: Boolean;
   Names: array[0..2] of string;
+  On_: array[0..2] of Boolean;
   I: Integer;
+  Shown: string;
+  AnyChange: Boolean;
 begin
   if not FModern or (FMHeader = nil) then Exit;
   FEmu.Lock;
@@ -453,42 +624,70 @@ begin
       TapeText := Format('Block %d of %d - %s', [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count,
         Spec.TapeStateText]);
       if Spec.Tape.Current < Spec.Tape.Count then
-        TapeText := TapeText + LineEnding + Spec.Tape[Spec.Tape.Current].Description
+        TapeText := TapeText + ' - ' + Spec.Tape[Spec.Tape.Current].Description
       else
         TapeText := 'End of the tape';
       if Spec.Tape.FileName <> '' then TapeText := ExtractFileName(Spec.Tape.FileName) + ' - ' + TapeText;
+      TapeText := StringReplace(TapeText, LineEnding, ' ', [rfReplaceAll]);
       Progress := Spec.Tape.Progress;
     end;
     Playing := Spec.Tape.Playing;
     TapeName := ChangeFileExt(ExtractFileName(Spec.Tape.FileName), '');
     HaveDisk := DefaultDrive(Spec) >= 0;
     HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);
+    On_[0] := FloppyAvailable;
+    On_[1] := FloppyAvailable and Spec.DriveBOn;
+    On_[2] := SDAvailable;
     for I := 0 to 1 do
-      if (Spec.FDC.Disk(I) <> nil) and ((I = 0) or Spec.FDC.DriveB) then
+      if On_[I] and (Spec.DiskAt(I) <> nil) then
       begin
-        Names[I] := ExtractFileName(Spec.FDC.Disk(I).FileName);
+        Names[I] := ExtractFileName(Spec.DiskAt(I).FileName);
         if Names[I] = '' then Names[I] := '(new disk)';
       end
       else
         Names[I] := '';
-    if HaveCard then Names[2] := ExtractFileName(Spec.DivMMC.Card.FileName) else Names[2] := '';
+    if HaveCard and On_[2] then Names[2] := ExtractFileName(Spec.DivMMC.Card.FileName) else Names[2] := '';
   finally
     FEmu.Unlock;
   end;
+  FMTapeLabel.Canvas.Font.Assign(FMTapeLabel.Font);
+  TapeText := MarqueeText(3, TapeText, FMTapeLabel.Canvas, FMTapeLabel.Width);
   if FMTapeLabel.Caption <> TapeText then FMTapeLabel.Caption := TapeText;
   if FMCassette.Caption <> TapeName then FMCassette.Caption := TapeName;
   FMCassette.Loaded := HaveTape;
   FMCassette.Show(Progress, Playing);
   if FMDiskBtn.Enabled <> HaveDisk then FMDiskBtn.Enabled := HaveDisk;
   if FMSDBtn.Enabled <> HaveCard then FMSDBtn.Enabled := HaveCard;
-  if (Names[0] <> FMediaNames[0]) or (Names[1] <> FMediaNames[1]) or (Names[2] <> FMediaNames[2]) then
+  // The names of what is in the drives, as much as fits (they scroll now and then when it doesn't)
+  FMMediaBox.Canvas.Font.Assign(Font);
+  AnyChange := False;
+  for I := 0 to 2 do
   begin
-    FMediaNames[0] := Names[0];
-    FMediaNames[1] := Names[1];
-    FMediaNames[2] := Names[2];
-    FMMediaBox.Invalidate;
+    FMediaNames[I] := Names[I];
+    Shown := MarqueeText(I, Names[I], FMMediaBox.Canvas,
+      FMMediaBox.Width - (MUIScale(14) + MUIScale(30) + MUIScale(52) + MUIScale(8)));
+    if Shown <> FMediaShown[I] then
+    begin
+      FMediaShown[I] := Shown;
+      AnyChange := True;
+    end;
+    // The drives and the card reader the machine has (the B: drive too if it is connected)
+    if FMMenuBtn[I].Enabled <> On_[I] then FMMenuBtn[I].Enabled := On_[I];
+    if FMediaOn[I] <> On_[I] then
+    begin
+      FMediaOn[I] := On_[I];
+      AnyChange := True;
+    end;
   end;
+  if AnyChange then FMMediaBox.Invalidate;
   FMModelBtn.Caption := ModelInfo[FEmu.Spec.Model].Name;
+  // The keyboard guide, under Settings, on every Spectrum, not the CPC or the SAM Coupe (the palette is one row shorter without it)
+  HaveKeys := FEmu.Spec.Model in [sm16K..smZXNext];
+  if FMKeyboard.Visible <> HaveKeys then
+  begin
+    FMKeyboard.Visible := HaveKeys;
+    FMMachine.Height := FMMachine.TitleHeight + MUIScale(6) + (5 + Ord(HaveKeys)) * (MUIScale(58) + MUIScale(6));
+  end;
   // The Play button shows a pause while the tape plays
   if Playing and (FMTapePlay.ImageIndex <> Ord(ikPause)) then
   begin

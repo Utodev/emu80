@@ -133,6 +133,10 @@ type
     FOnEdge: TTapeEdgeEvent;
     FOnChange: TNotifyEvent;
     FClockHz: Integer;
+    FFinalEdge: Boolean;
+    FHeld: TTapeState;               // where the tape was stopped in place (Hold), tsStopped if it wasn't
+    FHeldEpoch: Integer;
+    FStretchNum, FStretchDen: Integer;     // pulse lengths are scaled by Num / Den
     FChangeCount: Integer;
     function GetCount: Integer;
     function GetBlock(Index: Integer): TTapeBlock;
@@ -220,6 +224,18 @@ type
     { Incremented on every change, so a UI on another thread can poll it. }
     property ChangeCount: Integer read FChangeCount;
     property ClockHz: Integer read FClockHz write FClockHz;
+    { A TZX gives its pulses in T-states of a 3.5 MHz machine: a faster CPU
+      (the SAM Coupe's 6 MHz) stretches them (Num / Den = 12 / 7) so they
+      keep their length in time. Pauses (in ms) are not affected. }
+    procedure SetPulseScale(Num, Den: Integer);
+    { The last block of a tape with no pause ends with the edge its last pulse has (a loader of the SAM needs it) }
+    property FinalEdge: Boolean read FFinalEdge write FFinalEdge;
+    { Stop the tape where it is, in the middle of a block too, as a tape deck's motor does, and go on from
+      there with Resume (False if it wasn't stopped that way: Play then) }
+    procedure Hold;
+    function Resume(T: Integer): Boolean;
+    { Where the signal is in the data of the block playing: the byte (for tests and tools) }
+    property BytePosition: Integer read FBytePos;
     { A 48K (or 16K) is playing it: TZX's "stop the tape if in 48K mode" }
     property StopIf48K: Boolean read FStopIf48K write FStopIf48K;
   end;
@@ -477,6 +493,8 @@ begin
   inherited Create;
   FBlocks := specialize TObjectList<TTapeBlock>.Create(True);
   FClockHz := 3500000;
+  FStretchNum := 1;
+  FStretchDen := 1;
   FState := tsStopped;
   FCallBlock := -1;
 end;
@@ -648,6 +666,17 @@ begin
   Result := Int64(Ms) * FClockHz div 1000;
 end;
 
+procedure TTape.SetPulseScale(Num, Den: Integer);
+begin
+  if (Num < 1) or (Den < 1) then
+  begin
+    Num := 1;
+    Den := 1;
+  end;
+  FStretchNum := Num;
+  FStretchDen := Den;
+end;
+
 procedure TTape.SetLevel(Value: Boolean);
 begin
   if Value = FLevel then Exit;
@@ -664,7 +693,7 @@ begin
     psHigh: SetLevel(True);
   end;
   FOwed := True;
-  Inc(FNextEdgeT, Max(Len, 1));
+  Inc(FNextEdgeT, Max(Int64(Len) * FStretchNum div FStretchDen, 1));
 end;
 
 procedure TTape.BeginData(B: TTapeBlock);
@@ -680,14 +709,20 @@ end;
   scheduled). The end of the last pulse is an edge; if that leaves the line
   high, it drops 1 ms into the pause, as TZX says. }
 function TTape.BeginPause(B: TTapeBlock): Boolean;
+var
+  Ms: Integer;
 begin
-  Result := B.PauseMs > 0;
+  Ms := B.PauseMs;
+  // The last block of a tape with no pause (a turbo tape): the end of its last pulse is still an
+  // edge, which a loader needs to finish its last bit
+  if FFinalEdge and (Ms = 0) and FOwed and (FCurrent = FBlocks.Count - 1) then Ms := 1;
+  Result := Ms > 0;
   if not Result then Exit;
   if FOwed then SetLevel(not FLevel);
   FOwed := False;
   FState := tsPause;
   FPauseDrop := FLevel;
-  if FPauseDrop then Inc(FNextEdgeT, MsT(1)) else Inc(FNextEdgeT, MsT(B.PauseMs));
+  if FPauseDrop then Inc(FNextEdgeT, MsT(1)) else Inc(FNextEdgeT, MsT(Ms));
 end;
 
 { The block at FCurrent, from now: blocks that take no time (information,
@@ -834,6 +869,7 @@ end;
 
 procedure TTape.Play(T: Integer);
 begin
+  FHeld := tsStopped;
   if Playing or (FBlocks.Count = 0) then Exit;
   // At the end of the tape: from the start again
   if FCurrent >= FBlocks.Count then
@@ -848,11 +884,43 @@ end;
 
 procedure TTape.Stop;
 begin
+  FHeld := tsStopped;
   if FState = tsStopped then Exit;
   // In the pause after a block, that block is done: the tape goes on after
   // it (stopped in its data or tone, it goes on from the start of the block)
   if (FState = tsPause) and (FCurrent < FBlocks.Count) then Inc(FCurrent);
   FState := tsStopped;
+  Changed;
+end;
+
+procedure TTape.Hold;
+begin
+  if FState = tsStopped then Exit;
+  // Only in the data of a block it goes on from where it was (a program reads what it wants of a block, and
+  // stops the motor); in the tone, the sync or a pause it is a Stop
+  if FState <> tsData then
+  begin
+    Stop;
+    Exit;
+  end;
+  FHeld := FState;
+  FHeldEpoch := FEpoch;
+  FState := tsStopped;
+  Changed;
+end;
+
+function TTape.Resume(T: Integer): Boolean;
+begin
+  Result := (FHeld <> tsStopped) and (FHeldEpoch = FEpoch) and (FCurrent < FBlocks.Count);
+  if not Result then
+  begin
+    FHeld := tsStopped;
+    Exit;
+  end;
+  FState := FHeld;
+  FHeld := tsStopped;
+  FStoppedByBlock := False;
+  FNextEdgeT := T;
   Changed;
 end;
 
@@ -1129,7 +1197,7 @@ begin
           end;
           SetLevel(Bit);
           FOwed := False;
-          Inc(FNextEdgeT, Max(1, Run * B.SampleT));
+          Inc(FNextEdgeT, Max(Int64(1), Int64(Run) * B.SampleT * FStretchNum div FStretchDen));
           FBytePos := FIndex shr 3;
           Exit;
         end

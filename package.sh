@@ -11,6 +11,7 @@
 # (tests/csharp/Emu80HostDemo: its sources, build.bat and, in the .zip, the
 # program built, which runs with --selftest). The library is built, if it
 # isn't there, with src/lib/build-lib.sh.
+# The .AppImage needs appimagetool (see the end of this file).
 # The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
 # (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
 # RPMBUILD=command uses another rpmbuild.
@@ -211,4 +212,54 @@ EOF
   echo "Built build/packages/emu80-$VERSION-1.x86_64.rpm"
 else
   echo "rpmbuild not found (sudo apt install rpm, or dnf install rpm-build): no .rpm" >&2
+fi
+
+# .AppImage: the same files as the packages, in an AppDir (it needs appimagetool,
+# https://github.com/AppImage/appimagetool; APPIMAGETOOL=path uses one that isn't in the PATH).
+# It carries GTK 2 and SDL2 with their libraries (all but the C library and the graphics drivers).
+APPIMAGETOOL=${APPIMAGETOOL:-appimagetool}
+if command -v "$APPIMAGETOOL" >/dev/null || [ -x "$APPIMAGETOOL" ]; then
+  APPDIR="$WORK/emu80.AppDir"
+  mkdir -p "$APPDIR/usr/bin"
+  cp -a "$STAGE/usr/lib" "$STAGE/usr/share" "$APPDIR/usr/"
+  cp "$STAGE/usr/share/applications/emu80.desktop" "$APPDIR/emu80.desktop"
+  cp "$STAGE/usr/share/icons/hicolor/256x256/apps/emu80.png" "$APPDIR/emu80.png"
+  # The libraries it needs (GTK 2 and what GTK needs, and SDL2, which is loaded at run time),
+  # all but the C library and the graphics drivers, which must be the system's
+  mkdir -p "$APPDIR/usr/lib/bundled"
+  SDL=$(PATH="$PATH:/sbin:/usr/sbin" ldconfig -p | sed -n 's/.*libSDL2-2.0.so.0 .*=> //p' | head -1)
+  [ -z "$SDL" ] || cp -L "$SDL" "$APPDIR/usr/lib/bundled/"
+  for F in build/linux/emu80 $SDL; do
+    ldd "$F" | awk '/=> \// {print $3}'
+  done | sort -u | grep -v -E '/(ld-linux[^/]*|libc|libm|libdl|libpthread|librt|libresolv|libutil|libnsl|libGL|libGLX|libGLdispatch|libEGL|libdrm|libgbm)\.so' |
+  while read -r L; do cp -L "$L" "$APPDIR/usr/lib/bundled/"; done
+  # gdk-pixbuf's image loaders, with a loaders.cache AppRun points at the AppDir
+  PIXDIR=$(dirname "$(find /usr/lib /lib -path '*gdk-pixbuf-2.0/2.10.0/loaders.cache' 2>/dev/null | head -1)")
+  if [ -d "$PIXDIR/loaders" ]; then
+    mkdir -p "$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0"
+    cp -R "$PIXDIR/loaders" "$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/"
+    sed "s|$PIXDIR/loaders|@APPDIR@/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders|" "$PIXDIR/loaders.cache" \
+      > "$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache.in"
+  fi
+  cat > "$APPDIR/AppRun" <<'EOS'
+#!/bin/sh
+HERE=$(dirname "$(readlink -f "$0")")
+export LD_LIBRARY_PATH="$HERE/usr/lib/bundled${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+CACHE="$HERE/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache.in"
+if [ -f "$CACHE" ]; then
+  OUT="${XDG_RUNTIME_DIR:-/tmp}/emu80-pixbuf-$(id -u).cache"
+  sed "s|@APPDIR@|$HERE|g" "$CACHE" > "$OUT" && export GDK_PIXBUF_MODULE_FILE="$OUT"
+fi
+# GTK's own plug-ins (input methods, accessibility) are the system's, built for its GTK
+export GTK_MODULES= GTK_IM_MODULE=gtk-im-context-simple
+exec "$HERE/usr/lib/emu80/emu80" "$@"
+EOS
+  chmod 755 "$APPDIR/AppRun"
+  # appimagetool is itself an AppImage: --appimage-extract-and-run works without FUSE
+  rm -f "$OUT/emu80-$VERSION-x86_64.AppImage"
+  ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$APPIMAGETOOL" "$APPDIR" "$OUT/emu80-$VERSION-x86_64.AppImage" >"$WORK/appimagetool.log" 2>&1 \
+    && echo "Built build/packages/emu80-$VERSION-x86_64.AppImage" \
+    || { tail -5 "$WORK/appimagetool.log" >&2; echo "appimagetool failed: no .AppImage" >&2; }
+else
+  echo "appimagetool not found (https://github.com/AppImage/appimagetool/releases): no .AppImage" >&2
 fi

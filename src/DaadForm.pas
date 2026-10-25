@@ -25,7 +25,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls,
   LCLType, Dialogs, Menus, StrUtils, Emulator, Spectrum, Daad, Icons, DaadExport, DebugFiles,
-  DelayHint, DaadHelp;
+  DelayHint, DaadHelp, Models;
 
 type
   TDaadWindow = class;
@@ -1480,8 +1480,10 @@ begin
   finally
     FEmu.Unlock;
   end;
-  // The CPC's database has its own machine code, and is where its interpreter puts it
+  // The CPC's and the SAM Coupe's databases have their own machine codes, and are where their
+  // interpreters put them
   if FEmu.Spec.CPC <> nil then Result := FGame.Load(FMem, MACHINE_CPC)
+  else if IsSAMModel(FEmu.Spec.Model) then Result := FGame.Load(FMem, MACHINE_SAM)
   else Result := FGame.Load(FMem);
   if Result then FEngineLabel.Caption := EngineName(FGame.Engine) else FEngineLabel.Caption := '';
   if not Result then Exit;

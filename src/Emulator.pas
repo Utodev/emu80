@@ -161,7 +161,7 @@ begin
       // Turbo, or a tape playing in real time with fast loading on (turbo
       // loaders, recordings: what the ROM trap can't take): as fast as
       // possible, the tape and the CPU keeping their own T-state clock
-      Fast := FOwner.FTurbo or FOwner.FSpec.TapeAccelerating;
+      Fast := FOwner.FTurbo or FOwner.FSpec.TapeAccelerating or FOwner.FSpec.DiskAccelerating;
       if Broke then
       begin
         // Breakpoint: stop here and show the picture up to the beam position

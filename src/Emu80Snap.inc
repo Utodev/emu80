@@ -21,7 +21,6 @@ var
 begin
   Result := False;
   Key := '';
-  if F.Read(Buf, 7) < 7 then Exit;
   if F.Read(Buf, 9) < 9 then Exit;
   if not CompareMem(@Buf, PChar(E80_MAGIC), 9) then Exit;
   if F.Read(V, 1) < 1 then Exit;
@@ -34,7 +33,7 @@ end;
 
 function TSpectrum.NeedsOwnSnapshot: Boolean;
 begin
-  Result := IsNext or IsZXUno or FIsCPC;
+  Result := IsNext or IsZXUno or FIsCPC or FIsSAM;
 end;
 
 { The Amstrad CPC: the CPU, the Gate Array, CRTC, PPI and PSG state and all
@@ -53,6 +52,7 @@ var
   Sel: Byte;
   K, FrameT: Integer;
   EIJust: Boolean;
+  Heads: array[0..2] of Byte;
 begin
   IO(FCpu.A, 1); IO(FCpu.F, 1); IO(FCpu.A_, 1); IO(FCpu.F_, 1);
   IO(FCpu.BC, 2); IO(FCpu.DE, 2); IO(FCpu.HL, 2); IO(FCpu.BC_, 2); IO(FCpu.DE_, 2);
@@ -77,6 +77,18 @@ begin
     for K := 0 to 15 do FAY.WriteRegister(K, Regs[K]);
     FAY.SelectRegister(Sel);
   end;
+  // The disc drives: where their heads are and the motor (added later: a snapshot without them
+  // leaves them as they are)
+  Heads[0] := FFDC.GetPCN(0);
+  Heads[1] := FFDC.GetPCN(1);
+  Heads[2] := Ord(FFDC.Motor);
+  if Save then S.WriteBuffer(Heads, SizeOf(Heads))
+  else if S.Read(Heads, SizeOf(Heads)) = SizeOf(Heads) then
+  begin
+    FFDC.SetPCN(0, Heads[0]);
+    FFDC.SetPCN(1, Heads[1]);
+    FFDC.Motor := Heads[2] <> 0;
+  end;
 end;
 
 { The machine into S (Save) or from it, field by field }
@@ -98,6 +110,11 @@ begin
   if FIsCPC then
   begin
     CPCSnapIO(S, Save);
+    Exit;
+  end;
+  if FIsSAM then
+  begin
+    SAMSnapIO(S, Save);
     Exit;
   end;
   // The RAM kept (the SRAM pages of the ZX-Uno, the Next's 1792K)
@@ -308,6 +325,11 @@ begin
   begin
     CPCPaging;
     CPCSyncAutoKeys;
+  end
+  else if FIsSAM then
+  begin
+    SAMPaging;
+    SAMSyncAutoKeys;
   end
   else if not IsNext then
     UpdatePaging

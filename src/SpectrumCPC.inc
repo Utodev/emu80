@@ -23,6 +23,7 @@ begin
     FCPC := TAmstrad.Create(FModel);
   end;
   FCPC.LoadRoms(RomPath(0), RomPath(1));
+  FCPCIoT := -1;
   FCPC.OnPsg := @CPCPsg;
   FCPC.OnTapeIn := @CPCTapeIn;
   FCPC.OnMotor := @CPCMotor;
@@ -307,18 +308,42 @@ begin
   Result := FTape.Playing and FTape.Level;
 end;
 
+{ "Press PLAY then any key:" is answered by the tape player when the tape is on automatic (Auto play): a key
+  is pressed for the user a few frames after the prompt, so a program that loads its parts from the tape one
+  after another (its screens may be black while it waits) doesn't wait for a user who can't see the prompt.
+  Only when there is a tape with something in it to play. The routine is at 2760 (464) or 28D2 (664 and
+  6128): the check is at the call that waits for the key. }
+procedure TSpectrum.CPCCheckTraps;
+var
+  PC: Word;
+  Hit: Boolean;
+begin
+  if not AutoPlayTape or (FTape.Count = 0) or not FTape.HasMore or AutoTyping then Exit;
+  PC := FCpu.PC.W;
+  if FModel = smCPC464 then
+    Hit := (PC = $2771) and (Peek($2771) = $CD) and (Peek($2772) = $56) and (Peek($2773) = $1B)
+  else
+    Hit := (PC = $28E1) and (Peek($28E1) = $CD) and (Peek($28E2) = $DB) and (Peek($28E3) = $1C);
+  if not Hit then Exit;
+  CPCAutoType(3, []);
+  CPCAutoType(4, [CPCK_SPACE]);
+  CPCAutoType(4, []);
+end;
+
 { The tape moves while the user has pressed Play (or Auto play does it when
   the program starts the motor) and the program has the motor on }
 procedure TSpectrum.CPCTapeUpdate(ChipT: Integer);
 begin
   if FCPCArmed and FCPC.Motor and FTape.HasMore then
   begin
-    if not FTape.Playing then FTape.Play(CPCTapeT(ChipT));
+    // The motor goes on from where the tape was (a program may stop it in the middle of a block)
+    if not FTape.Playing and not FTape.Resume(CPCTapeT(ChipT)) then FTape.Play(CPCTapeT(ChipT));
   end
   else if FTape.Playing then
   begin
     FTape.AdvanceTo(CPCTapeT(ChipT));
-    FTape.Stop;
+    FTape.Hold;
+    AddEvent(ChipT, 0, 0, 0);      // the tape's sound stops with it
   end;
 end;
 
@@ -379,10 +404,11 @@ begin
 end;
 
 { An I/O cycle takes 4 T-states, held to the 1 MHz grid; the chips see the
-  access in its last T-states }
+  access in its last T-states. At normal speed the instruction's timing table says when (FCPCIoT). }
 function TSpectrum.ReadPortCPC(Port: Word; var T: Integer): Byte;
 begin
-  Result := FCPC.InPort(Port, U(T) + 3);
+  if FCPCIoT >= 0 then Result := FCPC.InPort(Port, FCPCIoT)
+  else Result := FCPC.InPort(Port, U(T) + 3);
   LogPort(Port, Result, False);
   CheckPortBreak(Port, False);
   Inc(T, 4);
@@ -393,13 +419,214 @@ procedure TSpectrum.WritePortCPC(Port: Word; Value: Byte; var T: Integer);
 begin
   LogPort(Port, Value, True);
   CheckPortBreak(Port, True);
-  FCPC.OutPort(Port, Value, U(T) + 3);
+  if FCPCIoT >= 0 then FCPC.OutPort(Port, Value, FCPCIoT)
+  else FCPC.OutPort(Port, Value, U(T) + 3);
   if ((Port and $C000) = $4000) or ((Port and $2000) = 0) then CPCPaging;
   Inc(T, 4);
   if FContend then T := (T + 3) and not 3;
 end;
 
+{ The CPC's Gate Array lets the Z80 at the memory once a microsecond: every instruction takes a whole
+  number of them, and not just its T-states rounded up (OUT (C),r takes 4, not 3). The times, in
+  microseconds ("NOPs"), are the CPC's (as Caprice32 has them, which programs that change the CRTC
+  registers at a given character, as Pinball Dreams does, need); a prefix is a microsecond of its own. }
+const
+  CPC_NOPS: array[0..255] of Byte = (   // unprefixed (a prefix: its own microsecond)
+    1, 3, 2, 2, 1, 1, 2, 1, 1, 3, 2, 2, 1, 1, 2, 1,   // 00
+    3, 3, 2, 2, 1, 1, 2, 1, 3, 3, 2, 2, 1, 1, 2, 1,   // 10
+    2, 3, 5, 2, 1, 1, 2, 1, 2, 3, 5, 2, 1, 1, 2, 1,   // 20
+    2, 3, 4, 2, 3, 3, 3, 1, 2, 3, 4, 2, 1, 1, 2, 1,   // 30
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 40
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 50
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 60
+    2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,   // 70
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 80
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 90
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // A0
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // B0
+    2, 3, 3, 3, 3, 4, 2, 4, 2, 3, 3, 1, 3, 5, 2, 4,   // C0
+    2, 3, 3, 3, 3, 4, 2, 4, 2, 1, 3, 3, 3, 1, 2, 4,   // D0
+    2, 3, 3, 6, 3, 4, 2, 4, 2, 1, 3, 1, 3, 1, 2, 4,   // E0
+    2, 3, 3, 1, 3, 4, 2, 4, 2, 2, 3, 1, 3, 1, 2, 4);   // F0
+  CPC_NOPS_CB: array[0..255] of Byte = (   // after CB
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 00
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 10
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 20
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 30
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 40
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 50
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 60
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,   // 70
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 80
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // 90
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // A0
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // B0
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // C0
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // D0
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1,   // E0
+    1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1);   // F0
+  CPC_NOPS_ED: array[0..255] of Byte = (   // after ED
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 00
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 10
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 20
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 30
+    3, 3, 3, 5, 1, 3, 1, 2, 3, 3, 3, 5, 1, 3, 1, 2,   // 40
+    3, 3, 3, 5, 1, 3, 1, 2, 3, 3, 3, 5, 1, 3, 1, 2,   // 50
+    3, 3, 3, 5, 1, 3, 1, 4, 3, 3, 3, 5, 1, 3, 1, 4,   // 60
+    3, 3, 3, 5, 1, 3, 1, 1, 3, 3, 3, 5, 1, 3, 1, 1,   // 70
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 80
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // 90
+    4, 3, 4, 4, 1, 1, 1, 1, 4, 3, 4, 4, 1, 1, 1, 1,   // A0
+    4, 3, 4, 4, 1, 1, 1, 1, 4, 3, 4, 4, 1, 1, 1, 1,   // B0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // C0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // D0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,   // E0
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1);   // F0
+  CPC_NOPS_XY: array[0..255] of Byte = (   // after DD or FD
+    1, 3, 2, 2, 1, 1, 2, 1, 1, 3, 2, 2, 1, 1, 2, 1,   // 00
+    3, 3, 2, 2, 1, 1, 2, 1, 3, 3, 2, 2, 1, 1, 2, 1,   // 10
+    2, 3, 5, 2, 1, 1, 2, 1, 2, 3, 5, 2, 1, 1, 2, 1,   // 20
+    2, 3, 4, 2, 5, 5, 5, 1, 2, 3, 4, 2, 1, 1, 2, 1,   // 30
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // 40
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // 50
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // 60
+    4, 4, 4, 4, 4, 4, 1, 4, 1, 1, 1, 1, 1, 1, 4, 1,   // 70
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // 80
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // 90
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // A0
+    1, 1, 1, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 1,   // B0
+    2, 3, 3, 3, 3, 4, 2, 4, 2, 3, 3, 1, 3, 5, 2, 4,   // C0
+    2, 3, 3, 3, 3, 4, 2, 4, 2, 1, 3, 3, 3, 1, 2, 4,   // D0
+    2, 3, 3, 6, 3, 4, 2, 4, 2, 1, 3, 1, 3, 1, 2, 4,   // E0
+    2, 3, 3, 1, 3, 4, 2, 4, 2, 2, 3, 1, 3, 1, 2, 4);   // F0
+  CPC_NOPS_XYCB: array[0..255] of Byte = (   // after DD CB d or FD CB d
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 00
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 10
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 20
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 30
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,   // 40
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,   // 50
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,   // 60
+    4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,   // 70
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 80
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // 90
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // A0
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // B0
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // C0
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // D0
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,   // E0
+    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5);   // F0
+  CPC_NOPS_TAKEN: array[0..255] of Byte = (   // more when a condition is met or a block instruction repeats (also after ED)
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 00
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 10
+    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,   // 20
+    1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,   // 30
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 40
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 50
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 60
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 70
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 80
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // 90
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,   // A0
+    1, 2, 1, 1, 0, 0, 0, 0, 1, 2, 1, 1, 0, 0, 0, 0,   // B0
+    2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0,   // C0
+    2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0,   // D0
+    2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0,   // E0
+    2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0);   // F0
+
+{ The microseconds the instruction at PC takes, the one in which its I/O is made (IoNops: the chips
+  see it after that many, -1 if none), and whether an interrupt right after it is accepted a
+  microsecond sooner (its last cycle overlaps the acknowledge) }
+function TSpectrum.CPCInstrNops(out IoNops: Integer; out IntShort: Boolean): Integer;
+var
+  Addr: Word;
+  Op: Byte;
+  Pre: Integer;
+
+  function Cond(Index: Integer): Boolean;
+  var
+    F: Byte;
+  begin
+    F := FCpu.F;
+    case Index of
+      0: Result := (F and FLAG_Z) = 0;
+      1: Result := (F and FLAG_Z) <> 0;
+      2: Result := (F and FLAG_C) = 0;
+      3: Result := (F and FLAG_C) <> 0;
+      4: Result := (F and FLAG_P) = 0;
+      5: Result := (F and FLAG_P) <> 0;
+      6: Result := (F and FLAG_S) = 0;
+    else
+      Result := (F and FLAG_S) <> 0;
+    end;
+  end;
+
+  { An unprefixed (or DD/FD prefixed, Xy) opcode's microseconds }
+  function Main(Op: Byte; Xy: Boolean): Integer;
+  begin
+    if Xy then Result := CPC_NOPS_XY[Op] else Result := CPC_NOPS[Op];
+    case Op of
+      $10: if FCpu.BC.H <> 1 then Inc(Result, CPC_NOPS_TAKEN[Op]);                        // DJNZ
+      $20, $28, $30, $38: if Cond((Op shr 3) and 3) then Inc(Result, CPC_NOPS_TAKEN[Op]); // JR cc
+      $C0, $C8, $D0, $D8, $E0, $E8, $F0, $F8:                                             // RET cc
+        if Cond((Op shr 3) and 7) then Inc(Result, CPC_NOPS_TAKEN[Op]) else IntShort := True;
+      $C4, $CC, $D4, $DC, $E4, $EC, $F4, $FC:                                             // CALL cc
+        if Cond((Op shr 3) and 7) then Inc(Result, CPC_NOPS_TAKEN[Op]);
+      $03, $13, $23, $33, $0B, $1B, $2B, $3B, $E3, $F9: IntShort := True;                 // INC/DEC rr, EX (SP),HL, LD SP,HL
+      $D3: IoNops := Pre + 2;                                                             // OUT (n),A
+      $DB: IoNops := Pre + 3;                                                             // IN A,(n)
+    end;
+  end;
+
+begin
+  IoNops := -1;
+  IntShort := False;
+  Addr := FCpu.PC.W;
+  Op := FCPC.Read(Addr);
+  Pre := 0;
+  // DD and FD (one or more)
+  while Op in [$DD, $FD] do
+  begin
+    Inc(Pre);
+    Inc(Addr);
+    Op := FCPC.Read(Addr);
+  end;
+  if Op = $CB then
+  begin
+    if Pre > 0 then Result := Pre + CPC_NOPS_XY[$CB] + CPC_NOPS_XYCB[FCPC.Read(Word(Addr + 2))]
+    else Result := 1 + CPC_NOPS_CB[FCPC.Read(Word(Addr + 1))];
+  end
+  else if Op = $ED then
+  begin
+    Inc(Pre);
+    Op := FCPC.Read(Word(Addr + 1));
+    Result := Pre + CPC_NOPS_ED[Op];
+    case Op of
+      $40, $48, $50, $58, $60, $68, $70, $78: IoNops := Pre + 3;                          // IN r,(C)
+      $41, $49, $51, $59, $61, $69, $71, $79: IoNops := Pre + 2;                          // OUT (C),r
+      $A2, $AA, $B2, $BA: IoNops := Pre + 4;                                              // INI, IND, INIR, INDR
+      $A3, $AB, $B3, $BB: IoNops := Pre + 3;                                              // OUTI, OUTD, OTIR, OTDR
+      $47, $4F, $57, $5F, $A0, $A8: IntShort := True;                                     // LD I,A etc., LDI, LDD
+    end;
+    case Op of
+      $B0, $B8: if FCpu.BC.W <> 1 then Inc(Result, CPC_NOPS_TAKEN[Op]);                   // LDIR, LDDR
+      $B1, $B9:                                                                           // CPIR, CPDR
+        if (FCpu.BC.W <> 1) and (FCpu.A <> FCPC.Read(FCpu.HL.W)) then
+        begin
+          Inc(Result, CPC_NOPS_TAKEN[Op]);
+          IntShort := True;
+        end;
+      $B2, $BA, $B3, $BB: if FCpu.BC.H <> 1 then Inc(Result, CPC_NOPS_TAKEN[Op]);         // INIR, INDR, OTIR, OTDR
+    end;
+    if Op in [$B0, $B8] then IntShort := True;
+  end
+  else
+    Result := Pre + Main(Op, Pre > 0);
+end;
+
 procedure TSpectrum.ExecuteOneCPC;
+var
+  StartT, Nops, IoNops: Integer;
 begin
   if FTrackPrev then
   begin
@@ -407,17 +634,37 @@ begin
     FPrevPaging := PagingState;
   end;
   Inc(FStepCount);
+  StartT := FCpu.T;
   if FCPC.IntLine and FCpu.IFF1 and FCpu.Interrupt then
-    FCPC.IntAck
+  begin
+    FCPC.IntAck;
+    // The acknowledge and the RST take 5 microseconds (IM 2: 7), one less after some instructions
+    if FContend then
+    begin
+      if FCpu.IM = 2 then Nops := 7 else Nops := 5;
+      if FCPCIntShort then Dec(Nops);
+      FCpu.T := StartT + Nops * 4;
+    end;
+    FCPCIntShort := False;
+  end
   else
   begin
+    if (FCpu.PC.W >= $2700) and (FCpu.PC.W < $2900) then CPCCheckTraps;
     FInstrPC := FCpu.PC.W;
     FSuppressBreaks := FProbeCovered;
-    FCpu.Step;
+    if FContend then
+    begin
+      // The CPC's own timing (see CPCInstrNops); the CPU's count is not used
+      Nops := CPCInstrNops(IoNops, FCPCIntShort);
+      if IoNops >= 0 then FCPCIoT := StartT + IoNops * 4;
+      FCpu.Step;
+      FCPCIoT := -1;
+      FCpu.T := StartT + Nops * 4;
+    end
+    else
+      FCpu.Step;
     FSuppressBreaks := False;
   end;
-  // The Gate Array stretches an instruction to a whole number of microseconds
-  if FContend then FCpu.T := (FCpu.T + 3) and not 3;
   FCPC.Sync(U(FCpu.T));
 end;
 

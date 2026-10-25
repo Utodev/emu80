@@ -13,7 +13,7 @@ unit FramePresenter;
 interface
 
 uses
-  Models, Spectrum;
+  Math, Models, Spectrum;
 
 type
   TPresentOptions = record
@@ -38,6 +38,16 @@ procedure PresentFrame(Cur, Prev: PLongWord; CurOdd: Boolean; Scale: Integer;
   const Options: TPresentOptions; Dest: PByte; Stride: Integer);
 
 implementation
+
+var
+  AmberLift: array[0..255] of Byte;   // the orange phosphor's brightness curve
+
+procedure InitAmber;
+var
+  I: Integer;
+begin
+  for I := 0 to 255 do AmberLift[I] := Round(255 * Power(I / 255, 0.7));
+end;
 
 function FitScale(AreaW, AreaH: Integer): Integer;
 begin
@@ -125,7 +135,11 @@ begin
           Grey := (((P shr 16) and $FF) * 77 + ((P shr 8) and $FF) * 150 + (P and $FF) * 29) shr 8;
           case Options.Monitor of
             2: P := $FF000000 or ((Grey * 40 div 255) shl 16) or (Grey shl 8) or (Grey * 60 div 255);
-            3: P := $FF000000 or (Grey shl 16) or ((Grey * 150 div 255) shl 8) or (Grey * 10 div 255);
+            // Amber, brighter: the darker colours are lifted so they stay luminous
+            3: begin
+              Grey := AmberLift[Grey];
+              P := $FF000000 or (Grey shl 16) or ((Grey * 176 div 255) shl 8);
+            end;
           else
             P := $FF000000 or (Grey shl 16) or (Grey shl 8) or Grey;
           end;
@@ -146,5 +160,8 @@ begin
     end;
   end;
 end;
+
+initialization
+  InitAmber;
 
 end.

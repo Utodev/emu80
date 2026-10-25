@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm, Amstrad;
+  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS;
 
 const
   SCREEN_WIDTH = 352;
@@ -30,7 +30,7 @@ type
 
   TAudioEvent = record
     T: Integer;
-    Kind: Byte;     // 0 = beeper level, 1 = AY register write, 2 = second AY (TurboSound),
+    Kind: Byte;     // 0 = beeper level, 1 = AY register write, 2 = second AY (TurboSound), 5 = SAA1099 write,
                     // 3 = the Next's DACs (Reg: which of A-D), 4 = the Next's third AY
     Reg: Byte;
     Value: Byte;
@@ -131,6 +131,7 @@ type
     NextMMU: array[0..7] of Byte;
     CurrahPaged: Boolean;
     CPCState: TBytes;                 // the Amstrad CPC's hardware (TAmstrad.SaveState)
+    SamState: TBytes;                 // the SAM Coupe's ASIC and sound generator (SAMStateIO)
     Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
     ULAPlusPal: array[0..63] of Byte;
     ZXReg: array[0..255] of Byte;
@@ -171,6 +172,7 @@ type
     FLoadEnded: Boolean;                   // the ROM's LD-BYTES returned this frame
     FTapeEpoch: Integer;
     FFDC: TUPD765;
+    FWD: TWD1772;                        // the SAM Coupe's floppy controller
     FRam: array[0..RAM_BANKS - 1] of TBank;   // 0-7 the RAM banks (32: ZX-Uno SRAM; 112: Next)
     FRom: array[0..3] of TBank;
     FNoMem: TBank;                       // unpopulated memory (16K): reads $FF
@@ -292,6 +294,8 @@ type
     FBreakFlags: array[0..$FFFF] of Byte;   // BP_* per address
     FBreakConds: array of TBreakCondition;  // optional condition per address
     FInstrPC: Word;                         // start of the instruction being run
+    FCPCIoT: Integer;                       // CPC: T-state of the I/O of the instruction being run (-1: by the CPU's count)
+    FCPCIntShort: Boolean;                  // CPC: the last instruction lets an interrupt in a microsecond sooner
     FPortLog: array[0..PORT_LOG_SIZE - 1] of TPortAccess;
     FPortLogPos: Integer;                   // next entry to write
     FPortLogCount: Integer;
@@ -367,6 +371,21 @@ type
     FAutoKeys: array of TAutoKeyStep;
     FAutoKeyPos: Integer;
     FAutoKeyFrames: Integer;
+    { SAM Coupe }
+    FIsSAM: Boolean;                        // a SAM Coupe: FSam holds the ASIC's registers
+    FSam: TSam;
+    FSamVoid: TBank;                        // what a page the machine has no RAM for reads as
+    FSaa: TSAA1099;                         // its sound generator
+    FSaaAddr: Byte;                         // the register the next data write is for
+    FSamSaaOn: Boolean;                     // setting: the SAA1099 is heard
+    FSamKB: Integer;                        // setting: the RAM, 256 or 512
+    FSamJoyOn: Boolean;                     // setting: the Kempston joystick is connected
+    FSamMouseOn: Boolean;                   // setting: the mouse is connected
+    FSamClockOn: Boolean;                   // setting: the SAMBUS clock is connected
+    FSamPlayFrame: Int64;                   // the frame to press Play at (the tape of an auto load), or -1
+    FSamSwapDisk: TDiskImage;               // the disk that goes in drive 1 once SAMDOS has booted
+    FSamTrapHits: Integer;                  // files loaded by the SAMDOS trap
+    FSamSwapFrame: Int64;                   // the frame to put it in at
     { Amstrad CPC }
     FIsCPC: Boolean;                        // a CPC model: FCPC is the machine's hardware
     FCPC: TAmstrad;
@@ -392,7 +411,24 @@ type
     function ReadPortCPC(Port: Word; var T: Integer): Byte;
     procedure WritePortCPC(Port: Word; Value: Byte; var T: Integer);
     procedure ExecuteOneCPC;
+    function CPCInstrNops(out IoNops: Integer; out IntShort: Boolean): Integer;
     procedure FinishFrameCPC;
+    procedure SetupSAM;
+    procedure SAMStateIO(S: TStream; Save: Boolean);
+    function SamSlotCanHold(Slot, What: Integer): Boolean;
+    function SetSamSlot(Slot, What: Integer): Boolean;
+    procedure SetSamMemory(KB: Integer);
+    procedure SAMReset(Hard: Boolean);
+    procedure SAMPaging;
+    function ReadPortSAM(Port: Word; var T: Integer): Byte;
+    procedure WritePortSAM(Port: Word; Value: Byte; var T: Integer);
+    procedure SAMRenderUpTo(T: Integer);
+    procedure SAMAutoType(Frames: Integer; const Keys: array of Integer);
+    procedure SAMSyncAutoKeys;
+    function SAMTypeText(const Text: string; out Error: string): Boolean;
+    procedure SAMAutoLoad(FromDisk: Boolean);
+    procedure SAMCheckTraps;
+    procedure CPCCheckTraps;
     procedure DaadRead(Addr: Word);
     procedure SetDivOn(Value: Boolean);
     procedure ZXUnoAutoLoadStep;
@@ -714,6 +750,8 @@ type
     { Fast loading, and a tape playing in real time (what the ROM trap left
       to the program's own loader): the emulator runs flat out meanwhile }
     function TapeAccelerating: Boolean;
+    { A SAM Coupe disk being read or written with fast disk access on: as fast as possible, as a tape is }
+    function DiskAccelerating: Boolean;
     { Stop, as the user does it: it keeps Auto play from starting the tape
       again for the same load (PlayTape is the user's Play) }
     procedure StopTape;
@@ -726,6 +764,8 @@ type
     { Disk transfers without real drive timing }
     procedure SetFastDisk(Value: Boolean);
     function GetFastDisk: Boolean;
+    function GetDriveB: Boolean;
+    procedure SetDriveB(Value: Boolean);
     procedure WritePaging7FFD(Value: Byte);
     procedure WritePaging1FFD(Value: Byte);
     function RamBank(Index: Integer): PBank;
@@ -745,12 +785,41 @@ type
     property Info: TModelInfo read FInfo;
     { The Amstrad CPC's hardware (nil on the Spectrum models) }
     property CPC: TAmstrad read FCPC;
+    { The SAM Coupe's ASIC (nil on the other models) }
+    property SAM: TSam read FSam;
+    { Whether the SAM Coupe's SAA1099 is heard (it is always emulated) }
+    property SamSaaOn: Boolean read FSamSaaOn write FSamSaaOn;
+    { The SAM Coupe's registers, for the debugger: Reg is the port ($F9 the line interrupt,
+      $FA LMPR, $FB HMPR, $FC VMPR, $FE the border), $1F9 the status (the interrupts),
+      $100 + N the CLUT's entry N, $200 + N the SAA1099's register N. Writing one is as
+      an OUT would (paging included). }
+    function SamRegister(Reg: Integer): Byte;
+    procedure SetSamRegister(Reg: Integer; Value: Byte);
+    { A SAM Coupe's machine state into S (Save) or from it: the RAM, the CPU, the ASIC and
+      the sound generator (the body of an emu80 snapshot) }
+    procedure SAMSnapIO(S: TStream; Save: Boolean);
+    { The SAM Coupe's RAM in K (256 or 512): changing it on a SAM resets it }
+    property SamMemoryKB: Integer read FSamKB write SetSamMemory;
+    { Whether the SAM Coupe has a Kempston joystick (port 31, as KempstonState) }
+    property SamJoystickOn: Boolean read FSamJoyOn write FSamJoyOn;
+    property SamMouseOn: Boolean read FSamMouseOn write FSamMouseOn;
+    property SamClockOn: Boolean read FSamClockOn write FSamClockOn;
+    { A SAMDOS disk boots, then the disk wanted goes in drive 1 }
+    procedure SamDosThen(Dos, Disk: TDiskImage);
+    property SamTrapHits: Integer read FSamTrapHits;
     property Cpu: TZ80 read FCpu;
     property AY: TAY8912 read FAY;
     property Tape: TTape read FTape;
     { Amstrad CPC: Play has been pressed (the tape runs while the motor is on) }
     property CPCTapeArmed: Boolean read FCPCArmed;
     property FDC: TUPD765 read FFDC;
+    { The disks, whichever controller the machine has: the SAM Coupe's WD1772
+      or the uPD765 of the +3 and the CPC }
+    function DiskAt(Drive: Integer): TDiskImage;
+    procedure InsertDiskAt(Drive: Integer; Disk: TDiskImage);
+    function EjectDiskAt(Drive: Integer): TDiskImage;
+    function DiskLastAccess(Drive: Integer): QWord;
+    property DriveBOn: Boolean read GetDriveB write SetDriveB;
     property Border: Byte read FBorder write FBorder;
     property Port7FFD: Byte read FPort7FFD;
     property Port1FFD: Byte read FPort1FFD;
@@ -843,7 +912,7 @@ const
 implementation
 
 uses
-  ZStream, FatFS, Plus3FS, DSK;
+  ZStream, FatFS, Plus3FS;
 
 type
   { Bus for the dry run of an instruction: reads memory without side
@@ -930,6 +999,13 @@ begin
   FTape := TTape.Create;
   FTape.OnEdge := @TapeEdge;
   FFDC := TUPD765.Create;
+  FWD := TWD1772.Create;
+  FSaa := TSAA1099.Create;
+  FSamSaaOn := True;
+  FSamKB := 512;
+  FSamJoyOn := True;
+  FSamMouseOn := False;
+  FSamClockOn := True;
   FProbeBus := TProbeBus.Create;
   TProbeBus(FProbeBus).Peek := @Peek;
   FProbeCpu := TZ80.Create(FProbeBus);
@@ -986,8 +1062,11 @@ begin
   FCurrah.Free;
   FProbeCpu.Free;
   FProbeBus.Free;
+  FSam.Free;
+  FSaa.Free;
   FCPC.Free;
   FFDC.Free;
+  FWD.Free;
   FTape.Free;
   FAY3.Free;
   FAY2.Free;
@@ -1002,7 +1081,7 @@ var
   S: TFileStream;
   FileName: string;
 begin
-  if FInfo.Memory = mkCPC then Exit;   // SetupCPC
+  if FInfo.Memory in [mkCPC, mkSAM] then Exit;   // SetupCPC, SetupSAM
   if FInfo.Memory = mkZXUno then
   begin
     LoadZXUnoFlash;
@@ -1039,18 +1118,20 @@ end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);
 var
-  WasUno, WasNext, WasCPC: Boolean;
+  WasUno, WasNext, WasCPC, WasSAM: Boolean;
   OldModel: TSpectrumModel;
 begin
   OldModel := FModel;
   WasCPC := FIsCPC;
+  WasSAM := FIsSAM;
   WasUno := IsZXUno;
   WasNext := IsNext;
   FModel := AModel;
   FInfo := ModelInfo[AModel];
   FIsCPC := FInfo.Memory = mkCPC;
+  FIsSAM := FInfo.Memory = mkSAM;
   if FIsCPC then FAYStep := 32 else FAYStep := 16;
-  FRecorder.Raw := FIsCPC;
+  FRecorder.Raw := FIsCPC or FIsSAM;
   LoadRoms;
   // The ZX-Uno's DivMMC has its firmware in SRAM page 12 and its RAM in
   // pages 16-23 (so MASTERMAPPER sees it too); leaving it, the interface is
@@ -1077,8 +1158,34 @@ begin
   FTape.ClockHz := FInfo.ClockHz;
   // TZX's "stop the tape if in 48K mode"
   FTape.StopIf48K := FModel in [sm16K, sm48K];
+  // A TZX's pulses are in 3.5 MHz T-states: the SAM's 6 MHz stretches them
+  if FIsSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
+  FTape.FinalEdge := FIsSAM;
   FFDC.ClockHz := FInfo.ClockHz;
+  if FIsSAM then FWD.ClockHz := FInfo.ClockHz;
   UpdateContend;
+  if FIsSAM then
+  begin
+    try
+      SetupSAM;
+    except
+      // No ROM: stay as we were
+      FModel := OldModel;
+      FInfo := ModelInfo[OldModel];
+      FIsCPC := WasCPC;
+      FIsSAM := WasSAM;
+      if FIsCPC then FAYStep := 32 else FAYStep := 16;
+      FRecorder.Raw := FIsCPC or FIsSAM;
+      BuildContention;
+      FTape.ClockHz := FInfo.ClockHz;
+      if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
+      FTape.FinalEdge := WasSAM;
+      FFDC.ClockHz := FInfo.ClockHz;
+      if WasCPC then FTape.ClockHz := 3500000;
+      raise;
+    end;
+  end
+  else FreeAndNil(FSam);
   if FIsCPC then
   begin
     try
@@ -1088,11 +1195,14 @@ begin
       FModel := OldModel;
       FInfo := ModelInfo[OldModel];
       FIsCPC := WasCPC;
+      FIsSAM := WasSAM;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
-      FRecorder.Raw := FIsCPC;
+      FRecorder.Raw := FIsCPC or FIsSAM;
       if not WasCPC then FreeAndNil(FCPC);
       BuildContention;
       FTape.ClockHz := FInfo.ClockHz;
+      if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
+      FTape.FinalEdge := WasSAM;
       FFDC.ClockHz := FInfo.ClockHz;
       if WasCPC then FTape.ClockHz := 3500000;
       raise;
@@ -1123,6 +1233,11 @@ begin
   if FIsCPC then
   begin
     CPCReset(Hard);
+    Exit;
+  end;
+  if FIsSAM then
+  begin
+    SAMReset(Hard);
     Exit;
   end;
   if Hard then
@@ -1313,7 +1428,7 @@ end;
 function TSpectrum.RamBank(Index: Integer): PBank;
 begin
   if FIsCPC then Exit(PBank(FCPC.RamBank(Index)));
-  if IsNext then Result := @FRam[Index mod RAM_BANKS] else Result := @FRam[Index and 7];
+  if IsNext or FIsSAM then Result := @FRam[Index mod RAM_BANKS] else Result := @FRam[Index and 7];
 end;
 
 procedure TSpectrum.UpdatePaging;
@@ -1326,6 +1441,11 @@ begin
   if FIsCPC then
   begin
     CPCPaging;
+    Exit;
+  end;
+  if FIsSAM then
+  begin
+    SAMPaging;
     Exit;
   end;
   if IsNext then
@@ -1476,6 +1596,17 @@ begin
       MS.Free;
     end;
   end;
+  if FIsSAM then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      SAMStateIO(MS, True);
+      SetLength(Result.SamState, MS.Size);
+      Move(MS.Memory^, Result.SamState[0], MS.Size);
+    finally
+      MS.Free;
+    end;
+  end;
   SetLength(Result.Ram, RamBanksUsed);
   Move(FRam, Result.Ram[0], RamBanksUsed * SizeOf(TBank));
   Move(FNextReg, Result.NextReg, SizeOf(FNextReg));
@@ -1545,6 +1676,17 @@ begin
       MS.Free;
     end;
     CPCPaging;
+  end;
+  if FIsSAM and (Length(S.SamState) > 0) then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      MS.WriteBuffer(S.SamState[0], Length(S.SamState));
+      MS.Position := 0;
+      SAMStateIO(MS, False);
+    finally
+      MS.Free;
+    end;
   end;
   Move(S.Ram[0], FRam, Length(S.Ram) * SizeOf(TBank));
   Move(S.NextReg, FNextReg, SizeOf(FNextReg));
@@ -1650,6 +1792,38 @@ end;
 procedure TSpectrum.SetFastDisk(Value: Boolean);
 begin
   FFDC.Timed := not Value;
+  FWD.Timed := not Value;
+end;
+
+function TSpectrum.DiskAt(Drive: Integer): TDiskImage;
+begin
+  if FIsSAM then Result := FWD.Disk(Drive) else Result := FFDC.Disk(Drive);
+end;
+
+procedure TSpectrum.InsertDiskAt(Drive: Integer; Disk: TDiskImage);
+begin
+  if FIsSAM then FWD.InsertDisk(Drive, Disk) else FFDC.InsertDisk(Drive, Disk);
+end;
+
+function TSpectrum.EjectDiskAt(Drive: Integer): TDiskImage;
+begin
+  if FIsSAM then Result := FWD.EjectDisk(Drive) else Result := FFDC.EjectDisk(Drive);
+end;
+
+function TSpectrum.DiskLastAccess(Drive: Integer): QWord;
+begin
+  if FIsSAM then Result := FWD.LastAccess(Drive) else Result := FFDC.LastAccess(Drive);
+end;
+
+function TSpectrum.GetDriveB: Boolean;
+begin
+  if FIsSAM then Result := FWD.DriveB else Result := FFDC.DriveB;
+end;
+
+procedure TSpectrum.SetDriveB(Value: Boolean);
+begin
+  FFDC.DriveB := Value;
+  FWD.DriveB := Value;
 end;
 
 function TSpectrum.GetFastDisk: Boolean;
@@ -1665,7 +1839,7 @@ end;
 
 function TSpectrum.SetSlot3Bank(Bank: Integer): Boolean;
 begin
-  Result := not (FInfo.Memory in [mk48K, mkCPC]) and ((FPort1FFD and 1) = 0);
+  Result := not (FInfo.Memory in [mk48K, mkCPC, mkSAM]) and ((FPort1FFD and 1) = 0);
   if not Result then Exit;
   FPort7FFD := (FPort7FFD and $F8) or (Bank and 7);
   UpdatePaging;
@@ -1673,11 +1847,13 @@ end;
 
 function TSpectrum.CPCSlotCanHold(Slot, What: Integer): Boolean;
 begin
+  if FIsSAM then Exit(SamSlotCanHold(Slot, What));
   Result := FIsCPC and FCPC.SlotCanHold(Slot, What);
 end;
 
 function TSpectrum.SetCPCSlot(Slot, What: Integer): Boolean;
 begin
+  if FIsSAM then Exit(SetSamSlot(Slot, What));
   Result := FIsCPC and FCPC.SetSlot(Slot, What);
   if Result then CPCPaging;
 end;
@@ -1791,6 +1967,13 @@ begin
   begin
     Inc(T, Time);
     if FContend then T := (T + 3) and not 3;
+    Exit;
+  end;
+  // The SAM Coupe's ASIC holds the CPU's RAM accesses to its memory slots (the ROM is free)
+  if FIsSAM then
+  begin
+    if FContend and (FSlotBank[Addr shr 14] >= 0) then Inc(T, FSam.WaitStates(T));
+    Inc(T, Time);
     Exit;
   end;
   if FContend and FSlotContended[Addr shr 14] then Inc(T, FContention[T]);
@@ -2160,6 +2343,7 @@ var
   HighByte: Byte;
 begin
   if FIsCPC then Exit(ReadPortCPC(Port, T));
+  if FIsSAM then Exit(ReadPortSAM(Port, T));
   IOContendPre(Port, T);
   Result := $FF;
   Responded := False;
@@ -2329,6 +2513,11 @@ begin
   if FIsCPC then
   begin
     WritePortCPC(Port, Value, T);
+    Exit;
+  end;
+  if FIsSAM then
+  begin
+    WritePortSAM(Port, Value, T);
     Exit;
   end;
   IOContendPre(Port, T);
@@ -2593,6 +2782,7 @@ end;
 function TSpectrum.IntActive: Boolean;
 begin
   if FIsCPC then Exit(FCPC.IntLine);
+  if FIsSAM then Exit(FSam.InterruptActive(U(FCpu.T)));
   if IsNext then
   begin
     // ULA interrupt unless NR 22 (or port FF bit 6) disables it, and the
@@ -3121,6 +3311,11 @@ begin
     FCPC.Sync(T);
     Exit;
   end;
+  if FIsSAM then
+  begin
+    SAMRenderUpTo(T);
+    Exit;
+  end;
   if IsNext then
   begin
     NextRenderUpTo(T, True);
@@ -3189,7 +3384,14 @@ end;
   frame T-states }
 procedure TSpectrum.TapeEdge(T: Integer; Level: Boolean);
 begin
-  if FIsCPC then Exit;
+  // The CPC: its tape runs in 3.5 MHz T-states (CPCTapeT); the signal is heard, as the Spectrum's EAR
+  // is (the cassette's sound through the speaker)
+  if FIsCPC then
+  begin
+    if FTape.Playing and Level then AddEvent(T * 8 div (7 * FSpeed), 0, 0, 2)
+    else AddEvent(T * 8 div (7 * FSpeed), 0, 0, 0);
+    Exit;
+  end;
   UpdateBeeper(U(T));
 end;
 
@@ -3210,6 +3412,7 @@ begin
     1: FAY.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
     2: FAY2.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
     4: FAY3.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
+    5: FSaa.WriteRegister(FEvents[Index].Reg, FEvents[Index].Value);
     3:
       for K := 0 to 3 do
         if (FEvents[Index].Reg and (1 shl K)) <> 0 then FNextDac[K] := FEvents[Index].Value;
@@ -3252,7 +3455,7 @@ var
   Clicks: TInt64DynArray;
   ClickLen, Dt: Int64;
   Floppy, Rnd: Single;
-  TickA, TickB, TickC, A, B, C, A2, B2, C2, A3, B3, C3, L, R, AYGain: Single;
+  TickA, TickB, TickC, A, B, C, A2, B2, C2, A3, B3, C3, L, R, AYGain, SaaL, SaaR: Single;
   DacL, DacR: Integer;
   Two, Three: Boolean;
   Mix: array[0..1] of Single;
@@ -3387,6 +3590,16 @@ begin
       L := L + DacL * (1 / 512);
       R := R + DacR * (1 / 512);
     end;
+    if FIsSAM then
+    begin
+      // The SAA1099, always running so its registers keep their meaning; heard if it is on
+      FSaa.Sample(SAMPLE_RATE, SaaL, SaaR);
+      if FSamSaaOn then
+      begin
+        L := L + SaaL * 0.15;
+        R := R + SaaR * 0.15;
+      end;
+    end;
     if FCurrahOn then
     begin
       // The µSpeech's voice, mixed in with the Spectrum's sound on the TV
@@ -3466,7 +3679,17 @@ end;
 
 function TSpectrum.TapeAccelerating: Boolean;
 begin
-  Result := FastLoad and FTape.Playing;
+  // (not the CPC's: it has no ROM trap, so its tapes would all run mute and fast; loaders that play music
+  // while they load, and the tones, are heard at the real speed: Turbo is there for the impatient)
+  Result := FastLoad and FTape.Playing and not FIsCPC;
+end;
+
+function TSpectrum.DiskAccelerating: Boolean;
+begin
+  // The drive was used in the last tenth of a second
+  Result := FIsSAM and not FWD.Timed and
+    ((GetTickCount64 - FWD.LastAccess(0) < 100) or (GetTickCount64 - FWD.LastAccess(1) < 100)) and
+    (FWD.Disk(0) <> nil);
 end;
 
 procedure TSpectrum.TapeTrap;
@@ -3649,6 +3872,11 @@ end;
 
 procedure TSpectrum.CheckTraps;
 begin
+  if FIsSAM then
+  begin
+    SAMCheckTraps;
+    Exit;
+  end;
   if not BasicRomPaged then Exit;
   if FDivOn and FDiv.Active then Exit;   // the DivMMC firmware is running there
   case FCpu.PC.W of
@@ -3759,6 +3987,7 @@ var
 
 begin
   if FIsCPC then Exit(CPCTypeText(Text, Error));
+  if FIsSAM then Exit(SAMTypeText(Text, Error));
   Result := False;
   Error := '';
   I := 1;
@@ -3817,6 +4046,11 @@ begin
   if FIsCPC then
   begin
     CPCAutoLoad(FromDisk);
+    Exit;
+  end;
+  if FIsSAM then
+  begin
+    SAMAutoLoad(FromDisk);
     Exit;
   end;
   if IsZXUno then
@@ -4234,7 +4468,8 @@ begin
   if IntActive and FCpu.IFF1 and FCpu.Interrupt then Exit;
   // The Next: esxDOS calls on the .nex file its program was given
   if (FNexData <> nil) and (FCpu.PC.W = $0008) and NexFileCall then Exit;
-  if FCpu.PC.W < $4000 then
+  // (the SAM's DOS load trap is in its ROM 1, at the top)
+  if (FCpu.PC.W < $4000) or (FIsSAM and (FCpu.PC.W = $E2B6)) then
   begin
     CheckTraps;
     if (FCpu.PC.W = $0008) and (FDivOn or (FModel = smZXUno)) then NoteEsxdosCall;
@@ -4276,7 +4511,12 @@ begin
   FTape.AdvanceTo(FrameLength);
   GenerateAudio;
 
-  if FRecorder.Active then FRecorder.Idle(FCpuTBase + FrameLength);
+  if FRecorder.Active then
+  begin
+    // The SAM Coupe's 6 MHz in the tape's 3.5 MHz
+    if FIsSAM then FRecorder.Idle((FCpuTBase + FrameLength) * 7 div 12)
+    else FRecorder.Idle(FCpuTBase + FrameLength);
+  end;
   Inc(FCpuTBase, FrameLength);
   Dec(FCpu.T, FrameLength);
   FTape.EndFrame(FrameLength);
@@ -4289,11 +4529,26 @@ begin
     UpdateContend;
   end;
   FFDC.Tick;
+  FWD.Tick;
   FRenderLine := 0;
   FNextDrawnX := 0;
   FRenderCell := 0;
   Inc(FFrameCount);
   AdvanceAutoKeys;
+  if FIsSAM then
+  begin
+    SAMSyncAutoKeys;
+    if (FSamPlayFrame >= 0) and (FFrameCount >= FSamPlayFrame) then
+    begin
+      FSamPlayFrame := -1;
+      if not FTape.Playing then PlayTape;
+    end;
+    if (FSamSwapDisk <> nil) and (FFrameCount >= FSamSwapFrame) then
+    begin
+      InsertDiskAt(0, FSamSwapDisk);
+      FSamSwapDisk := nil;
+    end;
+  end;
   Inc(FFlashCounter);
   if FFlashCounter >= 16 then
   begin
@@ -4371,6 +4626,7 @@ begin
 end;
 
 {$I SpectrumCPC.inc}
+{$I SpectrumSAM.inc}
 {$I NextVideo.inc}
 {$I NextDma.inc}
 {$I SpectrumNext.inc}

@@ -8,10 +8,17 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Emulator, Config, Icons, PokeForm,
-  Pokes, ScreenCapture, DocForm, ModernUI;
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, DSK, Emulator, Config, Icons, PokeForm,
+  Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide;
 
 type
+  { A text longer than its room that scrolls now and then: from where it starts, a character at a time
+    after a pause, and back to the start after another }
+  TMarquee = record
+    Full: string;
+    Offset, Pause: Integer;
+  end;
+
   TMainWindow = class(TForm)
   private
     FEmu: TEmulator;
@@ -40,17 +47,21 @@ type
     FTempFolder: string;        // that folder
     FMenu: TMainMenu;
     FRecentMenu: TMenuItem;
+    FModernHide: TList;                      // menu items the modern interface has as buttons instead (left out of its menus)
+    FRecentOpen: TStringList;                // what Open recent shows now (the files, with Objects = their kind)
     FRecentSymbolsMenu: TMenuItem;
     FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
     FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
-    FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem: TMenuItem;
+    FKeyboardItem, FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem: TMenuItem;
     FMonitorItems: array[0..3] of TMenuItem;
+    FScanlinesItem: TMenuItem;
     FModelMenuTop: array[0..1] of TMenuItem;   // ZX Spectrum and Amstrad CPC in the machine menu
     FSaveToTapeItem, FFastDiskItem, FDriveBItem, FBorderShotItem: TMenuItem;
     FLastFile: string;          // last file opened, for the POKE history
     FStarted: Boolean;          // command line processed
     FStartNext: Boolean;        // the ZX Spectrum Next was the model last time
     FNextFromCommandLine: Boolean;
+    FInCommandLine: Boolean;    // the command line is being processed: it says what to load
     FShowNotice: Boolean;            // first start: the modern interface's note
     FNotice: TModernNotice;
     FNoticeTimer: TTimer;   // --model zxnext: emu80 closes if it can't start
@@ -62,9 +73,17 @@ type
     FOldRomDir, FOldUno: string;             // what was set before the settings window's last Apply
     FDeinterlaceTop, FCrtcTop: TMenuItem;   // Options entries of the Spectrum and of the CPC
     FCrtcItems: array[0..5] of TMenuItem;    // automatic and chips 0-4
-    FFloppyTop, FSDTop: TMenuItem;           // menus that don't belong to every machine
+    FTapeTop, FFloppyTop, FSDTop: TMenuItem;           // menus (Tape, Floppy and SD: the modern header leaves them out; the first one belongs to every machine)
     FKeyCount: array[0..39] of Integer;
     FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
+    FSamKeyCount: array[0..SAMK_COUNT - 1] of Integer;   // the SAM Coupe's keys (SAMK_*) held
+    // The SAM's keys that make characters go by the character the PC keyboard gives (any layout), not
+    // by the key: FSamRoute 1 = by character, 2 = Alt+F key; the chord of each PC key held
+    FSamRoute: array[0..255] of Byte;
+    FSamChordKey, FSamChordMod: array[0..255] of SmallInt;
+    FSamChordKeys: array[0..SAMK_COUNT - 1] of Integer;   // the SAM keys held by those chords
+    FSamChordActive: Integer;                // chords held: their Shift and Symbol replace the PC's
+    FSamLastCharVK: Word;                    // the PC key whose character is about to come
     FDriveNmiItem: TMenuItem;
     FExtCount: array[0..15] of Integer;      // two-key keys (EXT_*) held
     // The modern interface (MainModern.inc)
@@ -75,12 +94,16 @@ type
     FMirror: TPopupMenu;
     FMHeader, FMLeft, FMRight, FMBottom: TDarkPanel;
     FMMachine, FMTape, FMMedia: TPaletteBox;
-    FMModelBtn, FMPause, FMTurbo, FMRec, FMFast, FMFastDisk, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
+    FMModelBtn, FMKeyboard, FMPause, FMTurbo, FMRec, FMFast, FMFastDisk, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
     FMZoom: array[1..4] of TFlatButton;
     FMCassette: TCassette;
     FMTapeLabel: TLabel;
     FMMediaBox, FMStatusBox: TPaintBox;
     FMediaNames: array[0..2] of string;
+    FMediaShown: array[0..2] of string;      // what is drawn of each name (a carousel when it is long)
+    FMarquee: array[0..3] of TMarquee;       // the three media names and the tape's text
+    FMMenuBtn: array[0..2] of TFlatButton;   // the Floppy menu (A: and B:) and the SD menu, from the Media palette
+    FMediaOn: array[0..2] of Boolean;        // the drives and the card reader the machine has (drawn dim when not)
     FPCKeyDown: array[0..255] of Boolean;
     FPCKeyTime: array[0..255] of QWord;     // when each PC key went down
     FPendingUp: array[0..255] of QWord;     // delayed key-up due time, 0 = none
@@ -100,6 +123,7 @@ type
     function AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
     procedure AddSeparator;
     procedure UpdateRecentMenu;
+    function RecentFits(const FileName: string; Kind: Integer): Boolean;
     procedure UpdateRecentSymbolsMenu;
     procedure DoLoadRecentSymbols(Sender: TObject);
     procedure UpdateChecks;
@@ -115,8 +139,12 @@ type
     procedure UpdateKeyboard;
     procedure MapKey(Key: Word; Down: Boolean);
     procedure MapKeyCPC(Key: Word; Down: Boolean);
+    procedure MapKeySAM(Key: Word; Down: Boolean);
+    function SamCharKey(Key: Word): Boolean;
+    function SamKeyHeld(K: Integer): Boolean;
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure FormUTF8KeyPress(Sender: TObject; var UTF8Key: TUTF8Char);
     procedure FormDeactivate(Sender: TObject);
     procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -148,7 +176,12 @@ type
     procedure DoFastLoad(Sender: TObject);
     procedure DoAutoPlay(Sender: TObject);
     procedure DoDiskInsert(Sender: TObject);
+    procedure InsertDiskDialog(Drive: Integer);
+    function FloppyAvailable: Boolean;
+    function SDAvailable: Boolean;
+    procedure ModernMediaClick(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     function InsertDiskFile(Drive: Integer; const FileName: string): Boolean;
+    function LoadDiskChecked(const FileName: string; out Disk: TDiskImage; out Msg: string): Boolean;
     procedure UpdateRecentDisksMenu;
     { The game file just loaded, for default names (Adventure Debugger's source export) }
     procedure NoteMediaFile(const FileName: string);
@@ -180,6 +213,7 @@ type
     procedure DoDiskNew(Sender: TObject);
     procedure DoMute(Sender: TObject);
     procedure DoMonitor(Sender: TObject);
+    procedure DoScanlines(Sender: TObject);
     function MouseOn: Boolean;
     procedure DoDocumentation(Sender: TObject);
     procedure ApplyRomFiles;
@@ -203,8 +237,10 @@ type
     procedure DoDeinterlace(Sender: TObject);
     procedure DoCrtc(Sender: TObject);
     procedure DoSettings(Sender: TObject);
+    procedure DoKeyboardGuide(Sender: TObject);
     procedure SettingsApplied(Sender: TObject);
     procedure DoTapeInsert(Sender: TObject);
+    function TapeFilter: string;
     procedure BuildModern;
     procedure ApplyStyle;
     procedure DoToggleTheme(Sender: TObject);
@@ -216,6 +252,7 @@ type
     procedure MirrorClick(Sender: TObject);
     function MenuShortcut(Key: Word; Shift: TShiftState): Boolean;
     procedure PaintModernMedia(Sender: TObject);
+    function MarqueeText(Index: Integer; const Full: string; C: TCanvas; Room: Integer): string;
     procedure PaintModernStatus(Sender: TObject);
     procedure ModernTick;
     procedure DoAbout(Sender: TObject);
@@ -264,6 +301,9 @@ type
     destructor Destroy; override;
     procedure OpenFile(const FileName: string; AutoStart: Boolean = True);
     procedure ChangeModel(M: TSpectrumModel);
+    procedure SamDosBoot;
+    function SamDosDisk: TDiskImage;
+    function CliSamDos: Boolean;
     procedure ApplyContention;
     procedure ApplyZXUnoFiles(Reload: Boolean);
     function ReleasedSide(Key: Word): Word;
@@ -277,8 +317,8 @@ var
 implementation
 
 uses
-  Snapshot, DSK, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, FatFS, DebugFiles, NextCard;
+  Snapshot, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
+  SDBrowser, FatFS, DebugFiles, NextCard, DiskFormat;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -288,9 +328,12 @@ begin
 end;
 
 const
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.nex;*.e80|' +
+  SAMDOS_FILE = 'SAMDOS2.dsk';     // the SAM Coupe's DOS disk, in the roms folder
+  DISK_FILTER = 'Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad';
+  SAVE_DISK_FILTER = 'Disk images (*.dsk)|*.dsk|SAM Coupe MGT images (*.mgt)|*.mgt|SAM Coupe SAD images (*.sad)|*.sad';
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80|' +
     'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt|' +
-    'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|Disk images (*.dsk)|*.dsk|' +
+    'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|' + DISK_FILTER + '|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
 { TMainWindow }
@@ -386,6 +429,7 @@ begin
   AllowDropFiles := True;
   OnKeyDown := @FormKeyDown;
   OnKeyUp := @FormKeyUp;
+  OnUTF8KeyPress := @FormUTF8KeyPress;
   OnDeactivate := @FormDeactivate;
   OnDropFiles := @FormDropFiles;
   OnClose := @FormClose;
@@ -505,6 +549,8 @@ end;
 destructor TMainWindow.Destroy;
 begin
   FEmu.Free;
+  FRecentOpen.Free;
+  FModernHide.Free;
   // The card is closed now: its temporary image can go
   if FTempCard <> '' then DeleteFile(FTempCard);
   FBitmap.Free;
@@ -559,25 +605,32 @@ begin
   // The storage menus (Tape, Floppy, SD) between separators
   AddItem(FMenu.Items, '|', nil).Enabled := False;
   TopItem := AddItem(FMenu.Items, '&Tape', nil);
-  AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, []));
-  AddItem(TopItem, '&Play/pause', @DoTapePlay, ShortCut(VK_F8, []));
-  AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssShift]));
+  FTapeTop := TopItem;
+  AddItem(TopItem, '&Insert tape...', @DoTapeInsert);
+  AddItem(TopItem, '-', nil);
+  FModernHide := TList.Create;
+  FModernHide.Add(AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, [])));
+  FModernHide.Add(AddItem(TopItem, '&Play/pause', @DoTapePlay, ShortCut(VK_F8, [])));
+  FModernHide.Add(AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssShift])));
   FRecItem := AddItem(TopItem, 'Re&cord (REC)', @DoTapeRecord);
-  AddItem(TopItem, '&Rewind', @DoTapeRewind);
+  FModernHide.Add(FRecItem);
+  FModernHide.Add(AddItem(TopItem, '&Rewind', @DoTapeRewind));
   AddItem(TopItem, '&Eject', @DoTapeEject);
   AddItem(TopItem, 'Save tape &as...', @DoTapeSave);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&New blank tape', @DoNewTape);
   AddItem(TopItem, '-', nil);
   FFastLoadItem := AddItem(TopItem, '&Fast loading', @DoFastLoad);
+  FModernHide.Add(FFastLoadItem);
   FAutoPlayItem := AddItem(TopItem, '&Auto play/stop', @DoAutoPlay);
   FSaveToTapeItem := AddItem(TopItem, 'SA&VE writes to the tape', @DoSaveToTape);
 
   TopItem := AddItem(FMenu.Items, 'F&loppy', nil);
   FFloppyTop := TopItem;
   FDiskBrowserItem := AddItem(TopItem, 'Disk &browser...', @DoDiskBrowser);
+  FModernHide.Add(FDiskBrowserItem);
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert);
+  Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert, ShortCut(VK_F2, [ssShift]));
   Item.Tag := 0;
   FRecentDisksMenu := AddItem(TopItem, 'Insert &recent disk (A:)', nil);
   // Drive B's entries show only while it is connected (UpdateChecks)
@@ -610,12 +663,14 @@ begin
   AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
   FFastDiskItem := AddItem(TopItem, '&Fast floppy disk access', @DoFastDisk);
+  FModernHide.Add(FFastDiskItem);
   FDriveBItem := AddItem(TopItem, 'Drive &B: connected', @DoDriveB);
 
   // DivMMC SD card (the interface is switched on in Settings > Hardware)
   TopItem := AddItem(FMenu.Items, '&SD', nil);
   FSDTop := TopItem;
   FSDBrowserItem := AddItem(TopItem, 'SD card &browser...', @DoSDBrowser);
+  FModernHide.Add(FSDBrowserItem);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, '&Insert SD card image...', @DoSDInsert);
   FRecentCardsMenu := AddItem(TopItem, 'Insert &recent SD card', nil);
@@ -651,6 +706,7 @@ begin
     FMonitorItems[S].RadioItem := True;
     FMonitorItems[S].GroupIndex := 5;
   end;
+  FScanlinesItem := AddItem(TopItem, '&Scanlines (zoom 2x or more)', @DoScanlines);
   Item := AddItem(TopItem, '&Zoom', nil);
   for S := 1 to 4 do
   begin
@@ -683,6 +739,9 @@ begin
   FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
   FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
   FModernItem := AddItem(TopItem, 'Mo&dern interface (dark)', @DoToggleTheme);
+  // Every Spectrum, not the CPC or the SAM Coupe; the modern interface has a button for it
+  FKeyboardItem := AddItem(TopItem, '&Keyboard guide', @DoKeyboardGuide);
+  FModernHide.Add(FKeyboardItem);
   FInstallNextItem := AddItem(TopItem, 'Install Spectrum Next Distribution', @DoInstallNextDistro);
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, 'S&ettings...', @DoSettings);
@@ -736,7 +795,7 @@ begin
   AddSeparator;
 
   // Machine model: a chip button that drops down the list of models
-  // Two levels: the family (ZX Spectrum above, Amstrad CPC below), then its machines
+  // Two levels: the family (ZX Spectrum above, Amstrad CPC below), then its machines; the SAM Coupe is a lone entry at the end
   FModelMenu := TPopupMenu.Create(Self);
   FModelMenuTop[0] := TMenuItem.Create(FModelMenu);
   FModelMenuTop[0].Caption := 'ZX Spectrum';
@@ -752,7 +811,11 @@ begin
     FModelPopupItems[M].RadioItem := True;
     FModelPopupItems[M].GroupIndex := 1;
     FModelPopupItems[M].OnClick := @DoModel;
-    FModelMenuTop[Ord(IsCPCModel(M))].Add(FModelPopupItems[M]);
+    // The SAM Coupe is a single machine: it sits at the first level, after the families
+    if IsSAMModel(M) then
+      FModelMenu.Items.Add(FModelPopupItems[M])
+    else
+      FModelMenuTop[Ord(IsCPCModel(M))].Add(FModelPopupItems[M]);
   end;
   FModelButton := AddButton(ikModel, 'Machine model', @DoModelButton);
   AddSeparator;
@@ -809,11 +872,16 @@ begin
     // The Spectrum's extras are off on a CPC
     FEmu.Spec.AYOn48K := Settings.AY48 and (FEmu.Spec.CPC = nil);
     FEmu.Spec.FullerEnabled := Settings.Joystick = jkFuller;
+    FEmu.Spec.SamSaaOn := Settings.SamSaa;
+    FEmu.Spec.SamJoystickOn := Settings.SamJoystick;
+    FEmu.Spec.SamMouseOn := Settings.SamMouse;
+    FEmu.Spec.SamClockOn := Settings.SamClock;
+    FEmu.Spec.SamMemoryKB := Settings.SamMemory;
     FEmu.Spec.Issue2 := Settings.Issue2;
     FEmu.Spec.SetSpeed(Settings.CpuSpeed);
     FEmu.Spec.SaveToTape := Settings.SaveToTape;
     FEmu.Spec.SetFastDisk(Settings.FastDisk);
-    FEmu.Spec.FDC.DriveB := Settings.DriveB;
+    FEmu.Spec.DriveBOn := Settings.DriveB;
     FEmu.Spec.FloppyNoise := Settings.FloppyNoise;
     FEmu.Spec.Volume := Settings.Volume / 100;
     FEmu.Spec.TurboSound := Settings.TurboSound and (FEmu.Spec.CPC = nil);
@@ -854,7 +922,7 @@ procedure TMainWindow.ApplyCurrah;
 var
   Dir, Err: string;
 begin
-  if (Settings.Currah = FEmu.Spec.CurrahOn) or (FEmu.Spec.CPC <> nil) then Exit;
+  if (Settings.Currah = FEmu.Spec.CurrahOn) or (FEmu.Spec.CPC <> nil) or IsSAMModel(FEmu.Spec.Model) then Exit;
   Err := '';
   FEmu.Lock;
   try
@@ -888,7 +956,7 @@ var
 begin
   Result := True;
   // The ZX-Uno and the Next have their own DivMMC
-  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext, mkCPC] then Exit;
+  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext, mkCPC, mkSAM] then Exit;
   if Settings.DivMMC = FEmu.Spec.DivMMCOn then Exit;
   Err := '';
   if Settings.DivMMC then
@@ -936,12 +1004,7 @@ var
   Err: string;
 begin
   Result := False;
-  if (FEmu.Spec.DivMMC.Card <> nil) and
-     SameFileName(ExpandFileName(FEmu.Spec.DivMMC.Card.FileName), ExpandFileName(FileName)) then
-  begin
-    MessageDlg('That SD card image is already inserted.', mtInformation, [mbOK], 0);
-    Exit;
-  end;
+  // The same image again is inserted again (what was changed in it is asked about, as for any other)
   if not ConfirmCardChanges then Exit;
   Err := '';
   FEmu.Lock;
@@ -1031,17 +1094,21 @@ begin
   FAutoPlayItem.Checked := Settings.AutoPlayTape;
   FMuteItem.Checked := not Settings.Sound;
   FMonitorItems[Settings.Monitor].Checked := True;
+  FScanlinesItem.Checked := Settings.Scanlines;
   UpdateInstallNextItem(nil);
   // The Spectrum draws its own pointer: hide the PC one over the picture
   if MouseOn then FDisplay.Cursor := crNone else FDisplay.Cursor := crDefault;
   FSaveToTapeItem.Checked := Settings.SaveToTape;
+  UpdateRecentMenu;
+  UpdateRecentDisksMenu;
   FFastDiskItem.Checked := Settings.FastDisk;
   FDriveBItem.Checked := Settings.DriveB;
   for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := Settings.DriveB;
   FDriveNmiItem.Visible := M = smZXNext;
-  // No drive built into a CPC 464, and no SD interface on any CPC
-  if FFloppyTop <> nil then FFloppyTop.Visible := M <> smCPC464;
-  if FSDTop <> nil then FSDTop.Visible := FEmu.Spec.CPC = nil;
+  // The menus of what the machine has: a drive built in, or the DivMMC (which brings an SD card and a disk
+  // interface to any machine); the modern interface has them behind the Media palette's buttons instead
+  if FFloppyTop <> nil then FFloppyTop.Visible := FloppyAvailable or FEmu.Spec.DivMMCOn;
+  if FSDTop <> nil then FSDTop.Visible := SDAvailable;
   FBorderShotItem.Checked := Settings.ScreenshotBorder;
   FPauseItem.Checked := FEmu.Paused;
   FRecItem.Checked := FEmu.Spec.Recording;
@@ -1055,8 +1122,9 @@ begin
   FDeinterlaceItems[Settings.Deinterlace].Checked := True;
   FCrtcItems[Settings.CPCCrtc + 1].Checked := True;
   // Deinterlacing is the Spectrum's, the CRTC chip the CPC's
-  FDeinterlaceTop.Visible := FEmu.Spec.CPC = nil;
+  FDeinterlaceTop.Visible := (FEmu.Spec.CPC = nil) and not IsSAMModel(M);
   FCrtcTop.Visible := FEmu.Spec.CPC <> nil;
+  FKeyboardItem.Visible := M in [sm16K..smZXNext];
     // A zoom too big for the screen can't be chosen
     FScaleItems[S].Enabled := (S = 1) or ScaleFits(S);
   end;
@@ -1137,7 +1205,7 @@ var
   Item: TMenuItem;
 begin
   FRecentSymbolsMenu.Clear;
-  for I := 0 to Settings.RecentSymbols.Count - 1 do
+  for I := 0 to Min(Settings.RecentSymbols.Count, RECENT_SHOWN) - 1 do
   begin
     Item := AddItem(FRecentSymbolsMenu, Format('&%d %s', [I + 1, Settings.RecentSymbols[I]]),
       @DoLoadRecentSymbols);
@@ -1149,23 +1217,92 @@ end;
 procedure TMainWindow.DoLoadRecentSymbols(Sender: TObject);
 var
   Index: Integer;
+  Path: string;
 begin
   Index := (Sender as TComponent).Tag;
-  if Index < Settings.RecentSymbols.Count then LoadSymbols(Settings.RecentSymbols[Index]);
+  if Index < Settings.RecentSymbols.Count then
+  begin
+    Path := Settings.RecentSymbols[Index];      // a copy: the list changes as it loads
+    LoadSymbols(Path);
+  end;
 end;
 
+{ Whether a recent file makes sense for the machine now: Kind 0 a file opened (judged by its type), 1 a disk image,
+  2 an SD card image. Tapes go to the tape, disks to a drive and cards to the reader, and only those the machine
+  can use are listed: no .mgt on a +3, no card image on a SAM Coupe. }
+function TMainWindow.RecentFits(const FileName: string; Kind: Integer): Boolean;
+var
+  Ext: string;
+  M: TSpectrumModel;
+  Memory: TMemoryKind;
+
+  function DiskFits: Boolean;
+  begin
+    Result := FloppyAvailable and ((Ext = '.dsk') or (IsSAMModel(M) and ((Ext = '.mgt') or (Ext = '.sad'))));
+  end;
+
+begin
+  Ext := LowerCase(ExtractFileExt(FileName));
+  M := FEmu.Spec.Model;
+  Memory := FEmu.Spec.Info.Memory;
+  case Kind of
+    1: Result := DiskFits;
+    2: Result := SDAvailable;
+  else
+    if Ext = '.tap' then Result := Memory <> mkCPC      // the SAM Coupé's ROM loads the Spectrum's standard speed blocks
+    else if Ext = '.tzx' then Result := True
+    else if Ext = '.cdt' then Result := Memory = mkCPC
+    else if Ext = '.z80' then Result := not (Memory in [mkCPC, mkSAM, mkZXNext])
+    else if Ext = '.sna' then Result := (Memory = mkCPC) or not (Memory in [mkSAM, mkZXNext])
+    else if Ext = '.nex' then Result := M = smZXNext
+    else if Ext = '.e80' then
+    begin
+      try
+        Result := FileExists(FileName) and (TSpectrum.OwnSnapshotModel(FileName) = M);
+      except
+        Result := False;
+      end;
+    end
+    else Result := DiskFits;
+  end;
+end;
+
+{ Open recent: the recent files that fit the machine (the files opened, then the disk images and SD card images
+  inserted that aren't among them), newest first; opening one puts it where it goes }
 procedure TMainWindow.UpdateRecentMenu;
 var
-  I: Integer;
   Item: TMenuItem;
-begin
-  FRecentMenu.Clear;
-  for I := 0 to Settings.RecentFiles.Count - 1 do
+
+  procedure Collect(List: TStringList; Kind: Integer);
+  var
+    I, J: Integer;
+    Dup: Boolean;
   begin
-    Item := AddItem(FRecentMenu, Format('&%d %s', [I + 1, Settings.RecentFiles[I]]), @DoOpenRecent);
+    for I := 0 to List.Count - 1 do
+    begin
+      if not RecentFits(List[I], Kind) then Continue;
+      Dup := False;
+      for J := 0 to FRecentOpen.Count - 1 do
+        if SameFileName(FRecentOpen[J], List[I]) then Dup := True;
+      if not Dup then FRecentOpen.AddObject(List[I], TObject(PtrInt(Kind)));
+    end;
+  end;
+
+var
+  I: Integer;
+begin
+  if FRecentOpen = nil then FRecentOpen := TStringList.Create;
+  FRecentOpen.Clear;
+  Collect(Settings.RecentFiles, 0);
+  Collect(Settings.RecentDisks, 1);
+  Collect(Settings.RecentCards, 2);
+  FRecentMenu.Clear;
+  for I := 0 to Min(FRecentOpen.Count, RECENT_SHOWN) - 1 do
+  begin
+    Item := AddItem(FRecentMenu, Format('&%d %s', [I + 1, FRecentOpen[I]]), @DoOpenRecent);
     Item.Tag := I;
   end;
-  FRecentMenu.Enabled := Settings.RecentFiles.Count > 0;
+  FRecentMenu.Enabled := FRecentMenu.Count > 0;
 end;
 
 { Display }
@@ -1188,8 +1325,8 @@ var
   P, Native: LongWord;
 begin
   Scale := DisplayScale;
-  // A CPC picture is progressive: the frames aren't the fields of an interlaced one
-  if FEmu.Spec.CPC <> nil then Options.Deinterlace := dlProgressive
+  // A CPC or SAM Coupe picture is progressive: the frames aren't the fields of an interlaced one
+  if (FEmu.Spec.CPC <> nil) or IsSAMModel(FEmu.Spec.Model) then Options.Deinterlace := dlProgressive
   else Options.Deinterlace := Settings.Deinterlace;
   Options.Monitor := Settings.Monitor;
   Options.Scanlines := Settings.Scanlines;
@@ -1359,15 +1496,15 @@ begin
   FEmu.Lock;
   try
     Spec := FEmu.Spec;
-    if Spec.FDC.Disk(0) <> nil then
+    if Spec.DiskAt(0) <> nil then
     begin
       State := State or 1;
-      if Now - Spec.FDC.LastAccess(0) < LIT_MS then State := State or $10;
+      if Now - Spec.DiskLastAccess(0) < LIT_MS then State := State or $10;
     end;
-    if (Spec.FDC.Disk(1) <> nil) and Spec.FDC.DriveB then
+    if (Spec.DiskAt(1) <> nil) and Spec.DriveBOn then
     begin
       State := State or 2;
-      if Now - Spec.FDC.LastAccess(1) < LIT_MS then State := State or $20;
+      if Now - Spec.DiskLastAccess(1) < LIT_MS then State := State or $20;
     end;
     if Spec.DivMMCOn and (Spec.DivMMC.Card <> nil) then
     begin
@@ -1438,6 +1575,19 @@ begin
     end;
     Exit;
   end;
+  if IsSAMModel(FEmu.Spec.Model) then
+  begin
+    // The SAM Coupe's matrix: 9 rows of 8 keys, a set bit for a key down
+    for Row := 0 to 8 do
+    begin
+      Value := 0;
+      for Bit := 0 to 7 do
+        if SamKeyHeld(Row * 8 + Bit) then Value := Value or (1 shl Bit);
+      FEmu.Spec.SAM.Keys[Row] := Value;
+    end;
+    FEmu.Spec.KempstonState := FKempstonBits;
+    Exit;
+  end;
   for Row := 0 to 7 do
   begin
     Value := $FF;
@@ -1489,6 +1639,11 @@ begin
   if FEmu.Spec.Model in [smCPC464, smCPC664, smCPC6128] then
   begin
     MapKeyCPC(Key, Down);
+    Exit;
+  end;
+  if IsSAMModel(FEmu.Spec.Model) then
+  begin
+    MapKeySAM(Key, Down);
     Exit;
   end;
   // Cursor keys and Ctrl (either) as a joystick
@@ -1606,6 +1761,83 @@ begin
   end;
 end;
 
+{ The same for the SAM Coupe: each PC key is the SAM key in its place (or its
+  label); the right Shift is SYMBOL, Insert is EDIT, Backspace and Delete are DELETE; the
+  numeric keypad is the SAM's F0-F9 (the PC's F keys are the emulator's) }
+procedure TMainWindow.MapKeySAM(Key: Word; Down: Boolean);
+
+  procedure Press(K: Integer);
+  begin
+    if Down then Inc(FSamKeyCount[K]) else if FSamKeyCount[K] > 0 then Dec(FSamKeyCount[K]);
+  end;
+
+  { The Kempston joystick: the cursor keys and the right Ctrl, if it is on }
+  procedure Joy(Bit: Byte);
+  begin
+    if not Settings.SamJoystick then Exit;
+    if Down then FKempstonBits := FKempstonBits or Bit else FKempstonBits := FKempstonBits and not Bit;
+  end;
+
+const
+  Letters: array['A'..'Z'] of Integer = (
+    SAMK_A, SAMK_B, SAMK_C, SAMK_D, SAMK_E, SAMK_F, SAMK_G, SAMK_H, SAMK_I, SAMK_J, SAMK_K, SAMK_L,
+    SAMK_M, SAMK_N, SAMK_O, SAMK_P, SAMK_Q, SAMK_R, SAMK_S, SAMK_T, SAMK_U, SAMK_V, SAMK_W, SAMK_X,
+    SAMK_Y, SAMK_Z);
+  Digits: array['0'..'9'] of Integer = (
+    SAMK_0, SAMK_1, SAMK_2, SAMK_3, SAMK_4, SAMK_5, SAMK_6, SAMK_7, SAMK_8, SAMK_9);
+  FKeys: array[0..9] of Integer = (
+    SAMK_F0, SAMK_F1, SAMK_F2, SAMK_F3, SAMK_F4, SAMK_F5, SAMK_F6, SAMK_F7, SAMK_F8, SAMK_F9);
+begin
+  // Alt+F1..F10 are the SAM's F1..F9 and F0
+  if (Key <= High(FSamRoute)) and (FSamRoute[Key] = 2) then
+  begin
+    if Key = VK_F10 then Press(SAMK_F0) else Press(FKeys[Key - VK_F1 + 1]);
+    if not Down then FSamRoute[Key] := 0;
+    Exit;
+  end;
+  // By character: the chord was pressed when the character came (FormUTF8KeyPress)
+  if (Key <= High(FSamRoute)) and (FSamRoute[Key] = 1) then
+  begin
+    if not Down then
+    begin
+      if FSamChordKey[Key] >= 0 then
+      begin
+        Dec(FSamChordKeys[FSamChordKey[Key]]);
+        if FSamChordMod[Key] >= 0 then Dec(FSamChordKeys[FSamChordMod[Key]]);
+        Dec(FSamChordActive);
+        FSamChordKey[Key] := -1;
+      end;
+      FSamRoute[Key] := 0;
+    end;
+    Exit;
+  end;
+  case Key of
+    VK_A..VK_Z: Press(Letters[Chr(Key)]);
+    VK_0..VK_9: Press(Digits[Chr(Key)]);
+    VK_NUMPAD0..VK_NUMPAD9: Press(FKeys[Key - VK_NUMPAD0]);
+    VK_RETURN: Press(SAMK_RETURN);
+    VK_SPACE: Press(SAMK_SPACE);
+    // Left Shift is SHIFT and right Shift SYMBOL, as on the Spectrum (FormKeyDown/Up tell them apart)
+    VK_SHIFT, VK_LSHIFT: Press(SAMK_SHIFT);
+    VK_RSHIFT: Press(SAMK_SYMBOL);
+    VK_CONTROL, VK_LCONTROL: Press(SAMK_CTRL);
+    VK_RCONTROL:
+      if Settings.SamJoystick then Joy($10) else Press(SAMK_CTRL);   // fire
+    VK_ESCAPE: Press(SAMK_ESC);
+    VK_TAB: Press(SAMK_TAB);
+    VK_CAPITAL: Press(SAMK_CAPS);
+    VK_BACK, VK_DELETE: Press(SAMK_DELETE);
+    VK_INSERT: Press(SAMK_EDIT);
+    VK_END: Press(SAMK_INV);
+    VK_LEFT: begin Press(SAMK_LEFT); Joy($02); end;
+    VK_RIGHT: begin Press(SAMK_RIGHT); Joy($01); end;
+    VK_UP: begin Press(SAMK_UP); Joy($08); end;
+    VK_DOWN: begin Press(SAMK_DOWN); Joy($04); end;
+    VK_ADD: Press(SAMK_PLUS);
+    VK_SUBTRACT: Press(SAMK_MINUS);
+  end;
+end;
+
 { Which Shift or Ctrl went down: the left or the right one }
 function SidedKey(Key: Word): Word;
 begin
@@ -1644,6 +1876,8 @@ begin
 end;
 
 procedure TMainWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+var
+  IsSam, AltGr, SamF, ByChar: Boolean;
 begin
   // The modern interface has no menu bar to take its shortcuts
   if FModern and MenuShortcut(Key, Shift) then
@@ -1651,9 +1885,16 @@ begin
     Key := 0;
     Exit;
   end;
-  if (Key >= VK_F1) and (Key <= VK_F24) then Exit;    // leave function keys to the menu
-  if (Key = VK_MENU) or (ssAlt in Shift) then Exit;
+  IsSam := IsSAMModel(FEmu.Spec.Model);
+  // AltGr is Ctrl+Alt: on a SAM it makes characters ([ ] { } @ # \ | on a Spanish keyboard)
+  AltGr := (ssAltGr in Shift) or ((ssAlt in Shift) and (ssCtrl in Shift));
+  // The SAM's F keys are Alt+F1..F10 (the others are the emulator's)
+  SamF := IsSam and (ssAlt in Shift) and not AltGr and (Key >= VK_F1) and (Key <= VK_F10);
+  if (Key >= VK_F1) and (Key <= VK_F24) and not SamF then Exit;    // leave function keys to the menu
+  if not SamF and ((Key = VK_MENU) or ((ssAlt in Shift) and not (IsSam and AltGr))) then Exit;
   Key := SidedKey(Key);
+  // The SAM takes the characters from the keyboard layout, so any layout can type them all
+  ByChar := IsSam and (Key <= High(FSamRoute)) and SamCharKey(Key) and (not (ssCtrl in Shift) or AltGr);
   if Key <= High(FPCKeyDown) then
   begin
     if FPendingUp[Key] <> 0 then ReleasePCKey(Key);   // finish a pending tap first
@@ -1661,11 +1902,52 @@ begin
     begin
       FPCKeyDown[Key] := True;
       FPCKeyTime[Key] := GetTickCount64;
-      MapKey(Key, True);
-      UpdateKeyboard;
+      if SamF then FSamRoute[Key] := 2
+      else if ByChar then
+      begin
+        FSamRoute[Key] := 1;
+        FSamChordKey[Key] := -1;
+        FSamLastCharVK := Key;
+      end;
+      if not ByChar then
+      begin
+        MapKey(Key, True);
+        UpdateKeyboard;
+      end;
     end;
   end;
-  Key := 0;
+  // The character comes next, from the key's press
+  if not ByChar then Key := 0;
+end;
+
+{ Keys that make a character the SAM may take: letters, digits and the layout's signs }
+function TMainWindow.SamCharKey(Key: Word): Boolean;
+begin
+  Result := ((Key >= VK_A) and (Key <= VK_Z)) or ((Key >= VK_0) and (Key <= VK_9)) or
+    ((Key >= VK_OEM_1) and (Key <= VK_OEM_3)) or ((Key >= VK_OEM_4) and (Key <= VK_OEM_8)) or
+    (Key = VK_OEM_102);
+end;
+
+{ The character a key made: the SAM keys that make it on its keyboard }
+procedure TMainWindow.FormUTF8KeyPress(Sender: TObject; var UTF8Key: TUTF8Char);
+var
+  VK: Word;
+  K, M: Integer;
+begin
+  VK := FSamLastCharVK;
+  if not IsSAMModel(FEmu.Spec.Model) or (VK > High(FSamRoute)) or (FSamRoute[VK] <> 1) or
+     not FPCKeyDown[VK] then Exit;
+  // An auto-repeat gives the same character again: the chord is down already
+  if (FSamChordKey[VK] < 0) and (Length(UTF8Key) = 1) and SamKeysForChar(UTF8Key[1], K, M) then
+  begin
+    FSamChordKey[VK] := K;
+    FSamChordMod[VK] := M;
+    Inc(FSamChordKeys[K]);
+    if M >= 0 then Inc(FSamChordKeys[M]);
+    Inc(FSamChordActive);
+    UpdateKeyboard;
+  end;
+  UTF8Key := '';    // the machine, not a control, takes it
 end;
 
 procedure TMainWindow.ReleasePCKey(Key: Word);
@@ -1685,7 +1967,7 @@ const
 var
   Held: QWord;
 begin
-  if (Key >= VK_F1) and (Key <= VK_F24) then Exit;
+  if (Key >= VK_F1) and (Key <= VK_F24) and ((Key > High(FSamRoute)) or (FSamRoute[Key] <> 2)) then Exit;
   Key := ReleasedSide(Key);
   if (Key <= High(FPCKeyDown)) and FPCKeyDown[Key] then
   begin
@@ -1718,6 +2000,15 @@ begin
   FKeyTimer.Enabled := Pending;
 end;
 
+{ A SAM key is down: a PC key for it, or a chord; while a chord is held the Shift, Symbol and Ctrl
+  of the PC are not the SAM's (the character wanted says which it needs) }
+function TMainWindow.SamKeyHeld(K: Integer): Boolean;
+begin
+  Result := FSamChordKeys[K] > 0;
+  if not Result and ((FSamChordActive = 0) or not (K in [SAMK_SHIFT, SAMK_SYMBOL, SAMK_CTRL])) then
+    Result := FSamKeyCount[K] > 0;
+end;
+
 procedure TMainWindow.ReleaseAllKeys;
 var
   I: Integer;
@@ -1730,6 +2021,14 @@ begin
   for I := 0 to High(FKeyCount) do FKeyCount[I] := 0;
   for I := 0 to High(FExtCount) do FExtCount[I] := 0;
   for I := 0 to High(FCPCKeyCount) do FCPCKeyCount[I] := 0;
+  for I := 0 to High(FSamKeyCount) do FSamKeyCount[I] := 0;
+  for I := 0 to High(FSamChordKeys) do FSamChordKeys[I] := 0;
+  for I := 0 to High(FSamRoute) do
+  begin
+    FSamRoute[I] := 0;
+    FSamChordKey[I] := -1;
+  end;
+  FSamChordActive := 0;
   FKempstonBits := 0;
   FFullerBits := 0;
   UpdateKeyboard;
@@ -1773,7 +2072,13 @@ var
   OldScale: Integer;
 begin
   OldScale := Settings.Scale;
-  ProcessCommandLine;
+  FInCommandLine := True;
+  try
+    ProcessCommandLine;
+  finally
+    FInCommandLine := False;
+  end;
+  SamDosBoot;
   if FStartNext and (Settings.Model = sm48K) and (FEmu.Spec.Model = sm48K) then ChangeModel(smZXNext);
   FStartNext := False;
   if Settings.Scale <> OldScale then SetScale(Settings.Scale);
@@ -1830,13 +2135,14 @@ procedure TMainWindow.OpenFile(const FileName: string; AutoStart: Boolean);
 var
   M: TSpectrumModel;
   Ext: string;
-  Disk: TDiskImage;
+  Disk, Dos: TDiskImage;
   CPCNote: string;
 begin
   CPCNote := '';
   Ext := LowerCase(ExtractFileExt(FileName));
   // Snapshots and disks switch the Next to a standard model: its card first
-  if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk')) then
+  if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk') or
+     (Ext = '.mgt') or (Ext = '.sad')) then
     LeaveNext;
   // A .nex program needs the Next; an .e80 snapshot its machine
   if (Ext = '.nex') and (FEmu.Spec.Model <> smZXNext) then
@@ -1898,23 +2204,26 @@ begin
         FEmu.Spec.LoadNex(FileName)
       else if Ext = '.e80' then
         FEmu.Spec.LoadOwnSnapshot(FileName)
-      else if Ext = '.dsk' then
+      else if (Ext = '.dsk') or (Ext = '.mgt') or (Ext = '.sad') then
       begin
-        Disk := TDiskImage.Create;
-        try
-          Disk.LoadFromFile(FileName);
-        except
-          Disk.Free;
-          raise;
-        end;
+        if not LoadDiskChecked(FileName, Disk, CPCNote) then
+          raise Exception.Create(CPCNote);
+        CPCNote := '';
         // A CPC without a disc drive (the 464) becomes a 6128; the other models a +3
         if not FEmu.Spec.Info.HasFDC then
         begin
           if FEmu.Spec.CPC <> nil then FEmu.Spec.SetModel(smCPC6128) else FEmu.Spec.SetModel(smPlus3);
         end;
-        FEmu.Spec.FDC.InsertDisk(0, Disk);
+        Dos := nil;
+        if CliSamDos then Dos := SamDosDisk;
+        if Dos <> nil then
+          FEmu.Spec.SamDosThen(Dos, Disk)
+        else
+        begin
+          FEmu.Spec.InsertDiskAt(0, Disk);
+          if AutoStart then FEmu.Spec.AutoLoad(True);
+        end;
         Settings.AddRecentDisk(FileName);
-        if AutoStart then FEmu.Spec.AutoLoad(True);
       end
       else
         raise Exception.Create('Unsupported file type: ' + Ext);
@@ -1960,7 +2269,16 @@ begin
   end;
 end;
 
-{ A tape into the recorder (the modern interface's Eject): as File > Open,
+{ The tapes the machine reads: a CPC's are .cdt and .tzx, the others' .tap and .tzx }
+function TMainWindow.TapeFilter: string;
+begin
+  if FEmu.Spec.Info.Memory = mkCPC then
+    Result := 'Tape images (*.cdt;*.tzx)|*.cdt;*.tzx'
+  else
+    Result := 'Tape images (*.tap;*.tzx)|*.tap;*.tzx';
+end;
+
+{ A tape into the recorder (a click on the cassette in the modern interface): as File > Open,
   for tapes only }
 procedure TMainWindow.DoTapeInsert(Sender: TObject);
 var
@@ -1969,7 +2287,7 @@ begin
   Dlg := TOpenDialog.Create(Self);
   try
     Dlg.Title := 'Insert a tape';
-    Dlg.Filter := 'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt';
+    Dlg.Filter := TapeFilter;
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then OpenFile(Dlg.FileName);
@@ -1981,9 +2299,18 @@ end;
 procedure TMainWindow.DoOpenRecent(Sender: TObject);
 var
   Index: Integer;
+  Path: string;
 begin
   Index := (Sender as TComponent).Tag;
-  if Index < Settings.RecentFiles.Count then OpenFile(Settings.RecentFiles[Index]);
+  if (FRecentOpen = nil) or (Index >= FRecentOpen.Count) then Exit;
+  // A copy of the name: the lists (and this menu) are rebuilt while the file is opened
+  Path := FRecentOpen[Index];
+  case PtrInt(FRecentOpen.Objects[Index]) of
+    1: if ConfirmDiskChanges(0) then InsertDiskFile(0, Path);
+    2: InsertSDCard(Path);
+  else
+    OpenFile(Path);
+  end;
 end;
 
 procedure TMainWindow.DoSaveSnapshot(Sender: TObject);
@@ -2263,7 +2590,7 @@ begin
   // Out of the ZX-Uno: the standard models' card (out of the Next, LeaveNext)
   else if (Old = smZXUno) and not (New in OWN) then UseCard(Settings.SDCardFile, True);
   // The DivMMC is a Spectrum device: on a CPC it is simply switched off
-  if IsCPCModel(New) then
+  if IsCPCModel(New) or IsSAMModel(New) then
   begin
     Settings.DivMMC := False;
     Exit;
@@ -2471,6 +2798,7 @@ begin
   // Leaving the ZX-Uno (its own DivMMC): as Settings say again
   ApplyDivMMC;
   UpdateChecks;
+  if (Old <> FEmu.Spec.Model) and IsSAMModel(FEmu.Spec.Model) then SamDosBoot;
 end;
 
 procedure TMainWindow.DoModel(Sender: TObject);
@@ -2500,6 +2828,61 @@ begin
   end;
 end;
 
+{ The SAM Coupe's "Boot SAMDOS automatically": with nothing in drive 1 (or the SAMDOS disk of an earlier
+  boot) the SAMDOS2.dsk of the roms folder goes in and the machine boots it, as a user pressing F9 }
+procedure TMainWindow.SamDosBoot;
+var
+  Path: string;
+  Disk: TDiskImage;
+  Msg: string;
+  Cur: TDiskImage;
+
+begin
+  if FInCommandLine or not Settings.SamAutoDos or not IsSAMModel(FEmu.Spec.Model) then Exit;
+  Path := IncludeTrailingPathDelimiter(Settings.RomDir) + SAMDOS_FILE;
+  if not FileExists(Path) then Path := IncludeTrailingPathDelimiter(DefaultRomDir) + SAMDOS_FILE;
+  if not FileExists(Path) then Exit;
+  FEmu.Lock;
+  try
+    // Something else is typing or loading: it is the user's
+    if FEmu.Spec.AutoTyping then Exit;
+    Cur := FEmu.Spec.DiskAt(0);
+    if (Cur <> nil) and not SameFileName(ExpandFileName(Cur.FileName), ExpandFileName(Path)) then Exit;
+  finally
+    FEmu.Unlock;
+  end;
+  if not LoadDiskChecked(Path, Disk, Msg) then
+  begin
+    MessageDlg(Msg, mtError, [mbOK], 0);
+    Exit;
+  end;
+  FEmu.Lock;
+  try
+    FEmu.Spec.InsertDiskAt(0, Disk);
+    FEmu.Spec.AutoLoad(True);
+  finally
+    FEmu.Unlock;
+  end;
+  UpdateChecks;
+end;
+
+{ The SAMDOS disk of the roms folder, nil if there is none }
+function TMainWindow.SamDosDisk: TDiskImage;
+var
+  Path, Msg: string;
+begin
+  Result := nil;
+  Path := IncludeTrailingPathDelimiter(Settings.RomDir) + SAMDOS_FILE;
+  if not FileExists(Path) then Path := IncludeTrailingPathDelimiter(DefaultRomDir) + SAMDOS_FILE;
+  if FileExists(Path) and not LoadDiskChecked(Path, Result, Msg) then Result := nil;
+end;
+
+{ From the command line a disk for the SAM goes in after SAMDOS has booted, if that is on }
+function TMainWindow.CliSamDos: Boolean;
+begin
+  Result := FInCommandLine and Settings.SamAutoDos and IsSAMModel(FEmu.Spec.Model);
+end;
+
 procedure TMainWindow.DoReset(Sender: TObject);
 begin
   FEmu.Lock;
@@ -2508,6 +2891,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  SamDosBoot;
 end;
 
 procedure TMainWindow.DoHardReset(Sender: TObject);
@@ -2518,6 +2902,7 @@ begin
   finally
     FEmu.Unlock;
   end;
+  SamDosBoot;
 end;
 
 procedure TMainWindow.DoNMI(Sender: TObject);
@@ -2650,11 +3035,12 @@ var
   Disk: TDiskImage;
   Answer: Integer;
   Dlg: TSaveDialog;
+  Msg: string;
 begin
   Result := True;
   FEmu.Lock;
   try
-    Disk := FEmu.Spec.FDC.Disk(Drive);
+    Disk := FEmu.Spec.DiskAt(Drive);
     if (Disk = nil) or not Disk.Modified then Exit;
   finally
     FEmu.Unlock;
@@ -2667,40 +3053,65 @@ begin
   begin
     FEmu.Lock;
     try
-      Disk.SaveToFile(Disk.FileName);
+      Msg := SaveDiskImage(Disk, Disk.FileName);
     finally
       FEmu.Unlock;
+    end;
+    if Msg <> '' then
+    begin
+      MessageDlg(Msg, mtError, [mbOK], 0);
+      Result := False;
     end;
     Exit;
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := '+3 disk images (*.dsk)|*.dsk';
+    Dlg.Filter := SAVE_DISK_FILTER;
     Dlg.DefaultExt := 'dsk';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if not Dlg.Execute then Exit(False);
     FEmu.Lock;
     try
-      Disk.SaveToFile(Dlg.FileName);
+      Msg := SaveDiskImage(Disk, Dlg.FileName);
     finally
       FEmu.Unlock;
+    end;
+    if Msg <> '' then
+    begin
+      MessageDlg(Msg, mtError, [mbOK], 0);
+      Result := False;
     end;
   finally
     Dlg.Free;
   end;
 end;
 
+{ A disk drive built into the machine (a CPC 464 and the Spectrums but the +3 have none) }
+function TMainWindow.FloppyAvailable: Boolean;
+begin
+  Result := FEmu.Spec.Info.HasFDC;
+end;
+
+{ An SD card reader: the DivMMC (fitted, or the ZX-Uno's and the Next's own) }
+function TMainWindow.SDAvailable: Boolean;
+begin
+  Result := FEmu.Spec.DivMMCOn or (FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext]);
+end;
+
 procedure TMainWindow.DoDiskInsert(Sender: TObject);
+begin
+  InsertDiskDialog((Sender as TComponent).Tag);
+end;
+
+procedure TMainWindow.InsertDiskDialog(Drive: Integer);
 var
   Dlg: TOpenDialog;
-  Drive: Integer;
 begin
-  Drive := (Sender as TComponent).Tag;
   if not ConfirmDiskChanges(Drive) then Exit;
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := '+3 disk images (*.dsk)|*.dsk|All files|*.*';
+    Dlg.Filter := DISK_FILTER + '|All files|*.*';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then InsertDiskFile(Drive, Dlg.FileName);
@@ -2709,25 +3120,40 @@ begin
   end;
 end;
 
+{ Loads a disk image and checks that the machine can use it. The format is the
+  file's, whatever its name: a SAM Coupe disk (80 cylinders of 10 sectors of 512
+  bytes) isn't one an Amstrad CPC or a +3 reads, so they say so. The SAM Coupe's
+  controller reads whatever the disk holds: its software, CP/M for one, is what
+  knows the CPC and +3 formats. }
+function TMainWindow.LoadDiskChecked(const FileName: string; out Disk: TDiskImage; out Msg: string): Boolean;
+var
+  Problem: TDiskProblem;
+  Machine: TDiskMachine;
+begin
+  Msg := '';
+  Disk := LoadDiskImage(FileName, Problem, Msg);
+  if Disk = nil then Exit(False);
+  if IsSAMModel(FEmu.Spec.Model) then Machine := dmSAM
+  else if FEmu.Spec.CPC <> nil then Machine := dmCPC
+  else Machine := dmSpectrum;
+  Result := CheckDiskForMachine(Disk, FileName, Machine, Msg);
+  if not Result then FreeAndNil(Disk);
+end;
+
 function TMainWindow.InsertDiskFile(Drive: Integer; const FileName: string): Boolean;
 var
   Disk: TDiskImage;
+  Msg: string;
 begin
   Result := False;
-  Disk := TDiskImage.Create;
-  try
-    Disk.LoadFromFile(FileName);
-  except
-    on E: Exception do
-    begin
-      Disk.Free;
-      MessageDlg(E.Message, mtError, [mbOK], 0);
-      Exit;
-    end;
+  if not LoadDiskChecked(FileName, Disk, Msg) then
+  begin
+    MessageDlg(Msg, mtError, [mbOK], 0);
+    Exit;
   end;
   FEmu.Lock;
   try
-    FEmu.Spec.FDC.InsertDisk(Drive, Disk);
+    FEmu.Spec.InsertDiskAt(Drive, Disk);
   finally
     FEmu.Unlock;
   end;
@@ -2737,8 +3163,7 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   if not FEmu.Spec.Info.HasFDC then
-    MessageDlg('The disk is inserted, but only the +3 has a disk drive. ' +
-      'Switch to the +3 model to use it.', mtInformation, [mbOK], 0);
+    MessageDlg('The disk is inserted, but this computer has no disk drive.', mtInformation, [mbOK], 0);
   if DiskBrowserWindow <> nil then DiskBrowserWindow.Refresh;
   Result := True;
 end;
@@ -2762,7 +3187,7 @@ end;
 
 procedure TMainWindow.UpdateRecentDisksMenu;
 var
-  I, D: Integer;
+  I, D, Shown: Integer;
   Item, Sub: TMenuItem;
 begin
   // Both drives share the list; the tag says the drive (1000 for B) and entry
@@ -2770,39 +3195,54 @@ begin
   begin
     if D = 0 then Sub := FRecentDisksMenu else Sub := FRecentDisksMenuB;
     Sub.Clear;
+    Shown := 0;
     for I := 0 to Settings.RecentDisks.Count - 1 do
-    begin
-      Item := AddItem(Sub, Format('&%d %s', [I + 1, Settings.RecentDisks[I]]), @DoInsertRecentDisk);
-      Item.Tag := D * 1000 + I;
-    end;
-    Sub.Enabled := Settings.RecentDisks.Count > 0;
+      if (Shown < RECENT_SHOWN) and RecentFits(Settings.RecentDisks[I], 1) then
+      begin
+        Inc(Shown);
+        Item := AddItem(Sub, Format('&%d %s', [I + 1, Settings.RecentDisks[I]]), @DoInsertRecentDisk);
+        Item.Tag := D * 1000 + I;
+      end;
+    Sub.Enabled := Sub.Count > 0;
   end;
   FRecentCardsMenu.Clear;
+  Shown := 0;
   for I := 0 to Settings.RecentCards.Count - 1 do
-  begin
-    Item := AddItem(FRecentCardsMenu, Format('&%d %s', [I + 1, Settings.RecentCards[I]]),
-      @DoInsertRecentCard);
-    Item.Tag := I;
-  end;
-  FRecentCardsMenu.Enabled := Settings.RecentCards.Count > 0;
+    if (Shown < RECENT_SHOWN) and RecentFits(Settings.RecentCards[I], 2) then
+    begin
+      Inc(Shown);
+      Item := AddItem(FRecentCardsMenu, Format('&%d %s', [I + 1, Settings.RecentCards[I]]),
+        @DoInsertRecentCard);
+      Item.Tag := I;
+    end;
+  FRecentCardsMenu.Enabled := FRecentCardsMenu.Count > 0;
 end;
 
 procedure TMainWindow.DoInsertRecentDisk(Sender: TObject);
 var
   Index, Drive: Integer;
+  Path: string;
 begin
   Drive := (Sender as TComponent).Tag div 1000;
   Index := (Sender as TComponent).Tag mod 1000;
   if (Index < Settings.RecentDisks.Count) and ConfirmDiskChanges(Drive) then
-    InsertDiskFile(Drive, Settings.RecentDisks[Index]);
+  begin
+    Path := Settings.RecentDisks[Index];      // a copy: the list changes as it is inserted
+    InsertDiskFile(Drive, Path);
+  end;
 end;
 
 procedure TMainWindow.DoInsertRecentCard(Sender: TObject);
 var
   Index: Integer;
+  Path: string;
 begin
   Index := (Sender as TComponent).Tag;
-  if Index < Settings.RecentCards.Count then InsertSDCard(Settings.RecentCards[Index]);
+  if Index < Settings.RecentCards.Count then
+  begin
+    Path := Settings.RecentCards[Index];      // a copy: the list changes as it is inserted
+    InsertSDCard(Path);
+  end;
 end;
 
 procedure TMainWindow.DoDiskBrowser(Sender: TObject);
@@ -3101,7 +3541,7 @@ var
   Err: string;
 begin
   Drive := (Sender as TComponent).Tag;
-  Disk := FEmu.Spec.FDC.Disk(Drive);
+  Disk := FEmu.Spec.DiskAt(Drive);
   if Disk = nil then
   begin
     MessageDlg('There is no disk in that drive.', mtInformation, [mbOK], 0);
@@ -3271,15 +3711,21 @@ begin
   // Already formatted (+3 standard format, or AMSDOS's data format on a CPC), ready
   // for SAVE without FORMAT
   Disk := TDiskImage.Create;
-  if FEmu.Spec.CPC <> nil then Disk.CreateCPCFormatted else Disk.CreatePlus3Formatted;
+  if FEmu.Spec.CPC <> nil then Disk.CreateCPCFormatted
+  else if IsSAMModel(FEmu.Spec.Model) then
+  begin
+    Disk.Free;
+    Disk := NewSamDisk;
+  end
+  else Disk.CreatePlus3Formatted;
   FEmu.Lock;
   try
-    FEmu.Spec.FDC.InsertDisk(Drive, Disk);
+    FEmu.Spec.InsertDiskAt(Drive, Disk);
   finally
     FEmu.Unlock;
   end;
   if not FEmu.Spec.Info.HasFDC then
-    MessageDlg('The disk is inserted, but only the +3, the CPC 664 and the CPC 6128 have a disk drive.', mtInformation, [mbOK], 0);
+    MessageDlg('The disk is inserted, but this computer has no disk drive.', mtInformation, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoDiskEject(Sender: TObject);
@@ -3290,7 +3736,7 @@ begin
   if not ConfirmDiskChanges(Drive) then Exit;
   FEmu.Lock;
   try
-    FEmu.Spec.FDC.EjectDisk(Drive).Free;
+    FEmu.Spec.EjectDiskAt(Drive).Free;
   finally
     FEmu.Unlock;
   end;
@@ -3300,22 +3746,23 @@ procedure TMainWindow.DoDiskSave(Sender: TObject);
 var
   Dlg: TSaveDialog;
   Drive: Integer;
+  Msg: string;
 begin
   Drive := (Sender as TComponent).Tag;
-  if FEmu.Spec.FDC.Disk(Drive) = nil then
+  if FEmu.Spec.DiskAt(Drive) = nil then
   begin
     MessageDlg('There is no disk in that drive.', mtInformation, [mbOK], 0);
     Exit;
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := '+3 disk images (*.dsk)|*.dsk';
+    Dlg.Filter := SAVE_DISK_FILTER;
     Dlg.DefaultExt := 'dsk';
     // Where it was loaded from, if it was
-    if FEmu.Spec.FDC.Disk(Drive).FileName <> '' then
+    if FEmu.Spec.DiskAt(Drive).FileName <> '' then
     begin
-      Dlg.InitialDir := ExtractFilePath(FEmu.Spec.FDC.Disk(Drive).FileName);
-      Dlg.FileName := ExtractFileName(FEmu.Spec.FDC.Disk(Drive).FileName);
+      Dlg.InitialDir := ExtractFilePath(FEmu.Spec.DiskAt(Drive).FileName);
+      Dlg.FileName := ExtractFileName(FEmu.Spec.DiskAt(Drive).FileName);
     end
     else
       Dlg.InitialDir := Settings.LastDir;
@@ -3323,10 +3770,11 @@ begin
     if not Dlg.Execute then Exit;
     FEmu.Lock;
     try
-      FEmu.Spec.FDC.Disk(Drive).SaveToFile(Dlg.FileName);
+      Msg := SaveDiskImage(FEmu.Spec.DiskAt(Drive), Dlg.FileName);
     finally
       FEmu.Unlock;
     end;
+    if Msg <> '' then MessageDlg(Msg, mtError, [mbOK], 0);
   finally
     Dlg.Free;
   end;
@@ -3350,10 +3798,19 @@ begin
   FDisplay.Invalidate;
 end;
 
-{ The Kempston mouse is the Spectrum's }
+procedure TMainWindow.DoScanlines(Sender: TObject);
+begin
+  Settings.Scanlines := not Settings.Scanlines;
+  UpdateChecks;
+  RenderBitmap;
+  FDisplay.Invalidate;
+end;
+
+{ The Spectrum's Kempston mouse, or the SAM Coupe's }
 function TMainWindow.MouseOn: Boolean;
 begin
-  Result := Settings.KempstonMouse and (FEmu.Spec.CPC = nil);
+  if IsSAMModel(FEmu.Spec.Model) then Result := Settings.SamMouse
+  else Result := Settings.KempstonMouse and (FEmu.Spec.CPC = nil);
 end;
 
 procedure TMainWindow.DoDocumentation(Sender: TObject);
@@ -3377,11 +3834,35 @@ begin
     DY := Y - FMouseLast.Y + FMouseRemY;
     FMouseRemX := DX mod Scale;
     FMouseRemY := DY mod Scale;
-    FEmu.Spec.MouseX := Byte(FEmu.Spec.MouseX + DX div Scale);
-    FEmu.Spec.MouseY := Byte(FEmu.Spec.MouseY - DY div Scale);
+    if IsSAMModel(FEmu.Spec.Model) then
+    begin
+      FEmu.Lock;
+      try
+        FEmu.Spec.SAM.MouseMoved(DX div Scale, DY div Scale);
+      finally
+        FEmu.Unlock;
+      end;
+    end
+    else
+    begin
+      FEmu.Spec.MouseX := Byte(FEmu.Spec.MouseX + DX div Scale);
+      FEmu.Spec.MouseY := Byte(FEmu.Spec.MouseY - DY div Scale);
+    end;
   end;
   FMouseLast := Point(X, Y);
   FMouseHave := True;
+end;
+
+{ The SAM's button numbers: 1 left, 2 right, 3 middle }
+function SamMouseBit(Button: TMouseButton): Byte;
+begin
+  case Button of
+    mbLeft: Result := 1;
+    mbRight: Result := 2;
+    mbMiddle: Result := 4;
+  else
+    Result := 0;
+  end;
 end;
 
 function MouseBit(Button: TMouseButton): Byte;
@@ -3398,14 +3879,20 @@ end;
 procedure TMainWindow.DisplayMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  if MouseOn then
+  if not MouseOn then Exit;
+  if IsSAMModel(FEmu.Spec.Model) then
+    FEmu.Spec.SAM.MouseButtons := FEmu.Spec.SAM.MouseButtons or SamMouseBit(Button)
+  else
     FEmu.Spec.MouseButtons := FEmu.Spec.MouseButtons and not MouseBit(Button);
 end;
 
 procedure TMainWindow.DisplayMouseUp(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
-  if MouseOn then
+  if not MouseOn then Exit;
+  if IsSAMModel(FEmu.Spec.Model) then
+    FEmu.Spec.SAM.MouseButtons := FEmu.Spec.SAM.MouseButtons and not SamMouseBit(Button)
+  else
     FEmu.Spec.MouseButtons := FEmu.Spec.MouseButtons or MouseBit(Button);
 end;
 
@@ -3413,6 +3900,7 @@ procedure TMainWindow.DisplayMouseLeave(Sender: TObject);
 begin
   FMouseHave := False;
   FEmu.Spec.MouseButtons := $FF;
+  if IsSAMModel(FEmu.Spec.Model) then FEmu.Spec.SAM.MouseButtons := 0;
 end;
 
 
@@ -3553,6 +4041,11 @@ begin
   UpdateChecks;
 end;
 
+procedure TMainWindow.DoKeyboardGuide(Sender: TObject);
+begin
+  ShowKeyboardGuide(Self);
+end;
+
 procedure TMainWindow.DoSettings(Sender: TObject);
 begin
   FOldRomDir := Settings.RomDir;
@@ -3671,7 +4164,7 @@ var
       (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
-      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'monitor') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'monitor') or
       (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -3691,17 +4184,14 @@ var
   end;
 
   procedure InsertDisk(Drive: Integer; const FileName: string);
+  var
+    Msg: string;
+    Dos: TDiskImage;
   begin
-    Disk := TDiskImage.Create;
-    try
-      Disk.LoadFromFile(FileName);
-    except
-      on E: Exception do
-      begin
-        Disk.Free;
-        Errors := Errors + FileName + ': ' + E.Message + LineEnding;
-        Exit;
-      end;
+    if not LoadDiskChecked(FileName, Disk, Msg) then
+    begin
+      Errors := Errors + Msg + LineEnding;
+      Exit;
     end;
     FEmu.Lock;
     try
@@ -3709,7 +4199,10 @@ var
       begin
         if FEmu.Spec.CPC <> nil then FEmu.Spec.SetModel(smCPC6128) else FEmu.Spec.SetModel(smPlus3);
       end;
-      FEmu.Spec.FDC.InsertDisk(Drive, Disk);
+      Dos := nil;
+      if (Drive = 0) and CliSamDos then Dos := SamDosDisk;
+      if Dos <> nil then FEmu.Spec.SamDosThen(Dos, Disk)
+      else FEmu.Spec.InsertDiskAt(Drive, Disk);
     finally
       FEmu.Unlock;
     end;
@@ -3753,9 +4246,9 @@ begin
       Inc(I);
       if (Arg = '') or (Arg[1] <> '-') then
       begin
-        // The CPC machines by name: emu80 cpc464, cpc664 or cpc6128 (as --model)
+        // The CPC machines and the SAM Coupe by name: emu80 cpc464, cpc664, cpc6128 or sam (as --model)
         M := ModelFromName(LowerCase(Arg), smPlus3);
-        if IsCPCModel(M) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
+        if (IsCPCModel(M) or IsSAMModel(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
         begin
           NewModel := M;
           HaveModel := True;
@@ -3983,6 +4476,11 @@ begin
         if Value = 'auto' then Settings.CPCCrtc := -1
         else if (Length(Value) = 1) and (Value[1] in ['0'..'4']) then Settings.CPCCrtc := Ord(Value[1]) - 48
         else Errors := Errors + 'Unknown --cpc_crtc (auto, or the chip 0 to 4): ' + Value + LineEnding;
+      end
+      else if Arg = 'sam_memory' then
+      begin
+        if (Value = '256') or (Value = '512') then Settings.SamMemory := StrToInt(Value)
+        else Errors := Errors + 'Unknown --sam_memory (256 or 512): ' + Value + LineEnding;
       end
       else if Arg = 'zx_deinterlace' then
       begin

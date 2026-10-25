@@ -57,3 +57,8 @@ for non-commercial use, retaining the copyright. The files were taken from
 the Caprice32 emulator distribution (the same images as WinAPE's `OS464.ROM`
 + `BASIC1-0.ROM`, `OS664.ROM` + `BASIC664.ROM`, `OS6128.ROM` + `BASIC1-1.ROM`
 and `AMSDOS.ROM`).
+
+The SAM Coupé's 32K ROM of version 3.0 (`samcoupe.rom`, © MGT) and the SAMDOS 2 disk (`SAMDOS2.dsk`, which "Boot SAMDOS
+automatically" in Settings > SAM Coupé inserts and boots) are here. The SAM games and disks used to try the machine are not
+distributed. Another ROM can be chosen in Settings > Common > ROMs (SAM Coupé, ROM 0)
+or with `--rom "sam,0,FILE"`. Without it, choosing the SAM Coupé says the ROM is missing and the machine stays as it was.

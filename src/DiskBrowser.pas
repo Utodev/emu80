@@ -9,7 +9,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, DSK,
-  Plus3FS, Icons, Spectrum, PathTitle;
+  Plus3FS, SamdosFS, Icons, Spectrum, PathTitle;
 
 type
   TDiskBrowserWindow = class(TForm)
@@ -35,6 +35,9 @@ type
     function WithDisk(AAction: Integer; Index: Integer = -1; const Arg: string = '';
       const Data: TBytes = nil): Boolean;
     function SelectedIndex: Integer;
+    { The same on a SAMDOS disk (called with the emulator locked) }
+    procedure SamdosAction(Disk: TDiskImage; AAction: Integer; Index: Integer; const Arg: string;
+      const Data: TBytes);
     procedure DriveChange(Sender: TObject);
     { The drive list: only drives with a disk; moves to another drive if
       this one has none any more }
@@ -115,7 +118,7 @@ function AskOverwrite(const AName: string; Many: Boolean; var All: Boolean): Int
 implementation
 
 uses
-  Config;
+  Config, DiskFormat;
 
 function HasFileHeader(const Data: TBytes): Boolean;
 begin
@@ -541,7 +544,7 @@ end;
 
 function DriveAvailable(Spec: TSpectrum; Drive: Integer): Boolean;
 begin
-  Result := (Spec.FDC.Disk(Drive) <> nil) and ((Drive = 0) or Spec.FDC.DriveB);
+  Result := (Spec.DiskAt(Drive) <> nil) and ((Drive = 0) or Spec.DriveBOn);
 end;
 
 function DefaultDrive(Spec: TSpectrum): Integer;
@@ -732,7 +735,7 @@ begin
   FLastError := '';
   FEmu.Lock;
   try
-    Disk := FEmu.Spec.FDC.Disk(FDrive);
+    Disk := FEmu.Spec.DiskAt(FDrive);
     FLastDisk := Disk;
     if Disk = nil then
     begin
@@ -743,6 +746,13 @@ begin
     end;
     FLastModified := Disk.Modified;
     try
+      // A SAM Coupe disk is SAMDOS's: its directory isn't a CP/M one
+      if ClassifyDisk(Disk) = dkSAM then
+      begin
+        SamdosAction(Disk, AAction, Index, Arg, Data);
+        Result := True;
+        Exit;
+      end;
       FS := TPlus3Disk.Create(Disk);
       try
         case AAction of
@@ -817,6 +827,99 @@ begin
     FStatus.SimpleText := 'Can''t read the disk: ' + Error;
 end;
 
+{ A PC file for a SAMDOS disk: a +3DOS header (from the +3 browser, or the Spectrum's tools) says
+  its type and start; a plain file is CODE at 32768 }
+procedure SamFileFrom(const Data: TBytes; out Body: TBytes; out AType: Byte; out Start: Integer);
+var
+  Len: Integer;
+begin
+  AType := SAMDOS_TYPE_CODE;
+  Start := 32768;
+  Body := Data;
+  if HasFileHeader(Data) then
+  begin
+    case Data[15] of
+      FT_PROGRAM: AType := SAMDOS_TYPE_BASIC;
+      FT_NUMBERS: AType := SAMDOS_TYPE_NUMS;
+      FT_CHARS: AType := SAMDOS_TYPE_STRS;
+    else
+      AType := SAMDOS_TYPE_CODE;
+      Start := Data[18] + Data[19] * 256;
+    end;
+    Len := Length(Data) - PLUS3_HEADER_SIZE;
+    SetLength(Body, Len);
+    if Len > 0 then Move(Data[PLUS3_HEADER_SIZE], Body[0], Len);
+  end;
+end;
+
+procedure TDiskBrowserWindow.SamdosAction(Disk: TDiskImage; AAction: Integer; Index: Integer;
+  const Arg: string; const Data: TBytes);
+var
+  FS: TSamdosDisk;
+  F: TSamFile;
+  Item: TListItem;
+  I, Selected, Start: Integer;
+  Body: TBytes;
+  AType: Byte;
+  StartText, Attr, Suffix: string;
+begin
+  FS := TSamdosDisk.Create(Disk);
+  try
+    case AAction of
+      ACT_READ: ReadData := FS.ReadFile(Index);
+      ACT_WRITE, ACT_REPLACE:
+        begin
+          if AAction = ACT_REPLACE then
+          begin
+            I := FS.FindFile(Arg);
+            if I >= 0 then FS.DeleteFile(I);
+          end;
+          SamFileFrom(Data, Body, AType, Start);
+          FS.WriteFile(Arg, Body, AType, Start);
+        end;
+      ACT_RENAME: FS.RenameFile(Index, Arg);
+      ACT_DELETE: FS.DeleteFile(Index);
+      ACT_FIND: FoundIndex := FS.FindFile(Arg);
+    end;
+    Selected := SelectedIndex;
+    FList.Items.BeginUpdate;
+    try
+      FList.Items.Clear;
+      for I := 0 to FS.Count - 1 do
+      begin
+        F := FS[I];
+        Item := FList.Items.Add;
+        Item.Caption := F.Name;
+        Item.Data := Pointer(PtrInt(I));
+        Item.SubItems.Add(FS.TypeName(I));
+        // Where it starts: the page and the address in it
+        StartText := '';
+        if F.FileType in [SAMDOS_TYPE_CODE, SAMDOS_TYPE_SCREEN] then
+          StartText := Format('page %d:%.4X', [F.StartPage and $1F, F.Offset]);
+        Item.SubItems.Add(StartText);
+        Item.SubItems.Add(IntToStr(F.Length));
+        Item.SubItems.Add(IntToStr(F.Sectors * 512));
+        Attr := '';
+        if F.Hidden then Attr := Attr + 'hidden ';
+        if F.Protected then Attr := Attr + 'protected';
+        Item.SubItems.Add(Trim(Attr));
+        if I = Selected then Item.Selected := True;
+      end;
+    finally
+      FList.Items.EndUpdate;
+    end;
+    FStatus.SimpleText := Format('%d files (SAMDOS), %dK free', [FS.Count, FS.FreeBytes div 1024]);
+    if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
+    if Disk.FileName <> '' then
+      FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
+    else
+      FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
+    FLastModified := Disk.Modified;
+  finally
+    FS.Free;
+  end;
+end;
+
 procedure TDiskBrowserWindow.Refresh;
 begin
   WithDisk(ACT_LIST);
@@ -832,7 +935,7 @@ begin
   // Follow disk changes, and writes made by the emulated +3
   FEmu.Lock;
   try
-    Disk := FEmu.Spec.FDC.Disk(FDrive);
+    Disk := FEmu.Spec.DiskAt(FDrive);
     DiskChanged := (Disk <> FLastDisk) or ((Disk <> nil) and (Disk.Modified <> FLastModified));
   finally
     FEmu.Unlock;

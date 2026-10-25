@@ -55,6 +55,12 @@ type
     CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
     CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
     CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
+    SamSaa: Boolean;              // SAM Coupe: the SAA1099 sound generator is heard
+    SamJoystick: Boolean;         // SAM Coupe: the cursor keys and right Ctrl are also a joystick (Kempston)
+    SamMouse: Boolean;            // SAM Coupe: a mouse is connected (the PC's mouse over the picture)
+    SamClock: Boolean;            // SAM Coupe: the SAMBUS clock interface is connected
+    SamAutoDos: Boolean;          // SAM Coupe: SAMDOS2.dsk is inserted and booted on start, reset and model change
+    SamMemory: Integer;           // SAM Coupe: the RAM in K, 256 or 512
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
@@ -123,7 +129,8 @@ type
   end;
 
 const
-  MAX_RECENT = 8;
+  MAX_RECENT = 30;      // kept, newest first
+  RECENT_SHOWN = 10;    // listed in the Open recent menus: the machine's own are a few among those kept
   MAX_POKES = 20;
   { What the cursor keys emulate, as in --zx_joystick and the settings file }
   { As in --zx_deinterlace and the settings file }
@@ -131,7 +138,7 @@ const
   { The monitors, as in --monitor and the settings file }
   MONITOR_KEYS: array[0..3] of string = ('color', 'bw', 'green', 'orange');
   MONITOR_NAMES: array[0..3] of string = ('Colour', 'Black and white', 'Green phosphor',
-    'Orange phosphor');
+    'Orange phosphor (amber)');
   { The CRTC chips, types 0 to 4 }
   CRTC_NAMES: array[0..4] of string = ('HD6845S / UM6845', 'UM6845R', 'MC6845', 'AMS40489 (CPC+ ASIC)',
     'AMS40226 (pre-ASIC)');
@@ -151,8 +158,9 @@ const
     both, no prefix, the older ones }
   SEC_ZX = 'ZXSpectrum';
   SEC_CPC = 'AmstradCPC';
+  SEC_SAM = 'SAMCoupe';
 
-  BOOL_OPTIONS: array[0..23] of TBoolOption = (
+  BOOL_OPTIONS: array[0..28] of TBoolOption = (
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'zx_contention'; Section: SEC_ZX),
     (Name: 'zx_snow'; Section: SEC_ZX),
@@ -170,6 +178,11 @@ const
     (Name: 'zx_savetotape'; Section: SEC_ZX),
     (Name: 'cpc_joystick'; Section: SEC_CPC),
     (Name: 'cpc_waitstates'; Section: SEC_CPC),
+    (Name: 'sam_saa'; Section: SEC_SAM),
+    (Name: 'sam_joystick'; Section: SEC_SAM),
+    (Name: 'sam_autodos'; Section: SEC_SAM),
+    (Name: 'sam_mouse'; Section: SEC_SAM),
+    (Name: 'sam_clock'; Section: SEC_SAM),
     (Name: 'fastload'; Section: 'TapeDisk'),
     (Name: 'autoplay'; Section: 'TapeDisk'),
     (Name: 'tapeloop'; Section: 'TapeDisk'),
@@ -376,6 +389,12 @@ begin
   CPCJoystick := True;
   CPCWaitStates := True;
   CPCCrtc := -1;
+  SamSaa := True;
+  SamJoystick := True;
+  SamAutoDos := True;
+  SamMouse := False;
+  SamClock := True;
+  SamMemory := 512;
   NextFirmware := True;
   RealSpecNext := False;
   RealSpecNextCmd := False;
@@ -470,6 +489,11 @@ begin
     'zx_currah': Result := @Currah;
     'cpc_joystick': Result := @CPCJoystick;
     'cpc_waitstates': Result := @CPCWaitStates;
+    'sam_saa': Result := @SamSaa;
+    'sam_joystick': Result := @SamJoystick;
+    'sam_autodos': Result := @SamAutoDos;
+    'sam_mouse': Result := @SamMouse;
+    'sam_clock': Result := @SamClock;
     'zx_nextfirmware': Result := @NextFirmware;
     'fastload': Result := @FastLoad;
     'autoplay': Result := @AutoPlayTape;
@@ -542,6 +566,7 @@ function OptionSection(const NewName: string; const Default: string): string;
 begin
   if Copy(NewName, 1, 3) = 'zx_' then Result := SEC_ZX
   else if Copy(NewName, 1, 4) = 'cpc_' then Result := SEC_CPC
+  else if Copy(NewName, 1, 4) = 'sam_' then Result := SEC_SAM
   else Result := Default;
 end;
 
@@ -612,6 +637,8 @@ begin
   S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_crtc', ''));
   if S = 'auto' then CPCCrtc := -1
   else if (Length(S) = 1) and (S[1] in ['0'..'4']) then CPCCrtc := Ord(S[1]) - 48;
+  I := Ini.ReadInteger(SEC_SAM, 'sam_memory', SamMemory);
+  if (I = 256) or (I = 512) then SamMemory := I;
   // The monitor; older files had "bw", an on/off for the black and white display
   if Ini.ValueExists('General', 'bw') and Ini.ReadBool('General', 'bw', False) then Monitor := 1;
   S := LowerCase(Ini.ReadString('General', 'monitor', ''));
@@ -665,6 +692,7 @@ begin
   Put(SEC_ZX, 'zx_deinterlace', DEINTERLACE_KEYS[Deinterlace]);
   if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
+  Put(SEC_SAM, 'sam_memory', IntToStr(SamMemory));
   Put('General', 'monitor', MONITOR_KEYS[Monitor]);
   Ini.DeleteKey('General', 'bw');
   Put('ROMs', 'romdir', RomDir);
