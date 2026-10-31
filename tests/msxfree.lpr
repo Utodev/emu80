@@ -14,7 +14,9 @@
     msxfree picdiff <roms A> <roms B> <frames> [-cart FILE] [-type TEXT]
         prints how many pixels differ (%) between the two pictures after that many frames
   MSXFREE_COMPAT=1 uses the MSX1 slot layout (no expanded slot, no disk);
-  -tape FILE puts a .cas or .tsx in and plays it; MSXFREE_KEYS=frame=text[|frame=text...] types more
+  MSXFREE_TIMED=1 runs the disk drive at real speed (seek and rotation times; the default is fast disk access);
+  -tape FILE puts a .cas or .tsx in and plays it; -disk FILE puts a disk image (.dsk) in drive A: (the folder
+  needs a disk ROM, msx/PHILIPSDISK.rom, that suits its main ROM: QUANTIKA_DISK.ROM under that name for QUANTIKA); MSXFREE_KEYS=frame=text[|frame=text...] types more
   text at those frames of the run that types -type
     msxfree exec <roms folder> <file.bin> [frames] [-type TEXT] [-tape FILE.cas]
         boots (700 frames), loads the program at C000h, runs it from there and prints the screen text
@@ -41,7 +43,7 @@ program msxfree;
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Classes, Types, Models, Spectrum, Msx, MsxMachine, MsxVdp;
+  SysUtils, Classes, Types, Models, Spectrum, Msx, MsxMachine, MsxVdp, DSK, DiskFormat;
 
 type
   TEntry = record
@@ -50,7 +52,7 @@ type
   end;
 
 var
-  CartFile, TypeText, TapeFile: string;
+  CartFile, TypeText, TapeFile, DiskFile: string;
 
 function ReadAll(const FileName: string): TBytes;
 var
@@ -69,6 +71,9 @@ end;
 function Boot(const Roms: string): TSpectrum;
 var
   Data: TBytes;
+  Disk: TDiskImage;
+  Problem: TDiskProblem;
+  Err: string;
 begin
   Result := TSpectrum.Create(smMSX2, Roms);
   // MSXFREE_COMPAT=1: the MSX1 slot layout (no expanded slot)
@@ -76,6 +81,17 @@ begin
   begin
     Result.MsxCompat := True;
     Result.Reset(True);
+  end;
+  Result.SetFastDisk(GetEnvironmentVariable('MSXFREE_TIMED') = '');
+  if DiskFile <> '' then
+  begin
+    Disk := LoadDiskImage(DiskFile, Problem, Err);
+    if Disk = nil then
+    begin
+      WriteLn('the disk ', DiskFile, ': ', Err);
+      Halt(2);
+    end;
+    Result.InsertDiskAt(0, Disk);
   end;
   if TapeFile <> '' then
   begin
@@ -200,7 +216,8 @@ begin
   try
     RunFrames(Sp, Frames, True);
     Write(ScreenText(Sp.MSXHw.Vdp));
-    WriteLn('mode=', Sp.MSXHw.Vdp.Mode, ' PC=', IntToHex(Sp.Cpu.PC.W, 4), ' A8=', IntToHex(Sp.MSXHw.Slots.PrimaryReg, 2));
+    WriteLn('mode=', Sp.MSXHw.Vdp.Mode, ' PC=', IntToHex(Sp.Cpu.PC.W, 4), ' A8=', IntToHex(Sp.MSXHw.Slots.PrimaryReg, 2),
+      ' disk=', Ord(Sp.MSXHw.HasDisk));
     // MSXFREE_VRAM=file: the 128K of VRAM too
     if GetEnvironmentVariable('MSXFREE_VRAM') <> '' then
       with TFileStream.Create(GetEnvironmentVariable('MSXFREE_VRAM'), fmCreate) do
@@ -739,6 +756,7 @@ begin
   CartFile := '';
   TypeText := '';
   TapeFile := '';
+  DiskFile := '';
   SetLength(Pos0, 0);
   I := 1;
   while I <= ParamCount do
@@ -746,6 +764,7 @@ begin
     if (ParamStr(I) = '-cart') and (I < ParamCount) then begin CartFile := ParamStr(I + 1); Inc(I); end
     else if (ParamStr(I) = '-type') and (I < ParamCount) then begin TypeText := ParamStr(I + 1); Inc(I); end
     else if (ParamStr(I) = '-tape') and (I < ParamCount) then begin TapeFile := ParamStr(I + 1); Inc(I); end
+    else if (ParamStr(I) = '-disk') and (I < ParamCount) then begin DiskFile := ParamStr(I + 1); Inc(I); end
     else
     begin
       SetLength(Pos0, Length(Pos0) + 1);

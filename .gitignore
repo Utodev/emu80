@@ -115,11 +115,12 @@ specnext/*
 *.ppu
 **/*.o
 **/*.ppu
+TO-DO.TXT
 
 
 
-# The original MSX system ROMs: supplied by the user, never distributed (the free ones, QUANTIKA.ROM and
-# QUANTIKA_SUB.ROM, are)
+# The original MSX system ROMs: supplied by the user, never distributed (the free ones, QUANTIKA.ROM,
+# QUANTIKA_SUB.ROM and QUANTIKA_DISK.ROM, are)
 roms/msx/MSX2.rom
 roms/msx/MSX2EXT.rom
 roms/msx/PHILIPSDISK.rom

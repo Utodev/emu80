@@ -921,7 +921,8 @@ machine), and the programs that size themselves by the memory left by DOS get mo
 **ROMs.** The MSX2 runs on emu80's own ROMs, QUANTIKA: `roms/msx/QUANTIKA.ROM` (the 32K BIOS with FBASIC, a BASIC
 compatible with MSX-BASIC 2.1; the machine starts with "QUANTIKA ROM with FBASIC 1.0", the date and time of the build and
 its RAM and VRAM, white on dark blue, and its bottom row shows the date and time instead of the function keys) and
-`roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM). They come with emu80 and are still being completed. To use the original ROMs
+`roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM), with `roms/msx/QUANTIKA_DISK.ROM` for the disk interface (see Disks below). They
+come with emu80 and are still being completed. To use the original ROMs
 instead, look for `MSX2.rom` (the 32K BIOS and MSX-BASIC 2 of an MSX2) and `MSX2EXT.rom` (its 16K sub-ROM), and for a
 disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` and choose them with
 `--rom "msx2,0,FILE"`, `--rom "msx2,1,FILE"` and `--rom "msx2,2,FILE"` (the disk interface) or in Settings > Common > ROMs, where
@@ -999,8 +1000,10 @@ tape is not emulated.
 default): copy the disk ROM of a Philips MSX (the `PHILIPSDISK.rom` of its disk interface or the machine's own) to
 `roms/msx/PHILIPSDISK.rom` and choose it there. It is the Philips WD2793
 interface with MSX-DOS 1 in its ROM (its registers at 7FF8h-7FFFh), with drive A: (and B: if "Drive B connected" is on).
-Without the ROM the machine has no disk drive (the Floppy menu says so). Nor with emu80's own main ROM (`QUANTIKA.ROM`, the default): the disk
-interface's ROM calls into the original BASIC and cannot run on it, so it is left out. The disk images are raw sectors (`.dsk`): 720K
+Without the ROM the machine has no disk drive (the Floppy menu says so). The disk ROM must suit the main ROM: `PHILIPSDISK.rom`
+calls into the original BASIC and cannot run on emu80's own main ROM (`QUANTIKA.ROM`, the default), so with it the interface is
+left out. emu80's own disk ROM, `roms/msx/QUANTIKA_DISK.ROM`, is for the QUANTIKA ROMs only (with the original main ROM it is
+left out the same way); it is still being written and does not read disks yet, so it is not chosen by default. The disk images are raw sectors (`.dsk`): 720K
 (80 cylinders, 2 sides, 9 sectors of 512 bytes), 360K (40 cylinders, 2 sides, or 80 cylinders and 1 side; told apart by the
 boot sector's media byte), and 180K, 320K and 160K ones; they are FAT12 volumes, and a .dsk is saved back as raw sectors
 (never converted to an Amstrad DSK). **File > Open** of a `.dsk` inserts it in drive A: and restarts the machine, which

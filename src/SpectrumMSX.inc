@@ -9,11 +9,9 @@ var
   Path: string;
   Hw: TMsxMachine;
 
-  { The QUANTIKA main ROM (the default; its banner says "QUANTIKA ROM with FBASIC 1.0") cannot run the original disk
-    ROM, which calls into the original BASIC (the machine would hang at boot): with it there is no disk drive }
-  function IsFreeBios(const FileName: string): Boolean;
-  const
-    MARK = 'with FBASIC';
+  { Whether the file has that text: the QUANTIKA main ROM (the default) says "with FBASIC" in its banner, and the
+    QUANTIKA disk ROM has "QUANTIKA disk ROM" in its header }
+  function FileHas(const FileName, Mark: string): Boolean;
   var
     F: TFileStream;
     Data: AnsiString;
@@ -27,7 +25,7 @@ var
       finally
         F.Free;
       end;
-      Result := Pos(MARK, Data) > 0;
+      Result := Pos(Mark, Data) > 0;
     except
       Result := False;
     end;
@@ -40,10 +38,13 @@ begin
     Hw.LoadBios(RomPath(0));
     Hw.SetCompat(FMsxCompat);
     Hw.LoadSubRom(RomPath(1));
-    // The disk interface's ROM is optional (none by default): without it there is no drive (nor with the free main
-    // ROM, nor in the MSX1 layout: there is no expanded slot for it)
+    // The disk interface's ROM is optional: without it there is no drive (nor in the MSX1 layout: there is no expanded
+    // slot for it). It must suit the main ROM: the QUANTIKA disk ROM works only with the QUANTIKA main ROM, and the
+    // original disk ROM only with the original main ROM (it calls into the original BASIC: on QUANTIKA it would hang
+    // at boot); a pair that does not match leaves the drive out
     Path := RomPath(2);
-    if (Path <> '') and FileExists(Path) and not IsFreeBios(RomPath(0)) and not FMsxCompat then Hw.InstallDisk(Path, FWD, @MSXNow)
+    if (Path <> '') and FileExists(Path) and not FMsxCompat and
+      (FileHas(RomPath(0), 'with FBASIC') = FileHas(Path, 'QUANTIKA disk ROM')) then Hw.InstallDisk(Path, FWD, @MSXNow)
     else if Hw.HasDisk then Hw.RemoveDisk;
   except
     if Hw <> FMsxHw then Hw.Free;

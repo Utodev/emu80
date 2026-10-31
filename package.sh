@@ -11,7 +11,7 @@
 # (tests/csharp/Emu80HostDemo: its sources, build.bat and, in the .zip, the
 # program built, which runs with --selftest). The library is built, if it
 # isn't there, with src/lib/build-lib.sh.
-# The MSX2's ROMs (roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM) are built first from their own project,
+# The MSX2's ROMs (roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM and QUANTIKA_DISK.ROM) are built first from their own project,
 # ../quantika (its build.sh and install.sh); without it, the ones already in roms/msx go. The original MSX
 # ROMs that may be in roms/msx (MSX2.rom, MSX2EXT.rom, PHILIPSDISK.rom) are never packaged.
 # The .AppImage needs appimagetool (see the end of this file).
@@ -44,7 +44,8 @@ if [ -x "$QUANTIKA/build.sh" ]; then
 else
   echo "../quantika not found: the QUANTIKA ROMs in roms/msx go as they are" >&2
 fi
-[ -f roms/msx/QUANTIKA.ROM ] && [ -f roms/msx/QUANTIKA_SUB.ROM ] || { echo "roms/msx/QUANTIKA.ROM or QUANTIKA_SUB.ROM is missing" >&2; exit 1; }
+[ -f roms/msx/QUANTIKA.ROM ] && [ -f roms/msx/QUANTIKA_SUB.ROM ] && [ -f roms/msx/QUANTIKA_DISK.ROM ] || {
+  echo "roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM or QUANTIKA_DISK.ROM is missing" >&2; exit 1; }
 # Files of roms that are never distributed (the original MSX ROMs, supplied by the user)
 NOT_PACKAGED="msx/MSX2.rom msx/MSX2EXT.rom msx/PHILIPSDISK.rom"
 

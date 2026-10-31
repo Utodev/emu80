@@ -186,14 +186,14 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/msxrun.lpr" > "$BUIL
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/msxrun" "$ROOT/roms"
 
-# The MSX2's default ROMs: QUANTIKA (roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM, made by their own project,
+# The MSX2's default ROMs: QUANTIKA (roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM and QUANTIKA_DISK.ROM, made by their own project,
 # ../quantika, which package.sh builds). They must boot to FBASIC in a text mode, with no logo and no pause,
 # and have no machine name in them; with the original ROMs and ../quantika here, the test programs of that
 # project must give the same results on both (tests/fbasic-difftests.sh; it needs sjasmplus.exe).
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/msxfree.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
-if [ ! -f "$ROOT/roms/msx/QUANTIKA.ROM" ] || [ ! -f "$ROOT/roms/msx/QUANTIKA_SUB.ROM" ]; then
-  echo "FAIL  roms/msx/QUANTIKA.ROM or QUANTIKA_SUB.ROM is missing (the emulator's default MSX2 ROMs)"; exit 1
+if [ ! -f "$ROOT/roms/msx/QUANTIKA.ROM" ] || [ ! -f "$ROOT/roms/msx/QUANTIKA_SUB.ROM" ] || [ ! -f "$ROOT/roms/msx/QUANTIKA_DISK.ROM" ]; then
+  echo "FAIL  roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM or QUANTIKA_DISK.ROM is missing (the emulator's MSX2 ROMs)"; exit 1
 fi
 FREEROMS="$BUILD/freeroms"
 mkdir -p "$FREEROMS/msx"
@@ -210,7 +210,7 @@ if "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1
   "$BUILD/msxfree" screen "$FREEROMS" 20 | grep -q "QUANTIKA ROM with FBASIC 1.0" || {
     echo "FAIL  the QUANTIKA ROMs take too long to show the banner (a pause at boot?)"; exit 1; }
   # the machine's name is not in them
-  for R in "$ROOT"/roms/msx/QUANTIKA.ROM "$ROOT"/roms/msx/QUANTIKA_SUB.ROM; do
+  for R in "$ROOT"/roms/msx/QUANTIKA.ROM "$ROOT"/roms/msx/QUANTIKA_SUB.ROM "$ROOT"/roms/msx/QUANTIKA_DISK.ROM; do
     if LC_ALL=C grep -aqi "msx" "$R"; then echo "FAIL  $(basename "$R") contains the text MSX"; exit 1; fi
   done
   echo "ok    roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM boot to FBASIC (no logo, no pause, no machine name)"
@@ -218,6 +218,24 @@ if "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1
   MSXFREE_COMPAT=1 "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1.0" || {
     echo "FAIL  the QUANTIKA ROMs do not boot with the MSX1 slot layout"; exit 1; }
   echo "ok    the QUANTIKA ROMs boot with the MSX1 slot layout (no expanded slot)"
+  # with the QUANTIKA disk ROM (in a folder of its own, under the original's name) the machine boots with its disk
+  # interface; the original disk ROM is left out with the QUANTIKA main ROM (it would hang the machine)
+  FREEDISK="$BUILD/freedisk"
+  mkdir -p "$FREEDISK/msx"
+  cp -f "$FREEROMS/msx/MSX2.rom" "$FREEROMS/msx/MSX2EXT.rom" "$FREEDISK/msx/"
+  cp -f "$ROOT/roms/msx/QUANTIKA_DISK.ROM" "$FREEDISK/msx/PHILIPSDISK.rom"
+  OUTPUT=$("$BUILD/msxfree" screen "$FREEDISK" 300)
+  echo "$OUTPUT" | grep -q "QUANTIKA ROM with FBASIC 1.0" && echo "$OUTPUT" | tail -1 | grep -q " disk=1" || {
+    echo "FAIL  the QUANTIKA ROMs do not boot with QUANTIKA_DISK.ROM in the disk interface"; exit 1; }
+  echo "ok    the QUANTIKA ROMs boot with QUANTIKA_DISK.ROM in the disk interface"
+  if [ -f "$ROOT/roms/msx/PHILIPSDISK.rom" ]; then
+    cp -f "$ROOT/roms/msx/PHILIPSDISK.rom" "$FREEDISK/msx/PHILIPSDISK.rom"
+    OUTPUT=$("$BUILD/msxfree" screen "$FREEDISK" 300)
+    echo "$OUTPUT" | grep -q "QUANTIKA ROM with FBASIC 1.0" && echo "$OUTPUT" | tail -1 | grep -q " disk=0" || {
+      echo "FAIL  the original disk ROM is not left out with the QUANTIKA main ROM"; exit 1; }
+    cp -f "$ROOT/roms/msx/QUANTIKA_DISK.ROM" "$FREEDISK/msx/PHILIPSDISK.rom"
+    echo "ok    the original disk ROM is left out with the QUANTIKA main ROM"
+  fi
 else
   echo "FAIL  roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM do not boot to FBASIC"; exit 1
 fi
