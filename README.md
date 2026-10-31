@@ -83,7 +83,7 @@ also shown by Help > Documentation, F1).
   four screen modes with its 128-colour palette, line and frame interrupts, the 72-key matrix, the WD1772 disk
   controller on MGT, SAD and DSK images, the SAA1099 sound chip in stereo, tapes in real time (and recording)
   and its Kempston joystick; its ROM is not included.
-- Joysticks on the cursor keys + right Ctrl: Kempston, Sinclair Interface 2 (1 or
+- Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
 - SNA and Z80 (v1/v2/v3) snapshots, load and save; emu80's own .e80 snapshots of every model (the
@@ -155,9 +155,9 @@ On an Amstrad CPC or a SAM Coupé the Spectrum's extra hardware
 
 | PC key | Spectrum |
 |---|---|
-| Left Ctrl | CAPS SHIFT (the left Shift instead, if "Use left Shift as CAPS instead of left Ctrl" is on; see below) |
+| Left Shift | CAPS SHIFT (the left Ctrl instead, if "Make Left Ctrl be CAPS SHIFT instead of Left Shift" is on; see below) |
 | Right Shift | SYMBOL SHIFT |
-| Right Ctrl | nothing (fire, if the joystick option below uses it) |
+| Ctrl | nothing (fire, if the joystick option below uses it) |
 | Backspace, Delete | DELETE (CAPS + 0) |
 | Cursor keys | CAPS + 5/6/7/8, or a joystick (see below) |
 | Esc | BREAK (CAPS + SPACE) |
@@ -169,9 +169,9 @@ On an Amstrad CPC or a SAM Coupé the Spectrum's extra hardware
 | Page Down | GRAPHICS (CAPS + 9) |
 | `,` `.` `-` `=` `;` `'` `/` | the matching SYMBOL SHIFT characters |
 
-CAPS SHIFT is the left Ctrl by default. Settings > ZX Spectrum > Machine > Controls has "Use left Shift as CAPS
-instead of left Ctrl" (`--zx_leftshift`, `zx_leftshift`; off by default): when on, the left Shift is CAPS SHIFT, the
-left Ctrl does nothing as a key and, like the right one, is the joystick's fire.
+CAPS SHIFT is the left Shift by default. Settings > ZX Spectrum > Machine > Controls has "Make Left Ctrl be CAPS SHIFT
+instead of Left Shift" (`--zx_leftctrl`, `zx_leftctrl`; off by default): when on, the left Ctrl is CAPS SHIFT, the left
+Shift does nothing and only the right Ctrl is the joystick's fire.
 
 The keys that are two Spectrum keys at once (all of the above but Shift and Ctrl, and `,` `.`
 `;` `'`) are the extra keys of the ZX Spectrum Next's keyboard: on the Next they also show alone
@@ -231,8 +231,8 @@ joystick" (Settings > SAM Coupé, `--sam_joystick`, on by default) the cursor ke
 below does not apply to the SAM Coupé. On the SAM Coupé's first screen (the rainbow) the ROM waits for a key; F9 in BASIC
 (keypad 9) types `BOOT`.
 
-**Joystick**: Settings > ZX Spectrum > Machine chooses what the cursor keys plus the right Ctrl key (fire; either Ctrl
-with the left Shift as CAPS SHIFT, see above) emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
+**Joystick**: Settings > ZX Spectrum > Machine chooses what the cursor keys plus either Ctrl key (fire; only the right
+one when the left Ctrl is CAPS SHIFT, see above) emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
 Interface 2 joystick 1 (keys 6-0) or joystick 2 (keys 1-5), a Cursor/Protek/AGF joystick (keys
 5-8 and 0) or a Fuller joystick (port `7F`). Only the chosen interface is connected. By default
 it is a Kempston joystick.
@@ -414,7 +414,7 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 | `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
 | `[Screenshot]` | `pngborder` |
-| `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_leftshift`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
+| `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_leftctrl`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
 | `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
 
 The recent files, pokes and last folder are kept in sections of their own. An emu80.ini from an
@@ -1849,11 +1849,11 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--scanlines` | scanlines, from zoom 2x | Common > General |
 | `--attachmouse` | the PC mouse can't leave the picture while the emulated mouse is in use (off by default); `--no-attachmouse` | Common > General |
 | `--zx_deinterlace M` | how the picture is deinterlaced: `progressive`, `bob` or `weave` (the default) (see [Deinterlacing](#deinterlacing)) | ZX Spectrum > Machine, Options menu |
-| `--zx_joystick J` | what the cursor keys + right Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | ZX Spectrum > Machine |
+| `--zx_joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | ZX Spectrum > Machine |
 | `--zx_issue N` | keyboard issue 2 or 3 | ZX Spectrum > Machine |
 | `--zx_turbosound` | TurboSound | ZX Spectrum > Hardware |
 | `--zx_ay48` | AY chip on the 16K/48K | Hardware |
-| `--zx_leftshift` | the left Shift is CAPS SHIFT instead of the left Ctrl (off by default) | Machine > Controls |
+| `--zx_leftctrl` | the left Ctrl is CAPS SHIFT instead of the left Shift (off by default) | Machine > Controls |
 | `--zx_kmouse` | Kempston mouse | ZX Spectrum > Hardware |
 | `--zx_divmmc` | DivMMC interface | ZX Spectrum > Hardware |
 | `--zx_currah` | Currah µSpeech | ZX Spectrum > Hardware |

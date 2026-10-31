@@ -114,6 +114,7 @@ type
     FPCKeyTime: array[0..255] of QWord;     // when each PC key went down
     FPendingUp: array[0..255] of QWord;     // delayed key-up due time, 0 = none
     FKeyTimer: TTimer;
+    FModTimer: TTimer;           // Windows: reads the left and right Shift and Ctrl from the keyboard itself
     FKempstonBits: Byte;
     FMouseLast: TPoint;          // last position over the display (Kempston mouse)
     FMouseHave: Boolean;
@@ -122,6 +123,10 @@ type
     FMouseClipped: Boolean;      // the PC mouse is held inside the window
     FClipTimer: TTimer;
     procedure KeyTimerTick(Sender: TObject);
+    procedure ModTimerTick(Sender: TObject);
+    procedure SyncModifiers;
+    procedure PressPCKey(Key: Word);
+    procedure ReleaseHeldKey(Key: Word);
     procedure LedTick(Sender: TObject);
     procedure DrawMediaPanel(StatusBar: TStatusBar; Panel: TStatusPanel; const Rect: TRect);
     procedure ReleasePCKey(Key: Word);
@@ -351,7 +356,12 @@ uses
 {$IFDEF WINDOWS}
 { (The Windows unit would hide SysUtils' DeleteFile and others) }
 function WinClipCursor(lpRect: Pointer): LongBool; stdcall; external 'user32' name 'ClipCursor';
+function WinGetAsyncKeyState(vKey: LongInt): SmallInt; stdcall; external 'user32' name 'GetAsyncKeyState';
 {$ENDIF}
+
+const
+  // The Shifts and Ctrls, whose left and right keys Windows reports unreliably (see SyncModifiers)
+  MODIFIER_KEYS = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL];
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -545,6 +555,11 @@ begin
   FKeyTimer.Interval := 10;
   FKeyTimer.Enabled := False;
   FKeyTimer.OnTimer := @KeyTimerTick;
+  {$IFDEF WINDOWS}
+  FModTimer := TTimer.Create(Self);
+  FModTimer.Interval := 10;
+  FModTimer.OnTimer := @ModTimerTick;
+  {$ENDIF}
 
   // Keeps the PC mouse in the window when it is attached to it
   FClipTimer := TTimer.Create(Self);
@@ -1776,7 +1791,7 @@ begin
   // Cursor keys and Ctrl as a joystick: the right one, and the left one too when it is not CAPS SHIFT
   if (Settings.Joystick <> jkNone) and
      ((Key in [VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_RCONTROL]) or
-      (Settings.LeftShiftCaps and (Key in [VK_CONTROL, VK_LCONTROL]))) then
+      (not Settings.LeftCtrlCaps and (Key in [VK_CONTROL, VK_LCONTROL]))) then
   begin
     case Key of
       VK_LEFT: Dir := 0;
@@ -1803,10 +1818,10 @@ begin
     VK_NUMPAD0..VK_NUMPAD9: Press(Digits[Chr(Ord('0') + Key - VK_NUMPAD0)]);
     VK_RETURN: Press(KEY_ENTER);
     VK_SPACE: Press(KEY_SPACE);
-    // Left Ctrl is CAPS SHIFT (or the left Shift, with zx_leftshift) and right Shift SYMBOL SHIFT
+    // Left Shift is CAPS SHIFT (or the left Ctrl, with zx_leftctrl) and right Shift SYMBOL SHIFT
     // (FormKeyDown/Up tell left from right)
-    VK_SHIFT, VK_LSHIFT: if Settings.LeftShiftCaps then Press(KEY_CAPS);
-    VK_CONTROL, VK_LCONTROL: if not Settings.LeftShiftCaps then Press(KEY_CAPS);
+    VK_SHIFT, VK_LSHIFT: if not Settings.LeftCtrlCaps then Press(KEY_CAPS);
+    VK_CONTROL, VK_LCONTROL: if Settings.LeftCtrlCaps then Press(KEY_CAPS);
     VK_RSHIFT: Press(KEY_SYM);
     VK_BACK, VK_DELETE: Ext(EXT_DELETE);
     VK_LEFT: Ext(EXT_LEFT);
@@ -2177,6 +2192,14 @@ begin
   SamF := IsSam and (ssAlt in Shift) and not AltGr and (Key >= VK_F1) and (Key <= VK_F10);
   if (Key >= VK_F1) and (Key <= VK_F24) and not SamF then Exit;    // leave function keys to the menu
   if not SamF and ((Key = VK_MENU) or ((ssAlt in Shift) and not (IsSam and AltGr))) then Exit;
+  {$IFDEF WINDOWS}
+  if Key in MODIFIER_KEYS then
+  begin
+    SyncModifiers;
+    Key := 0;
+    Exit;
+  end;
+  {$ENDIF}
   Key := SidedKey(Key);
   // The SAM takes the characters from the keyboard layout, so any layout can type them all
   ByChar := IsSam and (Key <= High(FSamRoute)) and SamCharKey(Key) and (not (ssCtrl in Shift) or AltGr);
@@ -2246,44 +2269,75 @@ begin
   end;
 end;
 
-procedure TMainWindow.FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+{ A key that is down for the machine goes up, but not before the machine has seen it }
+procedure TMainWindow.ReleaseHeldKey(Key: Word);
 const
   MIN_HOLD_MS = 60;   // the ROM scans the keyboard once per 20 ms frame
-
-  procedure Release(K: Word);
-  var
-    Held: QWord;
+begin
+  if (Key > High(FPCKeyDown)) or not FPCKeyDown[Key] or (FPendingUp[Key] <> 0) then Exit;
+  if GetTickCount64 - FPCKeyTime[Key] >= MIN_HOLD_MS then
+    ReleasePCKey(Key)
+  else
   begin
-    if (K > High(FPCKeyDown)) or not FPCKeyDown[K] then Exit;
-    Held := GetTickCount64 - FPCKeyTime[K];
-    if Held >= MIN_HOLD_MS then
-      ReleasePCKey(K)
-    else
-    begin
-      // Too short for the Spectrum to notice: release it a little later
-      FPendingUp[K] := FPCKeyTime[K] + MIN_HOLD_MS;
-      FKeyTimer.Enabled := True;
-    end;
+    // Too short for the Spectrum to notice: release it a little later
+    FPendingUp[Key] := FPCKeyTime[Key] + MIN_HOLD_MS;
+    FKeyTimer.Enabled := True;
   end;
+end;
 
-  { With both Shifts (or both Ctrls) down Windows reports the release of only one of them, so the other
-    would stay down for the emulated machine (the Spectrum's extended mode then gave the shifted keywords):
-    one that is down for us and no longer for the keyboard is up }
-  procedure ReleaseGone(L, R: Word);
-  begin
-    if FPCKeyDown[L] and (GetKeyState(L) >= 0) then Release(L);
-    if FPCKeyDown[R] and (GetKeyState(R) >= 0) then Release(R);
-  end;
+{ A key (not a SAM character) goes down for the machine }
+procedure TMainWindow.PressPCKey(Key: Word);
+begin
+  if FPendingUp[Key] <> 0 then ReleasePCKey(Key);   // finish a pending tap first
+  if FPCKeyDown[Key] then Exit;
+  FPCKeyDown[Key] := True;
+  FPCKeyTime[Key] := GetTickCount64;
+  MapKey(Key, True);
+  UpdateKeyboard;
+end;
 
+{ Windows: the left and right Shift and Ctrl as the keyboard has them now. Their key messages can't be trusted:
+  both arrive as VK_SHIFT (or VK_CONTROL), the side found afterwards; with both Shifts down the release of the first
+  one is not reported; and the one pressed second repeats. So the machine got the Spectrum's extended mode (both
+  Shifts) twice, or not at all, or kept CAPS SHIFT down after it. Read every time a Shift or Ctrl message comes and
+  every 10 ms while the window is active }
+procedure TMainWindow.SyncModifiers;
+{$IFDEF WINDOWS}
+const
+  SIDES: array[0..3] of Word = (VK_LSHIFT, VK_RSHIFT, VK_LCONTROL, VK_RCONTROL);
 var
-  Generic: Word;
+  I: Integer;
+  Down: Boolean;
+begin
+  for I := 0 to High(SIDES) do
+  begin
+    Down := Active and (WinGetAsyncKeyState(SIDES[I]) < 0);
+    if Down and not FPCKeyDown[SIDES[I]] then PressPCKey(SIDES[I])
+    else if not Down and FPCKeyDown[SIDES[I]] then ReleaseHeldKey(SIDES[I]);
+  end;
+end;
+{$ELSE}
+begin
+end;
+{$ENDIF}
+
+procedure TMainWindow.ModTimerTick(Sender: TObject);
+begin
+  if Active then SyncModifiers;
+end;
+
+procedure TMainWindow.FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if (Key >= VK_F1) and (Key <= VK_F24) and ((Key > High(FSamRoute)) or (FSamRoute[Key] <> 2)) then Exit;
-  Generic := Key;
-  Key := ReleasedSide(Key);
-  Release(Key);
-  if Generic = VK_SHIFT then ReleaseGone(VK_LSHIFT, VK_RSHIFT)
-  else if Generic = VK_CONTROL then ReleaseGone(VK_LCONTROL, VK_RCONTROL);
+  {$IFDEF WINDOWS}
+  if Key in MODIFIER_KEYS then
+  begin
+    SyncModifiers;
+    Key := 0;
+    Exit;
+  end;
+  {$ENDIF}
+  ReleaseHeldKey(ReleasedSide(Key));
   Key := 0;
 end;
 

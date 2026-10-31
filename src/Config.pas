@@ -52,7 +52,7 @@ type
     AY48: Boolean;                // AY interface on the 16K/48K
     DivMMC: Boolean;              // DivMMC interface connected
     Currah: Boolean;              // Currah µSpeech connected
-    LeftShiftCaps: Boolean;       // ZX Spectrum: the left Shift is CAPS SHIFT (and Ctrl is also the joystick's fire), else the left Ctrl is
+    LeftCtrlCaps: Boolean;        // ZX Spectrum: the left Ctrl is CAPS SHIFT (and only the right Ctrl the joystick's fire), else the left Shift is
     CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
     CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
     CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
@@ -189,7 +189,7 @@ const
     (Name: 'zx_kmouse'; Section: SEC_ZX),
     (Name: 'zx_divmmc'; Section: SEC_ZX),
     (Name: 'zx_currah'; Section: SEC_ZX),
-    (Name: 'zx_leftshift'; Section: SEC_ZX),
+    (Name: 'zx_leftctrl'; Section: SEC_ZX),
     (Name: 'zx_nextfirmware'; Section: SEC_ZX),
     (Name: 'zx_savetotape'; Section: SEC_ZX),
     (Name: 'cpc_joystick'; Section: SEC_CPC),
@@ -407,7 +407,7 @@ begin
   ScreenshotBorder := True;
   TurboSound := False;
   Currah := False;
-  LeftShiftCaps := False;
+  LeftCtrlCaps := False;
   CPCJoystick := True;
   CPCWaitStates := True;
   CPCCrtc := -1;
@@ -518,7 +518,7 @@ begin
     'zx_kmouse': Result := @KempstonMouse;
     'zx_divmmc': Result := @DivMMC;
     'zx_currah': Result := @Currah;
-    'zx_leftshift': Result := @LeftShiftCaps;
+    'zx_leftctrl': Result := @LeftCtrlCaps;
     'cpc_joystick': Result := @CPCJoystick;
     'cpc_waitstates': Result := @CPCWaitStates;
     'msx_joystick': Result := @MsxJoystick;

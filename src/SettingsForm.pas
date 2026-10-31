@@ -47,7 +47,7 @@ type
     FRomDir: TEdit;
     FBrowse: TButton;
     FFastLoad, FAutoPlay, FTapeLoop, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
-    FTurboSound, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick, FLeftShift: TCheckBox;
+    FTurboSound, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick, FLeftCtrl: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
     FFloppyNoise, FSaveOnExit, FAttachMouse: TCheckBox;
@@ -478,9 +478,9 @@ begin
   FJoystick.Left := 170;
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
   Inc(Y, 34);
-  FLeftShift := AddCheck(Group, 'Use Left Shift as CAPS SHIFT instead of Left Ctrl (not recommended)', Y);
-  FLeftShift.Hint := 'CAPS SHIFT is the left Ctrl, or the left Shift when on (then either Ctrl is the joystick''s fire; ' +
-    'off, only the right Ctrl is)';
+  FLeftCtrl := AddCheck(Group, 'Make Left Ctrl be CAPS SHIFT instead of Left Shift', Y);
+  FLeftCtrl.Hint := 'CAPS SHIFT is the left Shift, or the left Ctrl when on (then only the right Ctrl is the ' +
+    'joystick''s fire; off, either Ctrl is)';
   Group := AddGroup(Page, 'Core features', 296, 88);
   Y := 8;
   FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
@@ -1086,7 +1086,7 @@ begin
   FMouse.Checked := S.KempstonMouse;
   FDivMMC.Checked := S.DivMMC;
   FCurrah.Checked := S.Currah;
-  FLeftShift.Checked := S.LeftShiftCaps;
+  FLeftCtrl.Checked := S.LeftCtrlCaps;
   FCPCJoystick.Checked := S.CPCJoystick;
   FCPCWait.Checked := S.CPCWaitStates;
   FCrtc.ItemIndex := S.CPCCrtc + 1;
@@ -1178,7 +1178,7 @@ begin
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
   S.Currah := FCurrah.Checked;
-  S.LeftShiftCaps := FLeftShift.Checked;
+  S.LeftCtrlCaps := FLeftCtrl.Checked;
   S.CPCJoystick := FCPCJoystick.Checked;
   S.CPCWaitStates := FCPCWait.Checked;
   S.CPCCrtc := FCrtc.ItemIndex - 1;
