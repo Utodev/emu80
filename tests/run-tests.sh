@@ -175,3 +175,56 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/cpctest.lpr" > "$BUI
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/samtest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/samtest" "$ROOT/roms" "$BUILD" "${SAM_TEST_DIR:-}"
+
+# MSX: slots, secondary slot register, memory mapper and I/O space (needs no ROM)
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/msxtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/msxtest"
+
+# MSX2 on the real BIOS (roms/msx/MSX2.rom, not distributed): BASIC must start; skipped without it
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/msxrun.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/msxrun" "$ROOT/roms"
+
+# The MSX2's default ROMs: QUANTIKA (roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM, made by their own project,
+# ../quantika, which package.sh builds). They must boot to FBASIC in a text mode, with no logo and no pause,
+# and have no machine name in them; with the original ROMs and ../quantika here, the test programs of that
+# project must give the same results on both (tests/fbasic-difftests.sh; it needs sjasmplus.exe).
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/msxfree.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+if [ ! -f "$ROOT/roms/msx/QUANTIKA.ROM" ] || [ ! -f "$ROOT/roms/msx/QUANTIKA_SUB.ROM" ]; then
+  echo "FAIL  roms/msx/QUANTIKA.ROM or QUANTIKA_SUB.ROM is missing (the emulator's default MSX2 ROMs)"; exit 1
+fi
+FREEROMS="$BUILD/freeroms"
+mkdir -p "$FREEROMS/msx"
+rm -f "$FREEROMS/msx/PHILIPSDISK.rom"
+cp -f "$ROOT/roms/msx/QUANTIKA.ROM" "$FREEROMS/msx/MSX2.rom"
+cp -f "$ROOT/roms/msx/QUANTIKA_SUB.ROM" "$FREEROMS/msx/MSX2EXT.rom"
+if "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1.0"; then
+  # no boot logo: the ROMs stay in a text mode (TMS mode 2) from power on to the banner
+  for F in 3 10 25 50 75; do
+    "$BUILD/msxfree" screen "$FREEROMS" $F | tail -1 | grep -q "^mode=2 " || {
+      echo "FAIL  the QUANTIKA ROMs left the text mode while booting (frame $F): no logo is allowed"; exit 1; }
+  done
+  # no pause at boot: the banner is up within 20 frames (only the font is copied to VRAM before it)
+  "$BUILD/msxfree" screen "$FREEROMS" 20 | grep -q "QUANTIKA ROM with FBASIC 1.0" || {
+    echo "FAIL  the QUANTIKA ROMs take too long to show the banner (a pause at boot?)"; exit 1; }
+  # the machine's name is not in them
+  for R in "$ROOT"/roms/msx/QUANTIKA.ROM "$ROOT"/roms/msx/QUANTIKA_SUB.ROM; do
+    if LC_ALL=C grep -aqi "msx" "$R"; then echo "FAIL  $(basename "$R") contains the text MSX"; exit 1; fi
+  done
+  echo "ok    roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM boot to FBASIC (no logo, no pause, no machine name)"
+  # the MSX1 slot layout (no expanded slot, the sub-ROM in slot 2): the ROMs boot there too
+  MSXFREE_COMPAT=1 "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1.0" || {
+    echo "FAIL  the QUANTIKA ROMs do not boot with the MSX1 slot layout"; exit 1; }
+  echo "ok    the QUANTIKA ROMs boot with the MSX1 slot layout (no expanded slot)"
+else
+  echo "FAIL  roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM do not boot to FBASIC"; exit 1
+fi
+if [ -f "$ROOT/roms/msx/MSX2.rom" ] && [ -f "$ROOT/roms/msx/MSX2EXT.rom" ]; then
+  if command -v sjasmplus.exe > /dev/null; then
+    "$ROOT/tests/fbasic-difftests.sh" "$BUILD/msxfree" "$ROOT/roms" || exit 1
+  else
+    echo "SKIP  sjasmplus.exe is not in the PATH: the QUANTIKA ROMs are not compared with the original ones"
+  fi
+fi

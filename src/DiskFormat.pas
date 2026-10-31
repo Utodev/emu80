@@ -25,7 +25,7 @@ type
   TDiskProblem = (dpNone, dpUnreadable, dpCompressed, dpUnknown, dpCorrupt);
 
   { The machines whose disk controllers differ in what they read }
-  TDiskMachine = (dmSpectrum, dmCPC, dmSAM);
+  TDiskMachine = (dmSpectrum, dmCPC, dmSAM, dmMSX);
 
 const
   RAW_SAM_SIZE = 80 * 2 * 10 * 512;       // an MGT disk: 819200 bytes
@@ -46,6 +46,12 @@ function LoadDiskImage(const FileName: string; out Problem: TDiskProblem; out Er
 { A new, empty SAM disk: 80 cylinders of 2 sides with 10 sectors of 512 bytes, all zero
   (an empty directory; FORMAT or SAMDOS' own tools put a name on it) }
 function NewSamDisk: TDiskImage;
+{ A new MSX disk, formatted (FAT12, empty): 720K (80 cylinders, 2 sides) or 360K (40 cylinders, 2 sides) }
+function NewMsxDisk(Double720: Boolean): TDiskImage;
+{ Saves a disk as raw sectors (what an MSX .dsk is): cylinder by cylinder, side 0 then side 1 }
+function SaveRawDisk(Disk: TDiskImage; const FileName: string): Boolean;
+{ Whether a disk is made of 9 sectors of 512 bytes in all its tracks (what an MSX reads) }
+function MsxGeometryOK(Disk: TDiskImage): Boolean;
 { Saves a SAM disk (80 cylinders, 2 sides, 10 sectors of 512 bytes) as an MGT
   image, raw. False if the disk doesn't have that geometry. }
 function SaveMGT(Disk: TDiskImage; const FileName: string): Boolean;
@@ -56,13 +62,45 @@ function SaveDiskImage(Disk: TDiskImage; const FileName: string): string;
 
 implementation
 
+{ A disk whose tracks are all 9 sectors of 512 bytes, numbered from 1, in at most 83 cylinders }
+function MsxGeometry(Disk: TDiskImage): Boolean;
+var
+  C, S, I: Integer;
+  Trk: PTrack;
+begin
+  Result := False;
+  if (Disk = nil) or (Disk.Cylinders < 35) or (Disk.Cylinders > 83) then Exit;
+  for C := 0 to Disk.Cylinders - 1 do
+    for S := 0 to Disk.Sides - 1 do
+    begin
+      Trk := Disk.Track(C, S);
+      if (Trk = nil) or not Trk^.Formatted or (Length(Trk^.Sectors) <> 9) then Exit;
+      for I := 0 to 8 do
+        if (Trk^.Sectors[I].N <> 2) or (Trk^.Sectors[I].R < 1) or (Trk^.Sectors[I].R > 9) then Exit;
+    end;
+  Result := True;
+end;
+
 function CheckDiskForMachine(Disk: TDiskImage; const FileName: string; Machine: TDiskMachine;
   out Msg: string): Boolean;
 const
-  NAMES: array[TDiskMachine] of string = ('ZX Spectrum +3', 'Amstrad CPC', 'SAM Coupe');
+  NAMES: array[TDiskMachine] of string = ('ZX Spectrum +3', 'Amstrad CPC', 'SAM Coupe', 'MSX');
 begin
   Msg := '';
   Result := True;
+  // The MSX reads 9 sectors of 512 bytes a track, in 40 or 80 cylinders (what the PC's and CP/M's raw
+  // images are); what is on it (a FAT12 file system) is for MSX-DOS to make sense of
+  if Machine = dmMSX then
+  begin
+    if (ClassifyDisk(Disk) in [dkSAM, dkCPC]) or not MsxGeometry(Disk) then
+    begin
+      Msg := Format('%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K ' +
+        'raw image or a +3 disk), and this one has %d cylinders and is %s.',
+        [ExtractFileName(FileName), Disk.Cylinders, DiskKindName(ClassifyDisk(Disk)) + ' format']);
+      Result := False;
+    end;
+    Exit;
+  end;
   if (Machine <> dmSAM) and (ClassifyDisk(Disk) = dkSAM) then
   begin
     Msg := Format('%s is a SAM Coupe disk (%d cylinders, 10 sectors of 512 bytes a track): ' +
@@ -178,6 +216,29 @@ begin
   end;
 end;
 
+{ The geometry of a raw image of a PC-style floppy, from its size and, where a size can be two disks (360K:
+  40 cylinders of 2 sides or 80 of 1), the boot sector's media byte and sector counts }
+function RawGeometry(const Data: TBytes; out Cyls, Sides, Count: Integer): Boolean;
+var
+  Media: Byte;
+begin
+  Result := True;
+  Count := 9;
+  Media := 0;
+  if Length(Data) >= 512 then Media := Data[21];
+  case Length(Data) of
+    737280: begin Cyls := 80; Sides := 2; end;
+    368640:
+      if (Media = $F8) then begin Cyls := 80; Sides := 1; end
+      else begin Cyls := 40; Sides := 2; end;
+    184320: begin Cyls := 40; Sides := 1; end;
+    327680: begin Cyls := 40; Sides := 2; Count := 8; end;
+    163840: begin Cyls := 40; Sides := 1; Count := 8; end;
+  else
+    Result := False;
+  end;
+end;
+
 function LoadDiskImage(const FileName: string; out Problem: TDiskProblem; out Error: string): TDiskImage;
 var
   Data: TBytes;
@@ -267,9 +328,11 @@ begin
       Disk := RawDisk(Data, 0, 80, 2, 10, 512, True);
       Disk.FileName := FileName;
     end
-    else if Length(Data) = RAW_CPM_SIZE then
+    else if RawGeometry(Data, Cyls, Sides, Count) then
     begin
-      Disk := RawDisk(Data, 0, 80, 2, 9, 512, True);
+      // The raw image of a 720K, 360K or other PC-style floppy: an MSX or CP/M disk
+      Disk := RawDisk(Data, 0, Cyls, Sides, Count, 512, True);
+      Disk.RawImage := True;
       Disk.FileName := FileName;
     end
     else
@@ -372,6 +435,88 @@ begin
   Result := True;
 end;
 
+function MsxGeometryOK(Disk: TDiskImage): Boolean;
+begin
+  Result := MsxGeometry(Disk);
+end;
+
+function SaveRawDisk(Disk: TDiskImage; const FileName: string): Boolean;
+var
+  F: TFileStream;
+  C, S, I: Integer;
+  Trk: PTrack;
+begin
+  Result := False;
+  if (Disk = nil) or (Disk.Cylinders = 0) then Exit;
+  for C := 0 to Disk.Cylinders - 1 do
+    for S := 0 to Disk.Sides - 1 do
+    begin
+      Trk := Disk.Track(C, S);
+      if (Trk = nil) or not Trk^.Formatted or (Length(Trk^.Sectors) = 0) then Exit;
+      for I := 0 to High(Trk^.Sectors) do
+        if (Trk^.Sectors[I].R <> I + 1) or (Length(Trk^.Sectors[I].Data) <> Length(Trk^.Sectors[0].Data)) then Exit;
+    end;
+  F := TFileStream.Create(FileName, fmCreate);
+  try
+    for C := 0 to Disk.Cylinders - 1 do
+      for S := 0 to Disk.Sides - 1 do
+      begin
+        Trk := Disk.Track(C, S);
+        for I := 0 to High(Trk^.Sectors) do F.WriteBuffer(Trk^.Sectors[I].Data[0], Length(Trk^.Sectors[I].Data));
+      end;
+  finally
+    F.Free;
+  end;
+  Result := True;
+end;
+
+{ The boot sector of a blank MSX floppy: the BPB of a 720K or 360K double-sided disk, FAT12, and a boot program
+  that returns at once (so the disk is not a system disk) }
+function NewMsxDisk(Double720: Boolean): TDiskImage;
+var
+  Raw: TBytes;
+  Cyls, Total, FatSecs, RootEntries, Media: Integer;
+  I: Integer;
+begin
+  if Double720 then
+  begin
+    Cyls := 80; Total := 1440; FatSecs := 3; RootEntries := 112; Media := $F9;
+  end
+  else
+  begin
+    Cyls := 40; Total := 720; FatSecs := 2; RootEntries := 112; Media := $FD;
+  end;
+  SetLength(Raw, Total * 512);
+  FillChar(Raw[0], Length(Raw), 0);
+  // The sector 0: JMP, OEM name, BPB
+  Raw[0] := $EB; Raw[1] := $FE; Raw[2] := $90;
+  Move(PChar('emu80   ')^, Raw[3], 8);
+  Raw[11] := 0; Raw[12] := 2;                 // 512 bytes a sector
+  Raw[13] := 2;                               // 2 sectors a cluster
+  Raw[14] := 1; Raw[15] := 0;                 // 1 reserved sector
+  Raw[16] := 2;                               // 2 FATs
+  Raw[17] := RootEntries and $FF; Raw[18] := RootEntries shr 8;
+  Raw[19] := Total and $FF; Raw[20] := Total shr 8;
+  Raw[21] := Media;
+  Raw[22] := FatSecs; Raw[23] := 0;
+  Raw[24] := 9; Raw[25] := 0;                 // 9 sectors a track
+  Raw[26] := 2; Raw[27] := 0;                 // 2 heads
+  Raw[28] := 0; Raw[29] := 0;                 // no hidden sectors
+  Raw[$1E] := $D0;                            // RET NC ... the boot code at 001Eh does nothing
+  Raw[$1F] := $C9;                            // RET
+  // The FATs: the media byte and the two end-of-chain entries
+  for I := 0 to 1 do
+  begin
+    Raw[512 * (1 + I * FatSecs)] := Media;
+    Raw[512 * (1 + I * FatSecs) + 1] := $FF;
+    Raw[512 * (1 + I * FatSecs) + 2] := $FF;
+  end;
+  Result := RawDisk(Raw, 0, Cyls, 2, 9, 512, True);
+  Result.RawImage := True;
+  Result.MarkSaved('');
+  Result.MarkModified;
+end;
+
 function SaveDiskImage(Disk: TDiskImage; const FileName: string): string;
 var
   Ext: string;
@@ -391,9 +536,18 @@ begin
         Result := 'This disk can''t be saved as a SAD image: its tracks don''t all have the same sectors. ' +
           'Save it as a .dsk.';
     end
+    else if Disk.RawImage and (Ext <> '.dsk') and (Ext <> '.img') then
+      Disk.SaveToFile(FileName)
+    else if Disk.RawImage then
+    begin
+      // A raw disk (MSX, CP/M) goes back as it came: sectors and nothing else
+      if not SaveRawDisk(Disk, FileName) then
+        Result := 'This disk can''t be saved as a raw image: its sectors are not numbered from 1 in every track.';
+    end
     else
       Disk.SaveToFile(FileName);
-    if (Result = '') and ((Ext = '.mgt') or (Ext = '.sad')) then Disk.MarkSaved(FileName);
+    if (Result = '') and ((Ext = '.mgt') or (Ext = '.sad') or (Disk.RawImage and ((Ext = '.dsk') or (Ext = '.img')))) then
+      Disk.MarkSaved(FileName);
   except
     on E: Exception do Result := 'Could not save ' + ExtractFileName(FileName) + ': ' + E.Message;
   end;

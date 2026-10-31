@@ -686,9 +686,11 @@ begin
             FPpiCtl := Value;
             // A mode set clears the ports (and the PSG is let go of); the
             // CPC+'s ASIC, which has the PPI built in, doesn't clear port C
-            // (that is how programs tell the AMS40489 from the AMS40226)
-            FPpiA := 0; FPpiB := 0;
+            // (that is how programs tell the AMS40489 from the AMS40226).
+            // The PSG's latch cycle ends with port C going to 0, and takes the register number from what
+            // was on the bus then, before port A is cleared (a keyboard scan does: C=C0, A=0E, mode set 92)
             if FCrtcType <> 3 then PpiWriteC(0);
+            FPpiA := 0; FPpiB := 0;
           end
           else
           begin

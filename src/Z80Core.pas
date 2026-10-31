@@ -106,6 +106,9 @@ type
     A, F, A_, F_: Byte;
     BC, DE, HL, BC_, DE_, HL_, IX, IY, SP, PC, WZ: TRegPair;
     I, R, R7: Byte;
+    { What the bus holds when an interrupt is accepted (low byte of the IM 2 vector);
+      $FF on the Spectrum, where it floats. Not touched by a reset. }
+    DataBus: Byte;
     IFF1, IFF2: Boolean;
     IM: Byte;
     Halted: Boolean;
@@ -198,6 +201,7 @@ constructor TZ80.Create(ABus: TZ80Bus);
 begin
   inherited Create;
   FBus := ABus;
+  DataBus := $FF;
   Reset(True);
 end;
 
@@ -247,7 +251,7 @@ begin
   BC := Src.BC; DE := Src.DE; HL := Src.HL;
   BC_ := Src.BC_; DE_ := Src.DE_; HL_ := Src.HL_;
   IX := Src.IX; IY := Src.IY; SP := Src.SP; PC := Src.PC; WZ := Src.WZ;
-  I := Src.I; R := Src.R; R7 := Src.R7;
+  I := Src.I; R := Src.R; R7 := Src.R7; DataBus := Src.DataBus;
   IFF1 := Src.IFF1; IFF2 := Src.IFF2; IM := Src.IM;
   Halted := Src.Halted;
   Q := Src.Q; LastQ := Src.LastQ;
@@ -643,8 +647,7 @@ begin
   Push(PC);
   if IM = 2 then
   begin
-    // Data bus floats to $FF on the Spectrum
-    WZ.W := (I shl 8) or $FF;
+    WZ.W := (I shl 8) or DataBus;
     PC.L := ReadByte(WZ.W);
     PC.H := ReadByte(Word(WZ.W + 1));
   end

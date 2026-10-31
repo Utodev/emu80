@@ -17,7 +17,7 @@ type
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
     ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder, ikFolder,
-    ikEject, ikTheme, ikMenu, ikKeyboard);
+    ikEject, ikTheme, ikMenu, ikKeyboard, ikCartridge, ikKey);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
@@ -462,6 +462,31 @@ begin
         D.C.Font.Color := clWhite;
         D.C.Brush.Style := bsClear;
         D.C.TextOut(D.S(3.5), D.S(5.5), 'K');
+      end;
+    ikCartridge:
+      begin
+        // An MSX cartridge: a dark body with the notch at the top, a label and the contacts at the bottom
+        D.Pen(clBlack); D.Fill($585048);
+        D.Poly([3, 1, 13, 1, 13, 12, 12, 13, 4, 13, 3, 12]);
+        D.Pen(clWhite); D.Fill(clWhite); D.Rect(5, 3, 11, 8);
+        D.Pen(DarkRed); D.Fill(Red); D.Rect(5, 5, 11, 6.5);
+        D.Pen(DarkYellow); D.Fill(Yellow);
+        D.Rect(4.5, 13, 5.5, 15); D.Rect(6.5, 13, 7.5, 15); D.Rect(8.5, 13, 9.5, 15); D.Rect(10.5, 13, 11.5, 15);
+      end;
+    ikKey:
+      begin
+        // A key of a keyboard seen from above: light, its top smaller than its base, a symbol on it
+        D.Pen(DarkGrey); D.Fill($C8C8C8);
+        D.RoundRect(1.5, 1.5, 14.5, 14.5, 3);
+        D.Pen($A0A0A0); D.Fill(clWhite);
+        D.RoundRect(3.5, 2.5, 12.5, 11, 2);
+        D.C.Font.Name := 'Arial';
+        D.C.Font.Style := [fsBold];
+        D.C.Font.Height := -D.S(8);
+        D.C.Font.Quality := fqNonAntialiased;
+        D.C.Font.Color := DarkGrey;
+        D.C.Brush.Style := bsClear;
+        D.C.TextOut((D.S(16) - D.C.TextWidth('@')) div 2, D.S(2.5), '@');
       end;
     ikGoTo:
       begin

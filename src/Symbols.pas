@@ -14,6 +14,7 @@ type
   TSymbolTable = class
   private
     FNames: array of string;   // indexed by address
+    FMore: array of string;    // other names at the same address, ', ' separated
     FCount: Integer;
     FFileName: string;
   public
@@ -29,6 +30,8 @@ type
     { The name at Addr, replacing any; '' removes it }
     procedure SetName(Addr: Word; const Name: string);
     function Lookup(Addr: Word): string;
+    { Every name at Addr, ', ' separated ('' if none) }
+    function LookupAll(Addr: Word): string;
     property Count: Integer read FCount;
     property FileName: string read FFileName;
   end;
@@ -60,6 +63,8 @@ type
       const RomPaths: array of string); overload;
     { RomIndex: ROM paged at 0000-3FFF, or -1 if RAM is there. }
     function Lookup(Addr: Word; RomIndex: Integer): string;
+    { Every name at Addr, ', ' separated }
+    function LookupAll(Addr: Word; RomIndex: Integer): string;
     function Find(const Name: string; RomIndex: Integer; out Addr: Word): Boolean;
   end;
 
@@ -136,24 +141,35 @@ constructor TSymbolTable.Create;
 begin
   inherited Create;
   SetLength(FNames, $10000);
+  SetLength(FMore, $10000);
 end;
 
 procedure TSymbolTable.Clear;
 var
   I: Integer;
 begin
-  for I := 0 to $FFFF do FNames[I] := '';
+  for I := 0 to $FFFF do
+  begin
+    FNames[I] := '';
+    FMore[I] := '';
+  end;
   FCount := 0;
   FFileName := '';
 end;
 
 procedure TSymbolTable.Add(Addr: Word; const Name: string);
 begin
-  // First name wins when several symbols share an address
+  // First name is the one shown; the others are only listed by LookupAll
   if FNames[Addr] = '' then
   begin
     FNames[Addr] := Name;
     Inc(FCount);
+  end
+  else if (UpperCase(FNames[Addr]) <> UpperCase(Name)) and
+          (Pos(', ' + UpperCase(Name) + ', ', ', ' + UpperCase(FMore[Addr]) + ', ') = 0) then
+  begin
+    if FMore[Addr] <> '' then FMore[Addr] := FMore[Addr] + ', ';
+    FMore[Addr] := FMore[Addr] + Name;
   end;
 end;
 
@@ -162,11 +178,18 @@ begin
   if (FNames[Addr] = '') and (Name <> '') then Inc(FCount)
   else if (FNames[Addr] <> '') and (Name = '') then Dec(FCount);
   FNames[Addr] := Name;
+  FMore[Addr] := '';
 end;
 
 function TSymbolTable.Lookup(Addr: Word): string;
 begin
   Result := FNames[Addr];
+end;
+
+function TSymbolTable.LookupAll(Addr: Word): string;
+begin
+  Result := FNames[Addr];
+  if (Result <> '') and (FMore[Addr] <> '') then Result := Result + ', ' + FMore[Addr];
 end;
 
 function TSymbolTable.Find(const Name: string; out Addr: Word): Boolean;
@@ -309,6 +332,20 @@ begin
     Result := FRam.Lookup(Addr)
   else if (RomIndex >= 0) and (RomIndex <= 3) then
     Result := FRoms[RomIndex].Lookup(Addr)
+  else
+    Result := '';
+end;
+
+function TRomSymbolSet.LookupAll(Addr: Word; RomIndex: Integer): string;
+begin
+  if FCpc and (Addr >= $C000) then
+  begin
+    if (UpperRom >= 1) and (UpperRom <= 2) then Result := FUpper[UpperRom].LookupAll(Addr) else Result := '';
+  end
+  else if (Addr >= $4000) or (FCpc and (Addr < $40)) then
+    Result := FRam.LookupAll(Addr)
+  else if (RomIndex >= 0) and (RomIndex <= 3) then
+    Result := FRoms[RomIndex].LookupAll(Addr)
   else
     Result := '';
 end;

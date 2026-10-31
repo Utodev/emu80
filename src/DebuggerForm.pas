@@ -18,7 +18,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, Forms, Controls, Graphics, StdCtrls, ExtCtrls, Menus,
   LCLType, Dialogs, ComCtrls, Clipbrd, Emulator, Spectrum, Disasm, Z80Core, Symbols, Icons, Models,
-  MemText, DivMMC, ZXUnoRegsForm, AsmExport, DebugFiles, BreakExpr, DelayHint, Z80Help, Z80Opcodes;
+  MemText, DivMMC, ZXUnoRegsForm, CartBrowser, AsmExport, DebugFiles, BreakExpr, DelayHint, Z80Help, Z80Opcodes;
 
 type
   TDebuggerWindow = class;
@@ -46,7 +46,9 @@ type
     skNextMMU     // click to choose the page of an MMU register of the Next (Target = slot 0-7)
   );
 
-  TRegId = (rAF, rHL, rDE, rBC, rAF_, rHL_, rDE_, rBC_, rIX, rIY, rI, rR, rSP, rPC);
+  TRegId = (rAF, rHL, rDE, rBC, rAF_, rHL_, rDE_, rBC_, rIX, rIY, rI, rR, rSP, rPC,
+    rBus,     // the data bus value an interrupt reads (IM 2 vector's low byte)
+    rIm2);    // the IM 2 vector: I (MSB) and the data bus (LSB)
 
   TSpot = record
     R: TRect;
@@ -285,7 +287,7 @@ type
   end;
 
   TRegSnapshot = record
-    A, F, A_, F_, I, R, IM: Byte;
+    A, F, A_, F_, I, R, IM, DataBus: Byte;
     BC, DE, HL, BC_, DE_, HL_, IX, IY, SP, PC: Word;
     IFF1, IFF2, Halted: Boolean;
   end;
@@ -322,6 +324,7 @@ type
     FNextMMU: array[0..7] of Byte;  // its MMU registers (8K page of each slot, 255 = ROM)
     FUnoConf, FUnoMapper: Byte;     // its MASTERCONF and MASTERMAPPER
     FUnoButton: TToolButton;        // ZX-Uno registers (shown on a ZX-Uno)
+    FCartButton: TToolButton;       // the cartridge browser (shown on an MSX)
     FUnoRegs: TZXUnoRegsWindow;
     FMapperMenu: TPopupMenu;
     FDivMenu: TPopupMenu;
@@ -361,6 +364,7 @@ type
     procedure DoAddWatch(Sender: TObject);
     procedure RegsChanged(Sender: TObject);
     procedure DoUnoRegs(Sender: TObject);
+    procedure DoCartBrowser(Sender: TObject);
     procedure DoZ80Opcodes(Sender: TObject);
     function MakeColumn(AParent: TWinControl; const ACaption: string; AWidth: Integer;
       AAlign: TAlign): TPanel;
@@ -467,6 +471,8 @@ type
     { Label for an address: user symbols first, then those of the ROM that is
       paged in (or RAM labels such as system variables). }
     function SymbolFor(Addr: Word): string;
+    { Every label at Addr (user ones, then the ROM's), ', ' separated }
+    function SymbolsFor(Addr: Word): string;
     { Changes made by hand from the register or memory views }
     procedure SetRegister(Reg: TRegId; Value: Word);
     procedure PokeByte(Addr: Word; Value: Byte);
@@ -896,6 +902,7 @@ end;
 procedure TDebugView.MouseMove(Shift: TShiftState; X, Y: Integer);
 var
   Spot: Integer;
+  Labels: string;
 begin
   inherited MouseMove(Shift, X, Y);
   Spot := SpotAt(X, Y);
@@ -923,7 +930,17 @@ begin
   if FSpots[Spot].Kind in [skLabel, skHint] then
     Hint := FSpots[Spot].Text
   else
+  begin
     Hint := IntToStr(FSpots[Spot].Value);
+    // A 16-bit number: the labels with that value, if any
+    if (FSpots[Spot].Kind in [skInfo, skRegister, skMemWord]) and
+       ((FSpots[Spot].Digits >= 4) or ((FSpots[Spot].Kind = skInfo) and (FSpots[Spot].Digits = 0))) and
+       (FSpots[Spot].Value >= 0) and (FSpots[Spot].Value <= $FFFF) then
+    begin
+      Labels := FOwnerWin.SymbolsFor(Word(FSpots[Spot].Value));
+      if Labels <> '' then Hint := Hint + ' - ' + Labels;
+    end;
+  end;
   if Hint <> '' then Application.ActivateHint(Mouse.CursorPos);
 end;
 
@@ -1284,7 +1301,9 @@ begin
     if (Tok <> '') and (Tok[1] = '$') then
     begin
       V := StrToIntDef(Tok, 0);
-      AddSpot(X, Y - 1, Length(Tok), skInfo, V);
+      // 2 digits: a byte (no labels); more: an address
+      if Length(Tok) <= 3 then AddSpot(X, Y - 1, Length(Tok), skInfo, V, 2)
+      else AddSpot(X, Y - 1, Length(Tok), skInfo, V, 4);
       X := DrawText(X, Y, Tok, TextColor, False);
     end
     else if (Lbl <> '') and (Tok = Lbl) then
@@ -2787,7 +2806,7 @@ var
   Access: TPortAccess;
   Bank: Integer;
   Text_: string;
-  Rows, K: Integer;
+  Rows, K, Im2: Integer;
   Ctl, OldCtl: Byte;
   PP: TPagingState;
 
@@ -2884,10 +2903,23 @@ begin
   Inc(Y, FLineH + FLineH div 2);
 
   Name(0, 'I'); RegValue(4, rI, R.I, 2, R.I <> P.I);
-  Name(17, 'R'); RegValue(21, rR, R.R, 2, R.R <> P.R);
+  Name(11, 'R'); RegValue(14, rR, R.R, 2, R.R <> P.R);
+  // IM 2 vector: I and the data bus, and the word there (below)
+  AddSpot(Col(21), Y, 8, skHint, 0, 0, 0,
+    'Where an IM 2 interrupt jumps to: the address (I as MSB, the data bus as LSB) ' +
+    'and, in brackets, the word read there');
+  Name(21, 'IM2 ADDR');
   Inc(Y, FLineH);
   Name(0, 'SP'); RegValue(4, rSP, R.SP, 4, R.SP <> P.SP);
-  Name(17, 'PC'); RegValue(21, rPC, R.PC, 4, R.PC <> P.PC);
+  Name(11, 'PC'); RegValue(14, rPC, R.PC, 4, R.PC <> P.PC);
+  // Editing the address edits I and the data bus; the word in brackets edits the memory
+  Im2 := (R.I shl 8) or R.DataBus;
+  // The address under its title; the word ends where the right pairs above end
+  RegValue(21, rIm2, Im2, 4, R.I <> P.I);
+  DrawText(Col(26), Y, '(', TC(clGray), False);
+  AddSpot(Col(27), Y, 4, skMemWord, Word16(Im2), 4, Im2);
+  DrawText(Col(27), Y, IntToHex(Word16(Im2), 4), TC(clGray), False);
+  DrawText(Col(31), Y, ')', TC(clGray), False);
   Inc(Y, FLineH + FLineH div 2);
 
   // Flags: names above, X (set) or . (clear) below; click to toggle
@@ -2898,7 +2930,11 @@ begin
     AddSpot(Col(7 + I * 2), Y, 1, skDoc, 0, 0, 0, FlagHelp(I));
     DrawText(Col(7 + I * 2), Y, FLAG_NAMES[I + 1], TC(clBlack), True);
   end;
+  // Data bus: the value an interrupt reads (editable)
+  AddSpot(Col(29), Y, 3, skHint, 0, 0, 0, 'Data bus value');
+  Name(29, 'Bus');
   Inc(Y, FLineH);
+  RegValue(29, rBus, R.DataBus, 2, False);
   for I := 0 to 7 do
   begin
     Mask := $80 shr I;
@@ -3168,6 +3204,7 @@ begin
   AddButton(ikGoTo, 'Go to address (Ctrl+G)', @DoGoTo);
   AddButton(ikWatch, 'Add a watch', @DoAddWatch);
   FUnoButton := AddButton(ikChip, 'ZXUno Regs: the ZX-Uno''s registers', @DoUnoRegs);
+  FCartButton := AddButton(ikCartridge, 'Cartridge browser: the cartridge in slot 1, its header and its bytes', @DoCartBrowser);
   AddSeparator;
   AddButton(ikZ80, 'Z80: the instruction set, as tables of opcodes', @DoZ80Opcodes);
 
@@ -3918,6 +3955,28 @@ begin
   if Result = '' then Result := RomLabels.Lookup(Addr, FRomIndex);
 end;
 
+function TDebuggerWindow.SymbolsFor(Addr: Word): string;
+var
+  Rom, One: string;
+  P: Integer;
+begin
+  Result := UserSymbols.LookupAll(Addr);
+  Rom := RomLabels.LookupAll(Addr, FRomIndex);
+  while Rom <> '' do
+  begin
+    P := Pos(', ', Rom);
+    if P = 0 then P := Length(Rom) + 1;
+    One := Copy(Rom, 1, P - 1);
+    Delete(Rom, 1, P + 1);
+    // A ROM label with the same name as a user one is not repeated
+    if Pos(', ' + UpperCase(One) + ', ', ', ' + UpperCase(Result) + ', ') = 0 then
+    begin
+      if Result <> '' then Result := Result + ', ';
+      Result := Result + One;
+    end;
+  end;
+end;
+
 procedure TDebuggerWindow.SetRegister(Reg: TRegId; Value: Word);
 var
   Cpu: TZ80;
@@ -3940,6 +3999,8 @@ begin
       rIX: begin Cpu.IX.W := Value; P.IX := Value; end;
       rIY: begin Cpu.IY.W := Value; P.IY := Value; end;
       rI: begin Cpu.I := Value; P.I := Value; end;
+      rBus: Cpu.DataBus := Value;
+      rIm2: begin Cpu.I := Value shr 8; P.I := Cpu.I; Cpu.DataBus := Value and $FF; end;
       rR: begin Cpu.R := Value; Cpu.R7 := Value; P.R := Value; end;
       rSP: begin Cpu.SP.W := Value; P.SP := Value; end;
       rPC: begin Cpu.PC.W := Value; P.PC := Value; Cpu.Halted := False; end;
@@ -4068,9 +4129,12 @@ begin
     for A := 0 to 7 do FNextMMU[A] := FEmu.Spec.NextMMU(A);
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
-    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model in [smZXNext, smSAM]);
+    FCartButton.Visible := IsMSXModel(FEmu.Spec.Model);
+    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model in [smZXNext, smSAM]) or IsMSXModel(FEmu.Spec.Model);
     if FEmu.Spec.Model = smZXNext then
       FUnoButton.Hint := 'Next Regs: the ZX Spectrum Next''s registers (MMU, speed, interrupts...)'
+    else if IsMSXModel(FEmu.Spec.Model) then
+      FUnoButton.Hint := 'MSX Ports: slots, mapper, PPI, PSG and VDP registers and palette'
     else if FEmu.Spec.Model = smSAM then
       FUnoButton.Hint := 'SAM Regs: the SAM Coupe''s ports (paging LMPR and HMPR, video, border, CLUT, sound)'
     else
@@ -4083,6 +4147,7 @@ begin
     FRegs.BC_ := Cpu.BC_.W; FRegs.DE_ := Cpu.DE_.W; FRegs.HL_ := Cpu.HL_.W;
     FRegs.IX := Cpu.IX.W; FRegs.IY := Cpu.IY.W; FRegs.SP := Cpu.SP.W; FRegs.PC := Cpu.PC.W;
     FRegs.I := Cpu.I; FRegs.R := Cpu.GetR; FRegs.IM := Cpu.IM;
+    FRegs.DataBus := Cpu.DataBus;
     FRegs.IFF1 := Cpu.IFF1; FRegs.IFF2 := Cpu.IFF2; FRegs.Halted := Cpu.Halted;
     // Changes are only meaningful while stopped
     FHavePrev := FEmu.Paused and FEmu.Spec.TrackPrevRegs;
@@ -4698,6 +4763,11 @@ end;
 procedure TDebuggerWindow.RegsChanged(Sender: TObject);
 begin
   Refresh(False);
+end;
+
+procedure TDebuggerWindow.DoCartBrowser(Sender: TObject);
+begin
+  if IsMSXModel(FEmu.Spec.Model) then ShowCartBrowser(FEmu);
 end;
 
 procedure TDebuggerWindow.DoUnoRegs(Sender: TObject);

@@ -30,3 +30,16 @@ a message saying you need to add the latest distribution to the specnext folder.
 All settings options should have a ini file equivalence, and a command line parameter equivalence. Command line parameters should have a default value when missing.
 
 The `realspecnext` option (`[ZXNext]` in the ini file and `--realspecnext` on the command line) is deliberately hidden: NEVER document it, neither in README.md (so not in Help > Documentation or `--help` either), nor in the settings dialog, examples or any other user-facing text. Internal code comments are fine. Its accepted-warning key (`realspecnextok`) is hidden too.
+
+# Prompts
+
+Siempre compila el ejecutable para windows si hay cambios
+# MSX2 ROMs (QUANTIKA)
+
+The MSX2's default ROMs, `roms/msx/QUANTIKA.ROM` and `QUANTIKA_SUB.ROM`, are made by a project of their own in
+`../quantika` (its own README.md, NOTES.md and CLAUDE.md, with its rules: e.g. the word "MSX" is never written there).
+Never keep their sources here. `package.sh` builds them there and installs them in `roms/msx`. emu80's documentation
+says only that emu80 uses its own QUANTIKA ROMs and which original files to look for (MSX2.rom, MSX2EXT.rom,
+PHILIPSDISK.rom); nothing about building them. The original ROMs in `roms/msx` are git-ignored and never packaged.
+The glue that compares QUANTIKA with the original ROMs stays here (`tests/msxfree.lpr`, `tests/fbasic-difftests.sh`,
+`tests/mkcas.py`, the QUANTIKA section of `tests/run-tests.sh`), as it uses the original files' names.

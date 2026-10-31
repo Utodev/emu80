@@ -23,6 +23,7 @@ also shown by Help > Documentation, F1).
   - [ZX Spectrum Next](#zx-spectrum-next)
   - [Amstrad CPC](#amstrad-cpc)
   - [SAM Coupé](#sam-coupé)
+  - [MSX](#msx)
   - [emu80 snapshots (.e80)](#emu80-snapshots-e80)
 - [5. Tape browser](#5-tape-browser)
   - [TZX tapes](#tzx-tapes)
@@ -74,11 +75,15 @@ also shown by Help > Documentation, F1).
   1 MHz grid, Gate Array (palette, modes 0-3, ROM and RAM banking, the interrupt counter), 6845 CRTC drawn
   as the beam goes, 8255 PPI, AY-3-8912, the keyboard matrix, CDT and TZX tapes in real time (and
   recording to CDT), the 664's and 6128's disc drive on DSK images, the 6128's 128K and .e80 snapshots.
+- MSX 2 (see [MSX](#msx)): Z80 at 3.58 MHz, 128K of RAM in a memory mapper, a clock chip and the V9938 (128K of VRAM, a
+  512-colour palette, screens 0 to 8, 80-column text, sprites of mode 2, the line interrupt and the VDP commands), the PSG,
+  the keyboard matrix and joystick, cartridges (`.rom`) with the Konami, Konami SCC, ASCII8 and ASCII16 mappers,
+  tapes (`.cas`) and a disk drive (`.dsk`). The BIOS is not distributed.
 - SAM Coupé (see [SAM Coupé](#sam-coupé)): Z80B at 6 MHz, 256K or 512K of RAM paged in 16K pages (LMPR and HMPR), the ASIC's
   four screen modes with its 128-colour palette, line and frame interrupts, the 72-key matrix, the WD1772 disk
   controller on MGT, SAD and DSK images, the SAA1099 sound chip in stereo, tapes in real time (and recording)
   and its Kempston joystick; its ROM is not included.
-- Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
+- Joysticks on the cursor keys + right Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
 - SNA and Z80 (v1/v2/v3) snapshots, load and save; emu80's own .e80 snapshots of every model (the
@@ -134,13 +139,15 @@ Supported files:
 | `.tap`, `.tzx` | tape images (TZX: see [TZX tapes](#tzx-tapes)); a .tzx also loads on a CPC, but a .tap is a Spectrum tape and is refused there. Opening one resets the machine and loads it (`LOAD ""` on the 16K/48K, the Loader menu option on the others; on the ZX-Uno, `LOAD ""` from its menu's 48 BASIC; on the ZX Spectrum Next it is only inserted). |
 | `.sna` | snapshots: the Spectrum's (48K and 128K; on the ZX-Uno they switch to the 48K or 128K, as its ROM is the one its BIOS chose) and the Amstrad CPC's (CPCEmu and Winape's, see [Amstrad CPC](#amstrad-cpc): opening one switches to the CPC model it says). |
 | `.z80` | snapshots, versions 1, 2 and 3. |
-| `.dsk` | disk images (standard and extended), for the +3, for the CPC 664 and 6128 and for the SAM Coupé. What a `.dsk` is, is told by what is in it, not by its name: a SAM Coupe disk (80 cylinders of 10 sectors of 512 bytes) can only be used on the SAM Coupe (any other machine says so), and the SAM Coupe takes the +3 and CPC ones too (see [SAM Coupé](#sam-coupé)). Opening one switches to the +3 if needed (to the CPC 6128 if the machine is a CPC 464) and boots it (on a CPC, `RUN"` of the program it chooses, or `|CPM` for a boot disk; see [Amstrad CPC](#amstrad-cpc); on a SAM Coupe, F9 from BASIC: `BOOT`). |
+| `.dsk` | disk images (standard and extended), for the +3, for the CPC 664 and 6128 and for the SAM Coupé; a 720K or 360K raw one also for the MSX (see [MSX](#msx)). What a `.dsk` is, is told by what is in it, not by its name: a SAM Coupe disk (80 cylinders of 10 sectors of 512 bytes) can only be used on the SAM Coupe (any other machine says so), and the SAM Coupe takes the +3 and CPC ones too (see [SAM Coupé](#sam-coupé)). Opening one switches to the +3 if needed (to the CPC 6128 if the machine is a CPC 464) and boots it (on a CPC, `RUN"` of the program it chooses, or `|CPM` for a boot disk; see [Amstrad CPC](#amstrad-cpc); on a SAM Coupe, F9 from BASIC: `BOOT`). |
 | `.mgt`, `.sad` | SAM Coupe disk images: MGT (raw sectors, 819200 bytes) and SAD (SAm Disk). They only open on the SAM Coupe. |
+| `.rom` | MSX cartridges (see [MSX](#msx)). Opening one switches to the MSX if needed and starts it. |
+| `.cas` | MSX tapes (see [MSX](#msx)): they open on the MSX, which Auto load starts with `RUN"CAS:"`. |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | `.e80` | emu80's own snapshots, of any model (see [emu80 snapshots](#emu80-snapshots-e80)). Opening one switches to its machine. |
 
 The machine model is chosen with the chip button on the toolbar (click it: ZX Spectrum above and Amstrad CPC
-below open the list of their machines, and the SAM Coupé, at the end, is chosen directly) or in Options > Settings.
+below open the list of their machines, and the MSX 2 and then the SAM Coupé, at the end, are chosen directly) or in Options > Settings.
 On an Amstrad CPC or a SAM Coupé the Spectrum's extra hardware
 (TurboSound, the AY on the 16K/48K, the Kempston mouse, the DivMMC and the Currah µSpeech) is off, and greyed out in Settings.
 
@@ -148,9 +155,9 @@ On an Amstrad CPC or a SAM Coupé the Spectrum's extra hardware
 
 | PC key | Spectrum |
 |---|---|
-| Left Shift | CAPS SHIFT |
+| Left Ctrl | CAPS SHIFT (the left Shift instead, if "Use left Shift as CAPS instead of left Ctrl" is on; see below) |
 | Right Shift | SYMBOL SHIFT |
-| Ctrl | nothing (fire, if the joystick option below uses it) |
+| Right Ctrl | nothing (fire, if the joystick option below uses it) |
 | Backspace, Delete | DELETE (CAPS + 0) |
 | Cursor keys | CAPS + 5/6/7/8, or a joystick (see below) |
 | Esc | BREAK (CAPS + SPACE) |
@@ -161,6 +168,10 @@ On an Amstrad CPC or a SAM Coupé the Spectrum's extra hardware
 | End | INV. VIDEO (CAPS + 4) |
 | Page Down | GRAPHICS (CAPS + 9) |
 | `,` `.` `-` `=` `;` `'` `/` | the matching SYMBOL SHIFT characters |
+
+CAPS SHIFT is the left Ctrl by default. Settings > ZX Spectrum > Machine > Controls has "Use left Shift as CAPS
+instead of left Ctrl" (`--zx_leftshift`, `zx_leftshift`; off by default): when on, the left Shift is CAPS SHIFT, the
+left Ctrl does nothing as a key and, like the right one, is the joystick's fire.
 
 The keys that are two Spectrum keys at once (all of the above but Shift and Ctrl, and `,` `.`
 `;` `'`) are the extra keys of the ZX Spectrum Next's keyboard: on the Next they also show alone
@@ -220,8 +231,8 @@ joystick" (Settings > SAM Coupé, `--sam_joystick`, on by default) the cursor ke
 below does not apply to the SAM Coupé. On the SAM Coupé's first screen (the rainbow) the ROM waits for a key; F9 in BASIC
 (keypad 9) types `BOOT`.
 
-**Joystick**: Settings > ZX Spectrum > Machine chooses what the cursor keys plus either Ctrl key (fire)
-emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
+**Joystick**: Settings > ZX Spectrum > Machine chooses what the cursor keys plus the right Ctrl key (fire; either Ctrl
+with the left Shift as CAPS SHIFT, see above) emulate: nothing (they work as on the keyboard), a Kempston joystick (port `1F`), a Sinclair
 Interface 2 joystick 1 (keys 6-0) or joystick 2 (keys 1-5), a Cursor/Protek/AGF joystick (keys
 5-8 and 0) or a Fuller joystick (port `7F`). Only the chosen interface is connected. By default
 it is a Kempston joystick.
@@ -229,8 +240,13 @@ it is a Kempston joystick.
 **Mouse**: with the Kempston mouse on (Settings > ZX Spectrum > Hardware), moving the PC mouse over the picture
 moves the Spectrum's Kempston mouse (ports `FBDF` for X, `FFDF` for Y and `FADF` for the
 buttons, as in K-Mouse), one Spectrum pixel per zoomed pixel. The PC pointer is hidden over the
-picture; the program draws its own. Left, right and middle buttons are passed on. The mouse
-stops when the pointer leaves the picture.
+picture while a program is reading the mouse (it draws its own; a program that doesn't read it for two seconds gets the PC pointer back). Left, right and middle buttons are passed on. The mouse
+stops when the pointer leaves the picture, and then the PC pointer and the emulated one are no longer
+aligned. To avoid that, the first click on the picture while a program is reading the mouse asks whether to **attach the
+mouse to the window** (Settings > Common > General, `--attachmouse`, off by default): the PC pointer (hidden) then can't
+leave the picture while the window is the active one and a program is reading the mouse (otherwise it moves freely), so only the emulated one is seen and its edges are easy to
+reach. Holding Ctrl+Alt frees it (to reach the menus); Alt-Tab and any dialog free it too. The ZX-Uno and the
+ZX Spectrum Next have the Kempston mouse on by default (switching to either connects it, as the DivMMC).
 
 **Function keys**:
 
@@ -257,6 +273,9 @@ In the menu bar, the storage menus (Tape, Floppy and SD) are between two separat
 Spectrum Next and the ZX-Uno), Screenshot (.SCR, or PNG at 1x or 2x
 with or without the border), Exit.
 
+Loading a recent file (Open recent, or Insert recent tape, disk, SD card or cartridge) makes its folder the one the file dialogs open in next,
+as inserting it from a dialog does.
+
 **Open recent** lists the last 10 recent files that make sense for the selected machine (the last 30 are kept, so after a while a machine's own are still a few), and opening one puts it where it goes: a tape (.tap,
 .tzx, .cdt) in the tape, a disk image (.dsk, and .mgt and .sad on the SAM Coupé) in drive A:, an SD card image in the card reader, and a snapshot or
 program (.sna, .z80, .nex, .e80) as File > Open does. Anything else is not listed: no .mgt on a +3, no .cdt on a Spectrum, no card
@@ -267,7 +286,7 @@ recent lists of the Floppy and SD menus are filtered the same way.
 (Shift+F6), Pause and POKE. On the ZX Spectrum Next, NMI is its M1 button (the Multiface) and
 the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
 
-**Tape**: Insert tape (a .tap or .tzx, or .cdt or .tzx on a CPC), Tape browser, Play/pause (F8; the button, in both interfaces, shows a pause while the tape plays, and pressing it then stops the tape where it is, and Play goes on from there; a block stopped in its middle starts again from its beginning), Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
+**Tape**: Insert tape & load (a .tap or .tzx, or .cdt or .tzx on a CPC; the tape is put in and the machine starts loading it, as File > Open does; clicking the cassette in the modern interface does the same), Just insert tape (only puts the tape in, with no autoload), Insert recent tape & load and Just insert recent tape (the same two, for the last tapes inserted), Tape browser, Play/pause (F8; the button, in both interfaces, shows a pause while the tape plays, and pressing it then stops the tape where it is, and Play goes on from there; a block stopped in its middle starts again from its beginning), Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
 (the ROM loader is skipped and blocks load instantly, also when the tape has been started with
 Play: Play at the end of the tape starts it again, and the ROM's LOAD takes its blocks at once), Auto play/stop (see below),
 "SAVE writes to the tape" (SAVE adds its blocks to the inserted tape, or to a new blank one, instantly),
@@ -334,7 +353,7 @@ symbol files), Clear symbols and, at the bottom, Adventure Debugger (F11, see
 **Options**: Monitor (colour, black and white, green phosphor or orange phosphor: the picture of any machine as
 shades of grey or of that phosphor; the orange one is also called amber), Scanlines (from zoom 2x; the same as the setting), Zoom, Mute sound, Turbo speed (Shift+F11: as fast as
 possible), Deinterlace (Progressive, Bob or Weave; see [Deinterlacing](#deinterlacing); only on the
-Spectrum models; the SAM Coupe and the CPC are progressive) or, on the Amstrad CPC, CRTC chip (the model's own, or type 0 to 4), Modern interface (dark; see [Interface](#interface)), Keyboard guide (on every Spectrum, not the CPC or the SAM Coupe: a window with the ZX Spectrum keyboard map and the keywords of every key; Esc or a click closes it; it is not modal and half the size of the picture; the modern interface has it as the Keyboard button instead), Install Spectrum Next Distribution
+Spectrum models; the SAM Coupe and the CPC are progressive) or, on the Amstrad CPC, CRTC chip (the model's own, or type 0 to 4), Modern interface (dark; see [Interface](#interface)), MSX 1 compatibility mode (MSX only, checked when on: the slots of an MSX1, see [Memory mapper](#msx); resets the machine), Virtual Keyboard (on every machine: a window, not modal and always on top, with up to 35 symbols in rows of 6: `| : ; . , / @ + * - = # ! " · $ % & ( ) ? ' [ ] { } < > ~ ¬ _ ¿ ¡ ñ Ñ`; a click types that symbol on the machine with the keys that give it there, as `--keyin` types its text (on the Spectrum `[ ] { } | ~ \` through the extended mode; on the MSX `ñ Ñ ¿ ¡ ¬ ·`, which have no key of their own, go into the BIOS's keyboard buffer); only the ones the machine can type are shown (in bold, one after another in that order); Esc closes it; the modern interface has it as the Virt. Kb button instead), ZX Keyboard Guide (on every Spectrum, not the CPC, the SAM Coupe or the MSX: a window with the ZX Spectrum keyboard map and the keywords of every key; Esc or a click closes it; it is not modal and 1064 px wide, smaller only if the screen is; the modern interface has it as the ZX Guide button instead), Install Spectrum Next Distribution
 (only while the Next's distribution isn't installed; see [ZX Spectrum Next](#zx-spectrum-next)) and
 Settings (everything else is in Settings).
 
@@ -361,7 +380,7 @@ drive's light.
 ## 4. Settings
 
 Options > Settings opens a window that is not modal (the emulator goes on and can be used while it is
-open): **OK** applies the changes and closes it, **Apply** applies them and leaves it open, and **Cancel**
+open; it is as tall as its tallest tab needs, appears in the middle of the screen the first time and then where it was left): **OK** applies the changes and closes it, **Apply** applies them and leaves it open, and **Cancel**
 closes it putting back what the settings were when it was opened (what Apply had applied too).
 It has four main tabs: **Common** (what is the same on every machine), **ZX Spectrum**
 (what belongs to the Spectrum models, the ZX-Uno and the Next), **Amstrad CPC** and **SAM Coupé**. Common and ZX
@@ -370,7 +389,7 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 
 | Tab | Contents |
 |---|---|
-| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default) and whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
+| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
 | Common > Storage | Tape: fast loading, Smart Tape Player (starts and stops the tape by itself when the machine loads: Auto play/stop in the Tape menu) and continuous tape playback (from the start again at the end). Floppy: fast floppy disk access (no real drive timing), drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
@@ -391,11 +410,11 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 | Section | Keys |
 |---|---|
 | `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `monitor` (`color`, `bw`, `green` or `orange`), `mute`, `volume`, `speed`, `saveonexit` |
-| `[Machine]` | `romedit`, `scanlines` |
+| `[Machine]` | `romedit`, `scanlines`, `attachmouse` |
 | `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
 | `[Screenshot]` | `pngborder` |
-| `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
+| `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_leftshift`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
 | `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
 
 The recent files, pokes and last folder are kept in sections of their own. An emu80.ini from an
@@ -422,8 +441,8 @@ The modern interface (on Windows 10 and 11 its title bar is dark too):
   opens the same menu, dark, with its checks and shortcuts) and, on the right, the button back to
   the classic interface and the model (click to change it: the models open under it). The keyboard shortcuts (F2, F9, F12...) work as in the classic one.
 - **Machine palette** (left): Open, Save (snapshot), Off/on (hard reset), Reset, NMI, Pause, Turbo,
-  POKE, Debug (the debugger) and Settings, with big buttons; Pause and Turbo are lit while on. On every Spectrum (not the CPC or the SAM Coupe)
-  a Keyboard button under Settings opens the keyboard guide (see Options).
+  POKE, Debug (the debugger), Settings and Virt. Kb (the virtual keyboard), with big buttons; Pause and Turbo are lit while on. On every Spectrum (not the CPC, the SAM Coupe or the MSX)
+  a ZX Guide button after Virt. Kb opens the ZX keyboard guide (see Options).
 - **Tape palette** (right): a cassette with the tape's name on its label and its progress (all the
   tape starts on the left reel and passes to the right one as it plays; the hubs turn while it
   plays; with no tape in it, an empty cassette player is shown
@@ -719,7 +738,7 @@ stopped in a tone, a sync or a pause it goes on from the start of that block). `
 and multi-stage loads, pauses, and programs with their own loaders (they only read the input) work because it is
 the signal that is read. The CPC's tape loads at the real speed and is heard (the loading tones through the speaker, with the music some loaders play); "Fast loading" doesn't run it faster, as it has no ROM trap to skip the loader: Turbo (F11) runs it as fast as the machine can. With Auto play on, "Press PLAY then any key:" is answered by the emulator (a key is pressed a few frames after the prompt), so a program that loads its parts one after another, with its screen black meanwhile, doesn't wait for you. A .tzx made for the Spectrum has blocks `10` (standard speed, the ROM's pilot and sync): they play
 as a signal, but the CPC's firmware can't read them; opening a tape that has them says so. A .tap is refused on
-a CPC (it is a Spectrum tape). Limitations: nothing is skipped by a ROM trap (there is none), so loading takes the
+a CPC (it is a Spectrum tape). A CDT keeps its pauses in whole milliseconds, so a gap of 1.4 ms is stored as 1 and a loader that has to be back at the tape before the next block's short tone is over (`Michel Futbol Master`'s side B, with a gap of 1 ms and 13 pulses of tone) can miss it: a pause of 1 or 2 ms plays half a millisecond longer on a CPC, which is what the truncation takes on average. Limitations: nothing is skipped by a ROM trap (there is none), so loading takes the
 tape's time unless the emulator runs fast; the 3.5 MHz scaling uses the exact 7/8.
 **Recording (REC)**: the tape output (PPI C bit 5, while the motor is on) is kept as it is, edge by edge, as
 pulse blocks and the pauses between them, so what the CPC `SAVE`s (also with its own save routines) is stored
@@ -880,6 +899,151 @@ keys and screenshots, and `tests/sambatch.lpr` tries every image of a folder (`t
 | `--sam_mouse` | the PC's mouse over the picture is the SAM's mouse (off by default); `--no-sam_mouse`; `sam_mouse` |
 | `--sam_clock` | the SAMBUS clock, following the PC's (on by default); `--no-sam_clock`; `sam_clock` |
 
+### MSX
+
+Choose **MSX 2** in the machine menu (or `--model msx2`, or just `emu80 msx2`). It is a PAL machine: a Z80 at 3.579545 MHz, the PSG (an AY-3-8910) and the PPI, in slots built as on the real
+machine: four primary slots, secondary slots under the expanded one (register at `FFFFh`) and the slot register at port
+`A8h`. The first cartridge slot is slot 1.
+
+- 128K of RAM in a memory mapper (ports `FCh`-`FFh`, 16K segments, in subslot 3-0), the sub-ROM in subslot 3-1,
+  the disk interface in subslot 3-3, a clock chip (RP-5C01, ports `B4h`/`B5h`, that follows the PC's clock, with its battery-backed RAM) and the Yamaha V9938:
+  128K of VRAM, the 512-colour palette (port `9Ah`), the indirect register port (`9Bh`), the display modes Graphics 3 to 7
+  (screens 4 to 8, the VRAM interleaved in Graphics 6 and 7) and Text 2 (80 columns), sprites of mode 2 (8 a line, a colour
+  for each line, CC, IC and EC), 192 or 212 lines, vertical scroll, the line interrupt and the commands (HMMC, YMMM, HMMM,
+  HMMV, LMMC, LMCM, LMMM, LMMV, LINE, SRCH, PSET and POINT, with the logical operations). The commands are executed at once,
+  which is faster than the real chip; a game that depends on their speed may run too fast.
+
+The disk interface shares the primary slot of the RAM, as in the Philips machines, so the slot register keeps the value the
+programs that page the memory themselves (the DAAD engines for MSX) expect while the disk ROM runs. With the Drive B
+setting off, the disk ROM sees a single drive (it waits a second and a half for drive B at power-on, as on a one-drive
+machine), and the programs that size themselves by the memory left by DOS get more of it.
+
+**ROMs.** The MSX2 runs on emu80's own ROMs, QUANTIKA: `roms/msx/QUANTIKA.ROM` (the 32K BIOS with FBASIC, a BASIC
+compatible with MSX-BASIC 2.1; the machine starts with "QUANTIKA ROM with FBASIC 1.0", the date and time of the build and
+its RAM and VRAM, white on dark blue, and its bottom row shows the date and time instead of the function keys) and
+`roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM). They come with emu80 and are still being completed. To use the original ROMs
+instead, look for `MSX2.rom` (the 32K BIOS and MSX-BASIC 2 of an MSX2) and `MSX2EXT.rom` (its 16K sub-ROM), and for a
+disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` and choose them with
+`--rom "msx2,0,FILE"`, `--rom "msx2,1,FILE"` and `--rom "msx2,2,FILE"` (the disk interface) or in Settings > Common > ROMs, where
+the MSX 2 has three: ROM (the main ROM), SUBROM and FLOPPY DISK, which is empty by default (no disk drive). The first time the
+MSX starts, a note says what it emulates, that it uses unofficial ROMs, and where to put the original ones; it is shown once
+(`msx_notice` in the `[MSX]` section of the settings file, `--msx_notice` shows it again).
+
+**Recent files.** *Tape > Insert recent tape & load* (or *Just insert recent tape*) and *Cartridge > Insert recent cartridge* list the last tapes and cartridges
+inserted (the ones that fit the machine, as the recent disks and SD cards do); File > Open recent includes them too.
+
+**Cartridges.** The *Cartridge* menu (in the modern interface the CART row of the Media palette, which takes the place of
+the SD card) inserts a `.rom` file into slot 1 and restarts the machine, and ejects it. Opening a `.rom` (File > Open, drag and
+drop, or on the command line) does the same. ROMs of up to 32K need no mapper; bigger ones have one of these, which is
+guessed from the writes their code makes to the mapper registers, or chosen in *Cartridge > Mapper* (`--msx_cartmapper`):
+
+| Mapper | Banks | Registers (writes at) |
+|---|---|---|
+| `plain` | none (16K, 32K or 48K at 4000h) | none |
+| `konami` | 8K at 4000h (fixed), 6000h, 8000h, A000h | 6000h-7FFFh, 8000h-9FFFh, A000h-BFFFh |
+| `konamiscc` | 8K | 5000h, 7000h, 9000h, B000h (the SCC's sound is not emulated yet) |
+| `ascii8` | 8K | 6000h, 6800h, 7000h, 7800h |
+| `ascii16` | 16K | 6000h, 7000h |
+
+The guess is a heuristic: if a game does not start, try the other mappers from the menu (choosing one inserts the cartridge
+again with it).
+
+**Memory mapper.** The MSX2 has 128K of RAM in 16K segments chosen per page through the ports FCh-FFh (the mapper; MSX-DOS 2
+needs it). Programs written for an MSX1, which has no mapper, may use those ports for something of their own: the ZX
+Spectrum conversions on tape write to FEh, the Spectrum's border and beeper port, and with the mapper there that moves the
+RAM under the program, which then crashes (*Mantis 1* is one). *Settings > MSX > RAM mapper* (`--msx_mapper`) says what to do:
+`on` always keeps the mapper, `off` takes it away (the machine then has the 64K of an MSX1: no mapper ports, the segments the BIOS
+leaves) and `auto`, the default, keeps it except when Auto load starts a tape, where it is off for that start (a disk, a
+cartridge or a reset made afterwards has it again). It takes effect with the next reset.
+
+**MSX 1 compatibility mode (slots).** The MSX2 here has its primary slot 3 expanded into four subslots (RAM, sub-ROM, RAM again and
+the disk interface), with the subslot register at FFFFh. Some programs written for an MSX1, which has no expanded slot in
+that place, break on it: they use FFFFh as ordinary RAM, or look for the RAM in a primary slot alone and take the wrong
+one (*International Karate* restarts the machine when its tape has loaded). *Options > MSX 1 compatibility mode* (or *Settings >
+MSX > Memory*, `--msx_compat`) gives the machine the slots of an MSX1: none is expanded, FFFFh is RAM, the RAM is slot 3 alone,
+the sub-ROM is in slot 2 and cartridges stay in slot 1. There is no room then for the disk interface, so the machine has
+no disk drive while it is on. It resets the machine, and is off by default. It is independent of the RAM mapper above (a
+tape that starts the machine also turns the mapper off, with `auto`, but keeps the slots).
+
+**Keyboard.** Each PC key is the MSX key in the same place (the international layout): Shift, Ctrl, Caps Lock, Esc, Tab,
+Backspace (BS), Enter, Space, Home, Insert, Delete and the cursor keys are the MSX's; Page Up is CODE, Page Down GRAPH, End
+SELECT and Pause STOP; the numeric keypad's 1 to 5 are F1 to F5 (the PC's F keys are the emulator's) and its other digits
+the digits. With "MSX: cursor keys and right Ctrl as joystick 1" (`--msx_joystick`, on by default) the cursor keys also move
+joystick 1 and the right Ctrl is its first button.
+
+| Setting | Command line | Settings file (`[MSX]`) |
+|---|---|---|
+| Cursor keys and right Ctrl as joystick 1 | `--msx_joystick` / `--no-msx_joystick` | `msx_joystick` (default on) |
+| Mapper of the cartridges inserted | `--msx_cartmapper auto\|plain\|konami\|konamiscc\|ascii8\|ascii16` | `msx_cartmapper` (default `auto`) |
+| RAM mapper (ports FCh-FFh) | `--msx_mapper auto\|on\|off` | `msx_mapper` (default `auto`) |
+| MSX 1 compatibility mode | `--msx_compat` / `--no-msx_compat` | `msx_compat` (default off) |
+| Show the note about the ROMs the first time the MSX starts | `--msx_notice` / `--no-msx_notice` | `msx_notice` (default on; off once shown) |
+
+**Tapes (`.tsx`).** A `.tsx` file is a TZX one for the MSX (open it as a `.cas`): it adds the block 4Bh, data in the Kansas City
+Standard that the MSX's cassette uses (a pilot tone and, for each byte, its start bits, eight bits and stop bits, each a number of
+pulses), which is played as the same signal; the other blocks are the TZX ones. If it has a `TSX.LOAD` custom info block, Auto
+load types the command it holds (`RUN"CAS:"`, `BLOAD"CAS:",R`...).
+
+**Tapes (`.cas`).** A `.cas` file is a block-by-block image of an MSX cassette. Opening one (File > Open, drag and drop,
+the command line or the tape controls) inserts it in the tape and, with Auto play, starts it as a user would: `RUN"CAS:"`
+(or `BLOAD"CAS:",R` if the first file is a binary one) is typed and the tape plays when the program starts the motor. As
+many tape programs say `BLOAD"NAME"` without the `CAS:` device (which a machine with a disk drive sends to the drive: "Disk I/O
+error"), the machine starts without its disk interface, as a user holding SHIFT at power-on does (there is no Disk BASIC
+then; reset the machine, or open a disk, to have it back). The tape
+is played as the real signal (1200 baud FSK: a 2400 Hz pilot, then 0 bits as a cycle of 1200 Hz and 1 bits as two of
+2400 Hz), so loaders that read it themselves work; with "Fast loading" on, the emulator runs as fast as it can while the
+tape plays. The tape browser lists the files of the tape. A `.tap` (a ZX Spectrum tape) is refused on the MSX. Saving to
+tape is not emulated.
+
+**Disks.** The machine has a disk drive when the interface's ROM is chosen (Settings > Common > ROMs > FLOPPY DISK, empty by
+default): copy the disk ROM of a Philips MSX (the `PHILIPSDISK.rom` of its disk interface or the machine's own) to
+`roms/msx/PHILIPSDISK.rom` and choose it there. It is the Philips WD2793
+interface with MSX-DOS 1 in its ROM (its registers at 7FF8h-7FFFh), with drive A: (and B: if "Drive B connected" is on).
+Without the ROM the machine has no disk drive (the Floppy menu says so). Nor with emu80's own main ROM (`QUANTIKA.ROM`, the default): the disk
+interface's ROM calls into the original BASIC and cannot run on it, so it is left out. The disk images are raw sectors (`.dsk`): 720K
+(80 cylinders, 2 sides, 9 sectors of 512 bytes), 360K (40 cylinders, 2 sides, or 80 cylinders and 1 side; told apart by the
+boot sector's media byte), and 180K, 320K and 160K ones; they are FAT12 volumes, and a .dsk is saved back as raw sectors
+(never converted to an Amstrad DSK). **File > Open** of a `.dsk` inserts it in drive A: and restarts the machine, which
+boots it (a DOS disk: MSX-DOS 1.03 to its `A>` prompt; a data disk or no disk: the ROM first asks the date, which Auto load
+answers with ENTER, and then Disk BASIC starts). The Floppy menu and the disk browser work as on the other machines: the
+browser shows the root directory of the FAT12 disk (name, type, size, attributes) and imports, exports, renames and
+deletes files; new disks (Floppy > New disk) are formatted 720K. Disks made for MSX-DOS 2 need the DOS 2 kernel ROM, which
+is not emulated yet (MSX-DOS 1 disks boot).
+
+**Settings.** Options > Settings > MSX has the cartridge mapper (Auto-detect, Plain ROM, Konami, Konami SCC, ASCII8 or
+ASCII16) and the joystick. Changing the mapper inserts the cartridge again with it.
+
+Known issue on the MSX2: a SCREEN 2 to 8 typed in direct mode goes back to text when BASIC shows its prompt (the BIOS
+calls its screen restore with the text mode it remembers; why a real MSX2 does not is not known yet), while a program keeps
+its screen and the games are not affected.
+
+**Cartridge browser.** The Cartridge menu's first option (enabled when a cartridge is in), the CR button (it takes the place of the SD card browser's, in the toolbar, in the modern interface's
+Media palette and in the File menu; in the debugger's toolbar there is a cartridge button too) opens a window on the cartridge in
+slot 1, with two tabs. *Info* has its name, file, size, mapper, banks (or where a plain ROM is shown), the ROM header (the `AB`
+signature and the INIT, STATEMENT, DEVICE and TEXT addresses) and its CRC32. *Hex* is a hex dump of its bytes (offset, 16 bytes
+in hex, and as characters) that can be edited, by typing hex digits or, after Tab, characters, and has a selection (mouse, or
+Shift with the cursor keys; Ctrl+A selects all, Ctrl+G goes to an offset). A change is made in the running machine's ROM at once.
+The buttons save the cartridge to its file (Ctrl+S) or to another one (Save as; that file becomes the cartridge's), import a block
+(a file of the PC written into the cartridge from an offset; a cartridge keeps its size) and export a block (the selected
+bytes, or an offset and a length asked for) to a file; closing the window with changes unsaved asks whether to save them. Escape
+closes it, as in every browser (tape, disk, SD card and cartridge).
+
+Known issue: Firebird (Konami, 1987) was reported to show its hero too high on the screen and blinking; it was not reproduced
+here (the sprites are drawn as the V9938 manual describes) and is still to be looked at on a real machine's capture.
+
+Not done yet: MSX-DOS 2, ZIP files with games, snapshots, DAAD on the MSX, the MSX2's timed commands and the debugger's
+slot view (the ports window, below, shows what the slot registers hold).
+
+In the debugger the chip button is **MSX Ports**: a window like the ZX-Uno's, which can stay open, with the slot registers (`A8h`
+and the subslot register of slot 3, with the slot each page shows), the PPI's port C, the mapper's segments (`FCh`-`FFh`), the PSG's
+registers, the VDP's registers R#0-R#23 and R#32-R#46 (with the names of their bits), its status registers S#0-S#9 and the 16
+palette colours. Select a value, type a new one (hex; a palette colour is three digits, R, G and B) and press Enter to write it.
+The VDP's TMS9918A modes (Graphics I and II, Text and Multicolor) wrap their address at 16K as the MSX1 games expect; the V9938's
+carry it into R#14.
+
+The RAM of the machine is visible in subslots 3-0 and 3-2 (the same bytes), because game loaders look for it both ways: through
+the primary slot alone and by writing a subslot register value that selects 3-2.
+
 ### emu80 snapshots (.e80)
 
 .z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so emu80 has its own
@@ -897,6 +1061,8 @@ version byte (1), the machine's `--model` name (a length byte and the name: `48k
 then the machine compressed with zlib in the order of `SnapIO` in `src/Emu80Snap.inc`.
 
 ## 5. Tape browser
+
+Escape closes the window, as its close button does (while a name is being edited it only cancels the edit).
 
 Tape > Tape browser (F7) lists the blocks of the tape, of any TZX kind (turbo data, tones,
 pulses, recordings, pauses, groups, loops, texts, archive info...), with the size and checksum of
@@ -940,6 +1106,8 @@ blocks: with blocks from a .tzx that a .tap can't keep, emu80 asks first. Or as 
 flow control blocks (jumps, loops, calls and selections): it says so if the tape has any.
 
 ## 6. Disk browser
+
+Escape closes the window, as its close button does (while a name is being edited it only cancels the edit).
 
 Floppy > Disk browser, or the 3" disk button on the toolbar, lists the files on a disk (its
 window title shows the drive and the full path of the disk image). Both are
@@ -993,13 +1161,13 @@ The interface is connected in Settings > ZX Spectrum > Hardware.
 **Changing hardware.** The DivMMC and its card follow the machine, each one remembering the card last used in it
 (the card inserted from the SD menu, or saved as another file, while a machine is the current one is the one it
 remembers): the standard models share `zx_sdcard`, the ZX-Uno has `zx_unocard` and the Next `zx_nextcard`.
-- Switching to the **Next**: the DivMMC is connected and the Next's last card goes in (made from its distribution
+- Switching to the **Next**: the DivMMC and the Kempston mouse are connected and the Next's last card goes in (made from its distribution
   the first time; see [ZX Spectrum Next](#zx-spectrum-next)).
-- Switching to the **ZX-Uno**: the DivMMC is connected and the ZX-Uno's last card goes in, if it has one (if not,
+- Switching to the **ZX-Uno**: the DivMMC and the Kempston mouse are connected and the ZX-Uno's last card goes in, if it has one (if not,
   the card that was in stays).
 - Switching from the ZX-Uno or the Next to a **standard Spectrum**: the standard models' card comes back (the
   ZX-Uno's or the Next's goes out, its changes first saved or asked about) and emu80 asks whether to switch the DivMMC
-  off; if not, it stays connected.
+  off; if not, it stays connected (the Kempston mouse is switched off).
 
 The SD menu:
 
@@ -1027,6 +1195,8 @@ esxDOS browser. Use `.ls`, `.cd`, `LOAD *"name"`, `SAVE *"name"` and the other e
 on the real interface.
 
 ### SD card browser
+
+Escape closes the window, as its close button does (while a name is being edited it only cancels the edit).
 
 Shows the files and folders of the card (FAT12, FAT16 or FAT32, with or without a partition
 table; the window title shows the full path of the card image): name (the long name if it has one; folders have a folder icon), size, for files with a +3DOS header (as esxDOS saves
@@ -1103,7 +1273,8 @@ while its ROM is paged in.
 
 Debug > Debugger (F12) opens a window and stops the emulation at the current instruction. The
 window takes the focus, on the execution line, so F7 and F10 step at once (the Adventure Debugger
-does the same). Closing it carries on running. Hovering over a hex value shows it in decimal. The
+does the same). Closing it carries on running. Hovering over a hex value shows it in decimal, and, for a 16-bit one, after a dash the labels
+with that value, if any (`16384 - USER, START`). The
 window has five zones, each with a title: disassembly and registers on top, memory, breakpoints
 and watches in the bottom third. The window is made to fit the screen: on a small one the
 disassembly and the bottom zones show fewer lines, while the registers zone keeps all of its
@@ -1181,8 +1352,11 @@ fetches are not reads.
 ### Registers
 
 AF, HL, DE, BC, IX and IY with the 16-bit word they point to, the alternate set, I, R, SP, PC,
-the flags (X = set; resting the mouse on a flag's name for a second explains it), IM, IFF1, IFF2,
-DI/EI and HALT. Values changed by the last instruction are dark red (in AF, HL, DE, BC, IX, IY
+the flags (X = set; resting the mouse on a flag's name for a second explains it), Bus (the data bus
+value, FF by default: what an interrupt reads), IM, IFF1, IFF2, DI/EI and HALT. At the right of I
+and SP, IM2 ADDR is where an IM 2 interrupt jumps to: I as the high byte and Bus as the low one,
+and the word read there in brackets. Editing the address edits I and Bus (the Z80 uses the Bus
+value in IM 2 interrupts), and editing the word in brackets edits the memory. Values changed by the last instruction are dark red (in AF, HL, DE, BC, IX, IY
 and the alternate set, only the half that changed: `LD D,0` marks D, not E). Click a value to
 edit it; click a flag, IFF1 or IFF2 to toggle it and IM to cycle 0-1-2.
 
@@ -1640,7 +1814,7 @@ symbols, breakpoints, typed keys.
 | `--bpin PORT` | port read (IN) breakpoint; PORT is hex, up to FF matches any high byte |
 | `--bpout PORT` | port write (OUT) breakpoint |
 | `--bpio PORT` | port read or write breakpoint (any) |
-| `--keyin TEXT` | type TEXT on the keyboard once the machine has started (on the SAM Coupé: every character its keyboard can make (SHIFT or SYMBOL are pressed as its ROM wants), `\n` RETURN, `\w` and `~`, `\\` and `\~` for a backslash and a tilde; its first screen waits for a key, so `--keyin '\n~load ""\n'`. On a CPC: letters as they come, lower case, with SHIFT for upper case and the symbols of the CPC's keyboard, no escapes beyond `\n` RETURN, `\w` and `~`: `--model cpc464 --keyin 'run"\n'`). On the Spectrum: Letters and digits are their keys (so in 48K BASIC keyword mode "J" is LOAD), symbols are typed with SYMBOL SHIFT (" is SYMBOL+P). `~` waits half a second. Escapes: `\n` ENTER, `\w` wait one second. Example: `--keyin 'J""\n'` |
+| `--keyin TEXT` | type TEXT on the keyboard once the machine has started (on the SAM Coupé: every character its keyboard can make (SHIFT or SYMBOL are pressed as its ROM wants), `\n` RETURN, `\w` and `~`, `\\` and `\~` for a backslash and a tilde; its first screen waits for a key, so `--keyin '\n~load ""\n'`. On a CPC: letters as they come, lower case, with SHIFT for upper case and the symbols of the CPC's keyboard, no escapes beyond `\n` RETURN, `\w` and `~`: `--model cpc464 --keyin 'run"\n'`; on an MSX: letters as capitals, the symbols of its keyboard, `\n` RETURN, `\w` and `~`, `\\` for a backslash). On the Spectrum: Letters and digits are their keys (so in 48K BASIC keyword mode "J" is LOAD), symbols are typed with SYMBOL SHIFT (" is SYMBOL+P). `~` waits half a second. Escapes: `\n` ENTER, `\w` wait one second. Example: `--keyin 'J""\n'` |
 | `--zx_sdcard FILE` | insert an SD card image (connects the DivMMC) |
 | `--zx_unocard FILE` | the SD card the ZX-Uno uses (the last one used in it); empty = none |
 | `--zx_sdfolder FOLDER` | use a PC folder as the SD card (as SD > Use a PC folder as SD card; connects the DivMMC) |
@@ -1673,11 +1847,13 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--zx_timex` | Timex screen modes | ZX Spectrum > Machine |
 | `--zx_radastan` | Radastan mode (ZX-Uno) | ZX Spectrum > Machine |
 | `--scanlines` | scanlines, from zoom 2x | Common > General |
+| `--attachmouse` | the PC mouse can't leave the picture while the emulated mouse is in use (off by default); `--no-attachmouse` | Common > General |
 | `--zx_deinterlace M` | how the picture is deinterlaced: `progressive`, `bob` or `weave` (the default) (see [Deinterlacing](#deinterlacing)) | ZX Spectrum > Machine, Options menu |
-| `--zx_joystick J` | what the cursor keys + Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | ZX Spectrum > Machine |
+| `--zx_joystick J` | what the cursor keys + right Ctrl emulate: `none`, `kempston` (the default), `sinclair1`, `sinclair2`, `cursor` or `fuller` | ZX Spectrum > Machine |
 | `--zx_issue N` | keyboard issue 2 or 3 | ZX Spectrum > Machine |
 | `--zx_turbosound` | TurboSound | ZX Spectrum > Hardware |
 | `--zx_ay48` | AY chip on the 16K/48K | Hardware |
+| `--zx_leftshift` | the left Shift is CAPS SHIFT instead of the left Ctrl (off by default) | Machine > Controls |
 | `--zx_kmouse` | Kempston mouse | ZX Spectrum > Hardware |
 | `--zx_divmmc` | DivMMC interface | ZX Spectrum > Hardware |
 | `--zx_currah` | Currah µSpeech | ZX Spectrum > Hardware |
@@ -1687,6 +1863,11 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--sam_memory K` | SAM Coupé: the RAM in K, `256` or `512` (the default); resets the machine (see [SAM Coupé](#sam-coupé)) | SAM Coupé |
 | `--sam_saa` | SAM Coupé: the SAA1099 is heard (on by default) | SAM Coupé |
 | `--sam_joystick` | SAM Coupé: cursor keys and right Ctrl as a Kempston joystick (on by default) | SAM Coupé |
+| `--msx_joystick` | MSX: cursor keys and right Ctrl as joystick 1 (on by default) | MSX |
+| `--msx_cartmapper M` | MSX: mapper of the cartridges: `auto` (the default), `plain`, `konami`, `konamiscc`, `ascii8` or `ascii16` | MSX |
+| `--msx_mapper M` | MSX2: the RAM mapper's ports: `auto` (the default: off when Auto load starts a tape), `on` or `off`; from the next reset | MSX |
+| `--msx_compat` | MSX2: the slots of an MSX1 (none expanded, so FFFFh is RAM; no disk drive); resets the machine (off by default) | MSX |
+| `--msx_notice` | MSX: the note about the unofficial ROMs is shown the first time the machine starts (on until it has been shown) | MSX |
 | `--sam_autodos` | SAM Coupé: Boot SAMDOS automatically (on by default) | SAM Coupé |
 | `--sam_mouse` | SAM Coupé: the PC's mouse is the SAM's (off by default) | SAM Coupé |
 | `--sam_clock` | SAM Coupé: the SAMBUS clock (on by default) | SAM Coupé |
@@ -1831,6 +2012,8 @@ and typing keys, and writes the screen as a PPM image plus the recognised
 screen text. See the comment at the top of the file for its arguments.
 
 ## ROMs
+
+The MSX BIOS is not distributed: it goes in `roms/msx/` (see [MSX](#msx)), which git ignores.
 
 The SAM Coupé's ROM (`samcoupe.rom`, version 3.0) and the SAMDOS 2 disk (`SAMDOS2.dsk`) are in `roms/`, (c) MGT (the games and disks used to try the machine are not distributed). Another ROM can be named
 in Settings > Common > ROMs. The SAM Coupé emulation was written from its Technical Manual and checked against its behaviour; no code of SimCoupe (GPL v2) or of any other emulator is used.

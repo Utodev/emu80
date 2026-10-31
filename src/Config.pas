@@ -52,12 +52,18 @@ type
     AY48: Boolean;                // AY interface on the 16K/48K
     DivMMC: Boolean;              // DivMMC interface connected
     Currah: Boolean;              // Currah µSpeech connected
+    LeftShiftCaps: Boolean;       // ZX Spectrum: the left Shift is CAPS SHIFT (and Ctrl is also the joystick's fire), else the left Ctrl is
     CPCJoystick: Boolean;         // Amstrad CPC: the cursor keys and right Ctrl are also joystick 1
     CPCWaitStates: Boolean;       // Amstrad CPC: the Gate Array's wait states (every access on the 1 MHz grid)
     CPCCrtc: Integer;             // Amstrad CPC: the CRTC chip, 0-4; -1 = the one the model came with
     SamSaa: Boolean;              // SAM Coupe: the SAA1099 sound generator is heard
     SamJoystick: Boolean;         // SAM Coupe: the cursor keys and right Ctrl are also a joystick (Kempston)
     SamMouse: Boolean;            // SAM Coupe: a mouse is connected (the PC's mouse over the picture)
+    MsxJoystick: Boolean;         // MSX: the cursor keys and right Ctrl are also joystick 1
+    MsxNotice: Boolean;           // MSX: the note about the QUANTIKA ROMs is shown the first time the machine starts
+    MsxCompat: Boolean;           // MSX2: the slots of an MSX1 (none expanded, no disk interface): from the next reset
+    MsxCartMapper: string;        // MSX: the mapper of the cartridges inserted: auto, plain, konami, konamiscc, ascii8 or ascii16
+    MsxMapper: string;            // MSX2: the memory mapper's ports: auto (off when a tape starts the machine), on or off
     SamClock: Boolean;            // SAM Coupe: the SAMBUS clock interface is connected
     SamAutoDos: Boolean;          // SAM Coupe: SAMDOS2.dsk is inserted and booted on start, reset and model change
     SamMemory: Integer;           // SAM Coupe: the RAM in K, 256 or 512
@@ -89,12 +95,15 @@ type
     Timex: Boolean;               // Timex screen modes (port FF)
     Radastan: Boolean;            // ZX-Uno Radastan mode (128x96, 16 colours)
     Scanlines: Boolean;           // darker rows between lines (from 2x)
+    AttachMouse: Boolean;         // the PC mouse can't leave the window while the emulated mouse is used
     RomFiles: array[TSpectrumModel, 0..3] of string;   // '' = default ROM file
     PokeHistory: TStringList;     // "file|pokes", newest first
     RecentFiles: TStringList;
     RecentSymbols: TStringList;   // symbol files loaded, newest first
     RecentDisks: TStringList;     // disk images inserted, newest first
     RecentCards: TStringList;     // SD card images inserted, newest first
+    RecentTapes: TStringList;     // tapes inserted, newest first
+    RecentCarts: TStringList;     // MSX cartridges inserted, newest first
     LastDir: string;
     DiskBrowserDir: string;       // last PC folder of the disk browser's import/export
     SDBrowserDir: string;         // and of the SD card browser's
@@ -113,11 +122,15 @@ type
     function Snapshot: string;
     procedure Restore(const Text: string);
     procedure AcceptRealSpecNext;
+    { The MSX note was shown: it won't be again (only that key of the file changes) }
+    procedure MsxNoticeShown;
     procedure ForgetRealSpecNext;
     procedure AddRecent(const FileName: string);
     procedure AddRecentSymbols(const FileName: string);
     procedure AddRecentDisk(const FileName: string);
     procedure AddRecentCard(const FileName: string);
+    procedure AddRecentTape(const FileName: string);
+    procedure AddRecentCart(const FileName: string);
     procedure AddPoke(const FileName, Pokes: string);
     { Use another main settings file (--config); it must exist }
     procedure UseFile(const AFileName: string);
@@ -159,8 +172,9 @@ const
   SEC_ZX = 'ZXSpectrum';
   SEC_CPC = 'AmstradCPC';
   SEC_SAM = 'SAMCoupe';
+  SEC_MSX = 'MSX';
 
-  BOOL_OPTIONS: array[0..28] of TBoolOption = (
+  BOOL_OPTIONS: array[0..33] of TBoolOption = (
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'zx_contention'; Section: SEC_ZX),
     (Name: 'zx_snow'; Section: SEC_ZX),
@@ -169,15 +183,20 @@ const
     (Name: 'zx_timex'; Section: SEC_ZX),
     (Name: 'zx_radastan'; Section: SEC_ZX),
     (Name: 'scanlines'; Section: 'Machine'),
+    (Name: 'attachmouse'; Section: 'Machine'),
     (Name: 'zx_turbosound'; Section: SEC_ZX),
     (Name: 'zx_ay48'; Section: SEC_ZX),
     (Name: 'zx_kmouse'; Section: SEC_ZX),
     (Name: 'zx_divmmc'; Section: SEC_ZX),
     (Name: 'zx_currah'; Section: SEC_ZX),
+    (Name: 'zx_leftshift'; Section: SEC_ZX),
     (Name: 'zx_nextfirmware'; Section: SEC_ZX),
     (Name: 'zx_savetotape'; Section: SEC_ZX),
     (Name: 'cpc_joystick'; Section: SEC_CPC),
     (Name: 'cpc_waitstates'; Section: SEC_CPC),
+    (Name: 'msx_joystick'; Section: SEC_MSX),
+    (Name: 'msx_compat'; Section: SEC_MSX),
+    (Name: 'msx_notice'; Section: SEC_MSX),
     (Name: 'sam_saa'; Section: SEC_SAM),
     (Name: 'sam_joystick'; Section: SEC_SAM),
     (Name: 'sam_autodos'; Section: SEC_SAM),
@@ -262,7 +281,7 @@ function ZXUnoRomsFile: string;
 implementation
 
 uses
-  NextCard;
+  NextCard, Msx;
 
 function DefaultRomDir: string;
 var
@@ -350,6 +369,8 @@ begin
   RecentSymbols := TStringList.Create;
   RecentDisks := TStringList.Create;
   RecentCards := TStringList.Create;
+  RecentTapes := TStringList.Create;
+  RecentCarts := TStringList.Create;
   PokeHistory := TStringList.Create;
   FMainText := TStringList.Create;
   FFileName := ExtractFilePath(ParamStr(0)) + 'emu80.ini';
@@ -386,9 +407,15 @@ begin
   ScreenshotBorder := True;
   TurboSound := False;
   Currah := False;
+  LeftShiftCaps := False;
   CPCJoystick := True;
   CPCWaitStates := True;
   CPCCrtc := -1;
+  MsxJoystick := True;
+  MsxCompat := False;
+  MsxNotice := True;
+  MsxCartMapper := 'auto';
+  MsxMapper := 'auto';
   SamSaa := True;
   SamJoystick := True;
   SamAutoDos := True;
@@ -408,6 +435,7 @@ begin
   Timex := False;
   Radastan := False;
   Scanlines := False;
+  AttachMouse := False;
 end;
 
 destructor TSettings.Destroy;
@@ -416,6 +444,8 @@ begin
   RecentSymbols.Free;
   RecentDisks.Free;
   RecentCards.Free;
+  RecentTapes.Free;
+  RecentCarts.Free;
   PokeHistory.Free;
   FMainText.Free;
   inherited Destroy;
@@ -482,13 +512,18 @@ begin
     'zx_timex': Result := @Timex;
     'zx_radastan': Result := @Radastan;
     'scanlines': Result := @Scanlines;
+    'attachmouse': Result := @AttachMouse;
     'zx_turbosound': Result := @TurboSound;
     'zx_ay48': Result := @AY48;
     'zx_kmouse': Result := @KempstonMouse;
     'zx_divmmc': Result := @DivMMC;
     'zx_currah': Result := @Currah;
+    'zx_leftshift': Result := @LeftShiftCaps;
     'cpc_joystick': Result := @CPCJoystick;
     'cpc_waitstates': Result := @CPCWaitStates;
+    'msx_joystick': Result := @MsxJoystick;
+    'msx_compat': Result := @MsxCompat;
+    'msx_notice': Result := @MsxNotice;
     'sam_saa': Result := @SamSaa;
     'sam_joystick': Result := @SamJoystick;
     'sam_autodos': Result := @SamAutoDos;
@@ -567,6 +602,7 @@ begin
   if Copy(NewName, 1, 3) = 'zx_' then Result := SEC_ZX
   else if Copy(NewName, 1, 4) = 'cpc_' then Result := SEC_CPC
   else if Copy(NewName, 1, 4) = 'sam_' then Result := SEC_SAM
+  else if Copy(NewName, 1, 4) = 'msx_' then Result := SEC_MSX
   else Result := Default;
 end;
 
@@ -613,6 +649,7 @@ var
   S: string;
   J: TJoystickKeys;
   D: TDeinterlace;
+  MapperTmp: TMsxMapperKind;
 begin
   for I := 0 to High(BOOL_OPTIONS) do
   begin
@@ -637,6 +674,10 @@ begin
   S := LowerCase(Ini.ReadString(SEC_CPC, 'cpc_crtc', ''));
   if S = 'auto' then CPCCrtc := -1
   else if (Length(S) = 1) and (S[1] in ['0'..'4']) then CPCCrtc := Ord(S[1]) - 48;
+  S := LowerCase(Ini.ReadString(SEC_MSX, 'msx_cartmapper', MsxCartMapper));
+  if (S = 'auto') or MapperFromName(S, MapperTmp) then MsxCartMapper := S;
+  S := LowerCase(Ini.ReadString(SEC_MSX, 'msx_mapper', MsxMapper));
+  if (S = 'auto') or (S = 'on') or (S = 'off') then MsxMapper := S;
   I := Ini.ReadInteger(SEC_SAM, 'sam_memory', SamMemory);
   if (I = 256) or (I = 512) then SamMemory := I;
   // The monitor; older files had "bw", an on/off for the black and white display
@@ -693,6 +734,8 @@ begin
   if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
   Put(SEC_SAM, 'sam_memory', IntToStr(SamMemory));
+  Put(SEC_MSX, 'msx_cartmapper', MsxCartMapper);
+  Put(SEC_MSX, 'msx_mapper', MsxMapper);
   Put('General', 'monitor', MONITOR_KEYS[Monitor]);
   Ini.DeleteKey('General', 'bw');
   Put('ROMs', 'romdir', RomDir);
@@ -776,6 +819,8 @@ begin
   ZXUnoBios := Ini.ReadString(SEC_ZX, 'zx_unobios', ZXUnoBios);
   ReadList(Ini, 'RecentDisks', RecentDisks, Overlay);
   ReadList(Ini, 'RecentCards', RecentCards, Overlay);
+  ReadList(Ini, 'RecentTapes', RecentTapes, Overlay);
+  ReadList(Ini, 'RecentCarts', RecentCarts, Overlay);
   if not Overlay or Ini.SectionExists('RecentSymbols') then
   begin
     RecentSymbols.Clear;
@@ -852,6 +897,8 @@ begin
   if ZXUnoBios <> '' then Ini.WriteString(SEC_ZX, 'zx_unobios', ZXUnoBios);
   WriteList(Ini, 'RecentDisks', RecentDisks);
   WriteList(Ini, 'RecentCards', RecentCards);
+  WriteList(Ini, 'RecentTapes', RecentTapes);
+  WriteList(Ini, 'RecentCarts', RecentCarts);
   Ini.EraseSection('RecentSymbols');
   for I := 0 to RecentSymbols.Count - 1 do
     Ini.WriteString('RecentSymbols', 'File' + IntToStr(I), RecentSymbols[I]);
@@ -982,6 +1029,13 @@ begin
   RealSpecNextCmd := Cmd;
 end;
 
+procedure TSettings.MsxNoticeShown;
+begin
+  MsxNotice := False;
+  if FileExists(FFileName) then ChangeFileKey(FFileName, FMainText, SEC_MSX, 'msx_notice', '0')
+  else Save;
+end;
+
 procedure TSettings.AcceptRealSpecNext;
 begin
   RealSpecNextOk := True;
@@ -1026,6 +1080,16 @@ end;
 procedure TSettings.AddRecentCard(const FileName: string);
 begin
   AddToRecent(RecentCards, FileName);
+end;
+
+procedure TSettings.AddRecentTape(const FileName: string);
+begin
+  AddToRecent(RecentTapes, FileName);
+end;
+
+procedure TSettings.AddRecentCart(const FileName: string);
+begin
+  AddToRecent(RecentCarts, FileName);
 end;
 
 procedure TSettings.AddRecentSymbols(const FileName: string);

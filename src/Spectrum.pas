@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS;
+  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine;
 
 const
   SCREEN_WIDTH = 352;
@@ -101,7 +101,7 @@ type
   { One step of automatic typing: keys held (or none) for a number of frames }
   TAutoKeyStep = record
     Frames: Integer;
-    Rows: array[0..9] of Byte;   // bits cleared for pressed keys (the CPC has 10 lines)
+    Rows: array[0..10] of Byte;  // bits cleared for pressed keys (the CPC has 10 lines, the MSX 11)
   end;
 
   TMemoryAt = (maRam, maRom, maNone);
@@ -386,11 +386,23 @@ type
     FSamSwapDisk: TDiskImage;               // the disk that goes in drive 1 once SAMDOS has booted
     FSamTrapHits: Integer;                  // files loaded by the SAMDOS trap
     FSamSwapFrame: Int64;                   // the frame to put it in at
+    { MSX }
+    FIsMSX: Boolean;                        // an MSX: FMsxHw is the machine's hardware
+    FMsxHw: TMsxMachine;
+    FMsxArmed: Boolean;                     // Play pressed: the tape moves while the program has the motor on
+    FMsxClick: Boolean;                     // the click bit of PPI port C
+    FMsxDatePending: Boolean;               // an auto load: ENTER answers the disk ROM's date prompt when it comes
+    FMsxEnterFrom: Int64;                   // the frame ENTER is pressed at, for 4 frames (-1: not now)
+    FMsxCompat: Boolean;                    // the MSX1 layout (no expanded slot): from the next reset
+    FMsxMapperMode: Integer;                // the memory mapper: 0 auto (off when a tape starts the machine), 1 on, 2 off
+    FMsxTapeStart: Boolean;                 // the next reset is an auto load from tape
     { Amstrad CPC }
     FIsCPC: Boolean;                        // a CPC model: FCPC is the machine's hardware
     FCPC: TAmstrad;
     FAYStep: Integer;                       // T-states per AY tick (16; 32 for the CPC's 1 MHz PSG)
     FCPCArmed: Boolean;                     // the user pressed Play: the tape runs while the motor is on
+    FCPCOffPending: Boolean;                // the program has switched the motor off, not for long enough to stop the tape yet
+    FCPCOffT: Integer;                      // ... since this T-state of the frame
     procedure SetupCPC;
     procedure CPCAutoType(Frames: Integer; const Keys: array of Integer);
     function CPCTypeText(const Text: string; out Error: string): Boolean;
@@ -402,6 +414,7 @@ type
     procedure CPCPsg(T: Integer; Reg, Value: Byte);
     function CPCTapeIn(T: Integer): Boolean;
     procedure CPCMotor(T: Integer; On_: Boolean);
+    procedure CPCMotorSettle(T: Integer);
     procedure CPCTapeOut(T: Integer; Level: Boolean);
     function CPCFdc(Write: Boolean; Reg: Integer; Value: Byte; T: Integer): Byte;
     procedure CPCTapeUpdate(ChipT: Integer);
@@ -413,6 +426,27 @@ type
     procedure ExecuteOneCPC;
     function CPCInstrNops(out IoNops: Integer; out IntShort: Boolean): Integer;
     procedure FinishFrameCPC;
+    procedure SetupMSX;
+    function MSXNow: Int64;
+    function MSXTapeT(ChipT: Integer): Integer;
+    function MSXTapeIn(T: Integer): Boolean;
+    procedure MSXMotor(T: Integer; On_: Boolean);
+    procedure MSXTapeUpdate(ChipT: Integer);
+    procedure MSXBeeper(T: Integer);
+    procedure MSXAutoType(Frames: Integer; const Keys: array of Integer);
+    procedure MSXSyncAutoKeys;
+    function MSXTypeText(const Text: string; out Error: string): Boolean;
+    procedure MSXAutoLoad(FromDisk: Boolean);
+    procedure MSXReset(Hard: Boolean);
+    procedure MSXPaging;
+    procedure MSXPsg(T: Integer; Reg, Value: Byte);
+    procedure MSXClick(T: Integer; Level: Boolean);
+    function ReadMemMSX(Addr: Word): Byte;
+    procedure WriteMemMSX(Addr: Word; Value: Byte);
+    function ReadPortMSX(Port: Word; var T: Integer): Byte;
+    procedure WritePortMSX(Port: Word; Value: Byte; var T: Integer);
+    procedure ExecuteOneMSX;
+    procedure FinishFrameMSX;
     procedure SetupSAM;
     procedure SAMStateIO(S: TStream; Save: Boolean);
     function SamSlotCanHold(Slot, What: Integer): Boolean;
@@ -573,6 +607,7 @@ type
     MouseEnabled: Boolean;
     MouseX, MouseY: Byte;      // Y grows upwards
     MouseButtons: Byte;        // bits low when pressed: 0 right, 1 left, 2 middle
+    MouseReadTick: QWord;      // when a program last read the mouse (GetTickCount64): in use or not
     { ULAplus (64-colour palette, ports BF3B/FF3B), Timex screen modes (port
       FF: second screen, hi-colour 8x1 attributes, 512x192 hi-res) and the
       ZX-Uno's Radastan mode (128x96, 16 colours) }
@@ -627,6 +662,10 @@ type
       "~" waits half a second, escapes \n ENTER and \w wait one second. False if a
       character can't be typed (Error says which). }
     function TypeText(const Text: string; out Error: string): Boolean;
+    { Type one symbol of the virtual keyboard (a UTF-8 character) the way the machine's keys give it
+      ("~" and "\" too, as characters). False if the machine has no way to type it; DryRun only tells
+      whether it has. }
+    function TypeSymbol(const Sym: string; DryRun: Boolean = False): Boolean;
     { Full path of ROM Index for the current model }
     function RomPath(Index: Integer): string;
     { Reset and load from tape the way a user would (LOAD "" or Loader menu). }
@@ -787,6 +826,13 @@ type
     property CPC: TAmstrad read FCPC;
     { The SAM Coupe's ASIC (nil on the other models) }
     property SAM: TSam read FSam;
+    { The MSX's hardware (nil on the other models) }
+    property MSXHw: TMsxMachine read FMsxHw;
+    { The MSX2's memory mapper (MSX_MAPPER_*): from the next reset }
+    property MsxMapperMode: Integer read FMsxMapperMode write FMsxMapperMode;
+    { The MSX2 with the slots of an MSX1: none expanded, no disk interface (MSX1 programs that use FFFFh as RAM or look for
+      RAM in a primary slot alone need it); from the next reset }
+    property MsxCompat: Boolean read FMsxCompat write FMsxCompat;
     { Whether the SAM Coupe's SAA1099 is heard (it is always emulated) }
     property SamSaaOn: Boolean read FSamSaaOn write FSamSaaOn;
     { The SAM Coupe's registers, for the debugger: Reg is the port ($F9 the line interrupt,
@@ -899,6 +945,10 @@ const
     (KEY_CAPS, KEY_4), (KEY_CAPS, KEY_SPACE), (KEY_CAPS, KEY_1), (KEY_CAPS, KEY_0));
 
   NO_MEMORY = -100;   // slot with nothing paged in (16K model)
+
+  MSX_MAPPER_AUTO = 0;    // MsxMapperMode: the mapper is there, except when a tape starts the machine
+  MSX_MAPPER_ON = 1;
+  MSX_MAPPER_OFF = 2;
 
   BP_EXEC = 1;
   BP_READ = 2;
@@ -1062,6 +1112,7 @@ begin
   FCurrah.Free;
   FProbeCpu.Free;
   FProbeBus.Free;
+  FMsxHw.Free;
   FSam.Free;
   FSaa.Free;
   FCPC.Free;
@@ -1081,7 +1132,7 @@ var
   S: TFileStream;
   FileName: string;
 begin
-  if FInfo.Memory in [mkCPC, mkSAM] then Exit;   // SetupCPC, SetupSAM
+  if FInfo.Memory in [mkCPC, mkSAM, mkMSX] then Exit;   // SetupCPC, SetupSAM, SetupMSX
   if FInfo.Memory = mkZXUno then
   begin
     LoadZXUnoFlash;
@@ -1110,7 +1161,9 @@ end;
 function TSpectrum.RomPath(Index: Integer): string;
 begin
   Result := RomFile[FModel, Index and 3];
-  if Result = '' then
+  if (Result = '') and (FInfo.RomFiles[Index and 3] = '') then
+    Result := ''                          // a ROM the model has no standard file for (the MSX's disk interface)
+  else if Result = '' then
     Result := IncludeTrailingPathDelimiter(FRomDir) + FInfo.RomFiles[Index and 3]
   else if not ((Result[1] in ['/', '\']) or ((Length(Result) > 1) and (Result[2] = ':'))) then
     Result := IncludeTrailingPathDelimiter(FRomDir) + Result;
@@ -1118,20 +1171,22 @@ end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);
 var
-  WasUno, WasNext, WasCPC, WasSAM: Boolean;
+  WasUno, WasNext, WasCPC, WasSAM, WasMSX: Boolean;
   OldModel: TSpectrumModel;
 begin
   OldModel := FModel;
   WasCPC := FIsCPC;
   WasSAM := FIsSAM;
+  WasMSX := FIsMSX;
   WasUno := IsZXUno;
   WasNext := IsNext;
   FModel := AModel;
   FInfo := ModelInfo[AModel];
   FIsCPC := FInfo.Memory = mkCPC;
   FIsSAM := FInfo.Memory = mkSAM;
+  FIsMSX := FInfo.Memory = mkMSX;
   if FIsCPC then FAYStep := 32 else FAYStep := 16;
-  FRecorder.Raw := FIsCPC or FIsSAM;
+  FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
   LoadRoms;
   // The ZX-Uno's DivMMC has its firmware in SRAM page 12 and its RAM in
   // pages 16-23 (so MASTERMAPPER sees it too); leaving it, the interface is
@@ -1160,9 +1215,10 @@ begin
   FTape.StopIf48K := FModel in [sm16K, sm48K];
   // A TZX's pulses are in 3.5 MHz T-states: the SAM's 6 MHz stretches them
   if FIsSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
-  FTape.FinalEdge := FIsSAM;
+  FTape.FinalEdge := FIsSAM or FIsCPC;
+  if FIsCPC then FTape.ShortPauseExtraMs := 0.5 else FTape.ShortPauseExtraMs := 0;
   FFDC.ClockHz := FInfo.ClockHz;
-  if FIsSAM then FWD.ClockHz := FInfo.ClockHz;
+  if FIsSAM or FIsMSX then FWD.ClockHz := FInfo.ClockHz;
   UpdateContend;
   if FIsSAM then
   begin
@@ -1174,18 +1230,20 @@ begin
       FInfo := ModelInfo[OldModel];
       FIsCPC := WasCPC;
       FIsSAM := WasSAM;
+      FIsMSX := WasMSX;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
-      FRecorder.Raw := FIsCPC or FIsSAM;
+      FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
       BuildContention;
       FTape.ClockHz := FInfo.ClockHz;
       if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
-      FTape.FinalEdge := WasSAM;
+      FTape.FinalEdge := WasSAM or WasCPC;
+      if WasCPC then FTape.ShortPauseExtraMs := 0.5 else FTape.ShortPauseExtraMs := 0;
       FFDC.ClockHz := FInfo.ClockHz;
+      if WasSAM or WasMSX then FWD.ClockHz := FInfo.ClockHz;
       if WasCPC then FTape.ClockHz := 3500000;
       raise;
     end;
-  end
-  else FreeAndNil(FSam);
+  end;
   if FIsCPC then
   begin
     try
@@ -1196,19 +1254,51 @@ begin
       FInfo := ModelInfo[OldModel];
       FIsCPC := WasCPC;
       FIsSAM := WasSAM;
+      FIsMSX := WasMSX;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
-      FRecorder.Raw := FIsCPC or FIsSAM;
+      FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
       if not WasCPC then FreeAndNil(FCPC);
       BuildContention;
       FTape.ClockHz := FInfo.ClockHz;
       if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
-      FTape.FinalEdge := WasSAM;
+      FTape.FinalEdge := WasSAM or WasCPC;
+      if WasCPC then FTape.ShortPauseExtraMs := 0.5 else FTape.ShortPauseExtraMs := 0;
       FFDC.ClockHz := FInfo.ClockHz;
+      if WasSAM or WasMSX then FWD.ClockHz := FInfo.ClockHz;
       if WasCPC then FTape.ClockHz := 3500000;
       raise;
     end;
-  end
-  else FreeAndNil(FCPC);
+  end;
+  if FIsMSX then
+  begin
+    try
+      SetupMSX;
+    except
+      // No BIOS: stay as we were
+      FModel := OldModel;
+      FInfo := ModelInfo[OldModel];
+      FIsCPC := WasCPC;
+      FIsSAM := WasSAM;
+      FIsMSX := WasMSX;
+      if FIsCPC then FAYStep := 32 else FAYStep := 16;
+      FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
+      if not WasMSX then FreeAndNil(FMsxHw);
+      BuildContention;
+      FTape.ClockHz := FInfo.ClockHz;
+      if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
+      FTape.FinalEdge := WasSAM or WasCPC;
+      if WasCPC then FTape.ShortPauseExtraMs := 0.5 else FTape.ShortPauseExtraMs := 0;
+      FFDC.ClockHz := FInfo.ClockHz;
+      if WasSAM or WasMSX then FWD.ClockHz := FInfo.ClockHz;
+      if WasCPC then FTape.ClockHz := 3500000;
+      raise;
+    end;
+  end;
+  // The hardware of the machine left is only freed once the new one is ready: a machine that can't
+  // start (an MSX2 without its ROMs) leaves the old one as it was
+  if not FIsSAM then FreeAndNil(FSam);
+  if not FIsCPC then FreeAndNil(FCPC);
+  if not FIsMSX then FreeAndNil(FMsxHw);
   Reset(True);
 end;
 
@@ -1238,6 +1328,11 @@ begin
   if FIsSAM then
   begin
     SAMReset(Hard);
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    MSXReset(Hard);
     Exit;
   end;
   if Hard then
@@ -1294,7 +1389,7 @@ end;
 
 procedure TSpectrum.RequestNMI;
 begin
-  if FIsCPC then Exit;   // the CPC has no NMI button
+  if FIsCPC or FIsMSX then Exit;   // the CPC and the MSX have no NMI button
   // The Next's buttons work as NR 06 lets them (NextZXOS sets it)
   if IsNext then
   begin
@@ -1315,6 +1410,12 @@ begin
     CPCTapeUpdate(FCPC.ChipT);
     Exit;
   end;
+  if FIsMSX then
+  begin
+    FMsxArmed := True;
+    MSXTapeUpdate(U(FCpu.T));
+    Exit;
+  end;
   FTapeHeld := False;
   FLoadedSincePlay := FLoadDemand;
   // With fast loading, a moment of silence first: the ROM's loader, if it
@@ -1325,7 +1426,8 @@ end;
 
 function TSpectrum.TapeStateText: string;
 begin
-  if FIsCPC and FCPCArmed and not FCPC.Motor and not FTape.Playing then
+  if (FIsMSX and FMsxArmed and not FMsxHw.Motor and not FTape.Playing) or
+     (FIsCPC and FCPCArmed and not FCPC.Motor and not FTape.Playing) then
     Result := 'play pressed, waiting for the motor'
   else if FTape.Playing then Result := 'playing'
   else if (FTape.Count > 0) and (FTape.Current >= FTape.Count) then Result := 'end of tape'
@@ -1339,6 +1441,12 @@ begin
   begin
     FCPCArmed := False;
     CPCTapeUpdate(FCPC.ChipT);
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    FMsxArmed := False;
+    MSXTapeUpdate(U(FCpu.T));
     Exit;
   end;
   FTape.Stop;
@@ -1441,6 +1549,11 @@ begin
   if FIsCPC then
   begin
     CPCPaging;
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    MSXPaging;
     Exit;
   end;
   if FIsSAM then
@@ -1797,27 +1910,27 @@ end;
 
 function TSpectrum.DiskAt(Drive: Integer): TDiskImage;
 begin
-  if FIsSAM then Result := FWD.Disk(Drive) else Result := FFDC.Disk(Drive);
+  if FIsSAM or FIsMSX then Result := FWD.Disk(Drive) else Result := FFDC.Disk(Drive);
 end;
 
 procedure TSpectrum.InsertDiskAt(Drive: Integer; Disk: TDiskImage);
 begin
-  if FIsSAM then FWD.InsertDisk(Drive, Disk) else FFDC.InsertDisk(Drive, Disk);
+  if FIsSAM or FIsMSX then FWD.InsertDisk(Drive, Disk) else FFDC.InsertDisk(Drive, Disk);
 end;
 
 function TSpectrum.EjectDiskAt(Drive: Integer): TDiskImage;
 begin
-  if FIsSAM then Result := FWD.EjectDisk(Drive) else Result := FFDC.EjectDisk(Drive);
+  if FIsSAM or FIsMSX then Result := FWD.EjectDisk(Drive) else Result := FFDC.EjectDisk(Drive);
 end;
 
 function TSpectrum.DiskLastAccess(Drive: Integer): QWord;
 begin
-  if FIsSAM then Result := FWD.LastAccess(Drive) else Result := FFDC.LastAccess(Drive);
+  if FIsSAM or FIsMSX then Result := FWD.LastAccess(Drive) else Result := FFDC.LastAccess(Drive);
 end;
 
 function TSpectrum.GetDriveB: Boolean;
 begin
-  if FIsSAM then Result := FWD.DriveB else Result := FFDC.DriveB;
+  if FIsSAM or FIsMSX then Result := FWD.DriveB else Result := FFDC.DriveB;
 end;
 
 procedure TSpectrum.SetDriveB(Value: Boolean);
@@ -1835,6 +1948,7 @@ procedure TSpectrum.RenderToCurrent;
 begin
   RenderUpTo(U(FCpu.T));
   if FIsCPC then FCPC.PreviewFrame;
+  if FIsMSX then FMsxHw.PreviewFrame;
 end;
 
 function TSpectrum.SetSlot3Bank(Bank: Integer): Boolean;
@@ -1962,6 +2076,14 @@ end;
 
 procedure TSpectrum.Contend(Addr: Word; Time: Integer; var T: Integer);
 begin
+  // The MSX has no contention (its wait states are on the M1 and I/O cycles): an opcode fetch (the only
+  // 4 T-state access) is held for one more, as on the real machine; loaders that read a tape signal count on it
+  if FIsMSX then
+  begin
+    Inc(T, Time);
+    if Time = 4 then Inc(T);
+    Exit;
+  end;
   // The CPC: the Gate Array holds every memory access to the 1 MHz grid
   if FIsCPC then
   begin
@@ -1982,7 +2104,7 @@ end;
 
 procedure TSpectrum.ContendNoMreq(Addr: Word; Time: Integer; var T: Integer);
 begin
-  if FIsCPC then
+  if FIsCPC or FIsMSX then
   begin
     Inc(T, Time);
     Exit;
@@ -2008,6 +2130,7 @@ var
   L2: Integer;
 begin
   if FIsCPC then Exit(ReadMemCPC(Addr));
+  if FIsMSX then Exit(ReadMemMSX(Addr));
   // The Next's Layer 2 mapped over the bottom of memory (port 123B), under
   // the DivMMC (the Next decodes 0000-3FFF: boot ROM, configuration
   // mapping, Multiface, DivMMC, Layer 2, MMU)
@@ -2165,6 +2288,7 @@ end;
 function TSpectrum.FetchMem(Addr: Word; T: Integer): Byte;
 begin
   if FIsCPC then Exit(FCPC.Read(Addr));
+  if FIsMSX then Exit(FMsxHw.Read(Addr));
   // Opcode fetches never trigger read breakpoints
   // The Next's Multiface pages in as its NMI fetches 0066
   if FMfNmi and (Addr = $0066) and not FMfOn then
@@ -2220,6 +2344,7 @@ end;
 
 function TSpectrum.Peek(Addr: Word): Byte;
 begin
+  if FIsMSX then Exit(FMsxHw.Peek(Addr));
   if FDivOn and (Addr < $4000) and FDiv.Active then
     Result := FDiv.Read(Addr)
   else if FCurrahOn and FCurrah.Paged and (Addr < $1000) then
@@ -2235,6 +2360,11 @@ begin
   if FIsCPC then
   begin
     WriteMemCPC(Addr, Value);
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    WriteMemMSX(Addr, Value);
     Exit;
   end;
   Slot := Addr shr 14;
@@ -2344,6 +2474,7 @@ var
 begin
   if FIsCPC then Exit(ReadPortCPC(Port, T));
   if FIsSAM then Exit(ReadPortSAM(Port, T));
+  if FIsMSX then Exit(ReadPortMSX(Port, T));
   IOContendPre(Port, T);
   Result := $FF;
   Responded := False;
@@ -2414,6 +2545,7 @@ begin
   begin
     // Kempston mouse decodes A8 and A10 to pick the register
     Responded := True;
+    MouseReadTick := GetTickCount64;
     case Port and $0500 of
       $0100: Result := MouseX;          // FBDF
       $0500: Result := MouseY;          // FFDF
@@ -2518,6 +2650,11 @@ begin
   if FIsSAM then
   begin
     WritePortSAM(Port, Value, T);
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    WritePortMSX(Port, Value, T);
     Exit;
   end;
   IOContendPre(Port, T);
@@ -2783,6 +2920,7 @@ function TSpectrum.IntActive: Boolean;
 begin
   if FIsCPC then Exit(FCPC.IntLine);
   if FIsSAM then Exit(FSam.InterruptActive(U(FCpu.T)));
+  if FIsMSX then Exit(FMsxHw.IntLine);
   if IsNext then
   begin
     // ULA interrupt unless NR 22 (or port FF bit 6) disables it, and the
@@ -3316,6 +3454,12 @@ begin
     SAMRenderUpTo(T);
     Exit;
   end;
+  if FIsMSX then
+  begin
+    if T > MSX_FRAME_T then T := MSX_FRAME_T;
+    FMsxHw.Sync(T);
+    Exit;
+  end;
   if IsNext then
   begin
     NextRenderUpTo(T, True);
@@ -3354,6 +3498,11 @@ begin
     FCPC.CopyFrame(Dest);
     Exit;
   end;
+  if FIsMSX then
+  begin
+    FMsxHw.CopyFrame(Dest);
+    Exit;
+  end;
   Move(FFrameBuffer[0], Dest^, FB_WIDTH * SCREEN_HEIGHT * SizeOf(LongWord));
 end;
 
@@ -3386,6 +3535,11 @@ procedure TSpectrum.TapeEdge(T: Integer; Level: Boolean);
 begin
   // The CPC: its tape runs in 3.5 MHz T-states (CPCTapeT); the signal is heard, as the Spectrum's EAR
   // is (the cassette's sound through the speaker)
+  if FIsMSX then
+  begin
+    MSXBeeper(Int64(T) * 3579545 div (Int64(3500000) * FSpeed));
+    Exit;
+  end;
   if FIsCPC then
   begin
     if FTape.Playing and Level then AddEvent(T * 8 div (7 * FSpeed), 0, 0, 2)
@@ -3687,7 +3841,7 @@ end;
 function TSpectrum.DiskAccelerating: Boolean;
 begin
   // The drive was used in the last tenth of a second
-  Result := FIsSAM and not FWD.Timed and
+  Result := (FIsSAM or FIsMSX) and not FWD.Timed and
     ((GetTickCount64 - FWD.LastAccess(0) < 100) or (GetTickCount64 - FWD.LastAccess(1) < 100)) and
     (FWD.Disk(0) <> nil);
 end;
@@ -3987,6 +4141,7 @@ var
 
 begin
   if FIsCPC then Exit(CPCTypeText(Text, Error));
+  if FIsMSX then Exit(MSXTypeText(Text, Error));
   if FIsSAM then Exit(SAMTypeText(Text, Error));
   Result := False;
   Error := '';
@@ -4026,6 +4181,91 @@ begin
   Result := True;
 end;
 
+function TSpectrum.TypeSymbol(const Sym: string; DryRun: Boolean): Boolean;
+const
+  // What each machine types with TypeText as it is
+  ZX_PLAIN = '!@#$%&''()_<>;"=+-^:?/*,.';
+  CPC_PLAIN = '-^@[]\;:,./!"#$%&''()_=|{}`+*<>?';
+  MSX_PLAIN = '-=;'',./[]\`!@#$%^&*()_+:"<>?';
+  // The Spectrum's extended mode: CAPS SHIFT + SYMBOL SHIFT, then SYMBOL SHIFT and the key
+  ZX_EXTENDED = '[]{}|~\';
+  ZX_EXTENDED_KEYS: array[1..Length(ZX_EXTENDED)] of Integer = (KEY_Y, KEY_U, KEY_F, KEY_G, KEY_S, KEY_A, KEY_D);
+  // The MSX (international keyboard): SHIFT on the keys of the plain ones
+  MSX_SHIFTED = '~|{}';
+  MSX_SHIFTED_KEYS: array[1..Length(MSX_SHIFTED)] of Integer = (MSXK_GRAVE, MSXK_BACKSLASH, MSXK_LBRACKET,
+    MSXK_RBRACKET);
+  // ... and the ones of its character set with no key of their own, which go into the BIOS's keyboard buffer
+  MSX_CODED: array[0..5] of string = ('ñ', 'Ñ', '¿', '¡', '¬', '·');
+  MSX_CODES: array[0..5] of Byte = ($A4, $A5, $A8, $AD, $AA, $FA);
+var
+  Ch: Char;
+  P, Key, Modifier: Integer;
+  Put, Next: Word;
+  Err: string;
+begin
+  if FIsMSX then
+    for P := 0 to High(MSX_CODED) do
+      if Sym = MSX_CODED[P] then
+      begin
+        // The buffer (KEYBUF, FBF0h, 40 bytes) and its pointers (PUTPNT, GETPNT): full, it can't
+        Put := FMsxHw.Peek($F3F8) or (FMsxHw.Peek($F3F9) shl 8);
+        Next := Put + 1;
+        if Next >= $FC18 then Next := $FBF0;
+        if Next = FMsxHw.Peek($F3FA) or (FMsxHw.Peek($F3FB) shl 8) then Exit(False);
+        if not DryRun then
+        begin
+          FMsxHw.Write(Put, MSX_CODES[P]);
+          FMsxHw.Write($F3F8, Lo(Next));
+          FMsxHw.Write($F3F9, Hi(Next));
+        end;
+        Exit(True);
+      end;
+  if Length(Sym) <> 1 then Exit(False);
+  Ch := Sym[1];
+  if FIsSAM then
+  begin
+    Result := SamKeysForChar(Ch, Key, Modifier);
+    if Result and not DryRun then
+    begin
+      if Modifier >= 0 then SAMAutoType(4, [Modifier, Key]) else SAMAutoType(4, [Key]);
+      SAMAutoType(6, []);
+    end;
+  end
+  else if FIsCPC then
+  begin
+    Result := Pos(Ch, CPC_PLAIN) > 0;
+    if Result and not DryRun then CPCTypeText(Ch, Err);
+  end
+  else if FIsMSX then
+  begin
+    P := Pos(Ch, MSX_SHIFTED);
+    Result := (P > 0) or (Pos(Ch, MSX_PLAIN) > 0);
+    if Result and not DryRun then
+      if P > 0 then
+      begin
+        MSXAutoType(4, [MSXK_SHIFT, MSX_SHIFTED_KEYS[P]]);
+        MSXAutoType(4, []);
+      end
+      else
+        MSXTypeText(Ch, Err);
+  end
+  else
+  begin
+    P := Pos(Ch, ZX_EXTENDED);
+    Result := (P > 0) or (Pos(Ch, ZX_PLAIN) > 0);
+    if Result and not DryRun then
+      if P > 0 then
+      begin
+        AutoType(4, [KEY_CAPS, KEY_SYM]);
+        AutoType(8, []);
+        AutoType(4, [KEY_SYM, ZX_EXTENDED_KEYS[P]]);
+        AutoType(8, []);
+      end
+      else
+        TypeText(Ch, Err);
+  end;
+end;
+
 procedure TSpectrum.AdvanceAutoKeys;
 begin
   if FAutoKeyPos >= Length(FAutoKeys) then Exit;
@@ -4040,6 +4280,7 @@ end;
 
 procedure TSpectrum.AutoLoad(FromDisk: Boolean);
 begin
+  FMsxTapeStart := FIsMSX and not FromDisk;
   Reset(True);
   FTape.Rewind;
   CancelAutoType;
@@ -4051,6 +4292,11 @@ begin
   if FIsSAM then
   begin
     SAMAutoLoad(FromDisk);
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    MSXAutoLoad(FromDisk);
     Exit;
   end;
   if IsZXUno then
@@ -4437,6 +4683,11 @@ begin
     ExecuteOneCPC;
     Exit;
   end;
+  if FIsMSX then
+  begin
+    ExecuteOneMSX;
+    Exit;
+  end;
   if FTrackPrev then
   begin
     FPrevRegs := FCpu.GetRegs;
@@ -4496,6 +4747,11 @@ begin
   if FIsCPC then
   begin
     FinishFrameCPC;
+    Exit;
+  end;
+  if FIsMSX then
+  begin
+    FinishFrameMSX;
     Exit;
   end;
   if FUnoAutoLoad >= 0 then ZXUnoAutoLoadStep;
@@ -4627,6 +4883,7 @@ end;
 
 {$I SpectrumCPC.inc}
 {$I SpectrumSAM.inc}
+{$I SpectrumMSX.inc}
 {$I NextVideo.inc}
 {$I NextDma.inc}
 {$I SpectrumNext.inc}

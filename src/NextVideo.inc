@@ -490,11 +490,15 @@ begin
       if ((FNextReg[$6B] and 2) <> 0) and ((Attr and 1) <> 0) then Inc(Idx, 256);
       Tx := Px and 7;
       Ty := Row and 7;
-      if (Attr and 8) <> 0 then Tx := 7 - Tx;
-      if (Attr and 4) <> 0 then Ty := 7 - Ty;
-      if (Attr and 2) <> 0 then
+      // Mirror/rotate bits only exist in the 4 bpp tiles: in text mode they are palette offset bits
+      if (FNextReg[$6B] and 8) = 0 then
       begin
-        T2 := Tx; Tx := Ty; Ty := 7 - T2;
+        if (Attr and 8) <> 0 then Tx := 7 - Tx;
+        if (Attr and 4) <> 0 then Ty := 7 - Ty;
+        if (Attr and 2) <> 0 then
+        begin
+          T2 := Tx; Tx := Ty; Ty := 7 - T2;
+        end;
       end;
       if (FNextReg[$6B] and 8) <> 0 then
       begin

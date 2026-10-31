@@ -62,3 +62,17 @@ The SAM Coupé's 32K ROM of version 3.0 (`samcoupe.rom`, © MGT) and the SAMDOS 
 automatically" in Settings > SAM Coupé inserts and boots) are here. The SAM games and disks used to try the machine are not
 distributed. Another ROM can be chosen in Settings > Common > ROMs (SAM Coupé, ROM 0)
 or with `--rom "sam,0,FILE"`. Without it, choosing the SAM Coupé says the ROM is missing and the machine stays as it was.
+
+## MSX
+
+`roms/msx/` holds the MSX system ROMs, which are not distributed (they are commercial firmware) and are excluded from git.
+Put there, as the machine says when one is missing:
+
+| File | For | What it is |
+|---|---|---|
+| `MSX2.rom` | MSX 2 | the 32K BIOS and MSX-BASIC 2 of an MSX2 machine |
+| `MSX2EXT.rom` | MSX 2 | the 16K sub-ROM (the MSX2's extension of the BIOS) |
+| `PHILIPSDISK.rom` | MSX disk drive (optional) | the 16K ROM of a Philips disk interface (WD2793, MSX-DOS 1), chosen in Settings > Common > ROMs (FLOPPY DISK, empty by default); without it the machine has no disk drive |
+
+C-BIOS (a free MSX BIOS) could replace it; its licence and limits have not been checked yet. Another file can be named in
+Settings > Common > ROMs or with `--rom "msx2,0,FILE"`.

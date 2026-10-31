@@ -85,6 +85,7 @@ type
     FlashOn: Boolean;
     { The mouse (read through the keyboard port with its high byte $FF) and the clock (port $EF) }
     MouseButtons: Byte;                // bit n-1 set: button n is down
+    MouseReadTick: QWord;              // when a program last read the mouse (GetTickCount64)
     ClockCtl: array[13..15] of Byte;   // the clock's control registers D, E, F
     procedure MouseMoved(DX, DY: Integer);
     function MouseRead(AbsT: Int64): Byte;
@@ -268,6 +269,7 @@ var
 begin
   if AbsT - FMouseLastT > SAM_MOUSE_RESET_T then FMouseSeq := 0;
   FMouseLastT := AbsT;
+  MouseReadTick := GetTickCount64;
   if FMouseSeq = 2 then
   begin
     FMouseBuf[0] := 15;

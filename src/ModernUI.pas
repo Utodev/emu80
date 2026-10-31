@@ -1344,10 +1344,10 @@ const
   INK = $00803010;             // blue pen
   TAPE = $001E2D46;            // brown oxide
   TAPE_EDGE = $002C4466;
-  STRIPES: array[0..3] of TColor = ($000000D8, $0000D8F0, $0000C000, $00D8C000);
+  STRIPES: array[0..3] of TColor = ($003D26D7, $005ED3F4, $0073B23B, $00FF901E);   // red, yellow, green, cyan: as the header's
 var
   Win: TRect;
-  W, H, LX1, LX2, LY1, LY2, HubY, Hub1, Hub2, RH, RMax, I, SW, X, Y: Integer;
+  W, H, LX1, LX2, LY1, LY2, HubY, Hub1, Hub2, RH, RMax, I, SW, X, Y, Gap: Integer;
   P: Double;
   Pts: array[0..3] of TPoint;
   S: string;
@@ -1457,18 +1457,16 @@ begin
   Cv.Pen.Color := $009AB4C0;
   Cv.Brush.Color := LABEL_PAPER;
   Cv.RoundRect(LX1, LY1, LX2, LY2, W div 40, W div 40);
-  // The rainbow stripes across its right end, slanted
-  SW := Math.Max(2, W div 40);
+  // The four colours of the emulator's logo (as in the corner of its header) as squares, at the right end of the label
+  SW := Math.Max(3, W div 26);
+  Gap := Math.Max(1, SW div 4);
   Cv.Pen.Style := psClear;
   for I := 0 to 3 do
   begin
-    X := LX2 - SW * 8 + I * SW;
-    Pts[0] := Classes.Point(X, LY2 - 1);
-    Pts[1] := Classes.Point(X + SW * 3, LY1 + H div 5);
-    Pts[2] := Classes.Point(X + SW * 4, LY1 + H div 5);
-    Pts[3] := Classes.Point(X + SW, LY2 - 1);
+    X := LX2 - W div 24 - 2 * SW - Gap + (I mod 2) * (SW + Gap);
+    Y := LY2 - W div 24 - 2 * SW - Gap + (I div 2) * (SW + Gap);
     Cv.Brush.Color := STRIPES[I];
-    Cv.Polygon(Pts);
+    Cv.Rectangle(X, Y, X + SW + 1, Y + SW + 1);
   end;
   Cv.Pen.Style := psSolid;
   // The tape's name, written on it

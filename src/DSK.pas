@@ -29,6 +29,7 @@ type
     FFileName: string;
     FModified: Boolean;
     FWriteProtected: Boolean;
+    FRawImage: Boolean;
     function GetCylinders: Integer;
   public
     constructor Create;
@@ -55,6 +56,8 @@ type
     property FileName: string read FFileName write FFileName;
     property Modified: Boolean read FModified;
     property WriteProtected: Boolean read FWriteProtected write FWriteProtected;
+    { Loaded from a file of raw sectors (an MSX or CP/M disk image): saved back the same way }
+    property RawImage: Boolean read FRawImage write FRawImage;
   end;
 
 implementation

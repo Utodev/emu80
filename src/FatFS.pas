@@ -260,7 +260,8 @@ var
 
   function LooksLikeBoot(const B: array of Byte): Boolean;
   begin
-    Result := (B[0] in [$EB, $E9]) and (GetW(B, 11) = 512) and (B[13] > 0) and
+    // A floppy's boot sector (an MSX one) may begin with anything but has the media byte F0-FF
+    Result := ((B[0] in [$EB, $E9]) or (B[21] >= $F0)) and (GetW(B, 11) = 512) and (B[13] > 0) and
       (GetW(B, 14) > 0) and (B[16] in [1, 2]);
   end;
 

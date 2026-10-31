@@ -246,6 +246,153 @@ begin
   end;
 end;
 
+{ The keyboard scan of Dinamic's loaders: PPI mode set 82, port C = C0 (latch cycle), register 14 on port A,
+  mode set 92 (port A input; the mode set ends the latch cycle by clearing port C and port A): the register
+  latched is the one that was on the bus (14, the keyboard), not the cleared port A's }
+procedure TestKeyboardScanModeSet;
+var
+  Sp: TSpectrum;
+  Row: Integer;
+  Quiet, Pressed: Boolean;
+
+  function Scan(WantRow: Integer): Byte;
+  begin
+    Sp.CPC.OutPort($F782, $82, 0);
+    Sp.CPC.OutPort($F6C0, $C0, 0);
+    Sp.CPC.OutPort($F40E, $0E, 0);
+    Sp.CPC.OutPort($F792, $92, 0);
+    Sp.CPC.OutPort($F640, $40 + WantRow, 0);
+    Result := Sp.CPC.InPort($F400, 0);
+  end;
+
+begin
+  WriteLn('--- keyboard scan with a PPI mode set after the latch');
+  Sp := TSpectrum.Create(smCPC464, ParamStr(1));
+  try
+    Frames(Sp, 60);
+    Quiet := True;
+    for Row := 0 to 9 do
+      if Scan(Row) <> $FF then Quiet := False;
+    Check(Quiet, 'no key pressed: every row of the keyboard reads FF');
+    Sp.CPC.KeyMatrix[5] := $7F;
+    Pressed := (Scan(5) = $7F) and (Scan(4) = $FF);
+    Check(Pressed, 'SPACE pressed: its row reads it');
+    Sp.CPC.KeyMatrix[5] := $FF;
+  finally
+    Sp.Free;
+  end;
+end;
+
+{ The firmware writes 0 to the PPI's port C for a few microseconds every frame (the keyboard and sound
+  interrupts): that is the motor switched off for no time, and the tape goes on playing. When it stays off
+  for a millisecond the tape stops }
+procedure TestMotorGlitch;
+var
+  Sp: TSpectrum;
+  Hdr: array[0..9] of Byte = (Ord('Z'), Ord('X'), Ord('T'), Ord('a'), Ord('p'), Ord('e'), Ord('!'), $1A, 1, 0);
+  Blk: array[0..3] of Byte = ($12, $E0, $01, $FF);       // a tone of 255 pulses
+  F: TFileStream;
+  Name: string;
+begin
+  WriteLn('--- a moment of motor off does not stop the tape');
+  Name := '/tmp/cpc-motor-test.tzx';
+  Blk[3] := $FF;
+  F := TFileStream.Create(Name, fmCreate);
+  try
+    F.WriteBuffer(Hdr[0], SizeOf(Hdr));
+    F.WriteBuffer(Blk[0], 3);
+    F.WriteByte($FF); F.WriteByte($0F);     // 4095 pulses of 480 T-states
+  finally
+    F.Free;
+  end;
+  Sp := TSpectrum.Create(smCPC464, ParamStr(1));
+  try
+    Frames(Sp, 60);
+    Sp.Tape.LoadFile(Name);
+    Sp.PlayTape;
+    Sp.CPC.OutPort($F610, $10, 1000);
+    Check(Sp.Tape.Playing, 'the motor on: the tape plays');
+    Sp.CPC.OutPort($F600, $00, 2000);
+    Sp.CPC.OutPort($F610, $10, 2048);
+    Check(Sp.Tape.Playing, 'off for 12 us and on again: it plays on');
+    Sp.CPC.OutPort($F600, $00, 3000);
+    Sp.CPC.InPort($F500, 3500);
+    Check(Sp.Tape.Playing, 'off for 500 T-states: still playing');
+    Sp.CPC.InPort($F500, 8000);
+    Check(not Sp.Tape.Playing, 'off for over a millisecond: the tape stops');
+  finally
+    Sp.Free;
+  end;
+  DeleteFile(Name);
+end;
+
+type
+  TEdgeCounter = class
+    Edges: Integer;
+    procedure OnEdge(T: Integer; Level: Boolean);
+  end;
+
+procedure TEdgeCounter.OnEdge(T: Integer; Level: Boolean);
+begin
+  Inc(Edges);
+end;
+
+{ The last data block of a CPC tape, with no pause and a group's end after it (Speedlock tapes): the end of its
+  last pulse is still an edge, which the loader needs to finish its last bit }
+procedure TestFinalEdge;
+var
+  Sp: TSpectrum;
+  Hdr: array[0..9] of Byte = (Ord('Z'), Ord('X'), Ord('T'), Ord('a'), Ord('p'), Ord('e'), Ord('!'), $1A, 1, 0);
+  Blk: array[0..20] of Byte;
+  F: TFileStream;
+  Name: string;
+  C: TEdgeCounter;
+  Without, WithEdge: Integer;
+
+  function EdgesOf(Final: Boolean): Integer;
+  begin
+    C.Edges := 0;
+    Sp.Tape.OnEdge := @C.OnEdge;
+    Sp.Tape.FinalEdge := Final;
+    Sp.Tape.Rewind;
+    Sp.Tape.Play(0);
+    Sp.Tape.AdvanceTo(40000000);
+    Result := C.Edges;
+  end;
+
+begin
+  WriteLn('--- the end of the last pulse of a tape');
+  Name := '/tmp/cpc-final-test.tzx';
+  FillChar(Blk, SizeOf(Blk), 0);
+  Blk[0] := $14;                          // pure data: bit 0 and 1 pulses, 8 bits in the last byte, no pause
+  Blk[1] := $40; Blk[2] := $02;           // 576
+  Blk[3] := $80; Blk[4] := $04;           // 1152
+  Blk[5] := 8;
+  Blk[8] := 2;                            // 2 bytes
+  Blk[11] := $A5; Blk[12] := $5A;
+  Blk[13] := $22;                         // group end
+  F := TFileStream.Create(Name, fmCreate);
+  try
+    F.WriteBuffer(Hdr[0], SizeOf(Hdr));
+    F.WriteBuffer(Blk[0], 14);
+  finally
+    F.Free;
+  end;
+  C := TEdgeCounter.Create;
+  Sp := TSpectrum.Create(smCPC464, ParamStr(1));
+  try
+    Sp.Tape.LoadFile(Name);
+    Check(Sp.Tape.FinalEdge, 'the CPC asks for the final edge');
+    Without := EdgesOf(False);
+    WithEdge := EdgesOf(True);
+    Check(WithEdge > Without, Format('the last pulse ends in an edge even with a group end after it (%d edges, %d without)', [WithEdge, Without]));
+  finally
+    Sp.Free;
+    C.Free;
+  end;
+  DeleteFile(Name);
+end;
+
 { A program that stops the tape motor in the middle of a block (it read what it wanted of it) finds the
   tape where it was when the motor goes on again: not at the start of the block }
 procedure TestTapeHold;
@@ -834,6 +981,9 @@ begin
   TestSnapshot(smCPC464);
   TestSnapshot(smCPC6128);
   TestPsgLatchAndShortFrame;
+  TestKeyboardScanModeSet;
+  TestMotorGlitch;
+  TestFinalEdge;
   TestTapeHold;
   TestTapeRoundTrip(smCPC464);
   TestTapeRoundTrip(smCPC6128);

@@ -258,6 +258,7 @@ begin
   FNMIRequest := False;
   FResetFrame := FFrameCount;
   FCPCArmed := False;
+  FCPCOffPending := False;
   CancelAutoType;
   CPCSyncAutoKeys;
   FEventCount := 0;
@@ -289,12 +290,14 @@ end;
 
 function TSpectrum.PeekRam(Addr: Word): Byte;
 begin
-  if FIsCPC then Result := FCPC.ReadRam(Addr) else Result := Peek(Addr);
+  if FIsCPC then Result := FCPC.ReadRam(Addr) else Result := Peek(Addr);   // (Peek covers the MSX)
 end;
 
 procedure TSpectrum.PokeRam(Addr: Word; Value: Byte);
 begin
-  if FIsCPC then FCPC.Write(Addr, Value) else Poke(Addr, Value);
+  if FIsCPC then FCPC.Write(Addr, Value)
+  else if FIsMSX then FMsxHw.Write(Addr, Value)
+  else Poke(Addr, Value);
 end;
 
 procedure TSpectrum.CPCPsg(T: Integer; Reg, Value: Byte);
@@ -304,6 +307,7 @@ end;
 
 function TSpectrum.CPCTapeIn(T: Integer): Boolean;
 begin
+  CPCMotorSettle(T);
   FTape.AdvanceTo(CPCTapeT(T));
   Result := FTape.Playing and FTape.Level;
 end;
@@ -334,7 +338,7 @@ end;
   the program starts the motor) and the program has the motor on }
 procedure TSpectrum.CPCTapeUpdate(ChipT: Integer);
 begin
-  if FCPCArmed and FCPC.Motor and FTape.HasMore then
+  if FCPCArmed and (FCPC.Motor or FCPCOffPending) and FTape.HasMore then
   begin
     // The motor goes on from where the tape was (a program may stop it in the middle of a block)
     if not FTape.Playing and not FTape.Resume(CPCTapeT(ChipT)) then FTape.Play(CPCTapeT(ChipT));
@@ -355,10 +359,40 @@ begin
     FRecorder.Edge(Int64(FCpuTBase) * 7 div 8 + CPCTapeT(T));
 end;
 
+{ The motor's relay doesn't answer a moment's switching off (the firmware's keyboard and sound interrupts write
+  0 to the PPI's port C for a few microseconds every frame): the tape stops when the motor has been off for a
+  millisecond, noticed when the tape is read or the frame ends }
+const
+  CPC_MOTOR_OFF_T = 4000;
+
+procedure TSpectrum.CPCMotorSettle(T: Integer);
+begin
+  if FCPCOffPending and (T - FCPCOffT >= CPC_MOTOR_OFF_T) then
+  begin
+    FCPCOffPending := False;
+    CPCTapeUpdate(T);
+  end;
+end;
+
 procedure TSpectrum.CPCMotor(T: Integer; On_: Boolean);
 begin
   if not On_ and FRecorder.Active then FRecorder.Flush;
   if On_ and AutoPlayTape and (FTape.Count > 0) then FCPCArmed := True;
+  if On_ then
+  begin
+    // Back on soon enough: the tape never stopped
+    if FCPCOffPending then
+    begin
+      FCPCOffPending := False;
+      Exit;
+    end;
+  end
+  else if FTape.Playing then
+  begin
+    FCPCOffPending := True;
+    FCPCOffT := T;
+    Exit;
+  end;
   CPCTapeUpdate(T);
 end;
 
@@ -672,6 +706,8 @@ procedure TSpectrum.FinishFrameCPC;
 begin
   FCPC.EndFrame(FInfo.FrameT);
   if FRecorder.Active then FRecorder.Idle(Int64(FCpuTBase) * 7 div 8 + CPCTapeT(FInfo.FrameT));
+  CPCMotorSettle(FInfo.FrameT);
+  if FCPCOffPending then Dec(FCPCOffT, FInfo.FrameT);
   FTape.AdvanceTo(CPCTapeT(FInfo.FrameT));
   GenerateAudio;
   Inc(FCpuTBase, FrameLength);

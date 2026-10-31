@@ -134,6 +134,7 @@ type
     FOnChange: TNotifyEvent;
     FClockHz: Integer;
     FFinalEdge: Boolean;
+    FShortPauseExtraMs: Double;
     FHeld: TTapeState;               // where the tape was stopped in place (Hold), tsStopped if it wasn't
     FHeldEpoch: Integer;
     FStretchNum, FStretchDen: Integer;     // pulse lengths are scaled by Num / Den
@@ -148,6 +149,7 @@ type
     procedure StartPulse(Len: Integer; How: TPulseStart);
     procedure BeginData(B: TTapeBlock);
     function BeginPause(B: TTapeBlock): Boolean;
+    function LastPlaying: Boolean;
     function MsT(Ms: Integer): Int64;
     function NextSignal(From: Integer): Integer;
     procedure Changed;
@@ -159,6 +161,8 @@ type
     procedure Clear;
     procedure LoadTAP(const FileName: string);
     procedure LoadTAPFromStream(S: TStream);
+    procedure LoadCAS(const FileName: string);
+    procedure LoadCASFromStream(S: TStream);
     procedure LoadTZX(const FileName: string);
     procedure LoadTZXFromStream(S: TStream);
     { A tape file: .tzx as TZX, anything else as TAP }
@@ -230,6 +234,10 @@ type
     procedure SetPulseScale(Num, Den: Integer);
     { The last block of a tape with no pause ends with the edge its last pulse has (a loader of the SAM needs it) }
     property FinalEdge: Boolean read FFinalEdge write FFinalEdge;
+    { A pause of 1 or 2 ms plays this many ms longer. A TZX keeps whole milliseconds, so a gap of 1.4 ms is
+      stored as 1, and a loader that must be back at the tape before a short tone is over (the CPC's, with
+      its 13 pulses of tone) can't be that much late: half a millisecond is what the truncation takes on average }
+    property ShortPauseExtraMs: Double read FShortPauseExtraMs write FShortPauseExtraMs;
     { Stop the tape where it is, in the middle of a block too, as a tape deck's motor does, and go on from
       there with Resume (False if it wasn't stopped that way: Play then) }
     procedure Hold;
@@ -403,7 +411,8 @@ begin
         else if Kind = TZX_PURE_DATA then Result := 'Pure data: ' + Result;
       end;
     TZX_TONE: Result := Format('Tone: %d pulses of %d T', [PilotCount, PilotLen]);
-    TZX_PULSES: Result := Format('Pulses: %d', [Length(Pulses)]);
+    TZX_PULSES:
+      if Text <> '' then Result := Text else Result := Format('Pulses: %d', [Length(Pulses)]);
     TZX_DIRECT: Result := Format('Direct recording (%d samples)', [DataBits]);
     TZX_CSW: Result := Format('CSW recording (%d pulses)', [Length(Pulses)]);
     TZX_GENERALIZED: Result := Format('Generalized data (%d symbols)', [GenCount]);
@@ -586,6 +595,122 @@ begin
   end;
 end;
 
+{ A .cas file (an MSX tape): blocks, each starting with the 8 bytes 1F A6 DE BA CC 13 7D 74 on an 8-byte
+  boundary (the header is not signal: it only separates the blocks). Played as the MSX records it, 1200 baud:
+  a pilot tone of 2400 Hz (2 s before a file header, 1 s before the data), then each byte as a 0 start bit, its
+  8 bits least significant first and 2 stop bits of 1; a 0 is a cycle of 1200 Hz and a 1 two of 2400 Hz. The
+  pulse lengths are in 3.5 MHz T-states, as TZX has them (the machine stretches them to its clock). }
+procedure TTape.LoadCASFromStream(S: TStream);
+const
+  CAS_HEADER: array[0..7] of Byte = ($1F, $A6, $DE, $BA, $CC, $13, $7D, $74);
+  HALF0 = 1458;      // half of a cycle of 1200 Hz (3.5 MHz / 2400)
+  HALF1 = 729;       // half of a cycle of 2400 Hz (3.5 MHz / 4800)
+var
+  Data: TBytes;
+  Starts: array of Integer;
+  I, J, K, B0, B1, N, P: Integer;
+  Blk: TTapeBlock;
+  Bytes: TBytes;
+  IsHeader: Boolean;
+  Name, Kind: string;
+
+  procedure Push(var A: array of Integer; var Count: Integer; V: Integer);
+  begin
+    A[Count] := V;
+    Inc(Count);
+  end;
+
+begin
+  SetLength(Data, S.Size);
+  if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
+  if Length(Data) = 0 then raise Exception.Create('The .cas file is empty');
+  // Where the blocks start (headers on an 8-byte boundary); a file without any is one block
+  SetLength(Starts, 0);
+  I := 0;
+  while I + 8 <= Length(Data) do
+  begin
+    if CompareMem(@Data[I], @CAS_HEADER[0], 8) then
+    begin
+      SetLength(Starts, Length(Starts) + 1);
+      Starts[High(Starts)] := I + 8;
+    end;
+    Inc(I, 8);
+  end;
+  if Length(Starts) = 0 then
+  begin
+    SetLength(Starts, 1);
+    Starts[0] := 0;
+  end;
+  FBlocks.Clear;
+  for I := 0 to High(Starts) do
+  begin
+    if I < High(Starts) then N := Starts[I + 1] - 8 - Starts[I] else N := Length(Data) - Starts[I];
+    if N <= 0 then Continue;
+    SetLength(Bytes, N);
+    Move(Data[Starts[I]], Bytes[0], N);
+    // A file header (ten identical ID bytes) is preceded by a long pilot and a silence
+    IsHeader := (N >= 10) and (Bytes[0] in [$D0, $D3, $EA]);
+    if IsHeader then
+      for K := 1 to 9 do
+        if Bytes[K] <> Bytes[0] then IsHeader := False;
+    Blk := TTapeBlock.CreateKind(TZX_PAUSE);
+    if IsHeader then Blk.PauseMs := 1000 else Blk.PauseMs := 250;
+    FBlocks.Add(Blk);
+    Blk := TTapeBlock.CreateKind(TZX_TONE);
+    Blk.PilotLen := HALF1;
+    if IsHeader then Blk.PilotCount := 2 * 2400 * 2 else Blk.PilotCount := 2 * 2400;
+    FBlocks.Add(Blk);
+    // The data: up to 4 pulses a bit, 11 bits a byte
+    Blk := TTapeBlock.CreateKind(TZX_PULSES);
+    SetLength(Blk.Pulses, N * 44);
+    P := 0;
+    for J := 0 to N - 1 do
+      for K := 0 to 10 do
+      begin
+        if K = 0 then B0 := 0
+        else if K <= 8 then B0 := (Bytes[J] shr (K - 1)) and 1
+        else B0 := 1;
+        if B0 = 0 then
+        begin
+          Push(Blk.Pulses, P, HALF0);
+          Push(Blk.Pulses, P, HALF0);
+        end
+        else
+          for B1 := 1 to 4 do Push(Blk.Pulses, P, HALF1);
+      end;
+    SetLength(Blk.Pulses, P);
+    if IsHeader and (N >= 16) then
+    begin
+      Name := '';
+      for K := 10 to 15 do
+        if (Bytes[K] >= 32) and (Bytes[K] < 127) then Name := Name + Chr(Bytes[K]) else Name := Name + ' ';
+      case Bytes[0] of
+        $D0: Kind := 'Binary (BLOAD): ';
+        $D3: Kind := 'BASIC program: ';
+        $EA: Kind := 'ASCII file: ';
+      end;
+      Blk.Text := Kind + Trim(Name);
+    end
+    else if IsHeader then Blk.Text := 'File header'
+    else Blk.Text := Format('Data (%d bytes)', [N]);
+    FBlocks.Add(Blk);
+  end;
+  Loaded;
+end;
+
+procedure TTape.LoadCAS(const FileName: string);
+var
+  S: TFileStream;
+begin
+  S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+  try
+    LoadCASFromStream(S);
+    FFileName := FileName;
+  finally
+    S.Free;
+  end;
+end;
+
 procedure TTape.LoadTZXFromStream(S: TStream);
 var
   List: TTapeBlockArray;
@@ -613,8 +738,11 @@ end;
 
 procedure TTape.LoadFile(const FileName: string);
 begin
-  // A .cdt (the Amstrad CPC's tape) is a TZX file
-  if (LowerCase(ExtractFileExt(FileName)) = '.tzx') or (LowerCase(ExtractFileExt(FileName)) = '.cdt') then
+  // A .cdt (the Amstrad CPC's tape) and a .tsx (the MSX's) are TZX files
+  if LowerCase(ExtractFileExt(FileName)) = '.cas' then
+    LoadCAS(FileName)
+  else if (LowerCase(ExtractFileExt(FileName)) = '.tzx') or (LowerCase(ExtractFileExt(FileName)) = '.cdt') or
+          (LowerCase(ExtractFileExt(FileName)) = '.tsx') then
     LoadTZX(FileName)
   else LoadTAP(FileName);
 end;
@@ -705,6 +833,22 @@ begin
   FBitsLeft := B.DataBits;
 end;
 
+{ The block at FCurrent is the last one that makes a signal (what follows it is information: a group's
+  end, texts...) }
+function TTape.LastPlaying: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := FCurrent + 1 to FBlocks.Count - 1 do
+    case FBlocks[I].Kind of
+      TZX_GROUP_START, TZX_GROUP_END, TZX_TEXT, TZX_MESSAGE, TZX_ARCHIVE, TZX_HARDWARE, TZX_CUSTOM, TZX_GLUE: ;
+    else
+      Exit;
+    end;
+  Result := True;
+end;
+
 { After a block's signal: its pause, if it has one (True: something is
   scheduled). The end of the last pulse is an edge; if that leaves the line
   high, it drops 1 ms into the pause, as TZX says. }
@@ -715,7 +859,7 @@ begin
   Ms := B.PauseMs;
   // The last block of a tape with no pause (a turbo tape): the end of its last pulse is still an
   // edge, which a loader needs to finish its last bit
-  if FFinalEdge and (Ms = 0) and FOwed and (FCurrent = FBlocks.Count - 1) then Ms := 1;
+  if FFinalEdge and (Ms = 0) and FOwed and LastPlaying then Ms := 1;
   Result := Ms > 0;
   if not Result then Exit;
   if FOwed then SetLevel(not FLevel);
@@ -723,6 +867,7 @@ begin
   FState := tsPause;
   FPauseDrop := FLevel;
   if FPauseDrop then Inc(FNextEdgeT, MsT(1)) else Inc(FNextEdgeT, MsT(Ms));
+  if (Ms >= 1) and (Ms <= 2) then Inc(FNextEdgeT, Round(FShortPauseExtraMs * FClockHz / 1000));
 end;
 
 { The block at FCurrent, from now: blocks that take no time (information,

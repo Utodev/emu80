@@ -1,6 +1,6 @@
-{ KeyboardGuide: a window (not modal) with the ZX Spectrum's keyboard map (the
-  keywords of every key) and nothing else, at half the picture's size. Esc or a
-  click closes it. }
+{ KeyboardGuide: a window (not modal) with the ZX Spectrum keyboard map (the
+  keywords of every key) and nothing else, at the picture's own size (1064 px
+  wide; smaller only if the screen is). Esc or a click closes it. }
 unit KeyboardGuide;
 
 {$mode objfpc}{$H+}
@@ -65,14 +65,19 @@ begin
   finally
     Stream.Free;
   end;
-  // Half the picture's size, or less if the screen is small
-  W := Pic.Width div 2;
-  H := Pic.Height div 2;
+  // The picture's own size, or less if the screen is small
+  W := Pic.Width;
+  H := Pic.Height;
   Work := Screen.WorkAreaRect;
   if W > (Work.Right - Work.Left) * 9 div 10 then
   begin
     H := H * ((Work.Right - Work.Left) * 9 div 10) div W;
     W := (Work.Right - Work.Left) * 9 div 10;
+  end;
+  if H > (Work.Bottom - Work.Top) * 85 div 100 then
+  begin
+    W := W * ((Work.Bottom - Work.Top) * 85 div 100) div H;
+    H := (Work.Bottom - Work.Top) * 85 div 100;
   end;
   Guide := TGuideForm.CreateNew(AOwner);
   Guide.Caption := 'ZX Spectrum keyboard';

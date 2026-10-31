@@ -6,7 +6,7 @@ unit SettingsForm;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, ButtonPanel,
+  Classes, SysUtils, Math, Types, Forms, Controls, StdCtrls, ExtCtrls, ComCtrls, Dialogs, ButtonPanel,
   Graphics, Models, Config;
 
 { Opens the settings window (not modal; brought forward if it is open). Apply
@@ -21,6 +21,17 @@ var
 
 implementation
 
+const
+  MAPPER_KEYS: array[0..5] of string = ('auto', 'plain', 'konami', 'konamiscc', 'ascii8', 'ascii16');
+  MSX_MAPPER_KEYS: array[0..2] of string = ('auto', 'on', 'off');
+
+function MapperIndex(const Key: string): Integer;
+begin
+  for Result := 0 to High(MAPPER_KEYS) do
+    if MAPPER_KEYS[Result] = Key then Exit;
+  Result := 0;
+end;
+
 type
   TCheckBoxArray4 = array[0..3] of TCheckBox;
 
@@ -28,17 +39,18 @@ type
   private
     FPages, FCommon, FZX: TPageControl;   // the three main tabs; what is inside the Common and ZX Spectrum ones
     FCrtc, FMonitor: TComboBox;
-    FSamMemory: TComboBox;
+    FSamMemory, FMsxMapper, FMsxRamMapper: TComboBox;
+    FMsxJoystick, FMsxCompat: TCheckBox;
     FSamSaa, FSamJoystick, FSamAutoDos, FSamMouse, FSamClock: TCheckBox;
     FCPCWait: TCheckBox;
     FModel: TComboBox;
     FRomDir: TEdit;
     FBrowse: TButton;
     FFastLoad, FAutoPlay, FTapeLoop, FSound, FSaveToTape, FFastDisk, FDriveB: TCheckBox;
-    FTurboSound, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick: TCheckBox;
+    FTurboSound, FContention, FSnow, FRomEdit, FAY48, FMouse, FDivMMC, FCurrah, FCPCJoystick, FLeftShift: TCheckBox;
     FULAPlus, FTimex, FRadastan, FScanlines: TCheckBox;
     FFirmware: TEdit;
-    FFloppyNoise, FSaveOnExit: TCheckBox;
+    FFloppyNoise, FSaveOnExit, FAttachMouse: TCheckBox;
     FFirmwareBrowse: TButton;
     FUnoFirmware, FUnoRoms, FUnoCustom: TEdit;   // ZX-Uno BIOS, ROMs and custom ROM files
     FNextDir, FNextCard: TEdit;                  // ZX Spectrum Next distribution and SD card
@@ -65,6 +77,8 @@ type
     procedure DoApply(Sender: TObject);
     procedure DoCancel(Sender: TObject);
     procedure DoClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure DoShow(Sender: TObject);
+    procedure FitHeight;
     procedure Apply;
     function AddPage(PC: TPageControl; const ACaption: string): TTabSheet;
     function AddTabs(Page: TTabSheet; Logo: Integer): TPageControl;
@@ -88,6 +102,8 @@ type
     function AddFileRow(Page: TWinControl; const ACaption, AHint: string; ATop, ATag: Integer): TEdit;
     procedure DoRomBrowse(Sender: TObject);
     procedure DoRomModel(Sender: TObject);
+    procedure DoPageChange(Sender: TObject);
+    procedure RefreshTabs(Data: PtrInt);
     procedure StoreRomEdits;
     function ForcedBoxes: TCheckBoxArray4;
     procedure DoModelChange(Sender: TObject);
@@ -100,6 +116,9 @@ type
 
 var
   Window: TSettingsDialog = nil;
+  { Where the window was when it was last closed in this session }
+  HaveOldPos: Boolean = False;
+  OldLeft, OldTop: Integer;
 
 procedure ShowSettings(OnApplied: TNotifyEvent);
 begin
@@ -140,10 +159,76 @@ begin
   Close;
 end;
 
+{ The height the tallest tab needs (the others have room to spare): no empty space below the last group }
+procedure TSettingsDialog.FitHeight;
+
+  { Space left under the controls of a tab, the smallest of all the tabs of a page control inside it }
+  function Slack(Sheet: TTabSheet): Integer;
+  var
+    I, J, Low, Bottom, Inner: Integer;
+    C: TControl;
+  begin
+    Bottom := 0;
+    Low := MaxInt;
+    for I := 0 to Sheet.ControlCount - 1 do
+    begin
+      C := Sheet.Controls[I];
+      if C is TPageControl then
+      begin
+        for J := 0 to TPageControl(C).PageCount - 1 do
+        begin
+          Inner := Slack(TPageControl(C).Pages[J]);
+          if Inner < Low then Low := Inner;
+        end;
+        // what the page control's own tabs take comes off the sheet's room
+        Inner := Sheet.ClientHeight - C.Height;
+        if Low <> MaxInt then Low := Low + Inner;
+      end
+      else if C.Visible and (C.Top + C.Height > Bottom) then Bottom := C.Top + C.Height;
+    end;
+    if Low <> MaxInt then Result := Low
+    else Result := Sheet.ClientHeight - Bottom;
+  end;
+
+var
+  I, Room, Need: Integer;
+begin
+  Room := MaxInt;
+  for I := 0 to FPages.PageCount - 1 do
+    Room := Min(Room, Slack(FPages.Pages[I]));
+  if Room = MaxInt then Exit;
+  Need := ClientHeight - Room + 12 + 50;      // (50 pixels of room below the tallest tab)
+  if Need < ClientHeight then ClientHeight := Need;
+end;
+
+procedure TSettingsDialog.DoShow(Sender: TObject);
+var
+  R: TRect;
+begin
+  FitHeight;
+  Application.QueueAsyncCall(@RefreshTabs, 0);
+  if HaveOldPos then
+  begin
+    Left := OldLeft;
+    Top := OldTop;
+  end
+  else
+  begin
+    // The first time, in the middle of the screen (not of the emulator)
+    if Application.MainForm <> nil then R := Application.MainForm.Monitor.WorkareaRect
+    else R := Screen.WorkAreaRect;
+    Left := R.Left + (R.Right - R.Left - Width) div 2;
+    Top := R.Top + (R.Bottom - R.Top - Height) div 2;
+  end;
+end;
+
 procedure TSettingsDialog.DoClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   CloseAction := caFree;
   Window := nil;
+  HaveOldPos := True;
+  OldLeft := Left;
+  OldTop := Top;
   if FApplied then
   begin
     Settings.Restore(FBackup);
@@ -164,9 +249,10 @@ begin
   inherited CreateNew(AOwner, 0);
   Caption := 'Settings';
   BorderStyle := bsDialog;
-  Position := poMainFormCenter;
+  Position := poDesigned;      // placed by DoShow: where it was, or in the middle of the screen
   ClientWidth := 500;
   ClientHeight := 710;
+  OnShow := @DoShow;
 
   // OK applies and closes, Apply applies, Cancel undoes what was applied and
   // closes (the window isn't modal)
@@ -200,12 +286,15 @@ begin
   FPages.Parent := Self;
   FPages.Align := alClient;
   FPages.BorderSpacing.Around := 6;
+  FPages.OnChange := @DoPageChange;
 
   // Three main tabs: what is common to every machine, what is the ZX
   // Spectrum's (and its relatives') and what is the Amstrad CPC's. The
   // Common and ZX Spectrum ones have tabs of their own inside.
   FCommon := AddTabs(AddPage(FPages, 'Common'), 0);
   FZX := AddTabs(AddPage(FPages, 'ZX Spectrum'), 1);
+  FCommon.OnChange := @DoPageChange;
+  FZX.OnChange := @DoPageChange;
 
   // Common: General
   Page := AddPage(FCommon, 'General');
@@ -214,7 +303,7 @@ begin
   FModel := AddCombo(Page, 0, 10);
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do FModel.Items.Add(ModelInfo[M].Name);
   FModel.Visible := False;
-  Group := AddGroup(Page, 'General', 6, 150);
+  Group := AddGroup(Page, 'General', 6, 176);
   Y := 8;
   AddLabel(Group, 'CPU speed:', Y + 4);
   FSpeed := TTrackBar.Create(Self);
@@ -241,7 +330,11 @@ begin
   FSaveOnExit := AddCheck(Group, 'Save the settings when emu80 closes', Y);
   FSaveOnExit.Hint := 'Off: changes made while running (zoom, machine, recent files...) are forgotten; ' +
     'OK in this window still saves';
-  Group := AddGroup(Page, 'Layout', 164, 98);
+  Inc(Y, 26);
+  FAttachMouse := AddCheck(Group, 'Attach mouse to window', Y);
+  FAttachMouse.Hint := 'While the emulated mouse is used, the PC mouse stays over the picture (hidden), so the two ' +
+    'stay aligned (Ctrl+Alt or Alt-Tab frees it)';
+  Group := AddGroup(Page, 'Layout', 190, 98);
   AddLabel(Group, 'Theme:', 8 + 4);
   FUI := AddCombo(Group, 8, 200);
   FUI.Left := 150;
@@ -251,7 +344,7 @@ begin
   FScale := AddCombo(Group, 8 + 36, 100);
   FScale.Left := 150;
   for S := 1 to 4 do FScale.Items.Add(Format('%dx', [S]));
-  Group := AddGroup(Page, 'Video', 270, 88);
+  Group := AddGroup(Page, 'Video', 296, 88);
   AddLabel(Group, 'Monitor:', 8 + 4);
   FMonitor := AddCombo(Group, 8, 200);
   FMonitor.Left := 150;
@@ -260,7 +353,7 @@ begin
     'orange phosphor';
   FMonitor.ShowHint := True;
   FScanlines := AddCheck(Group, 'Scanlines (zoom 2x or more)', 8 + 36);
-  Group := AddGroup(Page, 'Sound', 366, 88);
+  Group := AddGroup(Page, 'Sound', 392, 88);
   AddLabel(Group, 'Volume:', 8 + 4);
   FVolume := TTrackBar.Create(Self);
   FVolume.Parent := Group;
@@ -329,6 +422,9 @@ begin
   end;
   AddNote(Page, 'On the CPC models ROM 0 is the 32K firmware (operating system and BASIC) and ROM 1 the ' +
     'AMSDOS disc ROM.', 264);
+  AddNote(Page, 'On the MSX 2 the alternative QUANTIKA ROMs are used. The original ones would be MSX2.ROM and ' +
+    'MSX2EXT.ROM. Likewise, the floppy drive needs PHILIPSDISK.rom, which cannot be used with the QUANTIKA ' +
+    'ROMs: it needs the original ones.', 304).Height := 68;
 
   // ZX Spectrum: hardware connected to the machine
   Page := AddPage(FZX, 'Hardware');
@@ -370,7 +466,7 @@ begin
   FDeinterlace.Hint := 'The frames taken as the fields of an interlaced picture: needed by ' +
     'demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)';
   FDeinterlace.ShowHint := True;
-  Group := AddGroup(Page, 'Controls', 158, 100);
+  Group := AddGroup(Page, 'Controls', 158, 130);
   Y := 8;
   AddLabel(Group, 'Keyboard (16K/48K):', Y);
   Panel := AddRadioPanel(Group, Y - 2, 26);
@@ -381,7 +477,11 @@ begin
   FJoystick := AddCombo(Group, Y, 270);
   FJoystick.Left := 170;
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do FJoystick.Items.Add(JOYSTICK_NAMES[J]);
-  Group := AddGroup(Page, 'Core features', 266, 88);
+  Inc(Y, 34);
+  FLeftShift := AddCheck(Group, 'Use Left Shift as CAPS SHIFT instead of Left Ctrl (not recommended)', Y);
+  FLeftShift.Hint := 'CAPS SHIFT is the left Ctrl, or the left Shift when on (then either Ctrl is the joystick''s fire; ' +
+    'off, only the right Ctrl is)';
+  Group := AddGroup(Page, 'Core features', 296, 88);
   Y := 8;
   FContention := AddCheck(Group, 'Contended memory and I/O (real timing)', Y);
   Inc(Y, 28);
@@ -495,6 +595,48 @@ begin
   FSamAutoDos := AddCheck(Group, 'Boot SAMDOS automatically', Y);
   FSamAutoDos.Hint := 'On start, on reset and on choosing the SAM Coup'#$C3#$A9' with drive 1 empty, ' +
     'the SAMDOS2.dsk disk of the roms folder is inserted and booted';
+  // MSX
+  Page := AddPage(FPages, 'MSX');
+  AddBand(Page, 4);
+  Group := AddGroup(Page, 'Cartridges', 60, 96);
+  Y := 8;
+  AddLabel(Group, 'Mapper:', Y + 4);
+  FMsxMapper := AddCombo(Group, Y, 270);
+  FMsxMapper.Left := 170;
+  FMsxMapper.Items.Add('Auto-detect');
+  FMsxMapper.Items.Add('Plain ROM (no mapper)');
+  FMsxMapper.Items.Add('Konami');
+  FMsxMapper.Items.Add('Konami SCC');
+  FMsxMapper.Items.Add('ASCII8');
+  FMsxMapper.Items.Add('ASCII16');
+  FMsxMapper.Hint := 'How the banks of a ROM bigger than 32K are switched. Auto-detect guesses it from the ' +
+    'writes the code makes to the mapper registers; if a game does not start, choose another one. ' +
+    'Changing it inserts the cartridge again';
+  FMsxMapper.ShowHint := True;
+  AddNote(Group, 'ROMs of up to 32K never need a mapper.', Y + 34);
+  Group := AddGroup(Page, 'Memory', 166, 126);
+  Y := 8;
+  AddLabel(Group, 'RAM mapper:', Y + 4);
+  FMsxRamMapper := AddCombo(Group, Y, 270);
+  FMsxRamMapper.Left := 170;
+  FMsxRamMapper.Items.Add('Auto (off when a tape starts the machine)');
+  FMsxRamMapper.Items.Add('On (128K of mapper RAM)');
+  FMsxRamMapper.Items.Add('Off (64K of RAM, as an MSX1)');
+  FMsxRamMapper.Hint := 'The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) ' +
+    'write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; ' +
+    'Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset';
+  FMsxRamMapper.ShowHint := True;
+  AddNote(Group, 'MSX-DOS 2 needs the mapper.', Y + 34);
+  FMsxCompat := AddCheck(Group, 'MSX 1 compatibility mode', Y + 58);
+  FMsxCompat.Hint := 'Some MSX1 programs use FFFFh as ordinary RAM or look for RAM in a primary slot alone, which ' +
+    'the MSX2''s expanded slot 3 breaks. With this on no slot is expanded (the RAM is slot 3 alone, the sub-ROM ' +
+    'is in slot 2) and there is no disk drive. It is also in the Options menu. Resets the machine';
+  FMsxCompat.ShowHint := True;
+  Group := AddGroup(Page, 'Controls', 298, 64);
+  Y := 8;
+  FMsxJoystick := AddCheck(Group, 'Cursor keys and right Ctrl as joystick 1', Y);
+  FMsxJoystick.Hint := 'On the MSX the cursor keys are always the cursor keys; with this on they ' +
+    'also move joystick 1, and the right Ctrl is its first button';
   FShownRomModel := -1;
 end;
 
@@ -577,6 +719,21 @@ begin
         Point(X + 50 + I * 4, Y + 6), Point(X + 46 + I * 4, Y + 6)]);
     end;
     Title := 'ZX Spectrum';
+  end
+  else if Box.Tag = 4 then
+  begin
+    // The MSX: a dark keyboard with the blue and white band of its logo
+    if Dark then Body := $484848 else Body := $282828;
+    C.Brush.Color := Body;
+    C.Pen.Color := Edge;
+    C.Pen.Width := 2;
+    C.RoundRect(X, Y + 6, X + 56, Y + 32, 4, 4);
+    C.Pen.Width := 1;
+    C.Brush.Color := $E8E8E8;
+    for I := 0 to 5 do C.FillRect(X + 4 + I * 8, Y + 21, X + 10 + I * 8, Y + 27);
+    C.Brush.Color := $F08828;
+    C.FillRect(X + 4, Y + 10, X + 52, Y + 14);
+    Title := 'MSX';
   end
   else if Box.Tag = 3 then
   begin
@@ -801,6 +958,38 @@ begin
   end;
 end;
 
+const
+  MSX_ROM_LABELS: array[0..3] of string = ('ROM', 'SUBROM', 'FLOPPY DISK', '');
+
+{ A tab just shown: it and the window draw again in full (the first time a tab is shown after the window
+  shrank to fit, what the tab before had drawn showed through below the new one) }
+procedure TSettingsDialog.DoPageChange(Sender: TObject);
+begin
+  Application.QueueAsyncCall(@RefreshTabs, 0);
+end;
+
+procedure TSettingsDialog.RefreshTabs(Data: PtrInt);
+
+  procedure Redraw(PC: TPageControl);
+  var
+    I: Integer;
+  begin
+    if PC.ActivePage <> nil then
+    begin
+      PC.ActivePage.ReAlign;
+      PC.ActivePage.Invalidate;
+      for I := 0 to PC.ActivePage.ControlCount - 1 do
+        if PC.ActivePage.Controls[I] is TPageControl then Redraw(TPageControl(PC.ActivePage.Controls[I]));
+    end;
+    PC.Invalidate;
+  end;
+
+begin
+  Redraw(FPages);
+  Invalidate;
+  Update;
+end;
+
 procedure TSettingsDialog.StoreRomEdits;
 var
   I: Integer;
@@ -822,7 +1011,9 @@ begin
     FRomLabels[I].Visible := I < ModelInfo[M].RomCount;
     FRomEdits[I].Visible := FRomLabels[I].Visible;
     FRomBrowse[I].Visible := FRomLabels[I].Visible;
-    FRomLabels[I].Caption := Format('ROM %d (%s):', [I, ModelInfo[M].RomFiles[I]]);
+    // The MSX's three: the main ROM, the sub-ROM and the disk interface's
+    if IsMSXModel(M) then FRomLabels[I].Caption := MSX_ROM_LABELS[I]
+    else FRomLabels[I].Caption := Format('ROM %d (%s):', [I, ModelInfo[M].RomFiles[I]]);
     FRomEdits[I].Text := FRomFiles[M, I];
     FRomEdits[I].TextHint := ModelInfo[M].RomFiles[I];
   end;
@@ -856,7 +1047,7 @@ begin
   ZXUno := FModel.ItemIndex = Ord(smZXUno);
   // What belongs to the Spectrum is off on the machines that aren't one: the CPC and the SAM Coupe
   CPC := ((FModel.ItemIndex >= Ord(smCPC464)) and (FModel.ItemIndex <= Ord(smCPC6128))) or
-    (FModel.ItemIndex = Ord(smSAM));
+    (FModel.ItemIndex = Ord(smSAM)) or IsMSXModel(TSpectrumModel(FModel.ItemIndex));
   for I := 0 to 3 do
   begin
     if ZXUno and not FForced[I] then
@@ -895,6 +1086,7 @@ begin
   FMouse.Checked := S.KempstonMouse;
   FDivMMC.Checked := S.DivMMC;
   FCurrah.Checked := S.Currah;
+  FLeftShift.Checked := S.LeftShiftCaps;
   FCPCJoystick.Checked := S.CPCJoystick;
   FCPCWait.Checked := S.CPCWaitStates;
   FCrtc.ItemIndex := S.CPCCrtc + 1;
@@ -903,6 +1095,12 @@ begin
   FSamAutoDos.Checked := S.SamAutoDos;
   FSamMouse.Checked := S.SamMouse;
   FSamClock.Checked := S.SamClock;
+  FMsxJoystick.Checked := S.MsxJoystick;
+  FMsxCompat.Checked := S.MsxCompat;
+  FMsxMapper.ItemIndex := MapperIndex(S.MsxCartMapper);
+  FMsxRamMapper.ItemIndex := 0;
+  for I := 0 to High(MSX_MAPPER_KEYS) do
+    if MSX_MAPPER_KEYS[I] = S.MsxMapper then FMsxRamMapper.ItemIndex := I;
   if S.SamMemory = 256 then FSamMemory.ItemIndex := 0 else FSamMemory.ItemIndex := 1;
   FFirmware.Text := S.DivMMCFirmware;
   FUnoFirmware.Text := S.ZXUnoFirmware;
@@ -917,6 +1115,7 @@ begin
   FDriveB.Checked := S.DriveB;
   FFloppyNoise.Checked := S.FloppyNoise;
   FSaveOnExit.Checked := S.SaveOnExit;
+  FAttachMouse.Checked := S.AttachMouse;
   FJoystick.ItemIndex := Ord(S.Joystick);
   FDeinterlace.ItemIndex := Ord(S.Deinterlace);
   FIssue2.Checked := S.Issue2;
@@ -972,12 +1171,14 @@ begin
   S.DriveB := FDriveB.Checked;
   S.FloppyNoise := FFloppyNoise.Checked;
   S.SaveOnExit := FSaveOnExit.Checked;
+  S.AttachMouse := FAttachMouse.Checked;
   S.Joystick := TJoystickKeys(FJoystick.ItemIndex);
   S.Deinterlace := TDeinterlace(FDeinterlace.ItemIndex);
   S.Issue2 := FIssue2.Checked;
   S.Sound := not FSound.Checked;
   S.TurboSound := FTurboSound.Checked;
   S.Currah := FCurrah.Checked;
+  S.LeftShiftCaps := FLeftShift.Checked;
   S.CPCJoystick := FCPCJoystick.Checked;
   S.CPCWaitStates := FCPCWait.Checked;
   S.CPCCrtc := FCrtc.ItemIndex - 1;
@@ -986,6 +1187,10 @@ begin
   S.SamAutoDos := FSamAutoDos.Checked;
   S.SamMouse := FSamMouse.Checked;
   S.SamClock := FSamClock.Checked;
+  S.MsxJoystick := FMsxJoystick.Checked;
+  S.MsxCompat := FMsxCompat.Checked;
+  S.MsxCartMapper := MAPPER_KEYS[FMsxMapper.ItemIndex];
+  S.MsxMapper := MSX_MAPPER_KEYS[FMsxRamMapper.ItemIndex];
   if FSamMemory.ItemIndex = 0 then S.SamMemory := 256 else S.SamMemory := 512;
   S.Monitor := FMonitor.ItemIndex;
   S.Contention := FContention.Checked;

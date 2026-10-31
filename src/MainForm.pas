@@ -8,8 +8,8 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, DSK, Emulator, Config, Icons, PokeForm,
-  Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide;
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, Msx, MsxMachine, DSK, Emulator, Config, Icons, PokeForm,
+  Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide, VirtualKeyboard;
 
 type
   { A text longer than its room that scrolls now and then: from where it starts, a character at a time
@@ -34,7 +34,7 @@ type
     FRecButton: TToolButton;
     FDiskButton: TToolButton;
     FSDButton: TToolButton;
-    FDiskBrowserItem, FSDBrowserItem: TMenuItem;
+    FDiskBrowserItem, FSDBrowserItem, FCartBrowserItem: TMenuItem;
     FRecItem: TMenuItem;
     FTurboButton: TToolButton;
     FStatus: TStatusBar;
@@ -50,9 +50,9 @@ type
     FModernHide: TList;                      // menu items the modern interface has as buttons instead (left out of its menus)
     FRecentOpen: TStringList;                // what Open recent shows now (the files, with Objects = their kind)
     FRecentSymbolsMenu: TMenuItem;
-    FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu: TMenuItem;
+    FRecentDisksMenu, FRecentDisksMenuB, FRecentCardsMenu, FRecentTapesMenu, FRecentTapesMenuJ, FRecentCartsMenu: TMenuItem;
     FDriveBItems: array of TMenuItem;   // Floppy menu entries for drive B
-    FKeyboardItem, FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem: TMenuItem;
+    FKeyboardItem, FFastLoadItem, FAutoPlayItem, FMuteItem, FPauseItem, FTurboItem, FModernItem, FInstallNextItem, FMsxCompatItem: TMenuItem;
     FMonitorItems: array[0..3] of TMenuItem;
     FScanlinesItem: TMenuItem;
     FModelMenuTop: array[0..1] of TMenuItem;   // ZX Spectrum and Amstrad CPC in the machine menu
@@ -77,6 +77,12 @@ type
     FKeyCount: array[0..39] of Integer;
     FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
     FSamKeyCount: array[0..SAMK_COUNT - 1] of Integer;   // the SAM Coupe's keys (SAMK_*) held
+    FMsxKeyCount: array[0..MSXK_COUNT - 1] of Integer;   // the MSX's keys (MSXK_*) held
+    FMsxJoy: array[0..5] of Integer;         // the MSX joystick's directions and buttons held (MSXJ_ bit order)
+    FCartTop: TMenuItem;                     // the Cartridge menu (MSX)
+    FCartMapperItems: array[0..5] of TMenuItem;   // auto, plain, konami, konamiscc, ascii8, ascii16
+    FCartFile: string;                       // the file of the cartridge inserted
+    FOldMapper: string;                      // the cartridge mapper when the settings window opened
     // The SAM's keys that make characters go by the character the PC keyboard gives (any layout), not
     // by the key: FSamRoute 1 = by character, 2 = Alt+F key; the chord of each PC key held
     FSamRoute: array[0..255] of Byte;
@@ -112,6 +118,9 @@ type
     FMouseLast: TPoint;          // last position over the display (Kempston mouse)
     FMouseHave: Boolean;
     FMouseRemX, FMouseRemY: Integer;   // movement not yet worth a Spectrum pixel
+    FAttachAsked: Boolean;       // the question about attaching the mouse was asked (once per run)
+    FMouseClipped: Boolean;      // the PC mouse is held inside the window
+    FClipTimer: TTimer;
     procedure KeyTimerTick(Sender: TObject);
     procedure LedTick(Sender: TObject);
     procedure DrawMediaPanel(StatusBar: TStatusBar; Panel: TStatusPanel; const Rect: TRect);
@@ -140,6 +149,11 @@ type
     procedure MapKey(Key: Word; Down: Boolean);
     procedure MapKeyCPC(Key: Word; Down: Boolean);
     procedure MapKeySAM(Key: Word; Down: Boolean);
+    procedure MapKeyMSX(Key: Word; Down: Boolean);
+    procedure InsertCartridgeFile(const FileName: string);
+    procedure DoCartInsert(Sender: TObject);
+    procedure DoCartEject(Sender: TObject);
+    procedure DoCartMapper(Sender: TObject);
     function SamCharKey(Key: Word): Boolean;
     function SamKeyHeld(K: Integer): Boolean;
     procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
@@ -188,8 +202,13 @@ type
     procedure AddDriveBItem(Item: TMenuItem);
     procedure DoInsertRecentDisk(Sender: TObject);
     procedure DoInsertRecentCard(Sender: TObject);
+    procedure DoInsertRecentTape(Sender: TObject);
+    procedure DoInsertRecentTapeOnly(Sender: TObject);
+    procedure InsertRecentTape(Sender: TObject; AutoStart: Boolean);
+    procedure DoInsertRecentCart(Sender: TObject);
     procedure DoDiskBrowser(Sender: TObject);
     procedure DoSDBrowser(Sender: TObject);
+    procedure CartSaved(const FileName: string);
     procedure DoSDInsert(Sender: TObject);
     procedure DoSDNew(Sender: TObject);
     procedure DoSDEject(Sender: TObject);
@@ -215,6 +234,7 @@ type
     procedure DoMonitor(Sender: TObject);
     procedure DoScanlines(Sender: TObject);
     function MouseOn: Boolean;
+    function MouseInUse: Boolean;
     procedure DoDocumentation(Sender: TObject);
     procedure ApplyRomFiles;
     procedure DisplayMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
@@ -223,6 +243,8 @@ type
     procedure DisplayMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState;
       X, Y: Integer);
     procedure DisplayMouseLeave(Sender: TObject);
+    procedure MouseClipTick(Sender: TObject);
+    procedure ReleaseMouseClip;
     procedure DoPoke(Sender: TObject);
     procedure ApplyPokes(const Pokes: TPokeList);
     procedure DoNewTape(Sender: TObject);
@@ -238,8 +260,14 @@ type
     procedure DoCrtc(Sender: TObject);
     procedure DoSettings(Sender: TObject);
     procedure DoKeyboardGuide(Sender: TObject);
+    procedure DoVirtualKeyboard(Sender: TObject);
+    procedure DoMsxCompat(Sender: TObject);
+    procedure MsxNotice;
+    function TypeVirtualSymbol(const Sym: string; DryRun: Boolean): Boolean;
     procedure SettingsApplied(Sender: TObject);
     procedure DoTapeInsert(Sender: TObject);
+    procedure DoTapeInsertOnly(Sender: TObject);
+    procedure InsertTapeDialog(AutoStart: Boolean);
     function TapeFilter: string;
     procedure BuildModern;
     procedure ApplyStyle;
@@ -318,7 +346,12 @@ implementation
 
 uses
   Snapshot, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, FatFS, DebugFiles, NextCard, DiskFormat;
+  SDBrowser, CartBrowser, FatFS, DebugFiles, NextCard, DiskFormat;
+
+{$IFDEF WINDOWS}
+{ (The Windows unit would hide SysUtils' DeleteFile and others) }
+function WinClipCursor(lpRect: Pointer): LongBool; stdcall; external 'user32' name 'ClipCursor';
+{$ENDIF}
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -331,8 +364,11 @@ const
   SAMDOS_FILE = 'SAMDOS2.dsk';     // the SAM Coupe's DOS disk, in the roms folder
   DISK_FILTER = 'Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad';
   SAVE_DISK_FILTER = 'Disk images (*.dsk)|*.dsk|SAM Coupe MGT images (*.mgt)|*.mgt|SAM Coupe SAD images (*.sad)|*.sad';
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80|' +
-    'Tape images (*.tap;*.tzx;*.cdt)|*.tap;*.tzx;*.cdt|' +
+  CART_MAPPER_KEYS: array[0..5] of string = ('auto', 'plain', 'konami', 'konamiscc', 'ascii8', 'ascii16');
+  CART_MAPPER_NAMES: array[0..5] of string = ('Auto-detect', 'Plain ROM (no mapper)', 'Konami', 'Konami SCC', 'ASCII8', 'ASCII16');
+  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80;*.rom;*.cas;*.tsx|' +
+    'MSX cartridges (*.rom)|*.rom|' +
+    'Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)|*.tap;*.tzx;*.cdt;*.cas;*.tsx|' +
     'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|' + DISK_FILTER + '|' +
     'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
 
@@ -420,7 +456,7 @@ var
   FirstRun: Boolean;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'emu80 - ZX Spectrum emulator';
+  Caption := 'emu80 - 8 bit machines emulator';
   Position := poScreenCenter;
   // Sizes here are real screen pixels (whole zoom factors); don't let LCL
   // multiply them by the desktop DPI scale
@@ -457,8 +493,9 @@ begin
       // Fall back to the ROMs next to the executable (a ZX-Uno without its
       // BIOS: the 48K)
       Err := E.Message;
-      Settings.RomDir := DefaultRomDir;
-      if Settings.Model = smZXUno then Settings.Model := sm48K;
+      // (an MSX2 without its ROMs: the 48K, and the ROM folder stays)
+      if Settings.Model <> smMSX2 then Settings.RomDir := DefaultRomDir;
+      if Settings.Model in [smZXUno, smMSX2] then Settings.Model := sm48K;
       FEmu := TEmulator.Create(Settings.Model, Settings.RomDir);
     end;
   end;
@@ -509,6 +546,11 @@ begin
   FKeyTimer.Enabled := False;
   FKeyTimer.OnTimer := @KeyTimerTick;
 
+  // Keeps the PC mouse in the window when it is attached to it
+  FClipTimer := TTimer.Create(Self);
+  FClipTimer.Interval := 15;
+  FClipTimer.OnTimer := @MouseClipTick;
+
   FStatusTimer := TTimer.Create(Self);
   FStatusTimer.Interval := 250;
   FStatusTimer.OnTimer := @StatusTick;
@@ -548,6 +590,7 @@ end;
 
 destructor TMainWindow.Destroy;
 begin
+  ReleaseMouseClip;
   FEmu.Free;
   FRecentOpen.Free;
   FModernHide.Free;
@@ -570,7 +613,7 @@ end;
 procedure TMainWindow.BuildMenu;
 var
   TopItem, Item: TMenuItem;
-  S: Integer;
+  S, I: Integer;
   D: TDeinterlace;
 begin
   FMenu := TMainMenu.Create(Self);
@@ -606,7 +649,10 @@ begin
   AddItem(FMenu.Items, '|', nil).Enabled := False;
   TopItem := AddItem(FMenu.Items, '&Tape', nil);
   FTapeTop := TopItem;
-  AddItem(TopItem, '&Insert tape...', @DoTapeInsert);
+  AddItem(TopItem, '&Insert tape && load...', @DoTapeInsert);
+  AddItem(TopItem, '&Just insert tape...', @DoTapeInsertOnly);
+  FRecentTapesMenu := AddItem(TopItem, 'Insert &recent tape && load', nil);
+  FRecentTapesMenuJ := AddItem(TopItem, 'Just insert recent &tape', nil);
   AddItem(TopItem, '-', nil);
   FModernHide := TList.Create;
   FModernHide.Add(AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, [])));
@@ -665,6 +711,25 @@ begin
   FFastDiskItem := AddItem(TopItem, '&Fast floppy disk access', @DoFastDisk);
   FModernHide.Add(FFastDiskItem);
   FDriveBItem := AddItem(TopItem, 'Drive &B: connected', @DoDriveB);
+
+  // MSX cartridge slot (the MSX has no SD card reader: the slot takes ROM cartridges)
+  TopItem := AddItem(FMenu.Items, '&Cartridge', nil);
+  FCartTop := TopItem;
+  FCartBrowserItem := AddItem(TopItem, 'Cartridge &browser...', @DoSDBrowser);
+  AddItem(TopItem, '-', nil);
+  AddItem(TopItem, '&Insert cartridge...', @DoCartInsert);
+  FRecentCartsMenu := AddItem(TopItem, 'Insert &recent cartridge', nil);
+  AddItem(TopItem, '&Eject cartridge', @DoCartEject);
+  AddItem(TopItem, '-', nil);
+  Item := AddItem(TopItem, '&Mapper', nil);
+  for I := 0 to 5 do
+  begin
+    if I = 0 then FCartMapperItems[I] := AddItem(Item, '&Auto-detect', @DoCartMapper)
+    else FCartMapperItems[I] := AddItem(Item, CART_MAPPER_NAMES[I], @DoCartMapper);
+    FCartMapperItems[I].Tag := I;
+    FCartMapperItems[I].RadioItem := True;
+    FCartMapperItems[I].GroupIndex := 7;
+  end;
 
   // DivMMC SD card (the interface is switched on in Settings > Hardware)
   TopItem := AddItem(FMenu.Items, '&SD', nil);
@@ -739,8 +804,12 @@ begin
   FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
   FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
   FModernItem := AddItem(TopItem, 'Mo&dern interface (dark)', @DoToggleTheme);
-  // Every Spectrum, not the CPC or the SAM Coupe; the modern interface has a button for it
-  FKeyboardItem := AddItem(TopItem, '&Keyboard guide', @DoKeyboardGuide);
+  // The MSX2 with an MSX1's slots (none expanded): resets the machine
+  FMsxCompatItem := AddItem(TopItem, 'MSX 1 &compatibility mode', @DoMsxCompat);
+  // Every machine; the modern interface has a button for it
+  FModernHide.Add(AddItem(TopItem, '&Virtual Keyboard', @DoVirtualKeyboard));
+  // Every Spectrum, not the CPC, the SAM Coupe or the MSX; the modern interface has a button for it
+  FKeyboardItem := AddItem(TopItem, 'ZX &Keyboard Guide', @DoKeyboardGuide);
   FModernHide.Add(FKeyboardItem);
   FInstallNextItem := AddItem(TopItem, 'Install Spectrum Next Distribution', @DoInstallNextDistro);
   AddItem(TopItem, '-', nil);
@@ -777,6 +846,7 @@ end;
 procedure TMainWindow.BuildToolBar;
 var
   M: TSpectrumModel;
+  SamItem: TMenuItem;
   Item: TToolButton;
 begin
   FImages := TImageList.Create(Self);
@@ -803,6 +873,7 @@ begin
   FModelMenuTop[1] := TMenuItem.Create(FModelMenu);
   FModelMenuTop[1].Caption := 'Amstrad CPC';
   FModelMenu.Items.Add(FModelMenuTop[1]);
+  SamItem := nil;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
   begin
     FModelPopupItems[M] := TMenuItem.Create(FModelMenu);
@@ -811,12 +882,15 @@ begin
     FModelPopupItems[M].RadioItem := True;
     FModelPopupItems[M].GroupIndex := 1;
     FModelPopupItems[M].OnClick := @DoModel;
-    // The SAM Coupe is a single machine: it sits at the first level, after the families
-    if IsSAMModel(M) then
+    // The MSX2 and the SAM Coupe are single machines: they sit at the first level, after the families (the SAM last)
+    if IsMSXModel(M) then
       FModelMenu.Items.Add(FModelPopupItems[M])
+    else if IsSAMModel(M) then
+      SamItem := FModelPopupItems[M]
     else
       FModelMenuTop[Ord(IsCPCModel(M))].Add(FModelPopupItems[M]);
   end;
+  if SamItem <> nil then FModelMenu.Items.Add(SamItem);
   FModelButton := AddButton(ikModel, 'Machine model', @DoModelButton);
   AddSeparator;
 
@@ -877,6 +951,13 @@ begin
     FEmu.Spec.SamMouseOn := Settings.SamMouse;
     FEmu.Spec.SamClockOn := Settings.SamClock;
     FEmu.Spec.SamMemoryKB := Settings.SamMemory;
+    if Settings.MsxMapper = 'on' then FEmu.Spec.MsxMapperMode := MSX_MAPPER_ON
+    else if Settings.MsxMapper = 'off' then FEmu.Spec.MsxMapperMode := MSX_MAPPER_OFF
+    else FEmu.Spec.MsxMapperMode := MSX_MAPPER_AUTO;
+    FEmu.Spec.MsxCompat := Settings.MsxCompat;
+    // The slot layout is built at a reset: the machine has the other one, so it starts again
+    if IsMSXModel(FEmu.Spec.Model) and (FEmu.Spec.MSXHw <> nil) and (FEmu.Spec.MSXHw.Compat <> Settings.MsxCompat) then
+      FEmu.Spec.Reset(True);
     FEmu.Spec.Issue2 := Settings.Issue2;
     FEmu.Spec.SetSpeed(Settings.CpuSpeed);
     FEmu.Spec.SaveToTape := Settings.SaveToTape;
@@ -956,7 +1037,7 @@ var
 begin
   Result := True;
   // The ZX-Uno and the Next have their own DivMMC
-  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext, mkCPC, mkSAM] then Exit;
+  if FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext, mkCPC, mkSAM, mkMSX] then Exit;
   if Settings.DivMMC = FEmu.Spec.DivMMCOn then Exit;
   Err := '';
   if Settings.DivMMC then
@@ -1096,8 +1177,6 @@ begin
   FMonitorItems[Settings.Monitor].Checked := True;
   FScanlinesItem.Checked := Settings.Scanlines;
   UpdateInstallNextItem(nil);
-  // The Spectrum draws its own pointer: hide the PC one over the picture
-  if MouseOn then FDisplay.Cursor := crNone else FDisplay.Cursor := crDefault;
   FSaveToTapeItem.Checked := Settings.SaveToTape;
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
@@ -1109,6 +1188,9 @@ begin
   // interface to any machine); the modern interface has them behind the Media palette's buttons instead
   if FFloppyTop <> nil then FFloppyTop.Visible := FloppyAvailable or FEmu.Spec.DivMMCOn;
   if FSDTop <> nil then FSDTop.Visible := SDAvailable;
+  if FCartTop <> nil then FCartTop.Visible := IsMSXModel(M);
+  for I := 0 to 5 do
+    if (FCartMapperItems[I] <> nil) and (CART_MAPPER_KEYS[I] = Settings.MsxCartMapper) then FCartMapperItems[I].Checked := True;
   FBorderShotItem.Checked := Settings.ScreenshotBorder;
   FPauseItem.Checked := FEmu.Paused;
   FRecItem.Checked := FEmu.Spec.Recording;
@@ -1116,6 +1198,8 @@ begin
   FPauseButton.Down := FEmu.Paused;
   FTurboItem.Checked := FEmu.Turbo;
   FTurboButton.Down := FEmu.Turbo;
+  FMsxCompatItem.Visible := IsMSXModel(M);
+  FMsxCompatItem.Checked := Settings.MsxCompat;
   for S := 1 to 4 do
   begin
     FScaleItems[S].Checked := S = Settings.Scale;
@@ -1248,9 +1332,14 @@ begin
   case Kind of
     1: Result := DiskFits;
     2: Result := SDAvailable;
+    // Tapes and cartridges have lists of their own (the tape and cartridge menus); the files opened
+    // include them as well, judged by their type below
+    3, 4: Result := RecentFits(FileName, 0);
   else
-    if Ext = '.tap' then Result := Memory <> mkCPC      // the SAM Coupé's ROM loads the Spectrum's standard speed blocks
+    if Ext = '.tap' then Result := not (Memory in [mkCPC, mkMSX])      // the SAM Coupé's ROM loads the Spectrum's standard speed blocks
     else if Ext = '.tzx' then Result := True
+    else if (Ext = '.cas') or (Ext = '.tsx') then Result := Memory = mkMSX
+    else if Ext = '.rom' then Result := Memory = mkMSX
     else if Ext = '.cdt' then Result := Memory = mkCPC
     else if Ext = '.z80' then Result := not (Memory in [mkCPC, mkSAM, mkZXNext])
     else if Ext = '.sna' then Result := (Memory = mkCPC) or not (Memory in [mkSAM, mkZXNext])
@@ -1296,6 +1385,8 @@ begin
   Collect(Settings.RecentFiles, 0);
   Collect(Settings.RecentDisks, 1);
   Collect(Settings.RecentCards, 2);
+  Collect(Settings.RecentTapes, 3);
+  Collect(Settings.RecentCarts, 4);
   FRecentMenu.Clear;
   for I := 0 to Min(FRecentOpen.Count, RECENT_SHOWN) - 1 do
   begin
@@ -1453,11 +1544,26 @@ begin
     // The disk browser needs a disk in A:, the SD browser a card
     // The browsers need something to browse: from the toolbar and the menus
     HaveDisk := DefaultDrive(Spec) >= 0;
-    HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);
+    if IsMSXModel(Spec.Model) then HaveCard := Spec.MSXHw.CartridgeName(1) <> ''
+    else HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);
     if FDiskButton.Enabled <> HaveDisk then FDiskButton.Enabled := HaveDisk;
     if FDiskBrowserItem.Enabled <> HaveDisk then FDiskBrowserItem.Enabled := HaveDisk;
     if FSDButton.Enabled <> HaveCard then FSDButton.Enabled := HaveCard;
+    // On the MSX the SD card's browser is the cartridge's (CR)
+    if IsMSXModel(Spec.Model) then
+    begin
+      FSDButton.ImageIndex := Ord(ikCartridge);
+      FSDButton.Hint := 'Cartridge browser (CR)';
+      FSDBrowserItem.Caption := 'Cartridge &browser...';
+    end
+    else
+    begin
+      FSDButton.ImageIndex := Ord(ikSDCard);
+      FSDButton.Hint := 'SD card browser (DivMMC)';
+      FSDBrowserItem.Caption := 'SD card &browser...';
+    end;
     if FSDBrowserItem.Enabled <> HaveCard then FSDBrowserItem.Enabled := HaveCard;
+    if FCartBrowserItem.Enabled <> (IsMSXModel(Spec.Model) and HaveCard) then FCartBrowserItem.Enabled := IsMSXModel(Spec.Model) and HaveCard;
     FStatus.Panels[0].Text := Spec.Info.Name;
   finally
     FEmu.Unlock;
@@ -1575,6 +1681,22 @@ begin
     end;
     Exit;
   end;
+  if IsMSXModel(FEmu.Spec.Model) then
+  begin
+    // The MSX's matrix: 11 rows of 8 keys, a clear bit for a key down; the joystick as the PSG reads it
+    for Row := 0 to MSX_KEY_ROWS - 1 do
+    begin
+      Value := $FF;
+      for Bit := 0 to 7 do
+        if FMsxKeyCount[Row * 8 + Bit] > 0 then Value := Value and not (1 shl Bit);
+      FEmu.Spec.MSXHw.KeyMatrix[Row] := Value;
+    end;
+    Value := $3F;
+    for Bit := 0 to 5 do
+      if FMsxJoy[Bit] > 0 then Value := Value and not (1 shl Bit);
+    FEmu.Spec.MSXHw.SetJoystick(0, Value);
+    Exit;
+  end;
   if IsSAMModel(FEmu.Spec.Model) then
   begin
     // The SAM Coupe's matrix: 9 rows of 8 keys, a set bit for a key down
@@ -1646,9 +1768,15 @@ begin
     MapKeySAM(Key, Down);
     Exit;
   end;
-  // Cursor keys and Ctrl (either) as a joystick
+  if IsMSXModel(FEmu.Spec.Model) then
+  begin
+    MapKeyMSX(Key, Down);
+    Exit;
+  end;
+  // Cursor keys and Ctrl as a joystick: the right one, and the left one too when it is not CAPS SHIFT
   if (Settings.Joystick <> jkNone) and
-     (Key in [VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_CONTROL, VK_LCONTROL, VK_RCONTROL]) then
+     ((Key in [VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_RCONTROL]) or
+      (Settings.LeftShiftCaps and (Key in [VK_CONTROL, VK_LCONTROL]))) then
   begin
     case Key of
       VK_LEFT: Dir := 0;
@@ -1675,9 +1803,10 @@ begin
     VK_NUMPAD0..VK_NUMPAD9: Press(Digits[Chr(Ord('0') + Key - VK_NUMPAD0)]);
     VK_RETURN: Press(KEY_ENTER);
     VK_SPACE: Press(KEY_SPACE);
-    // Left Shift is CAPS SHIFT and right Shift SYMBOL SHIFT (FormKeyDown/Up
-    // tell left from right); Ctrl is never either
-    VK_SHIFT, VK_LSHIFT: Press(KEY_CAPS);
+    // Left Ctrl is CAPS SHIFT (or the left Shift, with zx_leftshift) and right Shift SYMBOL SHIFT
+    // (FormKeyDown/Up tell left from right)
+    VK_SHIFT, VK_LSHIFT: if Settings.LeftShiftCaps then Press(KEY_CAPS);
+    VK_CONTROL, VK_LCONTROL: if not Settings.LeftShiftCaps then Press(KEY_CAPS);
     VK_RSHIFT: Press(KEY_SYM);
     VK_BACK, VK_DELETE: Ext(EXT_DELETE);
     VK_LEFT: Ext(EXT_LEFT);
@@ -1759,6 +1888,162 @@ begin
     VK_MULTIPLY: begin Press(CPCK_SHIFT); Press(CPCK_COLON); end;
     VK_DIVIDE: Press(CPCK_SLASH);
   end;
+end;
+
+{ The same for the MSX: each PC key is the MSX key in its place (the keyboard is the international
+  one); Ctrl is CTRL, Page Up CODE, Page Down GRAPH, End SELECT, Pause STOP, Backspace BS; the numeric
+  keypad 1-5 are F1-F5 (the PC's F keys are the emulator's) and its other digits the digits; the cursor
+  keys are the cursor keys and also joystick 1, with the right Ctrl as its fire button }
+procedure TMainWindow.MapKeyMSX(Key: Word; Down: Boolean);
+
+  procedure Press(K: Integer);
+  begin
+    if Down then Inc(FMsxKeyCount[K]) else if FMsxKeyCount[K] > 0 then Dec(FMsxKeyCount[K]);
+  end;
+
+  procedure Joy(Bit: Integer);
+  begin
+    if not Settings.MsxJoystick then Exit;
+    if Down then Inc(FMsxJoy[Bit]) else if FMsxJoy[Bit] > 0 then Dec(FMsxJoy[Bit]);
+  end;
+
+const
+  Letters: array['A'..'Z'] of Integer = (
+    MSXK_A, MSXK_B, MSXK_C, MSXK_D, MSXK_E, MSXK_F, MSXK_G, MSXK_H, MSXK_I, MSXK_J, MSXK_K, MSXK_L,
+    MSXK_M, MSXK_N, MSXK_O, MSXK_P, MSXK_Q, MSXK_R, MSXK_S, MSXK_T, MSXK_U, MSXK_V, MSXK_W, MSXK_X,
+    MSXK_Y, MSXK_Z);
+  Digits: array['0'..'9'] of Integer = (
+    MSXK_0, MSXK_1, MSXK_2, MSXK_3, MSXK_4, MSXK_5, MSXK_6, MSXK_7, MSXK_8, MSXK_9);
+  PadF: array[1..5] of Integer = (MSXK_F1, MSXK_F2, MSXK_F3, MSXK_F4, MSXK_F5);
+begin
+  case Key of
+    VK_A..VK_Z: Press(Letters[Chr(Key)]);
+    VK_0..VK_9: Press(Digits[Chr(Key)]);
+    VK_NUMPAD0: Press(MSXK_0);
+    VK_NUMPAD1..VK_NUMPAD5: Press(PadF[Key - VK_NUMPAD0]);
+    VK_NUMPAD6..VK_NUMPAD9: Press(Digits[Chr(Ord('0') + Key - VK_NUMPAD0)]);
+    VK_RETURN: Press(MSXK_RETURN);
+    VK_SPACE: Press(MSXK_SPACE);
+    VK_SHIFT, VK_LSHIFT, VK_RSHIFT: Press(MSXK_SHIFT);
+    VK_LCONTROL: Press(MSXK_CTRL);
+    VK_CONTROL: Press(MSXK_CTRL);
+    VK_RCONTROL: if Settings.MsxJoystick then Joy(4) else Press(MSXK_CTRL);
+    VK_ESCAPE: Press(MSXK_ESC);
+    VK_TAB: Press(MSXK_TAB);
+    VK_CAPITAL: Press(MSXK_CAPS);
+    VK_BACK: Press(MSXK_BS);
+    VK_DELETE: Press(MSXK_DEL);
+    VK_INSERT: Press(MSXK_INS);
+    VK_HOME: Press(MSXK_HOME);
+    VK_END: Press(MSXK_SELECT);
+    VK_PRIOR: Press(MSXK_CODE);
+    VK_NEXT: Press(MSXK_GRAPH);
+    VK_PAUSE: Press(MSXK_STOP);
+    VK_LEFT: begin Press(MSXK_LEFT); Joy(2); end;
+    VK_RIGHT: begin Press(MSXK_RIGHT); Joy(3); end;
+    VK_UP: begin Press(MSXK_UP); Joy(0); end;
+    VK_DOWN: begin Press(MSXK_DOWN); Joy(1); end;
+    VK_OEM_COMMA, VK_DECIMAL: if Key = VK_DECIMAL then Press(MSXK_PERIOD) else Press(MSXK_COMMA);
+    VK_OEM_PERIOD: Press(MSXK_PERIOD);
+    VK_OEM_2, VK_DIVIDE: Press(MSXK_SLASH);
+    VK_OEM_MINUS, VK_SUBTRACT: Press(MSXK_MINUS);
+    VK_OEM_PLUS: Press(MSXK_EQUALS);
+    VK_OEM_1: Press(MSXK_SEMICOLON);
+    VK_OEM_7: Press(MSXK_QUOTE);
+    VK_OEM_3: Press(MSXK_GRAVE);
+    VK_OEM_4: Press(MSXK_LBRACKET);
+    VK_OEM_6: Press(MSXK_RBRACKET);
+    VK_OEM_5: Press(MSXK_BACKSLASH);
+    VK_ADD: begin Press(MSXK_SHIFT); Press(MSXK_EQUALS); end;
+    VK_MULTIPLY: begin Press(MSXK_SHIFT); Press(MSXK_8); end;
+  end;
+end;
+
+{ Cartridges (the MSX): a .rom file goes into the first cartridge slot, with the mapper the Cartridge menu
+  says (auto-detected unless chosen); the computer restarts with it, as if it had been inserted and switched on }
+procedure TMainWindow.InsertCartridgeFile(const FileName: string);
+var
+  F: TFileStream;
+  Data: array of Byte;
+  Kind: TMsxMapperKind;
+  Auto: Boolean;
+  Used: TMsxMapperKind;
+begin
+  if not IsMSXModel(FEmu.Spec.Model) then
+  begin
+    ChangeModel(smMSX2);
+    if not IsMSXModel(FEmu.Spec.Model) then Exit;
+  end;
+  try
+    F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
+    try
+      if (F.Size < 16) or (F.Size > 4 * 1024 * 1024) then
+        raise Exception.Create('That does not look like an MSX cartridge: its size is ' + IntToStr(F.Size) + ' bytes.');
+      SetLength(Data, F.Size);
+      F.ReadBuffer(Data[0], F.Size);
+    finally
+      F.Free;
+    end;
+    Auto := not MapperFromName(Settings.MsxCartMapper, Kind);
+    FEmu.Lock;
+    try
+      Used := FEmu.Spec.MSXHw.InsertCartridge(1, ChangeFileExt(ExtractFileName(FileName), ''), Data[0],
+        Length(Data), Auto, Kind);
+      FEmu.Spec.Reset(True);
+    finally
+      FEmu.Unlock;
+    end;
+    FCartFile := FileName;
+    CartFileName := FileName;
+    CartOnSaved := @CartSaved;
+    RefreshCartBrowser;
+    Settings.AddRecentCart(FileName);
+    Settings.LastDir := ExtractFilePath(FileName);   // the dialogs open there next, as for tapes and disks
+    UpdateRecentMenu;
+    UpdateRecentDisksMenu;
+    FStatus.Panels[0].Text := FEmu.Spec.Info.Name + ': ' + ExtractFileName(FileName) + ' (' + MapperName(Used) + ')';
+  except
+    on E: Exception do
+      MessageDlg('Could not insert ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message, mtError, [mbOK], 0);
+  end;
+end;
+
+procedure TMainWindow.DoCartInsert(Sender: TObject);
+var
+  Dlg: TOpenDialog;
+begin
+  Dlg := TOpenDialog.Create(Self);
+  try
+    Dlg.Filter := 'MSX cartridges (*.rom)|*.rom|All files|*.*';
+    Dlg.InitialDir := Settings.LastDir;
+    Dlg.Options := Dlg.Options + [ofFileMustExist];
+    if Dlg.Execute then InsertCartridgeFile(Dlg.FileName);
+  finally
+    Dlg.Free;
+  end;
+end;
+
+procedure TMainWindow.DoCartEject(Sender: TObject);
+begin
+  if not IsMSXModel(FEmu.Spec.Model) then Exit;
+  FEmu.Lock;
+  try
+    FEmu.Spec.MSXHw.RemoveRom(1);
+    FEmu.Spec.Reset(True);
+  finally
+    FEmu.Unlock;
+  end;
+  FCartFile := '';
+  CartFileName := '';
+  RefreshCartBrowser;
+end;
+
+{ The mapper for the cartridges: chosen in the menu; a cartridge already in is inserted again with it }
+procedure TMainWindow.DoCartMapper(Sender: TObject);
+begin
+  Settings.MsxCartMapper := CART_MAPPER_KEYS[(Sender as TComponent).Tag];
+  (Sender as TMenuItem).Checked := True;
+  if (FCartFile <> '') and FileExists(FCartFile) and IsMSXModel(FEmu.Spec.Model) then InsertCartridgeFile(FCartFile);
 end;
 
 { The same for the SAM Coupe: each PC key is the SAM key in its place (or its
@@ -1964,23 +2249,41 @@ end;
 procedure TMainWindow.FormKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
 const
   MIN_HOLD_MS = 60;   // the ROM scans the keyboard once per 20 ms frame
-var
-  Held: QWord;
-begin
-  if (Key >= VK_F1) and (Key <= VK_F24) and ((Key > High(FSamRoute)) or (FSamRoute[Key] <> 2)) then Exit;
-  Key := ReleasedSide(Key);
-  if (Key <= High(FPCKeyDown)) and FPCKeyDown[Key] then
+
+  procedure Release(K: Word);
+  var
+    Held: QWord;
   begin
-    Held := GetTickCount64 - FPCKeyTime[Key];
+    if (K > High(FPCKeyDown)) or not FPCKeyDown[K] then Exit;
+    Held := GetTickCount64 - FPCKeyTime[K];
     if Held >= MIN_HOLD_MS then
-      ReleasePCKey(Key)
+      ReleasePCKey(K)
     else
     begin
       // Too short for the Spectrum to notice: release it a little later
-      FPendingUp[Key] := FPCKeyTime[Key] + MIN_HOLD_MS;
+      FPendingUp[K] := FPCKeyTime[K] + MIN_HOLD_MS;
       FKeyTimer.Enabled := True;
     end;
   end;
+
+  { With both Shifts (or both Ctrls) down Windows reports the release of only one of them, so the other
+    would stay down for the emulated machine (the Spectrum's extended mode then gave the shifted keywords):
+    one that is down for us and no longer for the keyboard is up }
+  procedure ReleaseGone(L, R: Word);
+  begin
+    if FPCKeyDown[L] and (GetKeyState(L) >= 0) then Release(L);
+    if FPCKeyDown[R] and (GetKeyState(R) >= 0) then Release(R);
+  end;
+
+var
+  Generic: Word;
+begin
+  if (Key >= VK_F1) and (Key <= VK_F24) and ((Key > High(FSamRoute)) or (FSamRoute[Key] <> 2)) then Exit;
+  Generic := Key;
+  Key := ReleasedSide(Key);
+  Release(Key);
+  if Generic = VK_SHIFT then ReleaseGone(VK_LSHIFT, VK_RSHIFT)
+  else if Generic = VK_CONTROL then ReleaseGone(VK_LCONTROL, VK_RCONTROL);
   Key := 0;
 end;
 
@@ -2022,6 +2325,8 @@ begin
   for I := 0 to High(FExtCount) do FExtCount[I] := 0;
   for I := 0 to High(FCPCKeyCount) do FCPCKeyCount[I] := 0;
   for I := 0 to High(FSamKeyCount) do FSamKeyCount[I] := 0;
+  for I := 0 to High(FMsxKeyCount) do FMsxKeyCount[I] := 0;
+  for I := 0 to High(FMsxJoy) do FMsxJoy[I] := 0;
   for I := 0 to High(FSamChordKeys) do FSamChordKeys[I] := 0;
   for I := 0 to High(FSamRoute) do
   begin
@@ -2038,6 +2343,7 @@ procedure TMainWindow.FormDeactivate(Sender: TObject);
 begin
   // Key-up events are lost while another window has focus
   ReleaseAllKeys;
+  ReleaseMouseClip;
 end;
 
 procedure TMainWindow.FormDropFiles(Sender: TObject; const FileNames: array of string);
@@ -2082,6 +2388,7 @@ begin
   if FStartNext and (Settings.Model = sm48K) and (FEmu.Spec.Model = sm48K) then ChangeModel(smZXNext);
   FStartNext := False;
   if Settings.Scale <> OldScale then SetScale(Settings.Scale);
+  MsxNotice;                            // (the machine may have started as an MSX)
 end;
 
 procedure TMainWindow.FormClose(Sender: TObject; var CloseAction: TCloseAction);
@@ -2140,6 +2447,11 @@ var
 begin
   CPCNote := '';
   Ext := LowerCase(ExtractFileExt(FileName));
+  if Ext = '.rom' then
+  begin
+    InsertCartridgeFile(FileName);
+    Exit;
+  end;
   // Snapshots and disks switch the Next to a standard model: its card first
   if (FEmu.Spec.Model = smZXNext) and ((Ext = '.sna') or (Ext = '.z80') or (Ext = '.dsk') or
      (Ext = '.mgt') or (Ext = '.sad')) then
@@ -2155,6 +2467,18 @@ begin
   begin
     ChangeModel(smCPC464);
     if FEmu.Spec.CPC = nil then Exit;
+  end;
+  // An MSX tape (.cas) needs an MSX; a Spectrum tape (.tap) can't be loaded on one
+  if ((Ext = '.cas') or (Ext = '.tsx')) and not IsMSXModel(FEmu.Spec.Model) then
+  begin
+    ChangeModel(smMSX2);
+    if not IsMSXModel(FEmu.Spec.Model) then Exit;
+  end;
+  if (Ext = '.tap') and IsMSXModel(FEmu.Spec.Model) then
+  begin
+    MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding +
+      'A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes.', mtError, [mbOK], 0);
+    Exit;
   end;
   if (Ext = '.tap') and (FEmu.Spec.CPC <> nil) then
   begin
@@ -2184,9 +2508,10 @@ begin
   FEmu.Lock;
   try
     try
-      if (Ext = '.tap') or (Ext = '.tzx') or (Ext = '.cdt') then
+      if (Ext = '.tap') or (Ext = '.tzx') or (Ext = '.cdt') or (Ext = '.cas') or (Ext = '.tsx') then
       begin
         FEmu.Spec.Tape.LoadFile(FileName);
+        Settings.AddRecentTape(FileName);
         // A CPC reads its own signals: a Spectrum standard-speed block (what a
         // .tzx made for the Spectrum has) plays, but nothing will load from it
         if (FEmu.Spec.CPC <> nil) and (FEmu.Spec.Tape.CountKind(TZX_STANDARD) > 0) then
@@ -2274,6 +2599,8 @@ function TMainWindow.TapeFilter: string;
 begin
   if FEmu.Spec.Info.Memory = mkCPC then
     Result := 'Tape images (*.cdt;*.tzx)|*.cdt;*.tzx'
+  else if FEmu.Spec.Info.Memory = mkMSX then
+    Result := 'MSX tape images (*.cas;*.tsx;*.tzx)|*.cas;*.tsx;*.tzx'
   else
     Result := 'Tape images (*.tap;*.tzx)|*.tap;*.tzx';
 end;
@@ -2281,6 +2608,17 @@ end;
 { A tape into the recorder (a click on the cassette in the modern interface): as File > Open,
   for tapes only }
 procedure TMainWindow.DoTapeInsert(Sender: TObject);
+begin
+  InsertTapeDialog(True);
+end;
+
+{ Just the tape into the recorder: no autoload }
+procedure TMainWindow.DoTapeInsertOnly(Sender: TObject);
+begin
+  InsertTapeDialog(False);
+end;
+
+procedure TMainWindow.InsertTapeDialog(AutoStart: Boolean);
 var
   Dlg: TOpenDialog;
 begin
@@ -2290,7 +2628,7 @@ begin
     Dlg.Filter := TapeFilter;
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
-    if Dlg.Execute then OpenFile(Dlg.FileName);
+    if Dlg.Execute then OpenFile(Dlg.FileName, AutoStart);
   finally
     Dlg.Free;
   end;
@@ -2305,11 +2643,13 @@ begin
   if (FRecentOpen = nil) or (Index >= FRecentOpen.Count) then Exit;
   // A copy of the name: the lists (and this menu) are rebuilt while the file is opened
   Path := FRecentOpen[Index];
+  Settings.LastDir := ExtractFilePath(Path);       // the dialogs open there next, as after an Insert
   case PtrInt(FRecentOpen.Objects[Index]) of
     1: if ConfirmDiskChanges(0) then InsertDiskFile(0, Path);
     2: InsertSDCard(Path);
+    4: InsertCartridgeFile(Path);
   else
-    OpenFile(Path);
+    OpenFile(Path);       // (a tape too)
   end;
 end;
 
@@ -2585,20 +2925,28 @@ begin
   if Old = New then Exit;
   // Into the Next or the ZX-Uno: their DivMMC is on, with the last card
   // used in them if there is one (the Next's was put in by PrepareNext)
-  if New in OWN then Settings.DivMMC := True;
+  // (and the Kempston mouse, on by default in both)
+  if New in OWN then
+  begin
+    Settings.DivMMC := True;
+    Settings.KempstonMouse := True;
+  end;
   if New = smZXUno then UseCard(Settings.ZXUnoCard, False)
   // Out of the ZX-Uno: the standard models' card (out of the Next, LeaveNext)
   else if (Old = smZXUno) and not (New in OWN) then UseCard(Settings.SDCardFile, True);
   // The DivMMC is a Spectrum device: on a CPC it is simply switched off
-  if IsCPCModel(New) or IsSAMModel(New) then
+  if IsCPCModel(New) or IsSAMModel(New) or IsMSXModel(New) then
   begin
     Settings.DivMMC := False;
+    Settings.KempstonMouse := False;
     Exit;
   end;
   // Out of either to a standard Spectrum: keep the DivMMC?
   if (Old in OWN) and not (New in OWN) and Settings.DivMMC then
     if MessageDlg('DivMMC', 'This is a standard ZX Spectrum. Do you want to switch off the DivMMC ' +
        'interface?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then Settings.DivMMC := False;
+  // The standard models start without the mouse, as they do by default
+  if (Old in OWN) and not (New in OWN) then Settings.KempstonMouse := False;
 end;
 
 procedure TMainWindow.ApplyNextId;
@@ -2799,6 +3147,7 @@ begin
   ApplyDivMMC;
   UpdateChecks;
   if (Old <> FEmu.Spec.Model) and IsSAMModel(FEmu.Spec.Model) then SamDosBoot;
+  if (Old <> FEmu.Spec.Model) and IsMSXModel(FEmu.Spec.Model) then MsxNotice;
 end;
 
 procedure TMainWindow.DoModel(Sender: TObject);
@@ -3096,7 +3445,7 @@ end;
 { An SD card reader: the DivMMC (fitted, or the ZX-Uno's and the Next's own) }
 function TMainWindow.SDAvailable: Boolean;
 begin
-  Result := FEmu.Spec.DivMMCOn or (FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext]);
+  Result := (FEmu.Spec.DivMMCOn or (FEmu.Spec.Info.Memory in [mkZXUno, mkZXNext])) and not IsMSXModel(FEmu.Spec.Model);
 end;
 
 procedure TMainWindow.DoDiskInsert(Sender: TObject);
@@ -3133,7 +3482,8 @@ begin
   Msg := '';
   Disk := LoadDiskImage(FileName, Problem, Msg);
   if Disk = nil then Exit(False);
-  if IsSAMModel(FEmu.Spec.Model) then Machine := dmSAM
+  if IsMSXModel(FEmu.Spec.Model) then Machine := dmMSX
+  else if IsSAMModel(FEmu.Spec.Model) then Machine := dmSAM
   else if FEmu.Spec.CPC <> nil then Machine := dmCPC
   else Machine := dmSpectrum;
   Result := CheckDiskForMachine(Disk, FileName, Machine, Msg);
@@ -3216,6 +3566,68 @@ begin
       Item.Tag := I;
     end;
   FRecentCardsMenu.Enabled := FRecentCardsMenu.Count > 0;
+  FRecentTapesMenu.Clear;
+  FRecentTapesMenuJ.Clear;
+  Shown := 0;
+  for I := 0 to Settings.RecentTapes.Count - 1 do
+    if (Shown < RECENT_SHOWN) and RecentFits(Settings.RecentTapes[I], 3) then
+    begin
+      Inc(Shown);
+      Item := AddItem(FRecentTapesMenu, Format('&%d %s', [I + 1, Settings.RecentTapes[I]]), @DoInsertRecentTape);
+      Item.Tag := I;
+      Item := AddItem(FRecentTapesMenuJ, Format('&%d %s', [I + 1, Settings.RecentTapes[I]]), @DoInsertRecentTapeOnly);
+      Item.Tag := I;
+    end;
+  FRecentTapesMenu.Enabled := FRecentTapesMenu.Count > 0;
+  FRecentTapesMenuJ.Enabled := FRecentTapesMenuJ.Count > 0;
+  FRecentCartsMenu.Clear;
+  Shown := 0;
+  for I := 0 to Settings.RecentCarts.Count - 1 do
+    if (Shown < RECENT_SHOWN) and RecentFits(Settings.RecentCarts[I], 4) then
+    begin
+      Inc(Shown);
+      Item := AddItem(FRecentCartsMenu, Format('&%d %s', [I + 1, Settings.RecentCarts[I]]), @DoInsertRecentCart);
+      Item.Tag := I;
+    end;
+  FRecentCartsMenu.Enabled := FRecentCartsMenu.Count > 0;
+end;
+
+procedure TMainWindow.DoInsertRecentTape(Sender: TObject);
+begin
+  InsertRecentTape(Sender, True);
+end;
+
+procedure TMainWindow.DoInsertRecentTapeOnly(Sender: TObject);
+begin
+  InsertRecentTape(Sender, False);
+end;
+
+procedure TMainWindow.InsertRecentTape(Sender: TObject; AutoStart: Boolean);
+var
+  Index: Integer;
+  Path: string;
+begin
+  Index := (Sender as TComponent).Tag;
+  if Index < Settings.RecentTapes.Count then
+  begin
+    Path := Settings.RecentTapes[Index];      // a copy: the list changes as it is inserted
+    Settings.LastDir := ExtractFilePath(Path);
+    OpenFile(Path, AutoStart);
+  end;
+end;
+
+procedure TMainWindow.DoInsertRecentCart(Sender: TObject);
+var
+  Index: Integer;
+  Path: string;
+begin
+  Index := (Sender as TComponent).Tag;
+  if Index < Settings.RecentCarts.Count then
+  begin
+    Path := Settings.RecentCarts[Index];
+    Settings.LastDir := ExtractFilePath(Path);
+    InsertCartridgeFile(Path);
+  end;
 end;
 
 procedure TMainWindow.DoInsertRecentDisk(Sender: TObject);
@@ -3228,6 +3640,7 @@ begin
   if (Index < Settings.RecentDisks.Count) and ConfirmDiskChanges(Drive) then
   begin
     Path := Settings.RecentDisks[Index];      // a copy: the list changes as it is inserted
+    Settings.LastDir := ExtractFilePath(Path);
     InsertDiskFile(Drive, Path);
   end;
 end;
@@ -3241,6 +3654,7 @@ begin
   if Index < Settings.RecentCards.Count then
   begin
     Path := Settings.RecentCards[Index];      // a copy: the list changes as it is inserted
+    Settings.LastDir := ExtractFilePath(Path);
     InsertSDCard(Path);
   end;
 end;
@@ -3253,7 +3667,22 @@ end;
 
 procedure TMainWindow.DoSDBrowser(Sender: TObject);
 begin
+  if IsMSXModel(FEmu.Spec.Model) then
+  begin
+    // On the MSX this is the cartridge browser (CR)
+    CartOnSaved := @CartSaved;
+    if FEmu.Spec.MSXHw.CartridgeName(1) <> '' then ShowCartBrowser(FEmu);
+    Exit;
+  end;
   if FEmu.Spec.DivMMCOn and (FEmu.Spec.DivMMC.Card <> nil) then ShowSDBrowser(FEmu);
+end;
+
+{ The cartridge browser saved the cartridge under another name: that is the file now }
+procedure TMainWindow.CartSaved(const FileName: string);
+begin
+  FCartFile := FileName;
+  Settings.AddRecentCart(FileName);
+  UpdateRecentMenu;
 end;
 
 procedure TMainWindow.DoSDInsert(Sender: TObject);
@@ -3717,6 +4146,11 @@ begin
     Disk.Free;
     Disk := NewSamDisk;
   end
+  else if IsMSXModel(FEmu.Spec.Model) then
+  begin
+    Disk.Free;
+    Disk := NewMsxDisk(True);
+  end
   else Disk.CreatePlus3Formatted;
   FEmu.Lock;
   try
@@ -3782,6 +4216,31 @@ end;
 
 { Options }
 
+{ The note the first time the MSX starts: what it emulates and the ROMs it uses (msx_notice turns it on again) }
+procedure TMainWindow.MsxNotice;
+const
+  NOTE = 'This emulator emulates an MSX2 and also uses unofficial QUANTIKA ROMs. As a result, some games may ' +
+    'not work. Replacing the ROMs with the official ones may help. Alternatively, enabling MSX1 compatibility ' +
+    'mode (in the Options menu) may also help, especially with games from the early days of the MSX.' + LineEnding + LineEnding +
+    'If you want to use the official ROMs, you will need the MSX2.ROM and MSX2EXT.ROM files. Place them in the ' +
+    'roms/msx folder, then select them under Settings > Common > ROMs.' + LineEnding + LineEnding +
+    'To use a floppy disk drive, add the PHILIPSDISK.rom file under FLOPPY DISK. This will only work with the ' +
+    'original ROMs. Searching the web for this ROM will probably lead you to the other two files as well.';
+begin
+  if not Settings.MsxNotice or not IsMSXModel(FEmu.Spec.Model) then Exit;
+  Settings.MsxNoticeShown;
+  ReleaseAllKeys;
+  MessageDlg('MSX 2', NOTE, mtInformation, [mbOK], 0);
+end;
+
+{ The MSX with the slots of an MSX1 (no expanded slot) or the MSX2's own: it starts again with them }
+procedure TMainWindow.DoMsxCompat(Sender: TObject);
+begin
+  Settings.MsxCompat := not Settings.MsxCompat;
+  ApplySettings;
+  UpdateChecks;
+end;
+
 procedure TMainWindow.DoMute(Sender: TObject);
 begin
   Settings.Sound := not Settings.Sound;
@@ -3811,6 +4270,21 @@ function TMainWindow.MouseOn: Boolean;
 begin
   if IsSAMModel(FEmu.Spec.Model) then Result := Settings.SamMouse
   else Result := Settings.KempstonMouse and (FEmu.Spec.CPC = nil);
+end;
+
+{ The mouse is on and a program has read it lately: only then is the PC pointer
+  hidden and attached, as a program that doesn't use the mouse draws no pointer }
+function TMainWindow.MouseInUse: Boolean;
+const
+  IN_USE_MS = 2000;
+var
+  Tick: QWord;
+begin
+  Result := MouseOn;
+  if not Result then Exit;
+  if IsSAMModel(FEmu.Spec.Model) then Tick := FEmu.Spec.SAM.MouseReadTick
+  else Tick := FEmu.Spec.MouseReadTick;
+  Result := (Tick <> 0) and (GetTickCount64 - Tick < IN_USE_MS);
 end;
 
 procedure TMainWindow.DoDocumentation(Sender: TObject);
@@ -3880,6 +4354,21 @@ procedure TMainWindow.DisplayMouseDown(Sender: TObject; Button: TMouseButton;
   Shift: TShiftState; X, Y: Integer);
 begin
   if not MouseOn then Exit;
+  // The first click: the mouse over the picture is lost when it leaves the
+  // window, so offer to keep it in (the click itself isn't passed on)
+  if not Settings.AttachMouse and not FAttachAsked and MouseInUse then
+  begin
+    FAttachAsked := True;
+    ReleaseAllKeys;
+    if MessageDlg('Mouse', 'Do you want to attach the mouse to the window?',
+       mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+    begin
+      Settings.AttachMouse := True;
+      Settings.Save;
+    end;
+    FMouseHave := False;
+    Exit;
+  end;
   if IsSAMModel(FEmu.Spec.Model) then
     FEmu.Spec.SAM.MouseButtons := FEmu.Spec.SAM.MouseButtons or SamMouseBit(Button)
   else
@@ -3903,8 +4392,52 @@ begin
   if IsSAMModel(FEmu.Spec.Model) then FEmu.Spec.SAM.MouseButtons := 0;
 end;
 
+procedure TMainWindow.ReleaseMouseClip;
+begin
+  if not FMouseClipped then Exit;
+  FMouseClipped := False;
+{$IFDEF WINDOWS}
+  WinClipCursor(nil);
+{$ENDIF}
+end;
 
-
+{ The mouse attached to the window (Settings): once the PC pointer is over the
+  picture, and the window is the active one with a program reading the mouse, it
+  can't leave the picture (where the PC pointer is hidden), so only the
+  emulated one is seen and the edges are easy to reach. Ctrl+Alt frees it
+  while held (to reach the menus); so do Alt-Tab and any dialog. }
+procedure TMainWindow.MouseClipTick(Sender: TObject);
+var
+  R: TRect;
+  P: TPoint;
+  C: TCursor;
+begin
+  // The program draws its own pointer while it uses the mouse: the PC one is hidden over the picture
+  if MouseInUse then C := crNone else C := crDefault;
+  if FDisplay.Cursor <> C then FDisplay.Cursor := C;
+  if not (Settings.AttachMouse and MouseInUse and Application.Active and (Screen.ActiveForm = Self) and
+          Visible and (WindowState <> wsMinimized)) or
+     ((GetKeyState(VK_CONTROL) < 0) and (GetKeyState(VK_MENU) < 0)) then
+  begin
+    ReleaseMouseClip;
+    Exit;
+  end;
+  R.TopLeft := FDisplay.ClientToScreen(Point(0, 0));
+  R.BottomRight := FDisplay.ClientToScreen(Point(FDisplay.Width, FDisplay.Height));
+  P := Mouse.CursorPos;
+  if not FMouseClipped then
+  begin
+    if not PtInRect(R, P) then Exit;
+    FMouseClipped := True;
+  end;
+{$IFDEF WINDOWS}
+  WinClipCursor(@R);
+{$ELSE}
+  if P.X < R.Left then P.X := R.Left else if P.X >= R.Right then P.X := R.Right - 1;
+  if P.Y < R.Top then P.Y := R.Top else if P.Y >= R.Bottom then P.Y := R.Bottom - 1;
+  if (P.X <> Mouse.CursorPos.X) or (P.Y <> Mouse.CursorPos.Y) then Mouse.CursorPos := P;
+{$ENDIF}
+end;
 
 procedure TMainWindow.ApplyPokes(const Pokes: TPokeList);
 var
@@ -4046,9 +4579,26 @@ begin
   ShowKeyboardGuide(Self);
 end;
 
+procedure TMainWindow.DoVirtualKeyboard(Sender: TObject);
+begin
+  ShowVirtualKeyboard(Self, @TypeVirtualSymbol);
+end;
+
+{ The virtual keyboard's symbols go to the machine as --keyin's text does }
+function TMainWindow.TypeVirtualSymbol(const Sym: string; DryRun: Boolean): Boolean;
+begin
+  FEmu.Lock;
+  try
+    Result := FEmu.Spec.TypeSymbol(Sym, DryRun);
+  finally
+    FEmu.Unlock;
+  end;
+end;
+
 procedure TMainWindow.DoSettings(Sender: TObject);
 begin
   FOldRomDir := Settings.RomDir;
+  FOldMapper := Settings.MsxCartMapper;
   FOldUno := Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom;
   FirmwareChanged := False;
   StoreZXUnoBios;
@@ -4063,6 +4613,11 @@ var
 begin
   OldRomDir := FOldRomDir;
   OldUno := FOldUno;
+  // Another cartridge mapper: the cartridge in goes in again with it
+  if (Settings.MsxCartMapper <> FOldMapper) and (FCartFile <> '') and FileExists(FCartFile) and
+     IsMSXModel(FEmu.Spec.Model) then
+    InsertCartridgeFile(FCartFile);
+  FOldMapper := Settings.MsxCartMapper;
   // Other ZX-Uno BIOS, ROMs or custom ROM: switch it off and on with them
   if Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom <> OldUno then
     ApplyZXUnoFiles(FEmu.Spec.Model = smZXUno);
@@ -4129,6 +4684,7 @@ type
   end;
 var
   I, N, S, Speed: Integer;
+  MapperTmp: TMsxMapperKind;
   Arg, Value, Errors, Err: string;
   Files, Tapes, KeyTexts: TStringList;
   Disks: array[0..1] of string;
@@ -4164,7 +4720,7 @@ var
       (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
-      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'monitor') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'monitor') or
       (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -4248,7 +4804,7 @@ begin
       begin
         // The CPC machines and the SAM Coupe by name: emu80 cpc464, cpc664, cpc6128 or sam (as --model)
         M := ModelFromName(LowerCase(Arg), smPlus3);
-        if (IsCPCModel(M) or IsSAMModel(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
+        if (IsCPCModel(M) or IsSAMModel(M) or IsMSXModel(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
         begin
           NewModel := M;
           HaveModel := True;
@@ -4477,6 +5033,18 @@ begin
         else if (Length(Value) = 1) and (Value[1] in ['0'..'4']) then Settings.CPCCrtc := Ord(Value[1]) - 48
         else Errors := Errors + 'Unknown --cpc_crtc (auto, or the chip 0 to 4): ' + Value + LineEnding;
       end
+      else if Arg = 'msx_cartmapper' then
+      begin
+        Value := LowerCase(Value);
+        if (Value = 'auto') or MapperFromName(Value, MapperTmp) then Settings.MsxCartMapper := Value
+        else Errors := Errors + 'Unknown --msx_cartmapper (auto, plain, konami, konamiscc, ascii8 or ascii16): ' + Value + LineEnding;
+      end
+      else if Arg = 'msx_mapper' then
+      begin
+        Value := LowerCase(Value);
+        if (Value = 'auto') or (Value = 'on') or (Value = 'off') then Settings.MsxMapper := Value
+        else Errors := Errors + 'Unknown --msx_mapper (auto, on or off): ' + Value + LineEnding;
+      end
       else if Arg = 'sam_memory' then
       begin
         if (Value = '256') or (Value = '512') then Settings.SamMemory := StrToInt(Value)
@@ -4560,6 +5128,12 @@ begin
       FNextFromCommandLine := False;
       // --model zxnext without its distribution: nothing else to do
       if (NewModel = smZXNext) and (FEmu.Spec.Model <> smZXNext) then
+      begin
+        Close;
+        Exit;
+      end;
+      // --model msx2 without its ROMs: nothing else to do either
+      if (NewModel = smMSX2) and (FEmu.Spec.Model <> smMSX2) then
       begin
         Close;
         Exit;
@@ -4904,8 +5478,8 @@ procedure TMainWindow.DoAbout(Sender: TObject);
 {$I Release.inc}
 begin
   MessageDlg('About emu80',
-    'emu80 - ZX Spectrum emulator' + LineEnding +
-    'emu80 stands for Pascal ZX.' + LineEnding +
+    'emu80 - 8 bit machines emulator' + LineEnding +
+    'ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coup' + #$C3#$A9 + ' and MSX2.' + LineEnding +
     'Release ' + EMU80_RELEASE + LineEnding +
     '(C) Vivecoded by Uto - 2028' + LineEnding + LineEnding +
     'Written in Free Pascal with Lazarus.' + LineEnding + LineEnding +

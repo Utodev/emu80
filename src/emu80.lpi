@@ -156,6 +156,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="CartBrowser.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="Icons.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

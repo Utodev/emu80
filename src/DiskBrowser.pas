@@ -9,7 +9,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, ComCtrls, StdCtrls, ExtCtrls, Dialogs, LCLType, Emulator, DSK,
-  Plus3FS, SamdosFS, Icons, Spectrum, PathTitle;
+  Plus3FS, SamdosFS, FatFS, MsxDisk, Icons, Models, Spectrum, PathTitle;
 
 type
   TDiskBrowserWindow = class(TForm)
@@ -38,6 +38,9 @@ type
     { The same on a SAMDOS disk (called with the emulator locked) }
     procedure SamdosAction(Disk: TDiskImage; AAction: Integer; Index: Integer; const Arg: string;
       const Data: TBytes);
+    { The same on an MSX disk: FAT12, the root directory (called with the emulator locked) }
+    procedure MsxAction(Disk: TDiskImage; AAction: Integer; Index: Integer; const Arg: string;
+      const Data: TBytes);
     procedure DriveChange(Sender: TObject);
     { The drive list: only drives with a disk; moves to another drive if
       this one has none any more }
@@ -54,6 +57,7 @@ type
     function ImportWrite(const AName: string; const Data: TBytes; Replace: Boolean): string;
     procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
     procedure ShowDrive(Drive: Integer);
@@ -591,6 +595,8 @@ begin
   Height := 400;
   Position := poMainFormCenter;
   OnClose := @FormClose;
+  KeyPreview := True;
+  OnKeyDown := @FormKeyDown;
   AllowDropFiles := True;
   OnDropFiles := @FormDropFiles;
 
@@ -746,6 +752,13 @@ begin
     end;
     FLastModified := Disk.Modified;
     try
+      // An MSX disk is a FAT12 volume
+      if FEmu.Spec.Info.Memory = mkMSX then
+      begin
+        MsxAction(Disk, AAction, Index, Arg, Data);
+        Result := True;
+        Exit;
+      end;
       // A SAM Coupe disk is SAMDOS's: its directory isn't a CP/M one
       if ClassifyDisk(Disk) = dkSAM then
       begin
@@ -918,6 +931,88 @@ begin
   finally
     FS.Free;
   end;
+end;
+
+procedure TDiskBrowserWindow.MsxAction(Disk: TDiskImage; AAction: Integer; Index: Integer;
+  const Arg: string; const Data: TBytes);
+var
+  Stream: TDiskImageStream;
+  Vol: TFatVolume;
+  Entries: TFatEntries;
+  E: TFatEntry;
+  Item: TListItem;
+  I, Selected: Integer;
+  Attr, Suffix: string;
+begin
+  Stream := TDiskImageStream.Create(Disk);
+  try
+    Vol := TFatVolume.Create(Stream);
+    try
+      Entries := Vol.ListDir(0);
+      case AAction of
+        ACT_READ:
+          begin
+            if IsDirectory(Entries[Index]) then raise Exception.Create('That is a directory, not a file.');
+            ReadData := Vol.ReadFile(Entries[Index]);
+          end;
+        ACT_WRITE, ACT_REPLACE:
+          begin
+            if (AAction = ACT_REPLACE) and Vol.FindName(0, Arg, E) then Vol.Delete(E);
+            Vol.WriteFile(0, Arg, Data);
+          end;
+        ACT_RENAME: Vol.Rename(0, Entries[Index], Arg);
+        ACT_DELETE:
+          if IsDirectory(Entries[Index]) then Vol.DeleteTree(Entries[Index])
+          else Vol.Delete(Entries[Index]);
+        ACT_FIND:
+          begin
+            FoundIndex := -1;
+            for I := 0 to High(Entries) do
+              if SameText(DisplayName(Entries[I]), Arg) or SameText(Entries[I].ShortName, Arg) then
+              begin
+                FoundIndex := I;
+                Break;
+              end;
+          end;
+      end;
+      Entries := Vol.ListDir(0);
+      Selected := SelectedIndex;
+      FList.Items.BeginUpdate;
+      try
+        FList.Items.Clear;
+        for I := 0 to High(Entries) do
+        begin
+          E := Entries[I];
+          Item := FList.Items.Add;
+          Item.Caption := DisplayName(E);
+          Item.Data := Pointer(PtrInt(I));
+          if IsDirectory(E) then Item.SubItems.Add('Directory') else Item.SubItems.Add('File');
+          Item.SubItems.Add('');
+          if IsDirectory(E) then Item.SubItems.Add('') else Item.SubItems.Add(IntToStr(E.Size));
+          Item.SubItems.Add(IntToStr(E.Size));
+          Attr := '';
+          if (E.Attr and 1) <> 0 then Attr := Attr + 'read-only ';
+          if (E.Attr and 2) <> 0 then Attr := Attr + 'hidden ';
+          if (E.Attr and 4) <> 0 then Attr := Attr + 'system';
+          Item.SubItems.Add(Trim(Attr));
+          if I = Selected then Item.Selected := True;
+        end;
+      finally
+        FList.Items.EndUpdate;
+      end;
+      FStatus.SimpleText := Format('%d files (MSX-DOS, FAT12), %dK free', [Length(Entries), Vol.FreeBytes div 1024]);
+    finally
+      Vol.Free;
+    end;
+  finally
+    Stream.Free;
+  end;
+  if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
+  if Disk.FileName <> '' then
+    FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
+  else
+    FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
+  FLastModified := Disk.Modified;
 end;
 
 procedure TDiskBrowserWindow.Refresh;
@@ -1157,7 +1252,7 @@ var
 begin
   // +3DOS files usually have a header: ticked by default
   AmsdosHeaders := FEmu.Spec.CPC <> nil;
-  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite);
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders and (FEmu.Spec.Info.Memory <> mkMSX), @ImportExists, @ImportWrite);
   if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
 end;
 
@@ -1167,7 +1262,7 @@ var
 begin
   // A +3 disk has no folders: the files in them all go side by side
   AmsdosHeaders := FEmu.Spec.CPC <> nil;
-  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite, nil, nil, True);
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders and (FEmu.Spec.Info.Memory <> mkMSX), @ImportExists, @ImportWrite, nil, nil, True);
   if Status <> '' then FStatus.SimpleText := FStatus.SimpleText + '   -  ' + Status;
 end;
 
@@ -1181,7 +1276,7 @@ begin
   try
     for I := 0 to High(FileNames) do Paths.Add(FileNames[I]);
     AmsdosHeaders := FEmu.Spec.CPC <> nil;
-  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders, @ImportExists, @ImportWrite, nil, Paths);
+  Status := ImportFromPC(Settings.DiskBrowserDir, not AmsdosHeaders and (FEmu.Spec.Info.Memory <> mkMSX), @ImportExists, @ImportWrite, nil, Paths);
   finally
     Paths.Free;
   end;
@@ -1207,6 +1302,16 @@ begin
     else Result := 'there is no disk';
   finally
     FQuiet := False;
+  end;
+end;
+
+{ Esc closes the window, as its close button does (but it still cancels the editing of a name) }
+procedure TDiskBrowserWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = VK_ESCAPE) and (Shift = []) and not FList.IsEditing then
+  begin
+    Key := 0;
+    Close;
   end;
 end;
 

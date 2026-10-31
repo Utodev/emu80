@@ -7,7 +7,7 @@ interface
 
 type
   TSpectrumModel = (sm16K, sm48K, sm128K, smPlus2, smPlus2B, smPlus3, smZXUno, smZXNext,
-    smCPC464, smCPC664, smCPC6128, smSAM);
+    smCPC464, smCPC664, smCPC6128, smSAM, smMSX2);
 
   { How the picture is shown, as if the Spectrum's frames were the fields of
     an interlaced picture: each frame on its own (progressive, as the
@@ -16,7 +16,7 @@ type
   TDeinterlace = (dlProgressive, dlBob, dlWeave);
 
   { Which memory/port architecture the model uses }
-  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext, mkCPC, mkSAM);
+  TMemoryKind = (mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext, mkCPC, mkSAM, mkMSX);
 
   TModelInfo = record
     Name: string;
@@ -125,7 +125,17 @@ const
      ClockHz: 6000000; FrameT: 119808; LineT: 384; PaperTopT: 0;
      ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
      InterruptLength: 0; IOContention: False; NoMreqContention: False;
-     FloatingBus: False; HasAY: False; HasFDC: True)
+     FloatingBus: False; HasAY: False; HasFDC: True),
+    { MSX2 (PAL): a Z80 at 3.579545 MHz with the V9938 (128K of VRAM), 128K of RAM in a memory mapper, a
+      clock chip; RomFiles (in roms/msx): the 32K BIOS with BASIC, the 16K sub-ROM and the disk interface's
+      ROM (none by default: no floppy disk drive; only the original main ROM works with it). By default the free ROMs (QUANTIKA ROM with FBASIC, made from romsrc/fbasic); the
+      original ones (MSX2.rom, MSX2EXT.rom) are chosen in the settings. }
+    (Name: 'MSX 2'; Memory: mkMSX;
+     RomFiles: ('msx/QUANTIKA.ROM', 'msx/QUANTIKA_SUB.ROM', '', ''); RomCount: 3; BasicRom: 0;
+     ClockHz: 3579545; FrameT: 71364; LineT: 228; PaperTopT: 0;
+     ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
+     InterruptLength: 0; IOContention: False; NoMreqContention: False;
+     FloatingBus: False; HasAY: True; HasFDC: True)
   );
 
 function ModelFromName(const S: string; Default: TSpectrumModel): TSpectrumModel;
@@ -134,12 +144,26 @@ function ModelKey(M: TSpectrumModel): string;
 function IsCPCModel(M: TSpectrumModel): Boolean;
 { A SAM Coupe (not a Spectrum) }
 function IsSAMModel(M: TSpectrumModel): Boolean;
+{ An MSX (not a Spectrum) }
+function IsMSXModel(M: TSpectrumModel): Boolean;
+{ An MSX2 (the V9938 and a memory mapper) }
+function IsMSX2Model(M: TSpectrumModel): Boolean;
+{ The MSX2's ROM files by default become the original ones (msx/MSX2.rom, msx/MSX2EXT.rom): for the test
+  tools that compare the original ROMs with the free ones }
+procedure UseOriginalMsxRoms;
 
 implementation
 
 const
   Keys: array[TSpectrumModel] of string = ('16k', '48k', '128k', 'plus2', 'plus2b', 'plus3', 'zxuno',
-    'zxnext', 'cpc464', 'cpc664', 'cpc6128', 'sam');
+    'zxnext', 'cpc464', 'cpc664', 'cpc6128', 'sam', 'msx2');
+
+procedure UseOriginalMsxRoms;
+begin
+  ModelInfo[smMSX2].RomFiles[0] := 'msx/MSX2.rom';
+  ModelInfo[smMSX2].RomFiles[1] := 'msx/MSX2EXT.rom';
+  ModelInfo[smMSX2].RomFiles[2] := 'msx/PHILIPSDISK.rom';
+end;
 
 function ModelKey(M: TSpectrumModel): string;
 begin
@@ -163,6 +187,16 @@ end;
 function IsSAMModel(M: TSpectrumModel): Boolean;
 begin
   Result := ModelInfo[M].Memory = mkSAM;
+end;
+
+function IsMSXModel(M: TSpectrumModel): Boolean;
+begin
+  Result := ModelInfo[M].Memory = mkMSX;
+end;
+
+function IsMSX2Model(M: TSpectrumModel): Boolean;
+begin
+  Result := M = smMSX2;
 end;
 
 end.

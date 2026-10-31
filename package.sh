@@ -11,6 +11,9 @@
 # (tests/csharp/Emu80HostDemo: its sources, build.bat and, in the .zip, the
 # program built, which runs with --selftest). The library is built, if it
 # isn't there, with src/lib/build-lib.sh.
+# The MSX2's ROMs (roms/msx/QUANTIKA.ROM and QUANTIKA_SUB.ROM) are built first from their own project,
+# ../quantika (its build.sh and install.sh); without it, the ones already in roms/msx go. The original MSX
+# ROMs that may be in roms/msx (MSX2.rom, MSX2EXT.rom, PHILIPSDISK.rom) are never packaged.
 # The .AppImage needs appimagetool (see the end of this file).
 # The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
 # (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
@@ -29,9 +32,21 @@ ROOT=$(pwd)
 VERSION=$(sed -n "s/.*EMU80_RELEASE = '\([0-9]*\)'.*/\1/p" src/Release.inc)
 [ -n "$VERSION" ] || { echo "No release number in src/Release.inc" >&2; exit 1; }
 MAINTAINER="Uto <csanchez@kioskoymas.com>"
-SUMMARY="ZX Spectrum emulator (48K, 128K, +2, +2B, +3, ZX-Uno)"
+SUMMARY="8 bit machines emulator (ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coupe, MSX2)"
 OUT="$ROOT/build/packages"
 mkdir -p "$OUT"
+
+# The MSX2's ROMs, from their project next to this one
+QUANTIKA="$ROOT/../quantika"
+if [ -x "$QUANTIKA/build.sh" ]; then
+  "$QUANTIKA/build.sh" > "$OUT/quantika.log" 2>&1 || { cat "$OUT/quantika.log" >&2; echo "The QUANTIKA ROMs did not build" >&2; exit 1; }
+  "$QUANTIKA/install.sh" "$ROOT/roms/msx"
+else
+  echo "../quantika not found: the QUANTIKA ROMs in roms/msx go as they are" >&2
+fi
+[ -f roms/msx/QUANTIKA.ROM ] && [ -f roms/msx/QUANTIKA_SUB.ROM ] || { echo "roms/msx/QUANTIKA.ROM or QUANTIKA_SUB.ROM is missing" >&2; exit 1; }
+# Files of roms that are never distributed (the original MSX ROMs, supplied by the user)
+NOT_PACKAGED="msx/MSX2.rom msx/MSX2EXT.rom msx/PHILIPSDISK.rom"
 
 # The native library, for the packages' lib folder (built here if needed)
 if [ ! -f build/lib/e80lib.dll ]; then
@@ -51,9 +66,10 @@ fi
 if [ -f emu80.exe ]; then
   ZIP="emu80-$VERSION-windows"
   rm -f "$OUT/$ZIP.zip"
-  python3 - "$OUT/$ZIP.zip" "$ZIP" emu80.exe roms esxdos zxuno README.md LICENSE <<'EOF'
+  NOT_PACKAGED="$NOT_PACKAGED" python3 - "$OUT/$ZIP.zip" "$ZIP" emu80.exe roms esxdos zxuno README.md LICENSE <<'EOF'
 import os, sys, zipfile
 out, top, names = sys.argv[1], sys.argv[2], sys.argv[3:]
+skip = {os.path.join('roms', f) for f in os.environ['NOT_PACKAGED'].split()}
 with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
     for name in names:
         if os.path.isdir(name):
@@ -61,6 +77,8 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
                 dirs.sort()
                 for f in sorted(files):
                     path = os.path.join(folder, f)
+                    if os.path.normpath(path) in skip:
+                        continue
                     z.write(path, os.path.join(top, path))
         else:
             z.write(name, os.path.join(top, name))
@@ -93,6 +111,7 @@ mkdir -p "$LIB" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
   "$STAGE/usr/share/icons/hicolor/256x256/apps" "$STAGE/usr/share/doc/emu80"
 cp build/linux/emu80 "$LIB/emu80"
 cp -R roms esxdos zxuno "$LIB/"
+for F in $NOT_PACKAGED; do rm -f "$LIB/roms/$F"; done
 # The ZX Spectrum Next distribution goes in ~/.config/emu80/specnext (never packaged)
 mkdir -p "$LIB/specnext"
 cp README.md LICENSE "$LIB/"
@@ -115,7 +134,7 @@ cat > "$STAGE/usr/share/applications/emu80.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=emu80
-GenericName=ZX Spectrum emulator
+GenericName=8 bit machines emulator
 Comment=$SUMMARY
 Exec=emu80 %f
 Icon=emu80
@@ -157,9 +176,10 @@ Recommends: libsdl2-2.0-0
 Maintainer: $MAINTAINER
 Homepage: https://github.com/Utodev/emu80
 Description: $SUMMARY
- emu80 (Pascal ZX) emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3
- and the ZX-Uno with exact timing, loads TAP, TZX, SNA, Z80 and DSK files,
- and has a tape browser, disk and SD card browsers (DivMMC with esxDOS), a
+ emu80 emulates 8 bit machines with a Z80: the ZX Spectrum 16K, 48K, 128K,
+ +2, +2B and +3, the ZX-Uno, the ZX Spectrum Next, the Amstrad CPC 464, 664
+ and 6128, the SAM Coupe and the MSX2, with exact timing. It loads tapes,
+ snapshots, disks and cartridges, and has tape, disk and SD card browsers, a
  Z80 debugger and an adventure debugger for DAAD, PAW and The Quill games.
  Sound needs SDL2.
 EOF
@@ -190,9 +210,10 @@ Recommends: SDL2
 %global _build_id_links none
 
 %description
-emu80 (Pascal ZX) emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3
-and the ZX-Uno with exact timing, loads TAP, TZX, SNA, Z80 and DSK files,
-and has a tape browser, disk and SD card browsers (DivMMC with esxDOS), a
+emu80 emulates 8 bit machines with a Z80: the ZX Spectrum 16K, 48K, 128K,
++2, +2B and +3, the ZX-Uno, the ZX Spectrum Next, the Amstrad CPC 464, 664
+and 6128, the SAM Coupe and the MSX2, with exact timing. It loads tapes,
+snapshots, disks and cartridges, and has tape, disk and SD card browsers, a
 Z80 debugger and an adventure debugger for DAAD, PAW and The Quill games.
 Sound needs SDL2.
 

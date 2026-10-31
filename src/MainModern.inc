@@ -7,7 +7,7 @@
 
 procedure TMainWindow.BuildModern;
 const
-  MACHINE: array[0..10] of record
+  MACHINE: array[0..11] of record
     Icon: TIconKind;
     Caption, Hint: string;
   end = (
@@ -21,13 +21,14 @@ const
     (Icon: ikRename; Caption: 'POKE'; Hint: 'POKE (F9)'),
     (Icon: ikDebugger; Caption: 'Debug'; Hint: 'Debugger (F12)'),
     (Icon: ikSettings; Caption: 'Settings'; Hint: 'Settings'),
-    (Icon: ikKeyboard; Caption: 'Keyboard'; Hint: 'The keyboard guide: the keywords of the keys'));
+    (Icon: ikKey; Caption: 'Virt. Kb'; Hint: 'Virtual keyboard: symbols to type on the machine'),
+    (Icon: ikKeyboard; Caption: 'ZX Guide'; Hint: 'The ZX keyboard guide: the keywords of the keys'));
 var
   I, X, Y, BW, BH, Gap, Pad, W, RowH: Integer;
   Btn: TFlatButton;
   Lbl: TLabel;
   Box: TPaintBox;
-  Handlers: array[0..10] of TNotifyEvent;
+  Handlers: array[0..11] of TNotifyEvent;
   Item: TMenuItem;
 
   function NewButton(AParent: TWinControl; AIcon: Integer; const ACaption, AHint: string;
@@ -81,7 +82,7 @@ begin
     // The Machine menu is the classic interface's: here its commands are buttons
     if Item.Caption = '&Machine' then Continue;
     // The Floppy and SD menus are the Media palette's: a button on each drive and on the card reader
-    if (Item = FTapeTop) or (Item = FFloppyTop) or (Item = FSDTop) then Continue;
+    if (Item = FTapeTop) or (Item = FFloppyTop) or (Item = FSDTop) or (Item = FCartTop) then Continue;
     if Item.Caption = '|' then
     begin
       Inc(X, MUIScale(10));
@@ -134,14 +135,15 @@ begin
   Handlers[7] := @DoPoke;
   Handlers[8] := @DoDebugger;
   Handlers[9] := @DoSettings;
-  Handlers[10] := @DoKeyboardGuide;
+  Handlers[10] := @DoVirtualKeyboard;
+  Handlers[11] := @DoKeyboardGuide;
   for I := 0 to High(MACHINE) do
   begin
     Btn := NewButton(FMMachine, Ord(MACHINE[I].Icon), MACHINE[I].Caption, MACHINE[I].Hint, Handlers[I],
       Gap + (I mod 2) * (BW + Gap), FMMachine.TitleHeight + Gap + (I div 2) * (BH + Gap), BW, BH);
     if I = 5 then FMPause := Btn;
     if I = 6 then FMTurbo := Btn;
-    if I = 10 then FMKeyboard := Btn;
+    if I = 11 then FMKeyboard := Btn;
   end;
 
   // Right: the tape and the media
@@ -440,6 +442,19 @@ begin
   end;
 end;
 
+{ The letters on a cartridge's spine, and the room they have: the slot is twice a drive's width, less its walls and the
+  part of the cartridge inside }
+function CartFontSize: Integer;
+begin
+  Result := MUIScale(7);
+  if Result < 6 then Result := 6;
+end;
+
+function CartSpineRoom: Integer;
+begin
+  Result := 2 * MUIScale(52) - MUIScale(12) - MUIScale(12) + MUIScale(2) - MUIScale(8);
+end;
+
 procedure TMainWindow.PaintModernMedia(Sender: TObject);
 const
   NAMES: array[0..2] of string = ('A:', 'B:', 'SD');
@@ -527,6 +542,53 @@ var
     C.Rectangle(X + MUIScale(8), SlotY, X + Wd - MUIScale(8), SlotY + MUIScale(4));
   end;
 
+  { An MSX cartridge slot, twice as wide as a drive, with its opening in the middle of the row: empty, the
+    contacts of the connector show at the back; with a cartridge in, its dark shell fills the opening with the
+    first letters of its file name on the spine (small, as many as fit) }
+  procedure DrawCartridge(X, Top, Wd, Ht: Integer; Cart: Boolean; const CartName: string);
+  var
+    SH, SY, OX, OW, I, N, CX, CW, TextX, Gap, OldSize: Integer;
+    Txt: string;
+  begin
+    // The slot, with the black opening centred in its height
+    C.Pen.Color := Cl(120, 120, 128);
+    C.Brush.Color := Cl(68, 68, 74);
+    C.RoundRect(X, Top, X + Wd, Top + Ht, MUIScale(5), MUIScale(5));
+    SH := Ht * 62 div 100;
+    SY := Top + (Ht - SH) div 2;
+    OX := X + MUIScale(6);
+    OW := Wd - MUIScale(12);
+    C.Pen.Color := clBlack;
+    C.Brush.Color := Cl(8, 8, 10);
+    C.Rectangle(OX, SY, OX + OW, SY + SH);
+    if not Cart then Exit;
+    // The cartridge fills the black opening exactly (inside its one-pixel border), with a label on the spine
+    CX := OX + 1;
+    CW := OW - 2;
+    SY := SY + 1;
+    SH := SH - 2;
+    C.Pen.Style := psClear;
+    C.Brush.Color := Cl(44, 44, 50);
+    C.Rectangle(CX, SY, CX + CW + 1, SY + SH + 1);
+    C.Pen.Style := psSolid;
+    C.Pen.Color := Cl(70, 70, 76);
+    C.MoveTo(CX + 2, SY + 2);
+    C.LineTo(CX + CW - 2, SY + 2);
+    // The letters of the name that fit, small
+    OldSize := C.Font.Size;
+    C.Font.Size := CartFontSize;
+    Txt := CartName;       // the carousel's current part (ModernTick), which fits
+    if Txt <> '' then
+    begin
+      C.Brush.Style := bsClear;
+      C.Font.Color := Cl(230, 230, 236);
+      TextX := CX + (CW - C.TextWidth(Txt)) div 2;
+      C.TextOut(TextX, SY + (SH - C.TextHeight(Txt)) div 2, Txt);
+      C.Brush.Style := bsSolid;
+    end;
+    C.Font.Size := OldSize;
+  end;
+
 begin
   C := FMMediaBox.Canvas;
   C.Brush.Color := MUI_PANEL;
@@ -537,10 +599,12 @@ begin
   LedH := MUIScale(7);
   X0 := Led + MUIScale(30);
   DW := MUIScale(52);
-  TX := X0 + DW + MUIScale(8);
-  TW := FMMediaBox.Width - TX;
+  TW := 0;
   for I := 0 to 2 do
   begin
+    // The cartridge slot is twice as wide as a drive
+    if (I = 2) and IsMSXModel(FEmu.Spec.Model) then TX := X0 + 2 * DW + MUIScale(8)
+    else TX := X0 + DW + MUIScale(8);
     Y := I * RowH + (RowH - LedH) div 2;
     // The drive's LED: light red while it is read or written
     C.Pen.Color := $00202020;
@@ -550,14 +614,19 @@ begin
     C.Brush.Style := bsClear;
     C.Font.Color := MUI_TEXT;
     C.Font.Style := [fsBold];
-    C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
+    if (I = 2) and IsMSXModel(FEmu.Spec.Model) then
+      C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, 'CR')
+    else
+      C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
     C.Font.Style := [];
     C.Brush.Style := bsSolid;
     Has := FMediaNames[I] <> '';
     Dim := not FMediaOn[I];
     if I < 2 then DrawDrive(X0, I * RowH + MUIScale(4), DW, RowH - MUIScale(8), Has)
+    else if IsMSXModel(FEmu.Spec.Model) then DrawCartridge(X0, I * RowH + MUIScale(4), 2 * DW, RowH - MUIScale(8), Has, FMediaShown[I])
     else DrawSD(X0, I * RowH + MUIScale(4), DW, RowH - MUIScale(8), Has);
-    // What is in it (a carousel if it is long)
+    // What is in it (a carousel if it is long); the cartridge has its name on its spine instead
+    if (I = 2) and IsMSXModel(FEmu.Spec.Model) then Continue;
     C.Brush.Style := bsClear;
     if Has then C.Font.Color := MUI_DIM else C.Font.Color := $00808080;
     if Has then C.TextOut(TX, I * RowH + (RowH - C.TextHeight('A')) div 2, FMediaShown[I])
@@ -575,7 +644,9 @@ begin
   if Button <> mbLeft then Exit;
   Row := Y div (FMMediaBox.Height div 3);
   if (Row < 0) or (Row > 2) or not FMediaOn[Row] then Exit;
-  if Row < 2 then InsertDiskDialog(Row) else DoSDInsert(Sender);
+  if Row < 2 then InsertDiskDialog(Row)
+  else if IsMSXModel(FEmu.Spec.Model) then DoCartInsert(Sender)
+  else DoSDInsert(Sender);
 end;
 
 procedure TMainWindow.PaintModernStatus(Sender: TObject);
@@ -605,7 +676,7 @@ var
   Playing, HaveDisk, HaveCard, HaveTape, HaveKeys: Boolean;
   Names: array[0..2] of string;
   On_: array[0..2] of Boolean;
-  I: Integer;
+  I, W: Integer;
   Shown: string;
   AnyChange: Boolean;
 begin
@@ -634,10 +705,11 @@ begin
     Playing := Spec.Tape.Playing;
     TapeName := ChangeFileExt(ExtractFileName(Spec.Tape.FileName), '');
     HaveDisk := DefaultDrive(Spec) >= 0;
-    HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);
+    if IsMSXModel(Spec.Model) then HaveCard := Spec.MSXHw.CartridgeName(1) <> ''
+    else HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);
     On_[0] := FloppyAvailable;
     On_[1] := FloppyAvailable and Spec.DriveBOn;
-    On_[2] := SDAvailable;
+    On_[2] := SDAvailable or IsMSXModel(Spec.Model);
     for I := 0 to 1 do
       if On_[I] and (Spec.DiskAt(I) <> nil) then
       begin
@@ -646,7 +718,9 @@ begin
       end
       else
         Names[I] := '';
-    if HaveCard and On_[2] then Names[2] := ExtractFileName(Spec.DivMMC.Card.FileName) else Names[2] := '';
+    if IsMSXModel(Spec.Model) then Names[2] := Spec.MSXHw.CartridgeName(1)
+    else if HaveCard and On_[2] then Names[2] := ExtractFileName(Spec.DivMMC.Card.FileName)
+    else Names[2] := '';
   finally
     FEmu.Unlock;
   end;
@@ -658,14 +732,35 @@ begin
   FMCassette.Show(Progress, Playing);
   if FMDiskBtn.Enabled <> HaveDisk then FMDiskBtn.Enabled := HaveDisk;
   if FMSDBtn.Enabled <> HaveCard then FMSDBtn.Enabled := HaveCard;
+  // On the MSX this button is the cartridge browser
+  if IsMSXModel(FEmu.Spec.Model) then
+  begin
+    FMSDBtn.ImageIndex := Ord(ikCartridge);
+    FMSDBtn.Caption := 'CR';
+    FMSDBtn.Hint := 'Cartridge browser';
+  end
+  else
+  begin
+    FMSDBtn.ImageIndex := Ord(ikSDCard);
+    FMSDBtn.Caption := 'SD';
+    FMSDBtn.Hint := 'SD card browser';
+  end;
   // The names of what is in the drives, as much as fits (they scroll now and then when it doesn't)
   FMMediaBox.Canvas.Font.Assign(Font);
   AnyChange := False;
   for I := 0 to 2 do
   begin
     FMediaNames[I] := Names[I];
-    Shown := MarqueeText(I, Names[I], FMMediaBox.Canvas,
-      FMMediaBox.Width - (MUIScale(14) + MUIScale(30) + MUIScale(52) + MUIScale(8)));
+    if (I = 2) and IsMSXModel(FEmu.Spec.Model) then
+    begin
+      // The cartridge's name goes round on its spine, in small letters
+      FMMediaBox.Canvas.Font.Size := CartFontSize;
+      Shown := MarqueeText(I, Names[I], FMMediaBox.Canvas, CartSpineRoom);
+      FMMediaBox.Canvas.Font.Assign(Font);
+    end
+    else
+      Shown := MarqueeText(I, Names[I], FMMediaBox.Canvas,
+        FMMediaBox.Width - (MUIScale(14) + MUIScale(30) + MUIScale(52) + MUIScale(8)));
     if Shown <> FMediaShown[I] then
     begin
       FMediaShown[I] := Shown;
@@ -673,6 +768,10 @@ begin
     end;
     // The drives and the card reader the machine has (the B: drive too if it is connected)
     if FMMenuBtn[I].Enabled <> On_[I] then FMMenuBtn[I].Enabled := On_[I];
+    // The third one drops down the cartridge menu on an MSX, the SD menu on the others
+    if I = 2 then
+      if IsMSXModel(FEmu.Spec.Model) then FMMenuBtn[2].Tag := FCartTop.MenuIndex
+      else FMMenuBtn[2].Tag := FSDTop.MenuIndex;
     if FMediaOn[I] <> On_[I] then
     begin
       FMediaOn[I] := On_[I];
@@ -681,13 +780,9 @@ begin
   end;
   if AnyChange then FMMediaBox.Invalidate;
   FMModelBtn.Caption := ModelInfo[FEmu.Spec.Model].Name;
-  // The keyboard guide, under Settings, on every Spectrum, not the CPC or the SAM Coupe (the palette is one row shorter without it)
+  // The ZX keyboard guide, after the virtual keyboard, on every Spectrum, not the CPC, the SAM Coupe or the MSX
   HaveKeys := FEmu.Spec.Model in [sm16K..smZXNext];
-  if FMKeyboard.Visible <> HaveKeys then
-  begin
-    FMKeyboard.Visible := HaveKeys;
-    FMMachine.Height := FMMachine.TitleHeight + MUIScale(6) + (5 + Ord(HaveKeys)) * (MUIScale(58) + MUIScale(6));
-  end;
+  if FMKeyboard.Visible <> HaveKeys then FMKeyboard.Visible := HaveKeys;
   // The Play button shows a pause while the tape plays
   if Playing and (FMTapePlay.ImageIndex <> Ord(ikPause)) then
   begin

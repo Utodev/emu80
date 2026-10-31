@@ -36,6 +36,7 @@ type
     FTrackReg, FSectorReg, FData: Byte;
     FStatus: Byte;                      // the bits the commands set: see ST_*
     FTypeI: Boolean;                    // the status shows the type I view
+    FIntrq: Boolean;                    // the INTRQ line: a command is over (until the status is read or a command written)
     FStepDir: Integer;                  // +1 in, -1 out: the last step's direction
     FPhase: TWDPhase;
     FCommand: Byte;
@@ -58,6 +59,8 @@ type
     FStepCount: array[0..1] of Integer;
     FStepT: Int64;
     FDriveB: Boolean;
+    FReadyAlways: Boolean;
+    FSeekFail: Boolean;               // a restore of a drive that is not there: TRK00 never comes
     function ByteT: Int64;
     function RotationT: Int64;
     function RateT(Command: Byte): Int64;
@@ -98,9 +101,15 @@ type
     property Activity: Integer read FActivity;
     { Whether a second drive is connected }
     property DriveB: Boolean read FDriveB write FDriveB;
+    { The READY input is tied high (the MSX's interface): the status never says not ready, empty drive or not }
+    property ReadyAlways: Boolean read FReadyAlways write FReadyAlways;
     { The head is on this cylinder of this drive, and the track register says it: where a read of a
       whole file by something other than the controller's commands leaves it }
     procedure HeadMovedTo(Drive, Cyl: Integer);
+    { The two outputs some computers wire to the CPU (the MSX's disk interface reads them at 7FFFh): a
+      data byte is ready or wanted (DRQ), and a command has finished (INTRQ) }
+    function DataRequest: Boolean;
+    function InterruptRequest: Boolean;
     property TrackReg: Byte read FTrackReg;
     property SectorReg: Byte read FSectorReg;
   end;
@@ -139,6 +148,8 @@ end;
 
 procedure TWD1772.Reset;
 begin
+  FIntrq := False;
+  FSeekFail := False;
   FPhase := wpIdle;
   FStatus := 0;
   FTypeI := True;
@@ -290,6 +301,7 @@ procedure TWD1772.Finish(ExtraStatus: Byte);
 begin
   FStatus := ExtraStatus and not (ST_BUSY or ST_DRQ);
   FPhase := wpIdle;
+  FIntrq := True;
 end;
 
 { Brings what is going on up to the current time }
@@ -297,7 +309,8 @@ procedure TWD1772.Settle;
 begin
   case FPhase of
     wpTypeI:
-      if FNow >= FBusyUntil then Finish(FStatus);
+      // a drive that is not there never finishes the restore: busy until a force interrupt
+      if (FNow >= FBusyUntil) and not FSeekFail then Finish(FStatus);
     wpFinding:
       if FNow >= FBusyUntil then Finish(FStatus or ST_RNF);
   end;
@@ -330,6 +343,8 @@ begin
       begin
         // Restore: back to track 0
         Steps := FCyl[FDrive];
+        // A drive that is not connected (with READY tied high) never answers: the restore stays busy
+        FSeekFail := FReadyAlways and (FDrive = 1) and not FDriveB;
         FCyl[FDrive] := 0;
         FTrackReg := 0;
         FStepDir := -1;
@@ -583,6 +598,7 @@ end;
 
 procedure TWD1772.DoCommand(Command: Byte);
 begin
+  FIntrq := False;
   FCommand := Command;
   FPhase := wpIdle;
   case Command shr 4 of
@@ -628,9 +644,24 @@ begin
       // Force interrupt: whatever was going on stops; the status shows the type I view
       FTypeI := True;
       FPhase := wpIdle;
+      FSeekFail := False;
       FStatus := FStatus and not (ST_BUSY or ST_DRQ or ST_LOST);
+      FIntrq := (Command and 8) <> 0;       // an immediate interrupt
     end;
   end;
+end;
+
+function TWD1772.DataRequest: Boolean;
+begin
+  Settle;
+  Result := (FPhase in [wpRead, wpAddress, wpTrackRead, wpWrite, wpTrackWrite]) and (FNow >= FReadyAt) and
+    ((FPhase = wpTrackWrite) or (FBufferPos < FBufferLen));
+end;
+
+function TWD1772.InterruptRequest: Boolean;
+begin
+  Settle;
+  Result := FIntrq;
 end;
 
 function TWD1772.ReadReg(Port: Word): Byte;
@@ -654,7 +685,7 @@ begin
           // Type I view: head loaded, track 0 and the index hole
           Result := Result and not (ST_DRQ or ST_HEADLOAD or ST_TRACK0 or ST_INDEX);
           if FHeadLoaded and DriveReady then Result := Result or ST_HEADLOAD;
-          if FCyl[FDrive] = 0 then Result := Result or ST_TRACK0;
+          if (FCyl[FDrive] = 0) and not (FReadyAlways and (FDrive = 1) and not FDriveB) then Result := Result or ST_TRACK0;
           // The index hole passes once a turn, whether or not the transfers are timed:
           // the ROM tells that there is a disk by it
           if DriveReady then
@@ -664,8 +695,9 @@ begin
           end;
           if DriveReady and (FDisks[FDrive].WriteProtected) then Result := Result or ST_WRITEPROT;
         end;
-        if not DriveReady then Result := Result or ST_NOTREADY
+        if not DriveReady and not FReadyAlways then Result := Result or ST_NOTREADY
         else Result := Result and not ST_NOTREADY;
+        FIntrq := False;       // reading the status clears INTRQ
       end;
     1: Result := FTrackReg;
     2: Result := FSectorReg;

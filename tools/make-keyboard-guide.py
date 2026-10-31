@@ -1,11 +1,11 @@
 # Makes src/KeyboardGuide.inc (the Keyboard guide's picture, a PNG, as a byte array)
-# from tools/keyboard-guide.png, scaled to 1400 px wide and reduced to 256 colours.
+# from tools/keyboard-guide.png, scaled to 60% (1064 px wide) and reduced to 256 colours.
 #   python3 tools/make-keyboard-guide.py
 import io, os
 from PIL import Image
 here = os.path.dirname(os.path.abspath(__file__))
 im = Image.open(os.path.join(here, 'keyboard-guide.png')).convert('RGB')
-im = im.resize((1400, round(im.height * 1400 / im.width)), Image.LANCZOS)
+im = im.resize((im.width * 6 // 10, im.height * 6 // 10), Image.LANCZOS)
 im = im.quantize(256, method=Image.MEDIANCUT, dither=Image.NONE)
 buf = io.BytesIO()
 im.save(buf, 'PNG', optimize=True)

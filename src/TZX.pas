@@ -1,4 +1,6 @@
-{ TZX: reads TZX tape files (version 1.20 and earlier) into tape blocks.
+{ TZX: reads TZX tape files (version 1.20 and earlier) into tape blocks; TSX files (the MSX's: the same format
+  with another extension) are read by it too, with their block 4Bh (data in the Kansas City Standard, which becomes
+  the tone and the pulses of the data) and the TSX.LOAD custom info (the command that loads the tape).
   Every block of the specification is understood: the signal ones (standard,
   turbo, tone, pulses, pure data, direct and CSW recordings, generalized
   data), pauses and stops, flow control (groups, jumps, loops, calls,
@@ -255,6 +257,113 @@ const
   ARCHIVE_TYPES: array[0..8] of string = ('Title', 'Publisher', 'Author', 'Year', 'Language', 'Type',
     'Price', 'Loader', 'Origin');
 
+{ Block 4Bh, the MSX's data: a pilot tone, then each byte as the start bits, its eight bits and the stop bits, each bit
+  a number of pulses of its length: a tone block, the pulses and the pause that follows them }
+function ReadKcs(var R: TReader): TTapeBlockArray;
+var
+  Total, Pause, PilotLen, PilotCount, Len0, Len1, N0, N1, BitCfg, ByteCfg, StartN, StopN, StartV, StopV: Integer;
+  Data: TBytes;
+  I, J, P, K: Integer;
+  Msb, IsHeader: Boolean;
+  Name: string;
+  Blk: TTapeBlock;
+
+  procedure Bit(V: Integer);
+  var
+    N, L, T: Integer;
+  begin
+    if V = 0 then
+    begin
+      N := N0;
+      L := Len0;
+    end
+    else
+    begin
+      N := N1;
+      L := Len1;
+    end;
+    for T := 1 to N do
+    begin
+      Blk.Pulses[P] := L;
+      Inc(P);
+    end;
+  end;
+
+  procedure Put(ABlock: TTapeBlock);
+  begin
+    SetLength(Result, Length(Result) + 1);
+    Result[High(Result)] := ABlock;
+  end;
+
+begin
+  Result := nil;
+  Total := R.D;
+  if Total < 12 then raise Exception.Create('A KCS block of a TSX file is too short');
+  Pause := R.W;
+  PilotLen := R.W;
+  PilotCount := R.W;
+  Len0 := R.W;
+  Len1 := R.W;
+  BitCfg := R.B;
+  ByteCfg := R.B;
+  Data := R.Bytes(Total - 12);
+  N0 := BitCfg shr 4;
+  N1 := BitCfg and 15;
+  if N0 = 0 then N0 := 16;
+  if N1 = 0 then N1 := 16;
+  StartN := (ByteCfg shr 6) and 3;
+  StartV := (ByteCfg shr 5) and 1;
+  StopN := (ByteCfg shr 3) and 3;
+  StopV := (ByteCfg shr 2) and 1;
+  Msb := (ByteCfg and 2) <> 0;
+  if PilotCount > 0 then
+  begin
+    Blk := TTapeBlock.CreateKind(TZX_TONE);
+    Blk.PilotLen := PilotLen;
+    Blk.PilotCount := PilotCount;
+    Put(Blk);
+  end;
+  Blk := TTapeBlock.CreateKind(TZX_PULSES);
+  SetLength(Blk.Pulses, Length(Data) * (StartN + 8 + StopN) * Max(N0, N1));
+  P := 0;
+  for I := 0 to High(Data) do
+  begin
+    for K := 1 to StartN do Bit(StartV);
+    for J := 0 to 7 do
+      if Msb then Bit((Data[I] shr (7 - J)) and 1) else Bit((Data[I] shr J) and 1);
+    for K := 1 to StopN do Bit(StopV);
+  end;
+  SetLength(Blk.Pulses, P);
+  // What it is, as the .cas tapes say (a file header is ten identical bytes and the name)
+  IsHeader := Length(Data) >= 16;
+  if IsHeader then
+  begin
+    for I := 1 to 9 do
+      if Data[I] <> Data[0] then IsHeader := False;
+    if not (Data[0] in [$D0, $D3, $EA]) then IsHeader := False;
+  end;
+  if IsHeader then
+  begin
+    Name := '';
+    for I := 10 to 15 do
+      if (Data[I] >= 32) and (Data[I] < 127) then Name := Name + Chr(Data[I]) else Name := Name + ' ';
+    case Data[0] of
+      $D0: Blk.Text := 'Binary (BLOAD): ' + Trim(Name);
+      $D3: Blk.Text := 'BASIC program: ' + Trim(Name);
+    else
+      Blk.Text := 'ASCII file: ' + Trim(Name);
+    end;
+  end
+  else Blk.Text := Format('Data (%d bytes)', [Length(Data)]);
+  Put(Blk);
+  if Pause > 0 then
+  begin
+    Blk := TTapeBlock.CreateKind(TZX_PAUSE);
+    Blk.PauseMs := Pause;
+    Put(Blk);
+  end;
+end;
+
 function ReadTZX(S: TStream): TTapeBlockArray;
 var
   R: TReader;
@@ -264,6 +373,7 @@ var
   Short: Boolean;
   I, Cnt, Len, Kind: Integer;
   Info: string;
+  Parts: TTapeBlockArray;
 
   procedure Add(ABlock: TTapeBlock);
   begin
@@ -402,7 +512,22 @@ begin
         TZX_CUSTOM:
           begin
             Blk.Text := R.Str(16);
-            R.Bytes(R.D);
+            Len := R.D;
+            if (Blk.Text = 'TSX.LOAD') or (Blk.Text = 'TOSEC.NAME') then
+            begin
+              // The command that loads the tape, for the MSX's Auto load (or the tape's name, which says it in [ ])
+              Info := R.Str(Min(Len, R.Left));
+              Blk.Text := Blk.Text + ': ' + Info;
+            end
+            else R.Bytes(Len);
+          end;
+        $4B:
+          begin
+            // Data of the MSX's tapes: becomes the tone, the pulses and the pause
+            Blk.Free;
+            Blk := nil;
+            Parts := ReadKcs(R);
+            for I := 0 to High(Parts) do Add(Parts[I]);
           end;
         TZX_GLUE: R.Bytes(9);
         // Old blocks no longer in the specification: skipped
@@ -421,7 +546,7 @@ begin
         // Blocks of later versions start with their length
         R.Bytes(R.D);
       end;
-      Add(Blk);
+      if Blk <> nil then Add(Blk);
       Blk := nil;
       if Short then Break;
     end;

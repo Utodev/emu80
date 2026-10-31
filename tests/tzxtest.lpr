@@ -161,6 +161,7 @@ var
   I, J: Integer;
   Z: TCompressionStream;
   Packed_: TMemoryStream;
+  Ms, Plain, Longer: Integer;
   RLE: array[0..6] of Byte = (10, 20, 0, $2C, $01, 0, 0);
   TapName: string;
   Expected: string;
@@ -196,7 +197,7 @@ begin
     B($33); B(1); Bytes([0, 1, 2]);
     B($35); Str('CustomInfo      '); D(2); Bytes([1, 2]);
     B($5A); Bytes([$58, $54, $61, $70, $65, $21, $1A, 1, 20]);
-    B($4B); D(3); Bytes([1, 2, 3]);
+    B($4C); D(3); Bytes([1, 2, 3]);      // ($4B is the MSX's data block)
     Load;
     Check(Tp.Count = 25, Format('25 blocks read (%d)', [Tp.Count]));
     if Tp.Count = 25 then
@@ -221,7 +222,7 @@ begin
       Check((Tp[19].Text = 'Msg') and (Tp[19].Value = 5), 'message');
       Check(Tp[20].Text = 'Title: Title', 'archive info');
       Check(Tp[22].Text = 'CustomInfo', 'custom info');
-      Check(Tp[24].Kind = $4B, 'an unknown block skipped by its length');
+      Check(Tp[24].Kind = $4C, 'an unknown block skipped by its length');
     end;
 
     // The signals: tone, pulses, pure data (3 bits: 1 0 1), then a pause of
@@ -236,6 +237,25 @@ begin
       'tone, pulses and pure data: ' + Gaps);
     Check(Levels = '10101010101010', 'levels of tone, pulses and data: ' + Levels);
     Check(not Tp.Playing and (Tp.Current = Tp.Count), 'the tape stops at its end');
+
+    // A pause of 1 or 2 ms plays longer when the tape is asked to (a CPC's CDT keeps whole milliseconds):
+    // the tone that follows comes 0.5 ms (1750 T) later; a pause of 5 ms is as it is
+    for Ms in [1, 5] do
+    begin
+      Start;
+      B($14); W(500); W(1000); B(8); W(Ms); W3(1); Bytes([$00]);
+      B($12); W(1000); W(1);
+      Load;
+      Tp.ShortPauseExtraMs := 0;
+      PlayAll;
+      Plain := L.Edges[High(L.Edges)].T;
+      Tp.ShortPauseExtraMs := 0.5;
+      PlayAll;
+      Longer := L.Edges[High(L.Edges)].T;
+      Tp.ShortPauseExtraMs := 0;
+      if Ms = 1 then Check(Longer - Plain = 1750, 'a 1 ms pause plays 0.5 ms longer: ' + IntToStr(Longer - Plain))
+      else Check(Longer = Plain, 'a 5 ms pause is not touched: ' + IntToStr(Longer - Plain));
+    end;
 
     // Turbo: 3 pilot pulses, two syncs, one bit; the pause leaves it low
     Start;

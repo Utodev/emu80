@@ -49,6 +49,7 @@ type
     procedure ListMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure MoveSelected(Delta: Integer);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
     procedure Refresh(Force: Boolean);
@@ -170,6 +171,8 @@ begin
   Position := poMainFormCenter;
   FormStyle := fsStayOnTop;
   OnClose := @FormClose;
+  KeyPreview := True;
+  OnKeyDown := @FormKeyDown;
 
   FImages := TImageList.Create(Self);
   LoadIcons(FImages);
@@ -588,6 +591,16 @@ begin
     end;
   finally
     Dlg.Free;
+  end;
+end;
+
+{ Esc closes the window, as its close button does (but it still cancels the editing of a name) }
+procedure TTapeBrowserWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = VK_ESCAPE) and (Shift = []) and not FList.IsEditing then
+  begin
+    Key := 0;
+    Close;
   end;
 end;
 

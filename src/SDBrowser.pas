@@ -57,6 +57,7 @@ type
     function SelectedIndexes: TIndexArray;
     procedure ListKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   public
     constructor CreateFor(AOwner: TComponent; AEmu: TEmulator);
     procedure Refresh;
@@ -104,6 +105,8 @@ begin
   Height := 460;
   Position := poMainFormCenter;
   OnClose := @FormClose;
+  KeyPreview := True;
+  OnKeyDown := @FormKeyDown;
   AllowDropFiles := True;
   OnDropFiles := @FormDropFiles;
 
@@ -702,6 +705,16 @@ begin
   end;
   if Error <> '' then ShowError('Could not delete:' + LineEnding + Error);
   Refresh;
+end;
+
+{ Esc closes the window, as its close button does (but it still cancels the editing of a name) }
+procedure TSDBrowserWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+  if (Key = VK_ESCAPE) and (Shift = []) and not FList.IsEditing then
+  begin
+    Key := 0;
+    Close;
+  end;
 end;
 
 procedure TSDBrowserWindow.FormClose(Sender: TObject; var CloseAction: TCloseAction);

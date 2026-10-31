@@ -13,7 +13,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Forms, Controls, Graphics, Grids, ExtCtrls, StdCtrls, LCLType,
-  Emulator, Models, Spectrum;
+  Emulator, Models, Spectrum, Msx, MsxMachine;
 
 type
   TZXUnoRegsWindow = class(TForm)
@@ -24,8 +24,10 @@ type
     FNote: TLabel;
     FNext: Boolean;         // showing the Next's registers
     FSam: Boolean;          // showing the SAM Coupe's ports
+    FMsx: Boolean;          // showing the MSX's ports
     FOnChanged: TNotifyEvent;
     function SamMapping(Port: Integer): string;
+    function MsxMapping(Code: Integer): string;
     procedure Fill;
     procedure Tick(Sender: TObject);
     procedure GridSelectEditor(Sender: TObject; ACol, ARow: Integer; var Editor: TWinControl);
@@ -197,6 +199,97 @@ const
     (Code: $219; Port: 'SAA 19'; Name: 'Envelope generator 1'; Bits: 'ENABLE - CLOCK RES SHAPE2 SHAPE1 SHAPE0 STEREO'; ReadOnly: False),
     (Code: $21C; Port: 'SAA 1C'; Name: 'Sound enable, reset'; Bits: '- - - - - - RESET ENABLE'; ReadOnly: False));
 
+  MSX_REGS: array[0..88] of TSamRegInfo = (
+    (Code: $0000; Port: 'A8'; Name: 'Primary slot register'; Bits: 'P3 P3 P2 P2 P1 P1 P0 P0'; ReadOnly: False),
+    (Code: $0001; Port: 'FFFF'; Name: 'Subslot register (slot 3)'; Bits: 'P3 P3 P2 P2 P1 P1 P0 P0'; ReadOnly: False),
+    (Code: $0002; Port: 'AA'; Name: 'PPI port C'; Bits: 'CLICK CAPS CASOUT MOTOR- ROW3 ROW2 ROW1 ROW0'; ReadOnly: False),
+    (Code: $0010; Port: 'FC+0'; Name: 'Mapper segment, page 0 (0000)'; Bits: ''; ReadOnly: False),
+    (Code: $0011; Port: 'FC+1'; Name: 'Mapper segment, page 1 (4000)'; Bits: ''; ReadOnly: False),
+    (Code: $0012; Port: 'FC+2'; Name: 'Mapper segment, page 2 (8000)'; Bits: ''; ReadOnly: False),
+    (Code: $0013; Port: 'FC+3'; Name: 'Mapper segment, page 3 (C000)'; Bits: ''; ReadOnly: False),
+    (Code: $0110; Port: 'A0'; Name: 'PSG register selected'; Bits: ''; ReadOnly: False),
+    (Code: $0100; Port: 'PSG 0'; Name: 'A tone low'; Bits: ''; ReadOnly: False),
+    (Code: $0101; Port: 'PSG 1'; Name: 'A tone high'; Bits: ''; ReadOnly: False),
+    (Code: $0102; Port: 'PSG 2'; Name: 'B tone low'; Bits: ''; ReadOnly: False),
+    (Code: $0103; Port: 'PSG 3'; Name: 'B tone high'; Bits: ''; ReadOnly: False),
+    (Code: $0104; Port: 'PSG 4'; Name: 'C tone low'; Bits: ''; ReadOnly: False),
+    (Code: $0105; Port: 'PSG 5'; Name: 'C tone high'; Bits: ''; ReadOnly: False),
+    (Code: $0106; Port: 'PSG 6'; Name: 'Noise period'; Bits: ''; ReadOnly: False),
+    (Code: $0107; Port: 'PSG 7'; Name: 'Mixer'; Bits: 'IOB IOA NC NB NA TC TB TA'; ReadOnly: False),
+    (Code: $0108; Port: 'PSG 8'; Name: 'A volume'; Bits: ''; ReadOnly: False),
+    (Code: $0109; Port: 'PSG 9'; Name: 'B volume'; Bits: ''; ReadOnly: False),
+    (Code: $010A; Port: 'PSG 10'; Name: 'C volume'; Bits: ''; ReadOnly: False),
+    (Code: $010B; Port: 'PSG 11'; Name: 'Envelope low'; Bits: ''; ReadOnly: False),
+    (Code: $010C; Port: 'PSG 12'; Name: 'Envelope high'; Bits: ''; ReadOnly: False),
+    (Code: $010D; Port: 'PSG 13'; Name: 'Envelope shape'; Bits: ''; ReadOnly: False),
+    (Code: $010E; Port: 'PSG 14'; Name: 'I/O port A (joystick)'; Bits: ''; ReadOnly: False),
+    (Code: $010F; Port: 'PSG 15'; Name: 'I/O port B'; Bits: ''; ReadOnly: False),
+    (Code: $0200; Port: 'VDP R#0'; Name: 'Mode 0'; Bits: '- DG IE2 IE1 M5 M4 M3 -'; ReadOnly: False),
+    (Code: $0201; Port: 'VDP R#1'; Name: 'Mode 1'; Bits: '- BL IE0 M1 M2 - SI MAG'; ReadOnly: False),
+    (Code: $0202; Port: 'VDP R#2'; Name: 'Name table base'; Bits: ''; ReadOnly: False),
+    (Code: $0203; Port: 'VDP R#3'; Name: 'Colour table base, low'; Bits: ''; ReadOnly: False),
+    (Code: $0204; Port: 'VDP R#4'; Name: 'Pattern generator base'; Bits: ''; ReadOnly: False),
+    (Code: $0205; Port: 'VDP R#5'; Name: 'Sprite attributes, low'; Bits: ''; ReadOnly: False),
+    (Code: $0206; Port: 'VDP R#6'; Name: 'Sprite patterns base'; Bits: ''; ReadOnly: False),
+    (Code: $0207; Port: 'VDP R#7'; Name: 'Text and border colour'; Bits: ''; ReadOnly: False),
+    (Code: $0208; Port: 'VDP R#8'; Name: 'Mode 2'; Bits: 'MS LP TP CB VR - SPD BW'; ReadOnly: False),
+    (Code: $0209; Port: 'VDP R#9'; Name: 'Mode 3'; Bits: 'LN - S1 S0 IL EO NT DC'; ReadOnly: False),
+    (Code: $020A; Port: 'VDP R#10'; Name: 'Colour table base, high'; Bits: ''; ReadOnly: False),
+    (Code: $020B; Port: 'VDP R#11'; Name: 'Sprite attributes, high'; Bits: ''; ReadOnly: False),
+    (Code: $020C; Port: 'VDP R#12'; Name: 'Blink colour'; Bits: ''; ReadOnly: False),
+    (Code: $020D; Port: 'VDP R#13'; Name: 'Blink times'; Bits: ''; ReadOnly: False),
+    (Code: $020E; Port: 'VDP R#14'; Name: 'VRAM address, A16-A14'; Bits: ''; ReadOnly: False),
+    (Code: $020F; Port: 'VDP R#15'; Name: 'Status register selected'; Bits: ''; ReadOnly: False),
+    (Code: $0210; Port: 'VDP R#16'; Name: 'Palette pointer'; Bits: ''; ReadOnly: False),
+    (Code: $0211; Port: 'VDP R#17'; Name: 'Indirect register pointer'; Bits: 'AII - R5 R4 R3 R2 R1 R0'; ReadOnly: False),
+    (Code: $0212; Port: 'VDP R#18'; Name: 'Display adjust'; Bits: ''; ReadOnly: False),
+    (Code: $0213; Port: 'VDP R#19'; Name: 'Line interrupt'; Bits: ''; ReadOnly: False),
+    (Code: $0214; Port: 'VDP R#20'; Name: 'Colour burst 1'; Bits: ''; ReadOnly: False),
+    (Code: $0215; Port: 'VDP R#21'; Name: 'Colour burst 2'; Bits: ''; ReadOnly: False),
+    (Code: $0216; Port: 'VDP R#22'; Name: 'Colour burst 3'; Bits: ''; ReadOnly: False),
+    (Code: $0217; Port: 'VDP R#23'; Name: 'Vertical scroll'; Bits: ''; ReadOnly: False),
+    (Code: $0220; Port: 'VDP R#32'; Name: 'Command SX, low'; Bits: ''; ReadOnly: False),
+    (Code: $0221; Port: 'VDP R#33'; Name: 'Command SX, high'; Bits: ''; ReadOnly: False),
+    (Code: $0222; Port: 'VDP R#34'; Name: 'Command SY, low'; Bits: ''; ReadOnly: False),
+    (Code: $0223; Port: 'VDP R#35'; Name: 'Command SY, high'; Bits: ''; ReadOnly: False),
+    (Code: $0224; Port: 'VDP R#36'; Name: 'Command DX, low'; Bits: ''; ReadOnly: False),
+    (Code: $0225; Port: 'VDP R#37'; Name: 'Command DX, high'; Bits: ''; ReadOnly: False),
+    (Code: $0226; Port: 'VDP R#38'; Name: 'Command DY, low'; Bits: ''; ReadOnly: False),
+    (Code: $0227; Port: 'VDP R#39'; Name: 'Command DY, high'; Bits: ''; ReadOnly: False),
+    (Code: $0228; Port: 'VDP R#40'; Name: 'Command NX, low'; Bits: ''; ReadOnly: False),
+    (Code: $0229; Port: 'VDP R#41'; Name: 'Command NX, high'; Bits: ''; ReadOnly: False),
+    (Code: $022A; Port: 'VDP R#42'; Name: 'Command NY, low'; Bits: ''; ReadOnly: False),
+    (Code: $022B; Port: 'VDP R#43'; Name: 'Command NY, high'; Bits: ''; ReadOnly: False),
+    (Code: $022C; Port: 'VDP R#44'; Name: 'Command colour'; Bits: ''; ReadOnly: False),
+    (Code: $022D; Port: 'VDP R#45'; Name: 'Command argument'; Bits: '- MXC MXS MXD DIY DIX EQ MAJ'; ReadOnly: False),
+    (Code: $022E; Port: 'VDP R#46'; Name: 'Command code'; Bits: 'CM3 CM2 CM1 CM0 LO3 LO2 LO1 LO0'; ReadOnly: False),
+    (Code: $0240; Port: 'VDP S#0'; Name: 'Status 0'; Bits: 'F 5S C S4 S3 S2 S1 S0'; ReadOnly: True),
+    (Code: $0241; Port: 'VDP S#1'; Name: 'Status 1'; Bits: '- - - - - - - FH'; ReadOnly: True),
+    (Code: $0242; Port: 'VDP S#2'; Name: 'Status 2'; Bits: 'TR VR HR BD - - EO CE'; ReadOnly: True),
+    (Code: $0243; Port: 'VDP S#3'; Name: 'Collision X, low'; Bits: ''; ReadOnly: True),
+    (Code: $0244; Port: 'VDP S#4'; Name: 'Collision X, high'; Bits: ''; ReadOnly: True),
+    (Code: $0245; Port: 'VDP S#5'; Name: 'Collision Y, low'; Bits: ''; ReadOnly: True),
+    (Code: $0246; Port: 'VDP S#6'; Name: 'Collision Y, high'; Bits: ''; ReadOnly: True),
+    (Code: $0247; Port: 'VDP S#7'; Name: 'Status 7: colour read'; Bits: ''; ReadOnly: True),
+    (Code: $0248; Port: 'VDP S#8'; Name: 'Border X, low'; Bits: ''; ReadOnly: True),
+    (Code: $0249; Port: 'VDP S#9'; Name: 'Border X, high'; Bits: ''; ReadOnly: True),
+    (Code: $0260; Port: 'Colour 0'; Name: 'Palette entry 0 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0261; Port: 'Colour 1'; Name: 'Palette entry 1 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0262; Port: 'Colour 2'; Name: 'Palette entry 2 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0263; Port: 'Colour 3'; Name: 'Palette entry 3 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0264; Port: 'Colour 4'; Name: 'Palette entry 4 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0265; Port: 'Colour 5'; Name: 'Palette entry 5 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0266; Port: 'Colour 6'; Name: 'Palette entry 6 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0267; Port: 'Colour 7'; Name: 'Palette entry 7 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0268; Port: 'Colour 8'; Name: 'Palette entry 8 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $0269; Port: 'Colour 9'; Name: 'Palette entry 9 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026A; Port: 'Colour 10'; Name: 'Palette entry 10 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026B; Port: 'Colour 11'; Name: 'Palette entry 11 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026C; Port: 'Colour 12'; Name: 'Palette entry 12 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026D; Port: 'Colour 13'; Name: 'Palette entry 13 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026E; Port: 'Colour 14'; Name: 'Palette entry 14 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False),
+    (Code: $026F; Port: 'Colour 15'; Name: 'Palette entry 15 (R G B, 0 to 7)'; Bits: ''; ReadOnly: False));
+
 { The names of the bits set in Value, highest first }
 function BitsSet(const Bits: string; Value: Byte): string;
 var
@@ -282,6 +375,22 @@ begin
   end;
 end;
 
+{ Which slot each page of the CPU shows (the slot register) }
+function TZXUnoRegsWindow.MsxMapping(Code: Integer): string;
+var
+  P, S, Sub: Integer;
+begin
+  Result := '';
+  if (Code <> 0) and (Code <> 1) then Exit;
+  for P := 0 to 3 do
+  begin
+    S := FEmu.Spec.MSXHw.Slots.PageSlot(P);
+    Sub := FEmu.Spec.MSXHw.Slots.PageSub(P);
+    if Sub >= 0 then Result := Result + Format('p%d:%d-%d ', [P, S, Sub])
+    else Result := Result + Format('p%d:%d ', [P, S]);
+  end;
+end;
+
 { The rows for the machine shown: the ZX-Uno's registers, the Next's or the SAM Coupe's }
 procedure TZXUnoRegsWindow.Fill;
 var
@@ -289,7 +398,21 @@ var
 begin
   FNext := FEmu.Spec.Model = smZXNext;
   FSam := FEmu.Spec.Model = smSAM;
-  if FSam then
+  FMsx := IsMSXModel(FEmu.Spec.Model);
+  if FMsx then
+  begin
+    Caption := 'MSX Ports';
+    FNote.Caption := 'To change a value select it, type the new one (hex) and press Enter: the slot, mapper, PSG ' +
+      'and VDP registers are written as an OUT to the port would (a palette entry is three digits, R G B). ' +
+      'The VDP status registers can''t be changed.';
+    FGrid.RowCount := Length(MSX_REGS) + 1;
+    for I := 0 to High(MSX_REGS) do
+    begin
+      FGrid.Cells[0, I + 1] := MSX_REGS[I].Port;
+      FGrid.Cells[1, I + 1] := MSX_REGS[I].Name;
+    end;
+  end
+  else if FSam then
   begin
     Caption := 'SAM Coup'#$C3#$A9' Ports';
     FNote.Caption := 'To change a value select it, type the new one (hex) and press Enter: ' +
@@ -336,8 +459,25 @@ begin
   if FGrid.EditorMode then Exit;   // don't overwrite a value being typed
   FEmu.Lock;
   try
-    if ((FEmu.Spec.Model = smZXNext) <> FNext) or ((FEmu.Spec.Model = smSAM) <> FSam) then Fill;
-    if FSam then
+    if ((FEmu.Spec.Model = smZXNext) <> FNext) or ((FEmu.Spec.Model = smSAM) <> FSam) or
+       (IsMSXModel(FEmu.Spec.Model) <> FMsx) then Fill;
+    if FMsx then
+      for I := 0 to High(MSX_REGS) do
+      begin
+        V := 0;
+        if MSX_REGS[I].Code >= $260 then
+        begin
+          FGrid.Cells[2, I + 1] := IntToHex(FEmu.Spec.MSXHw.PortValue(MSX_REGS[I].Code), 3);
+          FGrid.Cells[3, I + 1] := '';
+        end
+        else
+        begin
+          V := FEmu.Spec.MSXHw.PortValue(MSX_REGS[I].Code);
+          FGrid.Cells[2, I + 1] := IntToHex(V, 2);
+          FGrid.Cells[3, I + 1] := Trim(BitsSet(MSX_REGS[I].Bits, V) + '  ' + MsxMapping(MSX_REGS[I].Code));
+        end;
+      end
+    else if FSam then
       for I := 0 to High(SAM_REGS) do
       begin
         V := FEmu.Spec.SamRegister(SAM_REGS[I].Code);
@@ -366,7 +506,7 @@ end;
 procedure TZXUnoRegsWindow.Tick(Sender: TObject);
 begin
   // Only a ZX-Uno, a Next or a SAM Coupe has these registers
-  if not (FEmu.Spec.Model in [smZXUno, smZXNext, smSAM]) then
+  if not ((FEmu.Spec.Model in [smZXUno, smZXNext, smSAM]) or IsMSXModel(FEmu.Spec.Model)) then
   begin
     Close;
     Exit;
@@ -378,8 +518,11 @@ end;
 procedure TZXUnoRegsWindow.GridSelectEditor(Sender: TObject; ACol, ARow: Integer;
   var Editor: TWinControl);
 begin
-  if (ACol <> 2) or (FSam and (ARow >= 1) and SAM_REGS[ARow - 1].ReadOnly) then Editor := nil
-  else if Editor is TCustomEdit then TCustomEdit(Editor).MaxLength := 2;
+  if (ACol <> 2) or (FSam and (ARow >= 1) and SAM_REGS[ARow - 1].ReadOnly) or
+     (FMsx and (ARow >= 1) and MSX_REGS[ARow - 1].ReadOnly) then Editor := nil
+  else if Editor is TCustomEdit then
+    if FMsx and (ARow >= 1) and (MSX_REGS[ARow - 1].Code >= $260) then TCustomEdit(Editor).MaxLength := 3
+    else TCustomEdit(Editor).MaxLength := 2;
 end;
 
 procedure TZXUnoRegsWindow.GridEditingDone(Sender: TObject);
@@ -390,7 +533,17 @@ begin
   if (FGrid.Col <> 2) or (Row < 1) or (Row >= FGrid.RowCount) then Exit;
   V := StrToIntDef('$' + Trim(FGrid.Cells[2, Row]), -1);
   if FSam and SAM_REGS[Row - 1].ReadOnly then V := -1;
-  if (V >= 0) and (V <= 255) then
+  if FMsx and MSX_REGS[Row - 1].ReadOnly then V := -1;
+  if FMsx and (V >= 0) and ((V <= 255) or ((V <= $777) and (MSX_REGS[Row - 1].Code >= $260))) then
+  begin
+    FEmu.Lock;
+    try
+      FEmu.Spec.MSXHw.SetPortValue(MSX_REGS[Row - 1].Code, V);
+    finally
+      FEmu.Unlock;
+    end;
+  end
+  else if (V >= 0) and (V <= 255) and not FMsx then
   begin
     FEmu.Lock;
     try
