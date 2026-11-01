@@ -14,6 +14,8 @@
     msxfree picdiff <roms A> <roms B> <frames> [-cart FILE] [-type TEXT]
         prints how many pixels differ (%) between the two pictures after that many frames
   MSXFREE_COMPAT=1 uses the MSX1 slot layout (no expanded slot, no disk);
+  MSXFREE_HOLD=shift|ctrl holds that key from power on for 300 frames (MSXFREE_HOLDFRAMES: more); MSXFREE_DRIVEB=0: no drive B connected;
+  MSXFREE_CTRLC=frame[:letter][,...] presses CTRL+C (or CTRL+that letter) at those frames;
   MSXFREE_TIMED=1 runs the disk drive at real speed (seek and rotation times; the default is fast disk access);
   -tape FILE puts a .cas or .tsx in and plays it; -disk FILE puts a disk image (.dsk) in drive A: (the folder
   needs a disk ROM, msx/PHILIPSDISK.rom, that suits its main ROM: QUANTIKA_DISK.ROM under that name for QUANTIKA); MSXFREE_KEYS=frame=text[|frame=text...] types more
@@ -21,7 +23,11 @@
     msxfree exec <roms folder> <file.bin> [frames] [-type TEXT] [-tape FILE.cas]
         boots (700 frames), loads the program at C000h, runs it from there and prints the screen text
         and the registers after that many frames (100); the program ends in a loop (JR $) and may
-        leave results in RAM from D000h, printed as 32 bytes
+        leave results in RAM from D000h, printed as 32 bytes a line (256); MSXFREE_SAVEDISK=FILE
+        saves the disk of drive A: (-disk) into FILE afterwards (screen and basic too)
+    msxfree systrace <roms folder> <frames> <start> <lo> <hi> [-disk FILE] [-type TEXT]
+        from the first time PC is <start> on, prints each jump into <lo>..<hi> (hex) from outside it, once;
+        MSXFREE_DUMPFILE=FILE saves the 64K the CPU sees at the end
     msxfree calls <roms folder> <frames> <address> [-cart FILE] [-tape FILE] [-type TEXT]
         prints AF, BC, DE, HL and the caller each time the program enters that address (the first 200, or
         MSXFREE_CALLS)
@@ -53,6 +59,7 @@ type
 
 var
   CartFile, TypeText, TapeFile, DiskFile: string;
+  TheDisk: TDiskImage = nil;            // the disk in drive A: (MSXFREE_SAVEDISK saves it after exec)
 
 function ReadAll(const FileName: string): TBytes;
 var
@@ -83,6 +90,9 @@ begin
     Result.Reset(True);
   end;
   Result.SetFastDisk(GetEnvironmentVariable('MSXFREE_TIMED') = '');
+  if GetEnvironmentVariable('MSXFREE_DRIVEB') = '0' then Result.DriveBOn := False;
+  if GetEnvironmentVariable('MSXFREE_HOLD') = 'shift' then Result.MSXHoldKeys(StrToIntDef(GetEnvironmentVariable('MSXFREE_HOLDFRAMES'), 300), [MSXK_SHIFT])
+  else if GetEnvironmentVariable('MSXFREE_HOLD') = 'ctrl' then Result.MSXHoldKeys(StrToIntDef(GetEnvironmentVariable('MSXFREE_HOLDFRAMES'), 300), [MSXK_CTRL]);
   if DiskFile <> '' then
   begin
     Disk := LoadDiskImage(DiskFile, Problem, Err);
@@ -92,6 +102,7 @@ begin
       Halt(2);
     end;
     Result.InsertDiskAt(0, Disk);
+    TheDisk := Disk;
   end;
   if TapeFile <> '' then
   begin
@@ -123,6 +134,8 @@ var
   PC: Word;
   Err: string;
   Keys: TStringList;
+  CtrlAt: string;
+  Ch: Char;
 begin
   Keys := nil;
   if GetEnvironmentVariable('MSXFREE_KEYS') <> '' then
@@ -181,6 +194,15 @@ begin
     // MSXFREE_KEYS=frame=text[|frame=text...]: more text typed at those frames (of the run that types -type)
     if ForceType and (Keys <> nil) and (Keys.IndexOfName(IntToStr(I)) >= 0) then
       Sp.TypeText(Keys.Values[IntToStr(I)], Err);
+    // MSXFREE_CTRLC=frame[:letter][,...]: CTRL+C (or CTRL+letter) pressed at those frames
+    CtrlAt := ',' + GetEnvironmentVariable('MSXFREE_CTRLC') + ',';
+    for Ch in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' do
+      if (Pos(',' + IntToStr(I) + ':' + Ch + ',', CtrlAt) > 0)
+        or ((Ch = 'C') and (Pos(',' + IntToStr(I) + ',', CtrlAt) > 0)) then
+      begin
+        Sp.MSXHoldKeys(4, [MSXK_CTRL, MSXK_A + Ord(Ch) - Ord('A')]);
+        Sp.MSXHoldKeys(4, []);
+      end;
   end;
   Keys.Free;
 end;
@@ -232,6 +254,8 @@ begin
       for Frames := 0 to 23 do Write(IntToHex(Sp.MSXHw.Vdp.Reg(Frames), 2), ' ');
       WriteLn;
     end;
+    if (GetEnvironmentVariable('MSXFREE_SAVEDISK') <> '') and (TheDisk <> nil) then
+      SaveRawDisk(TheDisk, GetEnvironmentVariable('MSXFREE_SAVEDISK'));
   finally
     Sp.Free;
   end;
@@ -501,7 +525,54 @@ begin
       Write(' ', IntToHex(Sp.Peek($D000 + I), 2));
       if I mod 32 = 31 then WriteLn;
     end;
+    if (GetEnvironmentVariable('MSXFREE_SAVEDISK') <> '') and (TheDisk <> nil) then
+      SaveRawDisk(TheDisk, GetEnvironmentVariable('MSXFREE_SAVEDISK'));
   finally
+    Sp.Free;
+  end;
+end;
+
+// DoSysTrace: from the first time the program reaches Start on, the jumps (a PC that is not the one after the
+// last) into Lo..Hi from outside it: each place jumped to, where from, how many times; the primary slots
+// (A8h) at the first time. Used to see what a program on a disk asks of the disk system.
+procedure DoSysTrace(const Roms: string; Frames: Integer; Start, Lo, Hi: Word);
+var
+  Sp: TSpectrum;
+  Prev, PC: Word;
+  On: Boolean;
+  Seen: TStringList;
+  Key: string;
+  I: Integer;
+begin
+  Sp := Boot(Roms);
+  Seen := TStringList.Create;
+  try
+    Prev := 0;
+    On := False;
+    while Sp.FrameCount < Frames do
+    begin
+      PC := Sp.Cpu.PC.W;
+      if not On and (PC = Start) then On := True;
+      if On and (PC >= Lo) and (PC <= Hi) and ((Prev < Lo) or (Prev > Hi)) then
+      begin
+        Key := IntToHex(PC, 4) + ' from ' + IntToHex(Prev, 4) + ' p1 ' + Sp.MSXHw.Slots.Describe($4000);
+        I := Seen.IndexOf(Key);
+        if I < 0 then Seen.AddObject(Key, TObject(PtrInt(Sp.FrameCount)));
+      end;
+      Prev := PC;
+      Sp.StepInstruction;
+    end;
+    for I := 0 to Seen.Count - 1 do WriteLn(Seen[I], ' frame ', PtrInt(Seen.Objects[I]));
+    // MSXFREE_DUMPFILE=file: the 64K the CPU sees at the end, into that file
+    if GetEnvironmentVariable('MSXFREE_DUMPFILE') <> '' then
+      with TFileStream.Create(GetEnvironmentVariable('MSXFREE_DUMPFILE'), fmCreate) do
+      try
+        for I := 0 to $FFFF do WriteByte(Sp.Peek(I));
+      finally
+        Free;
+      end;
+  finally
+    Seen.Free;
     Sp.Free;
   end;
 end;
@@ -509,7 +580,7 @@ end;
 procedure DoCalls(const Roms: string; Frames: Integer; Addr: Word);
 var
   Sp: TSpectrum;
-  N: Integer;
+  N, I: Integer;
   Prev: Word;
   Max: Integer;
   Typed: Boolean;
@@ -546,7 +617,19 @@ begin
       if (Sp.Cpu.PC.W = Addr) and (Prev <> Addr) and (Sp.FrameCount >= StrToIntDef(GetEnvironmentVariable('MSXFREE_FROM'), 0)) then
       begin
         Inc(N);
-        WriteLn(Format('AF=%.4X BC=%.4X DE=%.4X HL=%.4X from %.4X SP=%.4X (stack %.4X %.4X %.4X %.4X) frame %d',
+        // MSXFREE_DUMPFILE=file: the 64K the CPU sees at each call, into that file (the last call's stays)
+      if GetEnvironmentVariable('MSXFREE_DUMPFILE') <> '' then
+        with TFileStream.Create(GetEnvironmentVariable('MSXFREE_DUMPFILE'), fmCreate) do
+        try
+          for I := 0 to $FFFF do WriteByte(Sp.Peek(I));
+        finally
+          Free;
+        end;
+      // MSXFREE_SLOTS=1: and what the four pages show
+      if GetEnvironmentVariable('MSXFREE_SLOTS') <> '' then
+        WriteLn('pages: ', Sp.MSXHw.Slots.Describe($0000), ' | ', Sp.MSXHw.Slots.Describe($4000), ' | ',
+          Sp.MSXHw.Slots.Describe($8000), ' | ', Sp.MSXHw.Slots.Describe($C000));
+      WriteLn(Format('AF=%.4X BC=%.4X DE=%.4X HL=%.4X from %.4X SP=%.4X (stack %.4X %.4X %.4X %.4X) frame %d',
           [Sp.Cpu.GetAF, Sp.Cpu.BC.W, Sp.Cpu.DE.W, Sp.Cpu.HL.W, Prev, Sp.Cpu.SP.W,
           Sp.Peek(Sp.Cpu.SP.W) + 256 * Sp.Peek(Sp.Cpu.SP.W + 1), Sp.Peek(Sp.Cpu.SP.W + 2) + 256 * Sp.Peek(Sp.Cpu.SP.W + 3),
           Sp.Peek(Sp.Cpu.SP.W + 4) + 256 * Sp.Peek(Sp.Cpu.SP.W + 5), Sp.Peek(Sp.Cpu.SP.W + 6) + 256 * Sp.Peek(Sp.Cpu.SP.W + 7),
@@ -701,6 +784,8 @@ begin
     // MSXFREE_STOP=1: stop at the last break (MSXFREE_HITS), for MSXFREE_VRAM / MSXFREE_DUMP of that moment
     if GetEnvironmentVariable('MSXFREE_STOP') = '' then
       RunFrames(Sp, Frames + Length(Text) * 8, False);
+    if (GetEnvironmentVariable('MSXFREE_SAVEDISK') <> '') and (TheDisk <> nil) then
+      SaveRawDisk(TheDisk, GetEnvironmentVariable('MSXFREE_SAVEDISK'));
     if GetEnvironmentVariable('MSXFREE_VRAM') <> '' then
       with TFileStream.Create(GetEnvironmentVariable('MSXFREE_VRAM'), fmCreate) do
       try
@@ -801,6 +886,7 @@ begin
     if Length(Pos0) > 3 then Frames := StrToInt(Pos0[3]) else Frames := 3000;
     DoTapeOut(Pos0[1], Pos0[2], Frames);
   end
+  else if Cmd = 'systrace' then DoSysTrace(Pos0[1], StrToInt(Pos0[2]), StrToInt('$' + Pos0[3]), StrToInt('$' + Pos0[4]), StrToInt('$' + Pos0[5]))
   else if Cmd = 'calls' then DoCalls(Pos0[1], StrToInt(Pos0[2]), StrToInt('$' + Pos0[3]))
   else if Cmd = 'exec' then
   begin

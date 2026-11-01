@@ -6,8 +6,9 @@ BASIC. Used by tests/fbasic-difftests.sh for the disk ROM tests.
     mkdsk.py OUT.dsk [NAME.EXT=SIZE ...]
 
 each file is SIZE bytes of a pattern of its own (byte i = (i * 7 + i // 256 + n * 31) & 255, n its number),
-written in contiguous clusters in the given order."""
-import sys
+written in contiguous clusters in the given order. NAME.EXT:TEXT instead: the file holds TEXT (\n a line's end,
+written CR LF; for a BASIC program in ASCII)."""
+import re, sys
 
 SECTOR, SPC, SECTORS, FATS, FATSIZE, ENTRIES = 512, 2, 1440, 2, 3, 112
 FIRST_DIR = 1 + FATS * FATSIZE
@@ -36,10 +37,15 @@ def main():
     entries = []
     cluster = 2
     for n, spec in enumerate(sys.argv[2:]):
-        name, size = spec.split('=')
-        size = int(size)
+        if re.match(r'[^:=]+=\d+$', spec):
+            name, size = spec.split('=')
+            size = int(size)
+            data = pattern(n, size)
+        else:
+            name, text = spec.split(':', 1)
+            data = text.replace('\\n', '\n').replace('\n', '\r\n').encode('latin1')
+            size = len(data)
         base, _, ext = name.upper().partition('.')
-        data = pattern(n, size)
         count = max(1, -(-size // (SECTOR * SPC)))
         first = cluster if size else 0
         if size:

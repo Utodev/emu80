@@ -392,6 +392,7 @@ type
     FMsxArmed: Boolean;                     // Play pressed: the tape moves while the program has the motor on
     FMsxClick: Boolean;                     // the click bit of PPI port C
     FMsxDatePending: Boolean;               // an auto load: ENTER answers the disk ROM's date prompt when it comes
+    FMsxOwnDisk: Boolean;                   // the disk ROM is QUANTIKA_DISK.ROM (it asks no date)
     FMsxEnterFrom: Int64;                   // the frame ENTER is pressed at, for 4 frames (-1: not now)
     FMsxCompat: Boolean;                    // the MSX1 layout (no expanded slot): from the next reset
     FMsxMapperMode: Integer;                // the memory mapper: 0 auto (off when a tape starts the machine), 1 on, 2 off
@@ -866,6 +867,8 @@ type
     function EjectDiskAt(Drive: Integer): TDiskImage;
     function DiskLastAccess(Drive: Integer): QWord;
     property DriveBOn: Boolean read GetDriveB write SetDriveB;
+    { MSX: keys held down for that many frames (after the keys queued before): for the test tools }
+    procedure MSXHoldKeys(Frames: Integer; const Keys: array of Integer);
     property Border: Byte read FBorder write FBorder;
     property Port7FFD: Byte read FPort7FFD;
     property Port1FFD: Byte read FPort1FFD;

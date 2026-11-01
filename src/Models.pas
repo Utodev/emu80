@@ -128,11 +128,11 @@ const
      FloatingBus: False; HasAY: False; HasFDC: True),
     { MSX2 (PAL): a Z80 at 3.579545 MHz with the V9938 (128K of VRAM), 128K of RAM in a memory mapper, a
       clock chip; RomFiles (in roms/msx): the 32K BIOS with BASIC, the 16K sub-ROM and the disk interface's
-      ROM (none by default: no floppy disk drive; PHILIPSDISK.rom works only with the original main ROM, and
-      QUANTIKA_DISK.ROM, not finished yet, only with QUANTIKA's). By default the free ROMs (QUANTIKA ROM with FBASIC, made from romsrc/fbasic); the
-      original ones (MSX2.rom, MSX2EXT.rom) are chosen in the settings. }
+      ROM (QUANTIKA_DISK.ROM works only with QUANTIKA's main ROM, PHILIPSDISK.rom only with the original one).
+      By default the free ROMs (QUANTIKA, made by their own project); the original ones (MSX2.rom, MSX2EXT.rom,
+      PHILIPSDISK.rom) are chosen in the settings. }
     (Name: 'MSX 2'; Memory: mkMSX;
-     RomFiles: ('msx/QUANTIKA.ROM', 'msx/QUANTIKA_SUB.ROM', '', ''); RomCount: 3; BasicRom: 0;
+     RomFiles: ('msx/QUANTIKA.ROM', 'msx/QUANTIKA_SUB.ROM', 'msx/QUANTIKA_DISK.ROM', ''); RomCount: 3; BasicRom: 0;
      ClockHz: 3579545; FrameT: 71364; LineT: 228; PaperTopT: 0;
      ContentionStartT: 0; ContentionPattern: (0, 0, 0, 0, 0, 0, 0, 0);
      InterruptLength: 0; IOContention: False; NoMreqContention: False;

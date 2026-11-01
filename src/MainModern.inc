@@ -14,7 +14,7 @@ const
     (Icon: ikOpen; Caption: 'Open'; Hint: 'Open a tape, snapshot, disk or program (F2)'),
     (Icon: ikSave; Caption: 'Save'; Hint: 'Save snapshot (F3)'),
     (Icon: ikReset; Caption: 'Off/on'; Hint: 'Hard reset: switch the machine off and on (F6)'),
-    (Icon: ikRefresh; Caption: 'Reset'; Hint: 'Reset (Shift+F6)'),
+    (Icon: ikRefresh; Caption: 'Reset'; Hint: 'Reset (Ctrl+F6)'),
     (Icon: ikNMI; Caption: 'NMI'; Hint: 'Non-maskable interrupt (F5)'),
     (Icon: ikPause; Caption: 'Pause'; Hint: 'Pause emulation (F4)'),
     (Icon: ikTurbo; Caption: 'Turbo'; Hint: 'Run as fast as possible (Shift+F11)'),
@@ -177,7 +177,7 @@ begin
     MUIScale(26));
   FMTapePlay := NewButton(FMTape, Ord(ikPlay), '', 'Play/pause tape (F8)', @DoTapePlay, Gap + (BW + Gap), Y, BW,
     MUIScale(26));
-  NewButton(FMTape, Ord(ikStop), '', 'Stop tape (Shift+F8)', @DoTapeStop, Gap + 2 * (BW + Gap), Y, BW,
+  NewButton(FMTape, Ord(ikStop), '', 'Stop tape (Ctrl+F8)', @DoTapeStop, Gap + 2 * (BW + Gap), Y, BW,
     MUIScale(26));
   FMRec := NewButton(FMTape, Ord(ikRecord), '', 'Record onto the tape (REC)', @DoTapeRecord,
     Gap + 3 * (BW + Gap), Y, BW, MUIScale(26));

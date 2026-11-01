@@ -422,9 +422,9 @@ begin
   end;
   AddNote(Page, 'On the CPC models ROM 0 is the 32K firmware (operating system and BASIC) and ROM 1 the ' +
     'AMSDOS disc ROM.', 264);
-  AddNote(Page, 'On the MSX 2 the alternative QUANTIKA ROMs are used. The original ones would be MSX2.ROM and ' +
-    'MSX2EXT.ROM. Likewise, the floppy drive needs PHILIPSDISK.rom, which cannot be used with the QUANTIKA ' +
-    'ROMs: it needs the original ones (QUANTIKA_DISK.ROM, for the QUANTIKA ROMs, is not finished yet).', 304).Height := 68;
+  AddNote(Page, 'On the MSX 2 the alternative QUANTIKA ROMs are used (QUANTIKA_DISK.ROM for the floppy drive). ' +
+    'The original ones would be MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom; a disk ROM works only with the main ' +
+    'ROM of its own kind (otherwise there is no floppy drive).', 304).Height := 68;
 
   // ZX Spectrum: hardware connected to the machine
   Page := AddPage(FZX, 'Hardware');

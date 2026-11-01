@@ -43,6 +43,7 @@ begin
     // original disk ROM only with the original main ROM (it calls into the original BASIC: on QUANTIKA it would hang
     // at boot); a pair that does not match leaves the drive out
     Path := RomPath(2);
+    FMsxOwnDisk := (Path <> '') and FileHas(Path, 'QUANTIKA disk ROM');
     if (Path <> '') and FileExists(Path) and not FMsxCompat and
       (FileHas(RomPath(0), 'with FBASIC') = FileHas(Path, 'QUANTIKA disk ROM')) then Hw.InstallDisk(Path, FWD, @MSXNow)
     else if Hw.HasDisk then Hw.RemoveDisk;
@@ -202,6 +203,11 @@ begin
     FAutoKeys[N].Rows[Keys[I] div 8] := FAutoKeys[N].Rows[Keys[I] div 8] and not (1 shl (Keys[I] mod 8));
 end;
 
+procedure TSpectrum.MSXHoldKeys(Frames: Integer; const Keys: array of Integer);
+begin
+  MSXAutoType(Frames, Keys);
+end;
+
 procedure TSpectrum.MSXSyncAutoKeys;
 begin
   if FAutoKeyPos < Length(FAutoKeys) then
@@ -297,9 +303,10 @@ var
   I: Integer;
   Cmd: string;
 begin
-  // BASIC is ready after a couple of seconds; with the disk interface the machine asks for the date first (its
-  // ROM does, unless it boots a DOS disk): ENTER, when the prompt comes (ExecuteOneMSX), leaves it as it is
-  FMsxDatePending := FMsxHw.HasDisk and FromDisk;
+  // BASIC is ready after a couple of seconds; with the original disk interface the machine asks for the date first
+  // (its ROM does, unless it boots a DOS disk): ENTER, when the prompt comes (ExecuteOneMSX), leaves it as it is.
+  // QUANTIKA_DISK.ROM asks nothing
+  FMsxDatePending := FMsxHw.HasDisk and FromDisk and not FMsxOwnDisk;
   if FromDisk then
   begin
     if FMsxHw.HasDisk then MSXAutoType(580, []) else MSXAutoType(190, []);

@@ -253,17 +253,19 @@ ZX Spectrum Next have the Kempston mouse on by default (switching to either conn
 | Key | Action |
 |---|---|
 | F1 | documentation (this text) |
-| F2 | open (Shift+F2: insert a disk in drive A:) |
+| F2 | open (Ctrl+F2: insert a disk in drive A:) |
 | F3 | save snapshot |
 | F4 | pause |
-| F5 | NMI (on the ZX Spectrum Next its M1 button; Shift+F5 its DRIVE button) |
-| F6 | hard reset (Shift+F6 reset) |
+| F5 | NMI (on the ZX Spectrum Next its M1 button; Ctrl+F5 its DRIVE button) |
+| F6 | hard reset (Ctrl+F6 reset) |
 | F7 | tape browser |
-| F8 | play/pause tape (Shift+F8 stop) |
+| F8 | play/pause tape (Ctrl+F8 stop) |
 | F9 | POKE |
 | F11 | Adventure Debugger |
 | Shift+F11 | turbo (as fast as possible) |
 | F12 | debugger |
+
+On the MSX, Shift+F1 to Shift+F10 are the MSX's function keys (see MSX > Keyboard).
 
 ## 3. Menus and toolbar
 
@@ -283,8 +285,8 @@ image on a SAM Coupé or a machine without a DivMMC, no .tap on a CPC (its tapes
 recent lists of the Floppy and SD menus are filtered the same way.
 
 **Machine** (classic interface): NMI (F5), Hard reset (F6: off and on, clears the memory), Reset
-(Shift+F6), Pause and POKE. On the ZX Spectrum Next, NMI is its M1 button (the Multiface) and
-the menu has its DRIVE button too (Shift+F5: the DivMMC's NMI).
+(Ctrl+F6), Pause and POKE. On the ZX Spectrum Next, NMI is its M1 button (the Multiface) and
+the menu has its DRIVE button too (Ctrl+F5: the DivMMC's NMI).
 
 **Tape**: Insert tape & load (a .tap or .tzx, or .cdt or .tzx on a CPC; the tape is put in and the machine starts loading it, as File > Open does; clicking the cassette in the modern interface does the same), Just insert tape (only puts the tape in, with no autoload), Insert recent tape & load and Just insert recent tape (the same two, for the last tapes inserted), Tape browser, Play/pause (F8; the button, in both interfaces, shows a pause while the tape plays, and pressing it then stops the tape where it is, and Play goes on from there; a block stopped in its middle starts again from its beginning), Stop, Rewind, Eject, Save tape as, New blank tape, Fast loading
 (the ROM loader is skipped and blocks load instantly, also when the tape has been started with
@@ -330,7 +332,7 @@ Inserting an image that is already in a drive (or in the card reader) puts it in
 The Floppy menu is shown where the machine has a disk drive, or a DivMMC is on; the SD menu where there is a DivMMC (or
 the machine's own, the ZX-Uno's and the Next's).
 
-**Floppy**: Disk browser, insert (drive A: is Shift+F2), create (already formatted, 40 tracks, 9 sectors of 512 bytes; on the SAM Coupe 80 tracks,
+**Floppy**: Disk browser, insert (drive A: is Ctrl+F2), create (already formatted, 40 tracks, 9 sectors of 512 bytes; on the SAM Coupe 80 tracks,
 2 sides, 10 sectors of 512 bytes) and eject disks in drives A: and B: (on the SAM Coupe: drives 1 and 2), Insert recent disk (A:) and (B:) (the last 10 disk images that fit the machine;
 both drives share the list), Save disk (into the file it was loaded from, in its format: a `.mgt` or `.sad` is written as one, a `.dsk` as an extended DSK), Save disk as
 (`.dsk`, or `.mgt` and `.sad` for a SAM Coupe disk), Fast
@@ -448,12 +450,12 @@ The modern interface (on Windows 10 and 11 its title bar is dark too):
   plays; with no tape in it, an empty cassette player is shown
   instead; **click it to insert a tape**, as File > Open for the tapes of the machine: .tap and .tzx, or .cdt and .tzx on a CPC), the tape's name and block on one line (when it is longer than the room it scrolls to its end and back now and then, not all the time), Rewind, Play/pause, Stop and Record (flat, wide buttons),
   a button with the **Tape menu** (like the drives' menu buttons), the tape browser and Fast (fast loading, lit while on). The Tape, Floppy and SD menus are not in the header: they are behind these buttons. They leave out what has a button
-  (play, stop, rewind, record, the browsers, fast loading and fast floppy access; their shortcuts, F7, F8 and Shift+F8, still work); the classic interface's menus have everything.
+  (play, stop, rewind, record, the browsers, fast loading and fast floppy access; their shortcuts, F7, F8 and Ctrl+F8, still work); the classic interface's menus have everything.
 - **Media palette**: drives A: and B: and the SD card, each a row with its LED, a drawing of the drive (two floppy drives and an SD card reader: empty, or with a floppy
   or a card in: a card sticks out of its slot only by a little, as in a real reader), the name of what is in it (it scrolls when it is longer than the room, as the tape's does).
   Which of them can be used depends on the machine: the drives only where the machine has one (the +3, the CPC 664 and 6128 and the SAM Coupé; drive B: also
   needs to be connected), the card reader where there is a DivMMC (fitted in Settings, or the ZX-Uno's and the Next's own); the others are drawn dim ("not available"). **Click a drive or the
-  card reader** to insert something in it (the same as Floppy > Insert disk in drive A: (Shift+F2) and B:, and SD > Insert SD card image), and use the
+  card reader** to insert something in it (the same as Floppy > Insert disk in drive A: (Ctrl+F2) and B:, and SD > Insert SD card image), and use the
   **menu button on its right** to open the Floppy menu (the two drives) or the SD menu; and
   below, three buttons: Disks and SD (the disk and SD card browsers) and Fast (fast floppy disk access, lit
   while on: the same as Settings > Common > Storage, as Fast is the fast loading of the tape).
@@ -521,7 +523,7 @@ through DEVCONTROL, as on the real board, so programs that page memory or switch
 as the Radastan video player `.playrmov`) need a 128K ROM: choose one in the boot menu (Break) or
 make it the default in the BIOS setup (Edit).
 
-Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset (Shift+F6) restarts the ROM
+Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset (Ctrl+F6) restarts the ROM
 the BIOS chose. File > Save snapshot saves a .e80 (see [emu80 snapshots](#emu80-snapshots-e80)): .sna
 and .z80 can't hold its SRAM and registers.
 
@@ -613,7 +615,7 @@ Next starts as the real one: its boot ROM (`roms/tbblue_loader.rom`) loads the f
 (`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (emu80 says it is an
 emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-zx_nextfirmware`), NextZXOS starts
 directly from the distribution's ROMs, as if the firmware had chosen it. Hard reset (F6) starts
-it all again; Reset (Shift+F6) is the Next's soft reset.
+it all again; Reset (Ctrl+F6) is the Next's soft reset.
 
 **.nex files** (File > Open, or the command line) switch to the Next if needed and are loaded
 into its memory and started, as NextZXOS's `.nexload` does (versions 1.0 to 1.3: loading screens
@@ -636,7 +638,7 @@ the Next's extra keys, read in NR `B0` and `B1`.
 
 **NMI buttons and the Multiface.** NMI (F5) is the Next's M1 button: NextZXOS's Multiface menu
 (Snapshot, Screenshot, TAP files, POKEs, Debug tools, Settings, Keymap...), from
-`enNextMf.rom` in the distribution. Machine > DRIVE button (Shift+F5) is the DivMMC's NMI. Each
+`enNextMf.rom` in the distribution. Machine > DRIVE button (Ctrl+F5) is the DivMMC's NMI. Each
 works when NextZXOS lets it (NR `06` bits 3 and 4; NextZXOS turns the DRIVE button off by
 default), as on the real machine; NR `02` makes them by software. The Multiface (its four types,
 NR `0A`, the +3 one by default) pages its 8K ROM and 8K RAM in over everything else at `0066`
@@ -920,13 +922,14 @@ machine), and the programs that size themselves by the memory left by DOS get mo
 
 **ROMs.** The MSX2 runs on emu80's own ROMs, QUANTIKA: `roms/msx/QUANTIKA.ROM` (the 32K BIOS with FBASIC, a BASIC
 compatible with MSX-BASIC 2.1; the machine starts with "QUANTIKA ROM with FBASIC 1.0", the date and time of the build and
-its RAM and VRAM, white on dark blue, and its bottom row shows the date and time instead of the function keys) and
+its RAM and VRAM, white on dark blue, and its bottom row shows the date and time instead of the function keys, which
+type nothing until `KEY n,"..."` gives them a string) and
 `roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM), with `roms/msx/QUANTIKA_DISK.ROM` for the disk interface (see Disks below). They
 come with emu80 and are still being completed. To use the original ROMs
 instead, look for `MSX2.rom` (the 32K BIOS and MSX-BASIC 2 of an MSX2) and `MSX2EXT.rom` (its 16K sub-ROM), and for a
 disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` and choose them with
 `--rom "msx2,0,FILE"`, `--rom "msx2,1,FILE"` and `--rom "msx2,2,FILE"` (the disk interface) or in Settings > Common > ROMs, where
-the MSX 2 has three: ROM (the main ROM), SUBROM and FLOPPY DISK, which is empty by default (no disk drive). The first time the
+the MSX 2 has three: ROM (the main ROM), SUBROM and FLOPPY DISK (the disk interface's ROM). The first time the
 MSX starts, a note says what it emulates, that it uses unofficial ROMs, and where to put the original ones; it is shown once
 (`msx_notice` in the `[MSX]` section of the settings file, `--msx_notice` shows it again).
 
@@ -968,8 +971,9 @@ tape that starts the machine also turns the mapper off, with `auto`, but keeps t
 
 **Keyboard.** Each PC key is the MSX key in the same place (the international layout): Shift, Ctrl, Caps Lock, Esc, Tab,
 Backspace (BS), Enter, Space, Home, Insert, Delete and the cursor keys are the MSX's; Page Up is CODE, Page Down GRAPH, End
-SELECT and Pause STOP; the numeric keypad's 1 to 5 are F1 to F5 (the PC's F keys are the emulator's) and its other digits
-the digits. With "MSX: cursor keys and right Ctrl as joystick 1" (`--msx_joystick`, on by default) the cursor keys also move
+SELECT and Pause STOP; the MSX's function keys are Shift+F1 to Shift+F5 (F1 to F5; the MSX's SHIFT is let go while
+they are held) and Shift+F6 to Shift+F10 (F6 to F10, which on the MSX are SHIFT+F1 to F5), and also the numeric keypad's 1
+to 5 (F1 to F5; the PC's F keys alone are the emulator's); the keypad's other digits are the digits. With "MSX: cursor keys and right Ctrl as joystick 1" (`--msx_joystick`, on by default) the cursor keys also move
 joystick 1 and the right Ctrl is its first button.
 
 | Setting | Command line | Settings file (`[MSX]`) |
@@ -996,19 +1000,23 @@ is played as the real signal (1200 baud FSK: a 2400 Hz pilot, then 0 bits as a c
 tape plays. The tape browser lists the files of the tape. A `.tap` (a ZX Spectrum tape) is refused on the MSX. Saving to
 tape is not emulated.
 
-**Disks.** The machine has a disk drive when the interface's ROM is chosen (Settings > Common > ROMs > FLOPPY DISK, empty by
-default): copy the disk ROM of a Philips MSX (the `PHILIPSDISK.rom` of its disk interface or the machine's own) to
-`roms/msx/PHILIPSDISK.rom` and choose it there. It is the Philips WD2793
-interface with MSX-DOS 1 in its ROM (its registers at 7FF8h-7FFFh), with drive A: (and B: if "Drive B connected" is on).
-Without the ROM the machine has no disk drive (the Floppy menu says so). The disk ROM must suit the main ROM: `PHILIPSDISK.rom`
-calls into the original BASIC and cannot run on emu80's own main ROM (`QUANTIKA.ROM`, the default), so with it the interface is
-left out. emu80's own disk ROM, `roms/msx/QUANTIKA_DISK.ROM`, is for the QUANTIKA ROMs only (with the original main ROM it is
-left out the same way); it is still being written and does not read disks yet, so it is not chosen by default. The disk images are raw sectors (`.dsk`): 720K
+**Disks.** The machine has a disk drive: the Philips WD2793 interface (its registers at 7FF8h-7FFFh), with drive A:
+(and B: if "Drive B connected" is on), driven by the interface's ROM (Settings > Common > ROMs > FLOPPY DISK). By default
+it is emu80's own, `roms/msx/QUANTIKA_DISK.ROM`: it reads and writes disks, boots MSX-DOS 1 disks and game disks (with a
+DOS kernel compatible with MSX-DOS 1), and has Disk BASIC (LOAD, SAVE, MERGE, RUN, BLOAD, BSAVE, FILES, LFILES, KILL, NAME,
+COPY, DSKF, CALL FORMAT, CALL SYSTEM, AUTOEXEC.BAS, and the files: OPEN for input, output, append and random access,
+INPUT #, LINE INPUT #, PRINT #, INPUT$, EOF, LOC, LOF, FIELD, GET, PUT, LSET, RSET, MKI$, MKS$, MKD$, CVI, CVS, CVD, DSKI$,
+DSKO$, MAXFILES); BASIC's banner then says "QUANTIKA Disk BASIC extension 1.0" and it asks no date at power-on. The
+original one is the disk ROM of a Philips MSX (the `PHILIPSDISK.rom` of its disk interface or the machine's own): copy it to
+`roms/msx/PHILIPSDISK.rom` and choose it there. The disk ROM must suit the main ROM: `PHILIPSDISK.rom` calls into the
+original BASIC and cannot run on emu80's own main ROM (`QUANTIKA.ROM`, the default), and `QUANTIKA_DISK.ROM` runs only on
+it; a disk ROM that does not suit the main ROM is left out, and so is a missing file: then the machine has no disk drive
+(the Floppy menu says so; also with the MSX1 slot layout, above). The disk images are raw sectors (`.dsk`): 720K
 (80 cylinders, 2 sides, 9 sectors of 512 bytes), 360K (40 cylinders, 2 sides, or 80 cylinders and 1 side; told apart by the
 boot sector's media byte), and 180K, 320K and 160K ones; they are FAT12 volumes, and a .dsk is saved back as raw sectors
 (never converted to an Amstrad DSK). **File > Open** of a `.dsk` inserts it in drive A: and restarts the machine, which
-boots it (a DOS disk: MSX-DOS 1.03 to its `A>` prompt; a data disk or no disk: the ROM first asks the date, which Auto load
-answers with ENTER, and then Disk BASIC starts). The Floppy menu and the disk browser work as on the other machines: the
+boots it (a DOS disk: its MSX-DOS to the `A>` prompt; a data disk or no disk: Disk BASIC starts, and runs AUTOEXEC.BAS
+if the disk has it; `PHILIPSDISK.rom` first asks the date, which Auto load answers with ENTER). The Floppy menu and the disk browser work as on the other machines: the
 browser shows the root directory of the FAT12 disk (name, type, size, attributes) and imports, exports, renames and
 deletes files; new disks (Floppy > New disk) are formatted 720K. Disks made for MSX-DOS 2 need the DOS 2 kernel ROM, which
 is not emulated yet (MSX-DOS 1 disks boot).

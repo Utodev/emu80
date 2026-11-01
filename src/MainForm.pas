@@ -78,13 +78,14 @@ type
     FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
     FSamKeyCount: array[0..SAMK_COUNT - 1] of Integer;   // the SAM Coupe's keys (SAMK_*) held
     FMsxKeyCount: array[0..MSXK_COUNT - 1] of Integer;   // the MSX's keys (MSXK_*) held
+    FMsxShiftOff: Integer;                  // Shift+F1..F5 held (the MSX's F1..F5): its SHIFT is not down
     FMsxJoy: array[0..5] of Integer;         // the MSX joystick's directions and buttons held (MSXJ_ bit order)
     FCartTop: TMenuItem;                     // the Cartridge menu (MSX)
     FCartMapperItems: array[0..5] of TMenuItem;   // auto, plain, konami, konamiscc, ascii8, ascii16
     FCartFile: string;                       // the file of the cartridge inserted
     FOldMapper: string;                      // the cartridge mapper when the settings window opened
     // The SAM's keys that make characters go by the character the PC keyboard gives (any layout), not
-    // by the key: FSamRoute 1 = by character, 2 = Alt+F key; the chord of each PC key held
+    // by the key: FSamRoute 1 = by character, 2 = Alt+F key (the MSX: Shift+F key); the chord of each PC key held
     FSamRoute: array[0..255] of Byte;
     FSamChordKey, FSamChordMod: array[0..255] of SmallInt;
     FSamChordKeys: array[0..SAMK_COUNT - 1] of Integer;   // the SAM keys held by those chords
@@ -652,9 +653,9 @@ begin
   TopItem := AddItem(FMenu.Items, '&Machine', nil);
   AddItem(TopItem, '&NMI', @DoNMI, ShortCut(VK_F5, []));
   // The ZX Spectrum Next's second NMI button (F5 is its M1 button)
-  FDriveNmiItem := AddItem(TopItem, '&DRIVE button (DivMMC NMI)', @DoDriveNMI, ShortCut(VK_F5, [ssShift]));
+  FDriveNmiItem := AddItem(TopItem, '&DRIVE button (DivMMC NMI)', @DoDriveNMI, ShortCut(VK_F5, [ssCtrl]));
   AddItem(TopItem, '&Hard reset', @DoHardReset, ShortCut(VK_F6, []));
-  AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssShift]));
+  AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssCtrl]));
   AddItem(TopItem, '-', nil);
   FPauseItem := AddItem(TopItem, '&Pause', @DoPause, ShortCut(VK_F4, []));
   AddItem(TopItem, '-', nil);
@@ -672,7 +673,7 @@ begin
   FModernHide := TList.Create;
   FModernHide.Add(AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, [])));
   FModernHide.Add(AddItem(TopItem, '&Play/pause', @DoTapePlay, ShortCut(VK_F8, [])));
-  FModernHide.Add(AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssShift])));
+  FModernHide.Add(AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssCtrl])));
   FRecItem := AddItem(TopItem, 'Re&cord (REC)', @DoTapeRecord);
   FModernHide.Add(FRecItem);
   FModernHide.Add(AddItem(TopItem, '&Rewind', @DoTapeRewind));
@@ -691,7 +692,7 @@ begin
   FDiskBrowserItem := AddItem(TopItem, 'Disk &browser...', @DoDiskBrowser);
   FModernHide.Add(FDiskBrowserItem);
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert, ShortCut(VK_F2, [ssShift]));
+  Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert, ShortCut(VK_F2, [ssCtrl]));
   Item.Tag := 0;
   FRecentDisksMenu := AddItem(TopItem, 'Insert &recent disk (A:)', nil);
   // Drive B's entries show only while it is connected (UpdateChecks)
@@ -918,7 +919,7 @@ begin
   AddSeparator;
   AddButton(ikTape, 'Tape browser (F7)', @DoTapeBrowser);
   FTapePlayButton := AddButton(ikPlay, 'Play/pause tape (F8)', @DoTapePlay);
-  AddButton(ikStop, 'Stop tape (Shift+F8)', @DoTapeStop);
+  AddButton(ikStop, 'Stop tape (Ctrl+F8)', @DoTapeStop);
   FRecButton := AddButton(ikRecord, 'Record onto the tape (REC)', @DoTapeRecord);
   FRecButton.Style := tbsCheck;
   AddSeparator;
@@ -1703,7 +1704,8 @@ begin
     begin
       Value := $FF;
       for Bit := 0 to 7 do
-        if FMsxKeyCount[Row * 8 + Bit] > 0 then Value := Value and not (1 shl Bit);
+        if (FMsxKeyCount[Row * 8 + Bit] > 0) and ((Row * 8 + Bit <> MSXK_SHIFT) or (FMsxShiftOff = 0)) then
+          Value := Value and not (1 shl Bit);
       FEmu.Spec.MSXHw.KeyMatrix[Row] := Value;
     end;
     Value := $3F;
@@ -1907,7 +1909,8 @@ end;
 
 { The same for the MSX: each PC key is the MSX key in its place (the keyboard is the international
   one); Ctrl is CTRL, Page Up CODE, Page Down GRAPH, End SELECT, Pause STOP, Backspace BS; the numeric
-  keypad 1-5 are F1-F5 (the PC's F keys are the emulator's) and its other digits the digits; the cursor
+  keypad 1-5 are F1-F5 and its other digits the digits; Shift+F1..F5 are F1..F5 (the MSX's SHIFT is let go
+  meanwhile) and Shift+F6..F10 its F6..F10 (SHIFT+F1..F5; the PC's F keys alone are the emulator's); the cursor
   keys are the cursor keys and also joystick 1, with the right Ctrl as its fire button }
 procedure TMainWindow.MapKeyMSX(Key: Word; Down: Boolean);
 
@@ -1931,6 +1934,19 @@ const
     MSXK_0, MSXK_1, MSXK_2, MSXK_3, MSXK_4, MSXK_5, MSXK_6, MSXK_7, MSXK_8, MSXK_9);
   PadF: array[1..5] of Integer = (MSXK_F1, MSXK_F2, MSXK_F3, MSXK_F4, MSXK_F5);
 begin
+  // Shift+F1..F10 (FormKeyDown routed them here)
+  if (Key >= VK_F1) and (Key <= VK_F10) then
+  begin
+    if (Key > High(FSamRoute)) or (FSamRoute[Key] <> 2) then Exit;
+    if Key <= VK_F5 then
+    begin
+      Press(PadF[Key - VK_F1 + 1]);
+      if Down then Inc(FMsxShiftOff) else if FMsxShiftOff > 0 then Dec(FMsxShiftOff);
+    end
+    else Press(PadF[Key - VK_F6 + 1]);
+    if not Down then FSamRoute[Key] := 0;
+    Exit;
+  end;
   case Key of
     VK_A..VK_Z: Press(Letters[Chr(Key)]);
     VK_0..VK_9: Press(Digits[Chr(Key)]);
@@ -2177,7 +2193,7 @@ end;
 
 procedure TMainWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 var
-  IsSam, AltGr, SamF, ByChar: Boolean;
+  IsSam, AltGr, SamF, MsxF, ByChar: Boolean;
 begin
   // The modern interface has no menu bar to take its shortcuts
   if FModern and MenuShortcut(Key, Shift) then
@@ -2190,7 +2206,10 @@ begin
   AltGr := (ssAltGr in Shift) or ((ssAlt in Shift) and (ssCtrl in Shift));
   // The SAM's F keys are Alt+F1..F10 (the others are the emulator's)
   SamF := IsSam and (ssAlt in Shift) and not AltGr and (Key >= VK_F1) and (Key <= VK_F10);
-  if (Key >= VK_F1) and (Key <= VK_F24) and not SamF then Exit;    // leave function keys to the menu
+  // The MSX's F keys are Shift+F1..F10
+  MsxF := IsMSXModel(FEmu.Spec.Model) and (ssShift in Shift) and not (ssCtrl in Shift) and not (ssAlt in Shift) and
+    (Key >= VK_F1) and (Key <= VK_F10);
+  if (Key >= VK_F1) and (Key <= VK_F24) and not SamF and not MsxF then Exit;    // leave function keys to the menu
   if not SamF and ((Key = VK_MENU) or ((ssAlt in Shift) and not (IsSam and AltGr))) then Exit;
   {$IFDEF WINDOWS}
   if Key in MODIFIER_KEYS then
@@ -2210,7 +2229,7 @@ begin
     begin
       FPCKeyDown[Key] := True;
       FPCKeyTime[Key] := GetTickCount64;
-      if SamF then FSamRoute[Key] := 2
+      if SamF or MsxF then FSamRoute[Key] := 2
       else if ByChar then
       begin
         FSamRoute[Key] := 1;
@@ -2381,6 +2400,7 @@ begin
   for I := 0 to High(FSamKeyCount) do FSamKeyCount[I] := 0;
   for I := 0 to High(FMsxKeyCount) do FMsxKeyCount[I] := 0;
   for I := 0 to High(FMsxJoy) do FMsxJoy[I] := 0;
+  FMsxShiftOff := 0;
   for I := 0 to High(FSamChordKeys) do FSamChordKeys[I] := 0;
   for I := 0 to High(FSamRoute) do
   begin
@@ -4273,13 +4293,12 @@ end;
 { The note the first time the MSX starts: what it emulates and the ROMs it uses (msx_notice turns it on again) }
 procedure TMainWindow.MsxNotice;
 const
-  NOTE = 'This emulator emulates an MSX2 and also uses unofficial QUANTIKA ROMs. As a result, some games may ' +
-    'not work. Replacing the ROMs with the official ones may help. Alternatively, enabling MSX1 compatibility ' +
-    'mode (in the Options menu) may also help, especially with games from the early days of the MSX.' + LineEnding + LineEnding +
-    'If you want to use the official ROMs, you will need the MSX2.ROM and MSX2EXT.ROM files. Place them in the ' +
-    'roms/msx folder, then select them under Settings > Common > ROMs.' + LineEnding + LineEnding +
-    'To use a floppy disk drive, add the PHILIPSDISK.rom file under FLOPPY DISK. This will only work with the ' +
-    'original ROMs. Searching the web for this ROM will probably lead you to the other two files as well.';
+  NOTE = 'This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ' +
+    'ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) ' +
+    'may help, especially with games from the early days of the MSX.' + LineEnding + LineEnding +
+    'If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. ' +
+    'Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them.' + LineEnding + LineEnding +
+    'Searching for PHILIPSDISK.rom will probably lead you to the other two files as well.';
 begin
   if not Settings.MsxNotice or not IsMSXModel(FEmu.Spec.Model) then Exit;
   Settings.MsxNoticeShown;

@@ -225,9 +225,10 @@ if "$BUILD/msxfree" screen "$FREEROMS" 100 | grep -q "QUANTIKA ROM with FBASIC 1
   cp -f "$FREEROMS/msx/MSX2.rom" "$FREEROMS/msx/MSX2EXT.rom" "$FREEDISK/msx/"
   cp -f "$ROOT/roms/msx/QUANTIKA_DISK.ROM" "$FREEDISK/msx/PHILIPSDISK.rom"
   OUTPUT=$("$BUILD/msxfree" screen "$FREEDISK" 300)
-  echo "$OUTPUT" | grep -q "QUANTIKA ROM with FBASIC 1.0" && echo "$OUTPUT" | tail -1 | grep -q " disk=1" || {
+  echo "$OUTPUT" | grep -q "QUANTIKA ROM with FBASIC 1.0" && echo "$OUTPUT" | tail -1 | grep -q " disk=1" &&
+    echo "$OUTPUT" | grep -q "QUANTIKA Disk BASIC extension 1.0" || {
     echo "FAIL  the QUANTIKA ROMs do not boot with QUANTIKA_DISK.ROM in the disk interface"; exit 1; }
-  echo "ok    the QUANTIKA ROMs boot with QUANTIKA_DISK.ROM in the disk interface"
+  echo "ok    the QUANTIKA ROMs boot with QUANTIKA_DISK.ROM in the disk interface (Disk BASIC)"
   if [ -f "$ROOT/roms/msx/PHILIPSDISK.rom" ]; then
     cp -f "$ROOT/roms/msx/PHILIPSDISK.rom" "$FREEDISK/msx/PHILIPSDISK.rom"
     OUTPUT=$("$BUILD/msxfree" screen "$FREEDISK" 300)
