@@ -122,7 +122,7 @@ function AskOverwrite(const AName: string; Many: Boolean; var All: Boolean): Int
 implementation
 
 uses
-  Config, DiskFormat;
+  Config, DiskFormat, Lang;
 
 function HasFileHeader(const Data: TBytes): Boolean;
 begin
@@ -168,7 +168,7 @@ begin
   if All then Exit(mrYes);
   Buttons := [mbYes, mbNo, mbCancel];
   if Many then Buttons := Buttons + [mbYesToAll];
-  Result := MessageDlg('Overwrite', Format('%s already exists. Overwrite it?', [AName]),
+  Result := MessageDlg(_('Overwrite'), Format(_('%s already exists. Overwrite it?'), [AName]),
     mtConfirmation, Buttons, 0);
   if Result = mrYesToAll then
   begin
@@ -198,7 +198,7 @@ begin
   inherited Create;
   FDisabled := TList.Create;
   FForm := TForm.CreateNew(nil, 0);
-  FForm.Caption := 'Importing';
+  FForm.Caption := _('Importing');
   FForm.BorderStyle := bsDialog;
   FForm.BorderIcons := [];
   FForm.Position := poMainFormCenter;
@@ -320,7 +320,7 @@ begin
         begin
           DirDlg := TSelectDirectoryDialog.Create(nil);
           try
-            DirDlg.Title := 'Import a folder and its contents';
+            DirDlg.Title := _('Import a folder and its contents');
             DirDlg.InitialDir := StartDir(Dir);
             if not DirDlg.Execute then Exit;
             Paths.Add(DirDlg.FileName);
@@ -335,7 +335,7 @@ begin
           Dlg := TOpenDialog.Create(nil);
           try
             Dlg.InitialDir := StartDir(Dir);
-            Dlg.Filter := 'All files|*.*';
+            Dlg.Filter := _F('All files|*.*');
             Dlg.Options := Dlg.Options + [ofFileMustExist, ofAllowMultiSelect];
             if not Dlg.Execute then Exit;
             Paths.Assign(Dlg.Files);
@@ -365,7 +365,7 @@ begin
       Error := MakeDir(Folders[I]);
       if Error <> '' then
       begin
-        MessageDlg('Could not create the folder ' + Folders[I] + ': ' + Error, mtError, [mbOK], 0);
+        MessageDlg(_('Could not create the folder ') + Folders[I] + ': ' + Error, mtError, [mbOK], 0);
         Exit('');
       end;
     end;
@@ -389,7 +389,7 @@ begin
       except
         on E: Exception do
         begin
-          MessageDlg('Could not read ' + ExtractFileName(Files[I]) + ': ' + E.Message, mtError, [mbOK], 0);
+          MessageDlg(_('Could not read ') + ExtractFileName(Files[I]) + ': ' + E.Message, mtError, [mbOK], 0);
           Continue;
         end;
       end;
@@ -401,9 +401,9 @@ begin
         // Copied as it is
         if not ForAll then
         begin
-          if LongNames then Error := 'Name (the file is copied as it is):'
-          else Error := 'Name (8.3; the file is copied as it is):';
-          if not InputQuery('Import ' + ExtractFileName(Files[I]), Error, AName) then Break;
+          if LongNames then Error := _('Name (the file is copied as it is):')
+          else Error := _('Name (8.3; the file is copied as it is):');
+          if not InputQuery(Format(_('Import %s'), [ExtractFileName(Files[I])]), Error, AName) then Break;
         end;
       end
       else if ForAll then
@@ -429,19 +429,19 @@ begin
       Error := Write(AName, Data, Answer = mrYes);
       if Error <> '' then
       begin
-        MessageDlg('Could not import ' + ExtractFileName(Files[I]) + ': ' + Error, mtError, [mbOK], 0);
+        MessageDlg(_('Could not import ') + ExtractFileName(Files[I]) + ': ' + Error, mtError, [mbOK], 0);
         Break;
       end;
       Inc(Done);
       if (Files.Count = 1) and (Folders.Count = 0) then
       begin
-        if LongNames then Result := 'imported ' + AName else Result := 'imported ' + UpperCase(AName);
+        if LongNames then Result := Format(_('imported %s'), [AName]) else Result := Format(_('imported %s'), [UpperCase(AName)]);
       end;
     end;
     if (Files.Count > 1) or (Done = 0) or (Folders.Count > 0) then
-      Result := Format('imported %d of %d files', [Done, Files.Count]);
-    if Folders.Count = 1 then Result := Result + ', 1 folder'
-    else if Folders.Count > 1 then Result := Result + Format(', %d folders', [Folders.Count]);
+      Result := Format(_('imported %d of %d files'), [Done, Files.Count]);
+    if Folders.Count = 1 then Result := Result + _(', 1 folder')
+    else if Folders.Count > 1 then Result := Result + Format(_(', %d folders'), [Folders.Count]);
   finally
     Progress.Free;
     Files.Free;
@@ -469,12 +469,12 @@ begin
   if WithHeader > 0 then
   begin
     if Length(Names) = 1 then
-      Answer := MessageDlg('Export', 'The file has an ' + HeaderName + ' header. Keep it in the exported file?' +
-        LineEnding + LineEnding + 'No: just the data (' + IntToStr(Length(Datas[0]) - PLUS3_HEADER_SIZE) +
-        ' bytes).', mtConfirmation, [mbYes, mbNo, mbCancel], 0)
+      Answer := MessageDlg(_('Export'), Format(_('The file has an %s header. Keep it in the exported file?'),
+        [HeaderName]) + LineEnding + LineEnding +
+        Format(_('No: just the data (%d bytes).'), [Length(Datas[0]) - PLUS3_HEADER_SIZE]), mtConfirmation, [mbYes, mbNo, mbCancel], 0)
     else
-      Answer := MessageDlg('Export', Format('%d of the files have a ' + HeaderName + ' header. Keep it in the ' +
-        'exported files?', [WithHeader]) + LineEnding + LineEnding + 'No: just their data.',
+      Answer := MessageDlg(_('Export'), Format(_('%d of the files have a %s header. Keep it in the exported files?'),
+        [WithHeader, HeaderName]) + LineEnding + LineEnding + _('No: just their data.'),
         mtConfirmation, [mbYes, mbNo, mbCancel], 0);
     if Answer = mrCancel then Exit;
     if Answer = mrNo then
@@ -487,7 +487,7 @@ begin
     try
       Dlg.FileName := Names[0];
       Dlg.InitialDir := StartDir(Dir);
-      Dlg.Filter := 'All files|*.*';
+      Dlg.Filter := _F('All files|*.*');
       Dlg.Options := Dlg.Options + [ofOverwritePrompt];
       if not Dlg.Execute then Exit;
       Target := Dlg.FileName;
@@ -500,7 +500,7 @@ begin
   begin
     DirDlg := TSelectDirectoryDialog.Create(nil);
     try
-      DirDlg.Title := Format('Export %d files to the folder', [Length(Names)]);
+      DirDlg.Title := Format(_('Export %d files to the folder'), [Length(Names)]);
       DirDlg.InitialDir := StartDir(Dir);
       if not DirDlg.Execute then Exit;
       Dir := DirDlg.FileName;
@@ -533,17 +533,17 @@ begin
     except
       on E: Exception do
       begin
-        MessageDlg('Could not save ' + Target + ': ' + E.Message, mtError, [mbOK], 0);
+        MessageDlg(_('Could not save ') + Target + ': ' + E.Message, mtError, [mbOK], 0);
         Break;
       end;
     end;
   end;
   if Length(Names) = 1 then
   begin
-    if Done = 1 then Result := Format('Exported %s (%d bytes)', [ExtractFileName(Target), Length(Datas[0])]);
+    if Done = 1 then Result := Format(_('Exported %s (%d bytes)'), [ExtractFileName(Target), Length(Datas[0])]);
   end
   else
-    Result := Format('Exported %d of %d files to %s', [Done, Length(Names), Dir]);
+    Result := Format(_('Exported %d of %d files to %s'), [Done, Length(Names), Dir]);
 end;
 
 function DriveAvailable(Spec: TSpectrum; Drive: Integer): Boolean;
@@ -589,7 +589,7 @@ constructor TDiskBrowserWindow.CreateFor(AOwner: TComponent; AEmu: TEmulator);
 begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
-  Caption := 'Disk browser';
+  Caption := _('Disk browser');
   FTitle := TPathTitle.Create(Self);
   Width := 640;
   Height := 400;
@@ -615,19 +615,19 @@ begin
   FDriveCombo.Style := csDropDownList;
   FDriveCombo.Width := 70;
 
-  FDriveCombo.Hint := 'Drive (the ones with a disk)';
+  FDriveCombo.Hint := _('Drive (the ones with a disk)');
   FDriveCombo.ShowHint := True;
   FDriveCombo.OnChange := @DriveChange;
   FDriveCombo.Left := 1000;
   AddSeparator;
-  AddButton(ikRefresh, 'Read the directory again', @DoRefresh);
+  AddButton(ikRefresh, _('Read the directory again'), @DoRefresh);
   AddSeparator;
-  AddButton(ikOpen, 'Import files from the PC onto the disk... (or drop files and folders here)', @DoImport);
-  AddButton(ikImportFolder, 'Import the files in a folder of the PC (and its subfolders) onto the disk...',
+  AddButton(ikOpen, _('Import files from the PC onto the disk... (or drop files and folders here)'), @DoImport);
+  AddButton(ikImportFolder, _('Import the files in a folder of the PC (and its subfolders) onto the disk...'),
     @DoImportFolder);
-  AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
-  AddButton(ikRename, 'Rename the selected file... (F2)', @DoRename);
-  AddButton(ikDelete, 'Delete the selected files (Del)', @DoDelete);
+  AddButton(ikSave, _('Export the selected files to the PC...'), @DoExport);
+  AddButton(ikRename, _('Rename the selected file... (F2)'), @DoRename);
+  AddButton(ikDelete, _('Delete the selected files (Del)'), @DoDelete);
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
@@ -643,12 +643,12 @@ begin
   FList.MultiSelect := True;
   FList.OnDblClick := @DoExport;
   FList.OnKeyDown := @ListKeyDown;
-  AddColumn('Name', 110);
-  AddColumn('Type', 110);
-  AddColumn('Start / line', 90, True);
-  AddColumn('Length', 70, True);
-  AddColumn('Size on disk', 90, True);
-  AddColumn('Attributes', 90);
+  AddColumn(_('Name'), 110);
+  AddColumn(_('Type'), 110);
+  AddColumn(_('Start / line'), 90, True);
+  AddColumn(_('Length'), 70, True);
+  AddColumn(_('Size on disk'), 90, True);
+  AddColumn(_('Attributes'), 90);
 
   FTimer := TTimer.Create(Self);
   FTimer.Interval := 1000;
@@ -745,7 +745,7 @@ begin
     FLastDisk := Disk;
     if Disk = nil then
     begin
-      Error := Format('There is no disk in drive %s:', [Chr(Ord('A') + FDrive)]);
+      Error := Format(_('There is no disk in drive %s:'), [Chr(Ord('A') + FDrive)]);
       FList.Items.Clear;
       FStatus.SimpleText := Error;
       Exit;
@@ -804,22 +804,22 @@ begin
             else Item.SubItems.Add(IntToStr(F.Size));
             Item.SubItems.Add(IntToStr(F.Size));
             Attr := '';
-            if F.ReadOnly then Attr := Attr + 'read-only ';
-            if F.System then Attr := Attr + 'system ';
-            if F.User <> 0 then Attr := Attr + Format('user %d', [F.User]);
+            if F.ReadOnly then Attr := Attr + _('read-only ');
+            if F.System then Attr := Attr + _('system ');
+            if F.User <> 0 then Attr := Attr + Format(_('user %d'), [F.User]);
             Item.SubItems.Add(Trim(Attr));
             if I = Selected then Item.Selected := True;
           end;
         finally
           FList.Items.EndUpdate;
         end;
-        FStatus.SimpleText := Format('%d files, %dK free', [FS.Count, FS.FreeBytes div 1024]);
-        if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
+        FStatus.SimpleText := Format(_('%d files, %dK free'), [FS.Count, FS.FreeBytes div 1024]);
+        if Disk.Modified then Suffix := _(' (modified)') else Suffix := '';
         if Disk.FileName <> '' then
-          FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]),
+          FTitle.SetTitle(Format(_('Disk browser - %s: '), [Chr(Ord('A') + FDrive)]),
             ExpandFileName(Disk.FileName), Suffix)
         else
-          FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
+          FTitle.SetTitle(Format(_('Disk browser - %s: (new disk)'), [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
         FLastModified := Disk.Modified;
         Result := True;
       finally
@@ -837,7 +837,7 @@ begin
     if not FQuiet then MessageDlg(Error, mtError, [mbOK], 0);
   end
   else if Error <> '' then
-    FStatus.SimpleText := 'Can''t read the disk: ' + Error;
+    FStatus.SimpleText := _('Can''t read the disk: ') + Error;
 end;
 
 { A PC file for a SAMDOS disk: a +3DOS header (from the +3 browser, or the Spectrum's tools) says
@@ -908,12 +908,12 @@ begin
         // Where it starts: the page and the address in it
         StartText := '';
         if F.FileType in [SAMDOS_TYPE_CODE, SAMDOS_TYPE_SCREEN] then
-          StartText := Format('page %d:%.4X', [F.StartPage and $1F, F.Offset]);
+          StartText := Format(_('page %d:%.4X'), [F.StartPage and $1F, F.Offset]);
         Item.SubItems.Add(StartText);
         Item.SubItems.Add(IntToStr(F.Length));
         Item.SubItems.Add(IntToStr(F.Sectors * 512));
         Attr := '';
-        if F.Hidden then Attr := Attr + 'hidden ';
+        if F.Hidden then Attr := Attr + _('hidden ');
         if F.Protected then Attr := Attr + 'protected';
         Item.SubItems.Add(Trim(Attr));
         if I = Selected then Item.Selected := True;
@@ -921,12 +921,12 @@ begin
     finally
       FList.Items.EndUpdate;
     end;
-    FStatus.SimpleText := Format('%d files (SAMDOS), %dK free', [FS.Count, FS.FreeBytes div 1024]);
-    if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
+    FStatus.SimpleText := Format(_('%d files (SAMDOS), %dK free'), [FS.Count, FS.FreeBytes div 1024]);
+    if Disk.Modified then Suffix := _(' (modified)') else Suffix := '';
     if Disk.FileName <> '' then
-      FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
+      FTitle.SetTitle(Format(_('Disk browser - %s: '), [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
     else
-      FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
+      FTitle.SetTitle(Format(_('Disk browser - %s: (new disk)'), [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
     FLastModified := Disk.Modified;
   finally
     FS.Free;
@@ -952,7 +952,7 @@ begin
       case AAction of
         ACT_READ:
           begin
-            if IsDirectory(Entries[Index]) then raise Exception.Create('That is a directory, not a file.');
+            if IsDirectory(Entries[Index]) then raise Exception.Create(_('That is a directory, not a file.'));
             ReadData := Vol.ReadFile(Entries[Index]);
           end;
         ACT_WRITE, ACT_REPLACE:
@@ -986,13 +986,13 @@ begin
           Item := FList.Items.Add;
           Item.Caption := DisplayName(E);
           Item.Data := Pointer(PtrInt(I));
-          if IsDirectory(E) then Item.SubItems.Add('Directory') else Item.SubItems.Add('File');
+          if IsDirectory(E) then Item.SubItems.Add(_('Directory')) else Item.SubItems.Add(_('File'));
           Item.SubItems.Add('');
           if IsDirectory(E) then Item.SubItems.Add('') else Item.SubItems.Add(IntToStr(E.Size));
           Item.SubItems.Add(IntToStr(E.Size));
           Attr := '';
-          if (E.Attr and 1) <> 0 then Attr := Attr + 'read-only ';
-          if (E.Attr and 2) <> 0 then Attr := Attr + 'hidden ';
+          if (E.Attr and 1) <> 0 then Attr := Attr + _('read-only ');
+          if (E.Attr and 2) <> 0 then Attr := Attr + _('hidden ');
           if (E.Attr and 4) <> 0 then Attr := Attr + 'system';
           Item.SubItems.Add(Trim(Attr));
           if I = Selected then Item.Selected := True;
@@ -1000,18 +1000,18 @@ begin
       finally
         FList.Items.EndUpdate;
       end;
-      FStatus.SimpleText := Format('%d files (MSX-DOS, FAT12), %dK free', [Length(Entries), Vol.FreeBytes div 1024]);
+      FStatus.SimpleText := Format(_('%d files (MSX-DOS, FAT12), %dK free'), [Length(Entries), Vol.FreeBytes div 1024]);
     finally
       Vol.Free;
     end;
   finally
     Stream.Free;
   end;
-  if Disk.Modified then Suffix := ' (modified)' else Suffix := '';
+  if Disk.Modified then Suffix := _(' (modified)') else Suffix := '';
   if Disk.FileName <> '' then
-    FTitle.SetTitle(Format('Disk browser - %s: ', [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
+    FTitle.SetTitle(Format(_('Disk browser - %s: '), [Chr(Ord('A') + FDrive)]), ExpandFileName(Disk.FileName), Suffix)
   else
-    FTitle.SetTitle(Format('Disk browser - %s: (new disk)', [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
+    FTitle.SetTitle(Format(_('Disk browser - %s: (new disk)'), [Chr(Ord('A') + FDrive)]) + Suffix, '', '');
   FLastModified := Disk.Modified;
 end;
 
@@ -1051,7 +1051,7 @@ begin
   Index := SelectedIndex;
   if Index < 0 then Exit;
   NewName := FList.Selected.Caption;
-  if not InputQuery('Rename', 'New name (up to 8 characters, optional extension of 3):',
+  if not InputQuery(_('Rename'), _('New name (up to 8 characters, optional extension of 3):'),
     NewName) then Exit;
   WithDisk(ACT_RENAME, Index, NewName);
 end;
@@ -1071,8 +1071,8 @@ begin
       Indexes[High(Indexes)] := PtrInt(FList.Items[I].Data);
     end;
   if Length(Indexes) = 0 then Exit;
-  if Length(Indexes) = 1 then Question := Format('Delete %s from the disk?', [FList.Selected.Caption])
-  else Question := Format('Delete the %d selected files from the disk?', [Length(Indexes)]);
+  if Length(Indexes) = 1 then Question := Format(_('Delete %s from the disk?'), [FList.Selected.Caption])
+  else Question := Format(_('Delete the %d selected files from the disk?'), [Length(Indexes)]);
   if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
   for I := 0 to High(Indexes) do
     if not WithDisk(ACT_DELETE, Indexes[I]) then Break;
@@ -1141,14 +1141,14 @@ begin
   Addr := 32768;
   Dlg := TForm.CreateNew(nil, 0);
   try
-    Dlg.Caption := 'Import ' + ExtractFileName(FileName);
+    Dlg.Caption := _('Import ') + ExtractFileName(FileName);
     Dlg.BorderStyle := bsDialog;
     Dlg.Position := poMainFormCenter;
     Dlg.ClientWidth := 380;
     Dlg.ClientHeight := 170;
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    Lbl.Caption := Format('Name on the disk (%d bytes):', [Size]);
+    Lbl.Caption := Format(_('Name on the disk (%d bytes):'), [Size]);
     Lbl.SetBounds(10, 14, 200, 18);
     NameEdit := TEdit.Create(Dlg);
     NameEdit.Parent := Dlg;
@@ -1156,8 +1156,8 @@ begin
     NameEdit.Text := AName;
     HeaderCheck := TCheckBox.Create(Dlg);
     HeaderCheck.Parent := Dlg;
-    if AmsdosHeaders then HeaderCheck.Caption := 'Binary with an AMSDOS header, loaded and run at:'
-    else HeaderCheck.Caption := 'Bytes (CODE) with a +3DOS header, at address:';
+    if AmsdosHeaders then HeaderCheck.Caption := _('Binary with an AMSDOS header, loaded and run at:')
+    else HeaderCheck.Caption := _('Bytes (CODE) with a +3DOS header, at address:');
     HeaderCheck.SetBounds(10, 50, 300, 24);
     HeaderCheck.Checked := DefaultHeader;
     AddrEdit := TEdit.Create(Dlg);
@@ -1169,23 +1169,23 @@ begin
     else AddrEdit.Text := '32768';
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    Lbl.Caption := '(decimal; $ for hex). Unticked: no header.';
+    Lbl.Caption := _('(decimal; $ for hex). Unticked: no header.');
     Lbl.SetBounds(120, 84, 250, 18);
     AllCheck := TCheckBox.Create(Dlg);
     AllCheck.Parent := Dlg;
-    AllCheck.Caption := Format('The same for the other %d files (their own names)', [Remaining]);
+    AllCheck.Caption := Format(_('The same for the other %d files (their own names)'), [Remaining]);
     AllCheck.SetBounds(10, 108, 360, 24);
     AllCheck.Visible := Remaining > 0;
     if Remaining > 0 then Dlg.ClientHeight := Dlg.ClientHeight + 24;
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
-    Btn.Caption := 'Import';
+    Btn.Caption := _('Import');
     Btn.Default := True;
     Btn.ModalResult := mrOK;
     Btn.SetBounds(210, Dlg.ClientHeight - 40, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
-    Btn.Caption := 'Cancel';
+    Btn.Caption := _('Cancel');
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
     Btn.SetBounds(295, Dlg.ClientHeight - 40, 75, 28);
@@ -1196,24 +1196,24 @@ begin
       begin
         if (Trim(NameEdit.Text) = '') or (LastDelimiter('/\:*?"<>|', NameEdit.Text) > 0) then
         begin
-          MessageDlg('Invalid name.', mtError, [mbOK], 0);
+          MessageDlg(_('Invalid name.'), mtError, [mbOK], 0);
           Continue;
         end;
       end
       else if not MakeRawName(NameEdit.Text, Raw, Error) then
       begin
-        MessageDlg('Invalid name: ' + Error + '.', mtError, [mbOK], 0);
+        MessageDlg(_('Invalid name: ') + Error + '.', mtError, [mbOK], 0);
         Continue;
       end;
       V := StrToIntDef(Trim(AddrEdit.Text), -1);
       if HeaderCheck.Checked and ((V < 0) or (V > 65535)) then
       begin
-        MessageDlg('The address must be 0 to 65535.', mtError, [mbOK], 0);
+        MessageDlg(_('The address must be 0 to 65535.'), mtError, [mbOK], 0);
         Continue;
       end;
       if HeaderCheck.Checked and (Size > 65535) then
       begin
-        MessageDlg('A file with a header can''t be longer than 65535 bytes.', mtError, [mbOK], 0);
+        MessageDlg(_('A file with a header can''t be longer than 65535 bytes.'), mtError, [mbOK], 0);
         Continue;
       end;
       Break;
@@ -1299,7 +1299,7 @@ begin
   try
     if WithDisk(Act, -1, AName, Data) then Result := ''
     else if FLastError <> '' then Result := FLastError
-    else Result := 'there is no disk';
+    else Result := _('there is no disk');
   finally
     FQuiet := False;
   end;

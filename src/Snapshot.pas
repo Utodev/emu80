@@ -16,6 +16,10 @@ procedure SaveZ80(Spec: TSpectrum; const FileName: string);
 
 implementation
 
+uses
+  Lang;
+
+
 function ReadFileBytes(const FileName: string): TBytes;
 var
   S: TFileStream;
@@ -112,7 +116,7 @@ begin
     Spec.LoadCPCSna(FileName);
     Exit;
   end;
-  if Length(D) < 49179 then raise Exception.Create('Invalid SNA file');
+  if Length(D) < 49179 then raise Exception.Create(_('Invalid SNA file'));
   Paging := 0;
   Is128K := Length(D) > 49179;
   EnsureModel(Spec, Is128K, sm128K);
@@ -309,7 +313,7 @@ var
   Modify: Boolean;
 begin
   D := ReadFileBytes(FileName);
-  if Length(D) < 30 then raise Exception.Create('Invalid Z80 file');
+  if Length(D) < 30 then raise Exception.Create(_('Invalid Z80 file'));
 
   if Word16(D, 6) <> 0 then
   begin

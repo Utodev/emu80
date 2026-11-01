@@ -134,7 +134,7 @@ procedure DarkMenu(Menu: TPopupMenu);
 implementation
 
 uses
-  LCLProc, LCLIntf, Icons{$IFDEF LCLWin32}, Win32Proc, Themes{$ENDIF};
+  LCLProc, LCLIntf, Icons{$IFDEF LCLWin32}, Win32Proc, Themes{$ENDIF}, Lang;
 
 function MUIScale(V: Integer): Integer;
 begin
@@ -1014,10 +1014,8 @@ end;
 { TModernNotice }
 
 procedure TModernNotice.Paint;
-const
-  BEFORE = 'To change to the classic one, click the ';
-  AFTER = ' button.';
 var
+  BEFORE, AFTER: string;
   R: TRect;
   X, Y, LineH: Integer;
 begin
@@ -1036,13 +1034,15 @@ begin
   Y := MUIScale(10);
   Canvas.Font.Style := [fsBold];
   Canvas.Font.Color := MUI_ACCENT;
-  Canvas.TextOut(X, Y, 'WARNING');
+  Canvas.TextOut(X, Y, _('WARNING'));
   Inc(Y, LineH);
   Canvas.Font.Style := [];
   Canvas.Font.Color := clWhite;
-  Canvas.TextOut(X, Y, 'This is the modern interface.');
+  Canvas.TextOut(X, Y, _('This is the modern interface.'));
   Inc(Y, LineH);
   // The button's own icon, in the text
+  BEFORE := _('To change to the classic one, click the ');
+  AFTER := _(' button.');
   Canvas.TextOut(X, Y, BEFORE);
   Inc(X, Canvas.TextWidth(BEFORE));
   if Images <> nil then

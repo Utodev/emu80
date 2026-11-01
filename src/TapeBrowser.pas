@@ -72,7 +72,7 @@ function SaveTapeDialog(Emu: TEmulator; const InitialName: string): Boolean;
 implementation
 
 uses
-  Config, ModernUI;
+  Config, ModernUI, Lang;
 
 function ConfirmTapSave(Emu: TEmulator): Boolean;
 var
@@ -84,10 +84,10 @@ begin
   finally
     Emu.Unlock;
   end;
-  Result := not Lost or (MessageDlg('Save tape', 'A .tap file keeps only the data blocks: the ' +
+  Result := not Lost or (MessageDlg(_('Save tape'), 'A .tap file keeps only the data blocks: the ' +
     'tape''s other blocks (turbo timings, tones, pulses, recordings, pauses, texts and the like, ' +
     'from a .tzx) are left out, and turbo data is saved with the standard timings.' + LineEnding +
-    LineEnding + 'Save it anyway?', mtWarning, [mbYes, mbNo], 0) = mrYes);
+    LineEnding + _('Save it anyway?'), mtWarning, [mbYes, mbNo], 0) = mrYes);
 end;
 
 function SaveTapeDialog(Emu: TEmulator; const InitialName: string): Boolean;
@@ -107,12 +107,12 @@ begin
   try
     if CPC then
     begin
-      Dlg.Filter := 'CPC tape images (*.cdt)|*.cdt|TZX tape images (*.tzx)|*.tzx';
+      Dlg.Filter := _F('CPC tape images (*.cdt)|*.cdt|TZX tape images (*.tzx)|*.tzx');
       Dlg.DefaultExt := 'cdt';
     end
     else
     begin
-      Dlg.Filter := 'Tape images (*.tap)|*.tap|TZX tape images (*.tzx)|*.tzx';
+      Dlg.Filter := _F('Tape images (*.tap)|*.tap|TZX tape images (*.tzx)|*.tzx');
       Dlg.DefaultExt := 'tap';
     end;
     Dlg.InitialDir := Settings.LastDir;
@@ -132,7 +132,7 @@ begin
         begin
           Emu.Unlock;
           try
-            MessageDlg('Save tape', 'Could not save ' + ExtractFileName(Dlg.FileName) + ':' +
+            MessageDlg(_('Save tape'), _('Could not save ') + ExtractFileName(Dlg.FileName) + ':' +
               LineEnding + E.Message, mtError, [mbOK], 0);
           finally
             Emu.Lock;
@@ -164,7 +164,7 @@ var
 begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
-  Caption := 'Tape browser';
+  Caption := _('Tape browser');
   FTitle := TPathTitle.Create(Self);
   Width := 520;
   Height := 380;
@@ -185,19 +185,19 @@ begin
   FToolBar.ButtonHeight := IconSize + 10;
   FToolBar.AutoSize := True;
 
-  AddButton(ikPlay, 'Play', @DoPlay);
-  AddButton(ikStop, 'Stop', @DoStop);
-  FRecButton := AddButton(ikRecord, 'Record onto the tape (REC): blocks are added at the end',
+  AddButton(ikPlay, _('Play'), @DoPlay);
+  AddButton(ikStop, _('Stop'), @DoStop);
+  FRecButton := AddButton(ikRecord, _('Record onto the tape (REC): blocks are added at the end'),
     @DoRecord);
   FRecButton.Style := tbsCheck;
-  AddButton(ikRewind, 'Rewind', @DoRewind);
-  AddButton(ikPlayFrom, 'Play from the selected block (or double-click it)', @DoSetPosition);
+  AddButton(ikRewind, _('Rewind'), @DoRewind);
+  AddButton(ikPlayFrom, _('Play from the selected block (or double-click it)'), @DoSetPosition);
   AddSeparator;
-  AddButton(ikMoveUp, 'Move the selected block up', @DoMoveUp);
-  AddButton(ikMoveDown, 'Move the selected block down', @DoMoveDown);
-  AddButton(ikDelete, 'Delete the selected block (Del)', @DoDelete);
+  AddButton(ikMoveUp, _('Move the selected block up'), @DoMoveUp);
+  AddButton(ikMoveDown, _('Move the selected block down'), @DoMoveDown);
+  AddButton(ikDelete, _('Delete the selected block (Del)'), @DoDelete);
   AddSeparator;
-  AddButton(ikSave, 'Save the tape as...', @DoSave);
+  AddButton(ikSave, _('Save the tape as...'), @DoSave);
 
   // Loading mode, the same setting as Tape > Fast loading
   Bottom := TPanel.Create(Self);
@@ -207,12 +207,12 @@ begin
   Bottom.BevelOuter := bvNone;
   FFastRadio := TRadioButton.Create(Self);
   FFastRadio.Parent := Bottom;
-  FFastRadio.Caption := 'Fast loading';
+  FFastRadio.Caption := _('Fast loading');
   FFastRadio.SetBounds(10, 6, 200, 22);
   FFastRadio.OnClick := @DoLoadMode;
   FRealRadio := TRadioButton.Create(Self);
   FRealRadio.Parent := Bottom;
-  FRealRadio.Caption := 'Real-time loading';
+  FRealRadio.Caption := _('Real-time loading');
   FRealRadio.SetBounds(220, 6, 200, 22);
   FRealRadio.OnClick := @DoLoadMode;
   SyncLoadMode;
@@ -230,7 +230,7 @@ begin
   // Right-click: the selected block to a binary file
   FList.PopupMenu := TPopupMenu.Create(Self);
   Item := TMenuItem.Create(FList.PopupMenu);
-  Item.Caption := 'Export block as binary...';
+  Item.Caption := _('Export block as binary...');
   Item.OnClick := @DoExportBlock;
   FList.PopupMenu.Items.Add(Item);
   FList.ViewStyle := vsReport;
@@ -247,13 +247,13 @@ begin
   Col.Caption := '#';
   Col.Width := 36;
   Col := FList.Columns.Add;
-  Col.Caption := 'Block';
+  Col.Caption := _('Block');
   Col.Width := 250;
   Col := FList.Columns.Add;
-  Col.Caption := 'Length';
+  Col.Caption := _('Length');
   Col.Width := 70;
   Col := FList.Columns.Add;
-  Col.Caption := 'Checksum';
+  Col.Caption := _('Checksum');
   Col.Width := 70;
 
   FTimer := TTimer.Create(Self);
@@ -305,11 +305,11 @@ begin
     Tp := FEmu.Spec.Tape;
     if not Force and (Tp.ChangeCount = FLastChange) then Exit;
     FLastChange := Tp.ChangeCount;
-    if Tp.Modified then Suffix := ' (modified)' else Suffix := '';
+    if Tp.Modified then Suffix := _(' (modified)') else Suffix := '';
     if Tp.FileName <> '' then
-      FTitle.SetTitle('Tape browser - ', ExpandFileName(Tp.FileName), Suffix)
+      FTitle.SetTitle(_('Tape browser - '), ExpandFileName(Tp.FileName), Suffix)
     else
-      FTitle.SetTitle('Tape browser' + Suffix, '', '');
+      FTitle.SetTitle(_('Tape browser') + Suffix, '', '');
     Selected := -1;
     if FList.Selected <> nil then Selected := FList.Selected.Index;
     FList.Items.BeginUpdate;
@@ -333,13 +333,13 @@ begin
         FList.Items[Tp.Current].MakeVisible(False);
       FCurrent := Tp.Current;
       FPlaying := Tp.Playing;
-      if Tp.Count = 0 then FStatus.SimpleText := 'No blocks'
+      if Tp.Count = 0 then FStatus.SimpleText := _('No blocks')
       else if Tp.Current >= Tp.Count then
-        FStatus.SimpleText := 'At the end of the tape (Play starts it again from the first block)'
+        FStatus.SimpleText := _('At the end of the tape (Play starts it again from the first block)')
       else if Tp.Playing then
-        FStatus.SimpleText := Format('Playing block %d of %d', [Tp.Current + 1, Tp.Count])
+        FStatus.SimpleText := Format(_('Playing block %d of %d'), [Tp.Current + 1, Tp.Count])
       else
-        FStatus.SimpleText := Format('Stopped at block %d of %d', [Tp.Current + 1, Tp.Count]);
+        FStatus.SimpleText := Format(_('Stopped at block %d of %d'), [Tp.Current + 1, Tp.Count]);
       for I := 0 to Tp.Count - 1 do
       begin
         Block := Tp[I];
@@ -357,7 +357,7 @@ begin
         else Item.SubItems[2] := '';
         if not Block.IsData then Item.SubItems[3] := ''
         else if Block.ChecksumOK then Item.SubItems[3] := 'OK'
-        else Item.SubItems[3] := 'Bad';
+        else Item.SubItems[3] := _('Bad');
       end;
     finally
       FList.Items.EndUpdate;
@@ -510,7 +510,7 @@ var
 begin
   if FList.Selected = nil then Exit;
   Index := FList.Selected.Index;
-  if MessageDlg(Format('Delete block %d (%s)?', [Index + 1, FList.Selected.SubItems[1]]),
+  if MessageDlg(Format(_('Delete block %d (%s)?'), [Index + 1, FList.Selected.SubItems[1]]),
     mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
   FEmu.Lock;
   try
@@ -564,7 +564,7 @@ begin
   end;
   if not IsData then
   begin
-    MessageDlg('Export block', 'Only blocks with data (standard, turbo or pure data) can be exported.',
+    MessageDlg(_('Export block'), _('Only blocks with data (standard, turbo or pure data) can be exported.'),
       mtInformation, [mbOK], 0);
     Exit;
   end;
@@ -572,8 +572,8 @@ begin
   if Length(Data) >= 2 then Data := Copy(Data, 1, Length(Data) - 2) else Data := nil;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Title := Format('Export block %d as binary', [N + 1]);
-    Dlg.Filter := 'Binary files (*.bin)|*.bin|All files|*.*';
+    Dlg.Title := Format(_('Export block %d as binary'), [N + 1]);
+    Dlg.Filter := _F('Binary files (*.bin)|*.bin|All files|*.*');
     Dlg.DefaultExt := 'bin';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.FileName := Format('block%d.bin', [N + 1]);
@@ -587,7 +587,7 @@ begin
         F.Free;
       end;
     except
-      on E: Exception do MessageDlg('Could not save: ' + E.Message, mtError, [mbOK], 0);
+      on E: Exception do MessageDlg(_('Could not save: ') + E.Message, mtError, [mbOK], 0);
     end;
   finally
     Dlg.Free;

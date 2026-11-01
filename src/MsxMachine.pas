@@ -159,6 +159,10 @@ type
 
 implementation
 
+uses
+  Lang;
+
+
 { The RAM and the disk interface share the primary slot 3 (expanded), as in the Philips machines: the software that
   pages memory through the slot register itself, the DAAD engines for one, keeps its own copy of it, which only
   holds if the disk ROM, in a subslot, never needs the register changed. The machine has 128K of
@@ -225,7 +229,7 @@ var
   Data: array of Byte;
 begin
   if not FileExists(FileName) then
-    raise Exception.CreateFmt('ROM file not found: %s', [FileName]);
+    raise Exception.CreateFmt(_('ROM file not found: %s'), [FileName]);
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     SetLength(Data, F.Size);
@@ -242,7 +246,7 @@ var
   Data: array of Byte;
 begin
   if not FileExists(FileName) then
-    raise Exception.CreateFmt('ROM file not found: %s', [FileName]);
+    raise Exception.CreateFmt(_('ROM file not found: %s'), [FileName]);
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     SetLength(Data, F.Size);

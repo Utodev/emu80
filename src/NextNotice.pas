@@ -16,7 +16,7 @@ procedure ShowNoNextDistro;
 implementation
 
 uses
-  NextCard, ModernUI;
+  NextCard, ModernUI, Lang;
 
 type
   TNoticeForm = class(TForm)
@@ -45,7 +45,7 @@ begin
   Before.Parent := Self;
   Before.AutoSize := False;
   Before.WordWrap := True;
-  Before.Caption := 'La distribución de Spectrum Next no está instalada. Por favor descarga desde';
+  Before.Caption := _('The ZX Spectrum Next distribution is not installed. Please download it from');
   Before.SetBounds(ScaleX(16, 96), Y, W - ScaleX(32, 96), ScaleY(20, 96));
   Inc(Y, ScaleY(24, 96));
 
@@ -55,7 +55,7 @@ begin
   Link.Caption := NEXT_DOWNLOAD_URL;
   Link.Font.Style := [fsUnderline];
   Link.Cursor := crHandPoint;
-  Link.Hint := 'Open it in the browser';
+  Link.Hint := _('Open it in the browser');
   Link.ShowHint := True;
   Link.OnClick := @LinkClick;
   // Its own colour: a link's, readable on either theme
@@ -69,13 +69,13 @@ begin
   After.Parent := Self;
   After.AutoSize := False;
   After.WordWrap := True;
-  After.Caption := 'y después accede al menú Options/Install Spectrum Next Distribution.';
+  After.Caption := _('and then go to the Options menu > Install Spectrum Next Distribution.');
   After.SetBounds(ScaleX(16, 96), Y, W - ScaleX(32, 96), ScaleY(40, 96));
   Inc(Y, ScaleY(52, 96));
 
   Ok := TButton.Create(Self);
   Ok.Parent := Self;
-  Ok.Caption := 'OK';
+  Ok.Caption := _('OK');
   Ok.Default := True;
   Ok.Cancel := True;
   Ok.ModalResult := mrOK;

@@ -1,0 +1,2992 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: de\n"
+
+#: Amstrad.pas:291 Amstrad.pas:305 MsxMachine.pas:232
+msgid "ROM file not found: %s"
+msgstr "ROM-Datei nicht gefunden: %s"
+
+#: Amstrad.pas:296
+msgid "%s: the CPC firmware is a 32K file (system ROM and BASIC)"
+msgstr "%s: Die CPC-Firmware ist eine 32K-Datei (System-ROM und BASIC)"
+
+#: Amstrad.pas:1270
+msgid "Unknown CPC snapshot version"
+msgstr "Unbekannte CPC-Snapshot-Version"
+
+#: Amstrad.pas:1272
+msgid "Not a snapshot of this CPC model"
+msgstr "Kein Snapshot dieses CPC-Modells"
+
+#: CartBrowser.pas:542 CartBrowser.pas:634 MainModern.inc:749
+msgid "Cartridge browser"
+msgstr "Cartridge-Browser"
+
+#: CartBrowser.pas:562
+msgid "Save the cartridge to its file (Ctrl+S)"
+msgstr "Cartridge in seiner Datei speichern (Strg+S)"
+
+#: CartBrowser.pas:563
+msgid "Save the cartridge as another file..."
+msgstr "Cartridge als andere Datei speichern..."
+
+#: CartBrowser.pas:565
+msgid "Import a block: write a file of the PC into the cartridge from the cursor..."
+msgstr "Block importieren: schreibt eine Datei des PCs ab dem Cursor ins Cartridge..."
+
+#: CartBrowser.pas:566
+msgid "Export a block: the selected bytes (or the range asked for) to a file of the PC..."
+msgstr "Block exportieren: die markierten Bytes (oder den angegebenen Bereich) in eine Datei des PCs..."
+
+#: CartBrowser.pas:568
+msgid "Go to an offset... (Ctrl+G)"
+msgstr "Zu einem Offset springen... (Strg+G)"
+
+#: CartBrowser.pas:569
+msgid "Read the cartridge again (the changes not saved are lost)"
+msgstr "Cartridge neu einlesen (nicht gespeicherte Änderungen gehen verloren)"
+
+#: CartBrowser.pas:579
+msgid "Info"
+msgstr "Info"
+
+#: CartBrowser.pas:581
+msgid "Hex"
+msgstr "Hex"
+
+#: CartBrowser.pas:632 CartBrowser.pas:633
+msgid "Cartridge browser - "
+msgstr "Cartridge-Browser - "
+
+#: CartBrowser.pas:641
+msgid "Offset %.6X"
+msgstr "Offset %.6X"
+
+#: CartBrowser.pas:643
+msgid "   Selected %.6X-%.6X (%d bytes)"
+msgstr "   Markiert %.6X-%.6X (%d Bytes)"
+
+#: CartBrowser.pas:644
+msgid "   Modified, not saved"
+msgstr "   Geändert, nicht gespeichert"
+
+#: CartBrowser.pas:697
+msgid "There is no cartridge in slot 1."
+msgstr "In Steckplatz 1 ist kein Cartridge."
+
+#: CartBrowser.pas:709
+msgid "Shown at: %.4Xh-%.4Xh"
+msgstr "Sichtbar bei: %.4Xh-%.4Xh"
+
+#: CartBrowser.pas:731
+msgid "The cartridge has been modified and not saved."
+msgstr "Das Cartridge wurde geändert und nicht gespeichert."
+
+#: CartBrowser.pas:784 DiskBrowser.pas:536 TapeBrowser.pas:135
+msgid "Could not save "
+msgstr "Konnte nicht gespeichert werden: "
+
+#: CartBrowser.pas:810 MainForm.pas:399 MainForm.pas:2095
+msgid "MSX cartridges (*.rom)"
+msgstr "MSX-Cartridges (*.rom)"
+
+#: CartBrowser.pas:810 CartBrowser.pas:923 DiskBrowser.pas:338
+msgid "All files"
+msgstr "Alle Dateien"
+
+#: CartBrowser.pas:860
+msgid "Import a block"
+msgstr "Block importieren"
+
+#: CartBrowser.pas:860
+msgid "Offset in the cartridge to write at (hex; # for decimal):"
+msgstr "Offset im Cartridge, ab dem geschrieben wird (hex; # für dezimal):"
+
+#: CartBrowser.pas:863
+msgid "That is not an offset inside the cartridge (0 to "
+msgstr "Das ist kein Offset im Cartridge (0 bis "
+
+#: CartBrowser.pas:871
+msgid "The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): write the first %d?"
+msgstr "Die Datei hat %d Bytes, ab diesem Offset passen nur %d (ein Cartridge behält seine Größe): die ersten %d schreiben?"
+
+#: CartBrowser.pas:911
+msgid "Export a block"
+msgstr "Block exportieren"
+
+#: CartBrowser.pas:911
+msgid "No bytes are selected. Offset and length (hex; # for decimal):"
+msgstr "Keine Bytes markiert. Offset und Länge (hex; # für dezimal):"
+
+#: CartBrowser.pas:916
+msgid "Type the offset and the length separated by a comma, like 004000,2000."
+msgstr "Offset und Länge durch ein Komma getrennt eingeben, z. B. 004000,2000."
+
+#: CartBrowser.pas:923 TapeBrowser.pas:576
+msgid "Binary files (*.bin)"
+msgstr "Binärdateien (*.bin)"
+
+#: CartBrowser.pas:940
+msgid "Exported %d bytes (%.6X-%.6X) to %s"
+msgstr "%d Bytes (%.6X-%.6X) nach %s exportiert"
+
+#: CartBrowser.pas:943
+msgid "Could not write the file:"
+msgstr "Die Datei konnte nicht geschrieben werden:"
+
+#: CartBrowser.pas:957
+msgid "Go to"
+msgstr "Gehe zu"
+
+#: CartBrowser.pas:957
+msgid "Offset (hex; # for decimal):"
+msgstr "Offset (hex; # für dezimal):"
+
+#: CartBrowser.pas:970
+msgid "Discard the changes and read "
+msgstr "Änderungen verwerfen und neu einlesen: "
+
+#: CartBrowser.pas:1000
+msgid "The cartridge has changes that are not saved to a file. Save them?"
+msgstr "Das Cartridge hat Änderungen, die nicht in einer Datei gespeichert sind. Speichern?"
+
+#: Config.pas:155
+msgid "Colour"
+msgstr "Farbe"
+
+#: Config.pas:155
+msgid "Black and white"
+msgstr "Schwarzweiß"
+
+#: Config.pas:155
+msgid "Green phosphor"
+msgstr "Grüner Phosphor"
+
+#: Config.pas:156
+msgid "Orange phosphor (amber)"
+msgstr "Oranger Phosphor (Bernstein)"
+
+#: Config.pas:254
+msgid "Progressive (each frame on its own)"
+msgstr "Progressiv (jedes Bild für sich)"
+
+#: Config.pas:254
+msgid "Bob (two frames blended)"
+msgstr "Bob (zwei Bilder gemischt)"
+
+#: Config.pas:254
+msgid "Weave (two frames' lines interleaved)"
+msgstr "Weave (Zeilen zweier Bilder verschränkt)"
+
+#: Config.pas:258
+msgid "None (cursor keys and Ctrl as on the keyboard)"
+msgstr "Keiner (Cursortasten und Strg wie auf der Tastatur)"
+
+#: Config.pas:258
+msgid "Kempston"
+msgstr "Kempston"
+
+#: Config.pas:259
+msgid "Sinclair Interface 2, joystick 1 (keys 6-0)"
+msgstr "Sinclair Interface 2, Joystick 1 (Tasten 6-0)"
+
+#: Config.pas:259
+msgid "Sinclair Interface 2, joystick 2 (keys 1-5)"
+msgstr "Sinclair Interface 2, Joystick 2 (Tasten 1-5)"
+
+#: Config.pas:260
+msgid "Cursor / Protek / AGF (keys 5-8, 0)"
+msgstr "Cursor / Protek / AGF (Tasten 5-8, 0)"
+
+#: Config.pas:260
+msgid "Fuller"
+msgstr "Fuller"
+
+#: Currah.pas:651
+msgid "%s is %d bytes, %d expected"
+msgstr "%s hat %d Bytes, erwartet %d"
+
+#: DSK.pas:218
+msgid "Not a DSK disk image"
+msgstr "Kein DSK-Disk-Image"
+
+#: DSK.pas:221
+msgid "Unsupported number of sides"
+msgstr "Nicht unterstützte Seitenzahl"
+
+#: DiskBrowser.pas:171
+msgid "Overwrite"
+msgstr "Überschreiben"
+
+#: DiskBrowser.pas:171
+msgid "%s already exists. Overwrite it?"
+msgstr "%s existiert bereits. Überschreiben?"
+
+#: DiskBrowser.pas:201
+msgid "Importing"
+msgstr "Importiere"
+
+#: DiskBrowser.pas:323
+msgid "Import a folder and its contents"
+msgstr "Ordner und Inhalt importieren"
+
+#: DiskBrowser.pas:368
+msgid "Could not create the folder "
+msgstr "Ordner konnte nicht erstellt werden: "
+
+#: DiskBrowser.pas:392
+msgid "Could not read "
+msgstr "Konnte nicht gelesen werden: "
+
+#: DiskBrowser.pas:404
+msgid "Name (the file is copied as it is):"
+msgstr "Name (die Datei wird unverändert kopiert):"
+
+#: DiskBrowser.pas:405
+msgid "Name (8.3; the file is copied as it is):"
+msgstr "Name (8.3; die Datei wird unverändert kopiert):"
+
+#: DiskBrowser.pas:406
+msgid "Import %s"
+msgstr "%s importieren"
+
+#: DiskBrowser.pas:432
+msgid "Could not import "
+msgstr "Import nicht möglich: "
+
+#: DiskBrowser.pas:438 DiskBrowser.pas:438
+msgid "imported %s"
+msgstr "%s importiert"
+
+#: DiskBrowser.pas:442
+msgid "imported %d of %d files"
+msgstr "%d von %d Dateien importiert"
+
+#: DiskBrowser.pas:443
+msgid ", 1 folder"
+msgstr ", 1 Ordner"
+
+#: DiskBrowser.pas:444
+msgid ", %d folders"
+msgstr ", %d Ordner"
+
+#: DiskBrowser.pas:472 DiskBrowser.pas:476
+msgid "Export"
+msgstr "Exportieren"
+
+#: DiskBrowser.pas:472
+msgid "The file has an %s header. Keep it in the exported file?"
+msgstr "Die Datei hat einen %s-Header. In der exportierten Datei behalten?"
+
+#: DiskBrowser.pas:474
+msgid "No: just the data (%d bytes)."
+msgstr "Nein: nur die Daten (%d Bytes)."
+
+#: DiskBrowser.pas:476
+msgid "%d of the files have a %s header. Keep it in the exported files?"
+msgstr "%d der Dateien haben einen %s-Header. In den exportierten Dateien behalten?"
+
+#: DiskBrowser.pas:477
+msgid "No: just their data."
+msgstr "Nein: nur ihre Daten."
+
+#: DiskBrowser.pas:503
+msgid "Export %d files to the folder"
+msgstr "%d Dateien in den Ordner exportieren"
+
+#: DiskBrowser.pas:543
+msgid "Exported %s (%d bytes)"
+msgstr "%s exportiert (%d Bytes)"
+
+#: DiskBrowser.pas:546
+msgid "Exported %d of %d files to %s"
+msgstr "%d von %d Dateien nach %s exportiert"
+
+#: DiskBrowser.pas:592 MainForm.pas:973 MainModern.inc:244
+msgid "Disk browser"
+msgstr "Disk-Browser"
+
+#: DiskBrowser.pas:618
+msgid "Drive (the ones with a disk)"
+msgstr "Laufwerk (die mit einer Diskette)"
+
+#: DiskBrowser.pas:623
+msgid "Read the directory again"
+msgstr "Verzeichnis neu einlesen"
+
+#: DiskBrowser.pas:625
+msgid "Import files from the PC onto the disk... (or drop files and folders here)"
+msgstr "Dateien vom PC auf die Diskette importieren... (oder Dateien und Ordner hierher ziehen)"
+
+#: DiskBrowser.pas:626
+msgid "Import the files in a folder of the PC (and its subfolders) onto the disk..."
+msgstr "Die Dateien eines PC-Ordners (und seiner Unterordner) auf die Diskette importieren..."
+
+#: DiskBrowser.pas:628 SDBrowser.pas:130
+msgid "Export the selected files to the PC..."
+msgstr "Markierte Dateien auf den PC exportieren..."
+
+#: DiskBrowser.pas:629
+msgid "Rename the selected file... (F2)"
+msgstr "Markierte Datei umbenennen... (F2)"
+
+#: DiskBrowser.pas:630
+msgid "Delete the selected files (Del)"
+msgstr "Markierte Dateien löschen (Entf)"
+
+#: DiskBrowser.pas:646 SDBrowser.pas:162
+msgid "Name"
+msgstr "Name"
+
+#: DiskBrowser.pas:647 SDBrowser.pas:164 TZX.pas:258
+msgid "Type"
+msgstr "Typ"
+
+#: DiskBrowser.pas:648 SDBrowser.pas:165
+msgid "Start / line"
+msgstr "Start / Zeile"
+
+#: DiskBrowser.pas:649 SDBrowser.pas:166 TapeBrowser.pas:253
+msgid "Length"
+msgstr "Länge"
+
+#: DiskBrowser.pas:650
+msgid "Size on disk"
+msgstr "Größe auf Diskette"
+
+#: DiskBrowser.pas:651 SDBrowser.pas:168
+msgid "Attributes"
+msgstr "Attribute"
+
+#: DiskBrowser.pas:748
+msgid "There is no disk in drive %s:"
+msgstr "Im Laufwerk %s: ist keine Diskette"
+
+#: DiskBrowser.pas:807 DiskBrowser.pas:994
+msgid "read-only "
+msgstr "schreibgeschützt "
+
+#: DiskBrowser.pas:808
+msgid "system "
+msgstr "System "
+
+#: DiskBrowser.pas:809
+msgid "user %d"
+msgstr "Benutzer %d"
+
+#: DiskBrowser.pas:816
+msgid "%d files, %dK free"
+msgstr "%d Dateien, %dK frei"
+
+#: DiskBrowser.pas:817 DiskBrowser.pas:925 DiskBrowser.pas:1010
+msgid " (modified)"
+msgstr " (geändert)"
+
+#: DiskBrowser.pas:819 DiskBrowser.pas:927 DiskBrowser.pas:1012
+msgid "Disk browser - %s: "
+msgstr "Disk-Browser - %s: "
+
+#: DiskBrowser.pas:822 DiskBrowser.pas:929 DiskBrowser.pas:1014
+msgid "Disk browser - %s: (new disk)"
+msgstr "Disk-Browser - %s: (neue Diskette)"
+
+#: DiskBrowser.pas:840
+msgid "Can't read the disk: "
+msgstr "Die Diskette kann nicht gelesen werden: "
+
+#: DiskBrowser.pas:911
+msgid "page %d:%.4X"
+msgstr "Seite %d:%.4X"
+
+#: DiskBrowser.pas:916 DiskBrowser.pas:995
+msgid "hidden "
+msgstr "versteckt "
+
+#: DiskBrowser.pas:924
+msgid "%d files (SAMDOS), %dK free"
+msgstr "%d Dateien (SAMDOS), %dK frei"
+
+#: DiskBrowser.pas:955
+msgid "That is a directory, not a file."
+msgstr "Das ist ein Verzeichnis, keine Datei."
+
+#: DiskBrowser.pas:989
+msgid "Directory"
+msgstr "Verzeichnis"
+
+#: DiskBrowser.pas:989
+msgid "File"
+msgstr "Datei"
+
+#: DiskBrowser.pas:1003
+msgid "%d files (MSX-DOS, FAT12), %dK free"
+msgstr "%d Dateien (MSX-DOS, FAT12), %dK frei"
+
+#: DiskBrowser.pas:1054 SDBrowser.pas:648
+msgid "Rename"
+msgstr "Umbenennen"
+
+#: DiskBrowser.pas:1054
+msgid "New name (up to 8 characters, optional extension of 3):"
+msgstr "Neuer Name (bis zu 8 Zeichen, optionale Erweiterung mit 3):"
+
+#: DiskBrowser.pas:1074
+msgid "Delete %s from the disk?"
+msgstr "%s von der Diskette löschen?"
+
+#: DiskBrowser.pas:1075
+msgid "Delete the %d selected files from the disk?"
+msgstr "Die %d markierten Dateien von der Diskette löschen?"
+
+#: DiskBrowser.pas:1144
+msgid "Import "
+msgstr "Importieren: "
+
+#: DiskBrowser.pas:1151
+msgid "Name on the disk (%d bytes):"
+msgstr "Name auf der Diskette (%d Bytes):"
+
+#: DiskBrowser.pas:1159
+msgid "Binary with an AMSDOS header, loaded and run at:"
+msgstr "Binärdatei mit AMSDOS-Header, geladen und gestartet bei:"
+
+#: DiskBrowser.pas:1160
+msgid "Bytes (CODE) with a +3DOS header, at address:"
+msgstr "Bytes (CODE) mit +3DOS-Header, an Adresse:"
+
+#: DiskBrowser.pas:1172
+msgid "(decimal; $ for hex). Unticked: no header."
+msgstr "(dezimal; $ für hex). Nicht angekreuzt: kein Header."
+
+#: DiskBrowser.pas:1176
+msgid "The same for the other %d files (their own names)"
+msgstr "Dasselbe für die anderen %d Dateien (mit ihren eigenen Namen)"
+
+#: DiskBrowser.pas:1182
+msgid "Import"
+msgstr "Importieren"
+
+#: DiskBrowser.pas:1188 MainForm.pas:3883 SettingsForm.pas:282
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: DiskBrowser.pas:1199
+msgid "Invalid name."
+msgstr "Ungültiger Name."
+
+#: DiskBrowser.pas:1205
+msgid "Invalid name: "
+msgstr "Ungültiger Name: "
+
+#: DiskBrowser.pas:1211
+msgid "The address must be 0 to 65535."
+msgstr "Die Adresse muss zwischen 0 und 65535 liegen."
+
+#: DiskBrowser.pas:1216
+msgid "A file with a header can't be longer than 65535 bytes."
+msgstr "Eine Datei mit Header darf nicht länger als 65535 Bytes sein."
+
+#: DiskBrowser.pas:1302
+msgid "there is no disk"
+msgstr "keine Diskette vorhanden"
+
+#: DiskFormat.pas:101
+msgid "%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K raw image or a +3 disk), and this one has %d cylinders and is %s."
+msgstr "%s ist keine Diskette, die der MSX lesen kann: Sie braucht 9 Sektoren zu 512 Bytes je Spur (ein Rohimage mit 720K oder 360K oder eine +3-Diskette), und diese hat %d Zylinder und ist %s."
+
+#: DiskFormat.pas:103
+msgid "%s format"
+msgstr "%s-Format"
+
+#: DiskFormat.pas:110
+msgid "%s is a SAM Coupe disk (%d cylinders, 10 sectors of 512 bytes a track): its format isn't one the %s reads. Choose the SAM Coupe in the machine menu to use it."
+msgstr "%s ist eine SAM-Coupe-Diskette (%d Zylinder, 10 Sektoren zu 512 Bytes je Spur): ihr Format wird vom %s nicht gelesen. Zum Verwenden den SAM Coupe im Maschinenmenü wählen."
+
+#: DiskFormat.pas:263
+msgid "Could not read %s: %s"
+msgstr "%s konnte nicht gelesen werden: %s"
+
+#: DiskFormat.pas:271
+msgid "%s is empty."
+msgstr "%s ist leer."
+
+#: DiskFormat.pas:280
+msgid "%s is a zip file, not a disk image: unzip it first."
+msgstr "%s ist eine Zip-Datei, kein Disk-Image: zuerst entpacken."
+
+#: DiskFormat.pas:285
+msgid "%s is a gzip file, not a disk image: unzip it first."
+msgstr "%s ist eine gzip-Datei, kein Disk-Image: zuerst entpacken."
+
+#: DiskFormat.pas:307
+msgid "%s is a SAD image cut short."
+msgstr "%s ist ein abgeschnittenes SAD-Image."
+
+#: DiskFormat.pas:320
+msgid "%s is a corrupt SAD image (%d sides, %d cylinders, %d sectors of %d bytes, %d bytes long)."
+msgstr "%s ist ein beschädigtes SAD-Image (%d Seiten, %d Zylinder, %d Sektoren zu %d Bytes, %d Bytes lang)."
+
+#: DiskFormat.pas:353
+msgid "%s is a corrupt disk image: %s"
+msgstr "%s ist ein beschädigtes Disk-Image: %s"
+
+#: DiskFormat.pas:556
+msgid "Could not save %s: %s"
+msgstr "%s konnte nicht gespeichert werden: %s"
+
+#: DocForm.pas:80 DocForm.pas:154
+msgid "%s was not found next to the emu80 executable."
+msgstr "%s wurde nicht neben der emu80-Programmdatei gefunden."
+
+#: DocForm.pas:109
+msgid "emu80 documentation"
+msgstr "emu80-Dokumentation"
+
+#: DocForm.pas:123
+msgid "Find:"
+msgstr "Suchen:"
+
+#: DocForm.pas:136
+msgid "Next"
+msgstr "Weiter"
+
+#: DocForm.pas:161
+msgid "Not found (Next starts again at the top)"
+msgstr "Nicht gefunden (Weiter beginnt wieder oben)"
+
+#: DocForm.pas:209
+msgid "emu80 license (GNU GPL v3)"
+msgstr "emu80-Lizenz (GNU GPL v3)"
+
+#: FatFS.pas:203 Plus3FS.pas:238
+msgid "the name must be 1 to 8 characters, with an optional extension of up to 3"
+msgstr "der Name muss 1 bis 8 Zeichen haben, mit einer optionalen Erweiterung von bis zu 3"
+
+#: FatFS.pas:209 Plus3FS.pas:244
+msgid "\"%s\" can't be used in a name"
+msgstr "„%s“ kann in einem Namen nicht verwendet werden"
+
+#: FatFS.pas:275
+msgid "the image is too small"
+msgstr "das Image ist zu klein"
+
+#: FatFS.pas:294
+msgid "no FAT file system found on the card"
+msgstr "kein FAT-Dateisystem auf der Karte gefunden"
+
+#: FatFS.pas:317
+msgid "bad FAT32 root directory"
+msgstr "fehlerhaftes FAT32-Stammverzeichnis"
+
+#: FatFS.pas:576
+msgid "the file's clusters are broken"
+msgstr "die Cluster der Datei sind defekt"
+
+#: FatFS.pas:610 FatFS.pas:648
+msgid "the card is full"
+msgstr "die Karte ist voll"
+
+#: FatFS.pas:689 FatFS.pas:1149
+msgid "the root directory is full"
+msgstr "das Stammverzeichnis ist voll"
+
+#: FatFS.pas:743 FatFS.pas:759 FatFS.pas:804
+msgid "there is already a file called %s"
+msgstr "es gibt bereits eine Datei namens %s"
+
+#: FatFS.pas:745 FatFS.pas:1248 Plus3FS.pas:595
+msgid "not enough space: %d bytes needed, %d free"
+msgstr "nicht genug Platz: %d Bytes nötig, %d frei"
+
+#: FatFS.pas:780
+msgid "the folder isn't empty"
+msgstr "der Ordner ist nicht leer"
+
+#: FatFS.pas:841
+msgid "there is no folder %s"
+msgstr "es gibt keinen Ordner %s"
+
+#: FatFS.pas:1159
+msgid "the name is too long"
+msgstr "der Name ist zu lang"
+
+#: FatFS.pas:1312
+msgid "the card size must be 16 to 2048 MB"
+msgstr "die Kartengröße muss 16 bis 2048 MB betragen"
+
+#: KeyboardGuide.pas:87
+msgid "ZX Spectrum keyboard"
+msgstr "ZX-Spectrum-Tastatur"
+
+#: MainForm.pas:389 MainForm.pas:399 MainForm.pas:3587
+msgid "Disk images (*.dsk;*.mgt;*.sad)"
+msgstr "Disk-Images (*.dsk;*.mgt;*.sad)"
+
+#: MainForm.pas:394
+msgid "Disk images (*.dsk)"
+msgstr "Disk-Images (*.dsk)"
+
+#: MainForm.pas:394
+msgid "SAM Coupe MGT images (*.mgt)"
+msgstr "MGT-Images des SAM Coupe (*.mgt)"
+
+#: MainForm.pas:394
+msgid "SAM Coupe SAD images (*.sad)"
+msgstr "SAD-Images des SAM Coupe (*.sad)"
+
+#: MainForm.pas:399
+msgid "All supported files"
+msgstr "Alle unterstützten Dateien"
+
+#: MainForm.pas:399
+msgid "Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)"
+msgstr "Band-Images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)"
+
+#: MainForm.pas:399
+msgid "Snapshots (*.sna;*.z80;*.e80)"
+msgstr "Snapshots (*.sna;*.z80;*.e80)"
+
+#: MainForm.pas:399
+msgid "ZX Spectrum Next programs (*.nex)"
+msgstr "ZX-Spectrum-Next-Programme (*.nex)"
+
+#: MainForm.pas:459
+msgid "The settings file given with --config does not exist."
+msgstr "Die mit --config angegebene Einstellungsdatei existiert nicht."
+
+#: MainForm.pas:460
+msgid "File: "
+msgstr "Datei: "
+
+#: MainForm.pas:461
+msgid "Folder: "
+msgstr "Ordner: "
+
+#: MainForm.pas:650
+msgid "ROM folder not usable, using the default one instead."
+msgstr "Der ROM-Ordner ist nicht verwendbar; stattdessen wird der Standardordner benutzt."
+
+#: MainForm.pas:685
+msgid "&File"
+msgstr "&Datei"
+
+#: MainForm.pas:686
+msgid "&Open..."
+msgstr "&Öffnen..."
+
+#: MainForm.pas:687
+msgid "Open &recent"
+msgstr "&Zuletzt geöffnet"
+
+#: MainForm.pas:688
+msgid "&Save snapshot..."
+msgstr "Snapshot &speichern..."
+
+#: MainForm.pas:690
+msgid "Screens&hot"
+msgstr "&Screenshot"
+
+#: MainForm.pas:691
+msgid "Save as &SCR..."
+msgstr "Als &SCR speichern..."
+
+#: MainForm.pas:692
+msgid "Save as PNG &1x..."
+msgstr "Als PNG &1x speichern..."
+
+#: MainForm.pas:693
+msgid "Save as PNG &2x..."
+msgstr "Als PNG &2x speichern..."
+
+#: MainForm.pas:695
+msgid "Include &border in PNG"
+msgstr "&Rand im PNG einschließen"
+
+#: MainForm.pas:697
+msgid "E&xit"
+msgstr "&Beenden"
+
+#: MainForm.pas:700 MainModern.inc:92
+msgid "&Machine"
+msgstr "&Maschine"
+
+#: MainForm.pas:701
+msgid "&NMI"
+msgstr "&NMI"
+
+#: MainForm.pas:703
+msgid "&DRIVE button (DivMMC NMI)"
+msgstr "&DRIVE-Taste (NMI des DivMMC)"
+
+#: MainForm.pas:704
+msgid "&Hard reset"
+msgstr "&Hardreset"
+
+#: MainForm.pas:705
+msgid "&Reset"
+msgstr "&Reset"
+
+#: MainForm.pas:707
+msgid "&Pause"
+msgstr "&Pause"
+
+#: MainForm.pas:709
+msgid "&POKE..."
+msgstr "&POKE..."
+
+#: MainForm.pas:713
+msgid "&Tape"
+msgstr "&Band"
+
+#: MainForm.pas:715
+msgid "&Insert tape && load..."
+msgstr "Band &einlegen und laden..."
+
+#: MainForm.pas:716
+msgid "&Just insert tape..."
+msgstr "Band nur e&inlegen..."
+
+#: MainForm.pas:717
+msgid "Insert &recent tape && load"
+msgstr "&Letztes Band einlegen und laden"
+
+#: MainForm.pas:718
+msgid "Just insert recent &tape"
+msgstr "Letztes Band nur e&inlegen"
+
+#: MainForm.pas:721
+msgid "Tape &browser..."
+msgstr "Band-&Browser..."
+
+#: MainForm.pas:722
+msgid "&Play/pause"
+msgstr "&Wiedergabe/Pause"
+
+#: MainForm.pas:723
+msgid "&Stop"
+msgstr "&Stopp"
+
+#: MainForm.pas:724
+msgid "Re&cord (REC)"
+msgstr "Auf&nehmen (REC)"
+
+#: MainForm.pas:726
+msgid "&Rewind"
+msgstr "&Zurückspulen"
+
+#: MainForm.pas:727
+msgid "&Eject"
+msgstr "&Auswerfen"
+
+#: MainForm.pas:728
+msgid "Save tape &as..."
+msgstr "Band &speichern unter..."
+
+#: MainForm.pas:730
+msgid "&New blank tape"
+msgstr "&Neues leeres Band"
+
+#: MainForm.pas:732
+msgid "&Fast loading"
+msgstr "&Schnellladen"
+
+#: MainForm.pas:734
+msgid "&Auto play/stop"
+msgstr "&Automatisch starten/stoppen"
+
+#: MainForm.pas:735
+msgid "SA&VE writes to the tape"
+msgstr "SA&VE schreibt aufs Band"
+
+#: MainForm.pas:737
+msgid "F&loppy"
+msgstr "&Diskette"
+
+#: MainForm.pas:739
+msgid "Disk &browser..."
+msgstr "Disk-&Browser..."
+
+#: MainForm.pas:742
+msgid "Insert disk in drive &A:..."
+msgstr "Diskette in Laufwerk &A: einlegen..."
+
+#: MainForm.pas:744
+msgid "Insert &recent disk (A:)"
+msgstr "&Letzte Diskette einlegen (A:)"
+
+#: MainForm.pas:746
+msgid "Insert disk in drive &B:..."
+msgstr "Diskette in Laufwerk &B: einlegen..."
+
+#: MainForm.pas:749
+msgid "Insert recent disk (B:)"
+msgstr "Letzte Diskette einlegen (B:)"
+
+#: MainForm.pas:751
+msgid "&New disk in A: (formatted)"
+msgstr "&Neue Diskette in A: (formatiert)"
+
+#: MainForm.pas:753
+msgid "New disk in B: (formatted)"
+msgstr "Neue Diskette in B: (formatiert)"
+
+#: MainForm.pas:757
+msgid "&Save disk A:"
+msgstr "Diskette A: &speichern"
+
+#: MainForm.pas:759
+msgid "Save disk A: &as..."
+msgstr "Diskette A: speichern &unter..."
+
+#: MainForm.pas:761
+msgid "Save disk B:"
+msgstr "Diskette B: speichern"
+
+#: MainForm.pas:764
+msgid "Save disk B: as..."
+msgstr "Diskette B: speichern unter..."
+
+#: MainForm.pas:768
+msgid "&Eject disk A:"
+msgstr "Diskette A: &auswerfen"
+
+#: MainForm.pas:770
+msgid "Eject disk B:"
+msgstr "Diskette B: auswerfen"
+
+#: MainForm.pas:774
+msgid "&Fast floppy disk access"
+msgstr "&Schneller Diskettenzugriff"
+
+#: MainForm.pas:776
+msgid "Drive &B: connected"
+msgstr "Laufwerk &B: angeschlossen"
+
+#: MainForm.pas:779
+msgid "&Cartridge"
+msgstr "&Cartridge"
+
+#: MainForm.pas:781 MainForm.pas:1620
+msgid "Cartridge &browser..."
+msgstr "Cartridge-&Browser..."
+
+#: MainForm.pas:783
+msgid "&Insert cartridge..."
+msgstr "Cartridge &einlegen..."
+
+#: MainForm.pas:784
+msgid "Insert &recent cartridge"
+msgstr "&Letztes Cartridge einlegen"
+
+#: MainForm.pas:785
+msgid "&Eject cartridge"
+msgstr "Cartridge &auswerfen"
+
+#: MainForm.pas:787
+msgid "&Mapper"
+msgstr "&Mapper"
+
+#: MainForm.pas:790
+msgid "&Auto-detect"
+msgstr "&Automatisch erkennen"
+
+#: MainForm.pas:798
+msgid "&SD"
+msgstr "&SD"
+
+#: MainForm.pas:800 MainForm.pas:1626
+msgid "SD card &browser..."
+msgstr "SD-Karten-&Browser..."
+
+#: MainForm.pas:803
+msgid "&Insert SD card image..."
+msgstr "SD-Karten-Image &einlegen..."
+
+#: MainForm.pas:804
+msgid "Insert &recent SD card"
+msgstr "&Letzte SD-Karte einlegen"
+
+#: MainForm.pas:805
+msgid "Use a PC &folder as SD card..."
+msgstr "PC-&Ordner als SD-Karte verwenden..."
+
+#: MainForm.pas:806
+msgid "&New SD card..."
+msgstr "&Neue SD-Karte..."
+
+#: MainForm.pas:807
+msgid "New SD card with &ESXDOS..."
+msgstr "Neue SD-Karte mit &ESXDOS..."
+
+#: MainForm.pas:808
+msgid "New SD card with the &Next distribution..."
+msgstr "Neue SD-Karte mit der &Next-Distribution..."
+
+#: MainForm.pas:810
+msgid "&Save SD card"
+msgstr "SD-Karte &speichern"
+
+#: MainForm.pas:811
+msgid "Save SD card &as..."
+msgstr "SD-Karte speichern &unter..."
+
+#: MainForm.pas:813
+msgid "E&ject SD card"
+msgstr "SD-Karte a&uswerfen"
+
+#: MainForm.pas:816
+msgid "&Debug"
+msgstr "&Debug"
+
+#: MainForm.pas:817
+msgid "&Debugger..."
+msgstr "&Debugger..."
+
+#: MainForm.pas:818
+msgid "&Clear all breakpoints"
+msgstr "&Alle Breakpoints löschen"
+
+#: MainForm.pas:820
+msgid "&Load symbols..."
+msgstr "Symbole &laden..."
+
+#: MainForm.pas:821
+msgid "Load &recent symbols"
+msgstr "&Letzte Symbole laden"
+
+#: MainForm.pas:822
+msgid "C&lear symbols"
+msgstr "Symbole &entfernen"
+
+#: MainForm.pas:824
+msgid "&Adventure Debugger..."
+msgstr "&Adventure Debugger..."
+
+#: MainForm.pas:826
+msgid "&Options"
+msgstr "&Optionen"
+
+#: MainForm.pas:829
+msgid "&Monitor"
+msgstr "&Monitor"
+
+#: MainForm.pas:837
+msgid "&Scanlines (zoom 2x or more)"
+msgstr "&Scanlines (Zoom 2x oder mehr)"
+
+#: MainForm.pas:838
+msgid "&Zoom"
+msgstr "&Zoom"
+
+#: MainForm.pas:846
+msgid "&Deinterlace"
+msgstr "&Deinterlacing"
+
+#: MainForm.pas:856
+msgid "&CRTC chip"
+msgstr "&CRTC-Chip"
+
+#: MainForm.pas:860 SettingsForm.pas:555
+msgid "The model's own"
+msgstr "Das des Modells"
+
+#: MainForm.pas:861
+msgid "Type %d: %s"
+msgstr "Typ %d: %s"
+
+#: MainForm.pas:867
+msgid "&Mute sound"
+msgstr "&Ton aus"
+
+#: MainForm.pas:868
+msgid "&Turbo speed"
+msgstr "&Turbo-Geschwindigkeit"
+
+#: MainForm.pas:869
+msgid "Mo&dern interface (dark)"
+msgstr "Mo&derne Oberfläche (dunkel)"
+
+#: MainForm.pas:871
+msgid "MSX 1 &compatibility mode"
+msgstr "MSX-1-&Kompatibilitätsmodus"
+
+#: MainForm.pas:873
+msgid "&Virtual Keyboard"
+msgstr "&Virtuelle Tastatur"
+
+#: MainForm.pas:875
+msgid "ZX &Keyboard Guide"
+msgstr "ZX-&Tastaturhilfe"
+
+#: MainForm.pas:877
+msgid "Install Spectrum Next Distribution"
+msgstr "Spectrum-Next-Distribution installieren"
+
+#: MainForm.pas:879
+msgid "S&ettings..."
+msgstr "&Einstellungen..."
+
+#: MainForm.pas:881
+msgid "&Help"
+msgstr "&Hilfe"
+
+#: MainForm.pas:882
+msgid "&Documentation"
+msgstr "&Dokumentation"
+
+#: MainForm.pas:884
+msgid "&License (GPL v3)"
+msgstr "&Lizenz (GPL v3)"
+
+#: MainForm.pas:885
+msgid "&About emu80..."
+msgstr "&Über emu80..."
+
+#: MainForm.pas:926
+msgid "Open a tape, snapshot or disk (F2)"
+msgstr "Band, Snapshot oder Diskette öffnen (F2)"
+
+#: MainForm.pas:927 MainModern.inc:16
+msgid "Save snapshot (F3)"
+msgstr "Snapshot speichern (F3)"
+
+#: MainForm.pas:934 SettingsForm.pas:303
+msgid "ZX Spectrum"
+msgstr "ZX Spectrum"
+
+#: MainForm.pas:937 SettingsForm.pas:548
+msgid "Amstrad CPC"
+msgstr "Amstrad CPC"
+
+#: MainForm.pas:957
+msgid "Machine model"
+msgstr "Maschinenmodell"
+
+#: MainForm.pas:960 MainModern.inc:17
+msgid "Hard reset: switch the machine off and on (F6)"
+msgstr "Hardreset: Maschine aus- und wieder einschalten (F6)"
+
+#: MainForm.pas:961 MainModern.inc:19
+msgid "Non-maskable interrupt (F5)"
+msgstr "Nicht maskierbarer Interrupt (F5)"
+
+#: MainForm.pas:962 MainModern.inc:20
+msgid "Pause emulation (F4)"
+msgstr "Emulation anhalten (F4)"
+
+#: MainForm.pas:964 MainModern.inc:21
+msgid "Run as fast as possible (Shift+F11)"
+msgstr "So schnell wie möglich laufen lassen (Umschalt+F11)"
+
+#: MainForm.pas:967 MainModern.inc:201
+msgid "Tape browser (F7)"
+msgstr "Band-Browser (F7)"
+
+#: MainForm.pas:968 MainModern.inc:187
+msgid "Play/pause tape (F8)"
+msgstr "Band abspielen/anhalten (F8)"
+
+#: MainForm.pas:969 MainModern.inc:189
+msgid "Stop tape (Ctrl+F8)"
+msgstr "Band stoppen (Strg+F8)"
+
+#: MainForm.pas:970 MainModern.inc:191
+msgid "Record onto the tape (REC)"
+msgstr "Auf das Band aufnehmen (REC)"
+
+#: MainForm.pas:974 MainForm.pas:1625
+msgid "SD card browser (DivMMC)"
+msgstr "SD-Karten-Browser (DivMMC)"
+
+#: MainForm.pas:976 MainModern.inc:23
+msgid "Debugger (F12)"
+msgstr "Debugger (F12)"
+
+#: MainForm.pas:977 MainModern.inc:24 MainModern.inc:24
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: MainForm.pas:978
+msgid "Switch to the modern interface (dark)"
+msgstr "Zur modernen Oberfläche wechseln (dunkel)"
+
+#: MainForm.pas:1056
+msgid "ZX Spectrum Next: "
+msgstr "ZX Spectrum Next: "
+
+#: MainForm.pas:1092
+msgid "Currah µSpeech: "
+msgstr "Currah µSpeech: "
+
+#: MainForm.pas:1093
+msgid "It needs currah.rom and sp0256-al2.rom in the ROM folder."
+msgstr "Es braucht currah.rom und sp0256-al2.rom im ROM-Ordner."
+
+#: MainForm.pas:1110
+msgid "The DivMMC firmware (esxdos/ESXMMC.BIN) was not found."
+msgstr "Die DivMMC-Firmware (esxdos/ESXMMC.BIN) wurde nicht gefunden."
+
+#: MainForm.pas:1130
+msgid "DivMMC: "
+msgstr "DivMMC: "
+
+#: MainForm.pas:1166
+msgid "Could not open the SD card image:"
+msgstr "Das SD-Karten-Image konnte nicht geöffnet werden:"
+
+#: MainForm.pas:1225
+msgid "Using the standard ROMs for this model."
+msgstr "Die Standard-ROMs dieses Modells werden verwendet."
+
+#: MainForm.pas:1235
+msgid "Machine: %s (click to change)"
+msgstr "Maschine: %s (zum Ändern klicken)"
+
+#: MainForm.pas:1592
+msgid "Recording (%d blocks)"
+msgstr "Aufnahme (%d Blöcke)"
+
+#: MainForm.pas:1594 MainModern.inc:699
+msgid "No tape"
+msgstr "Kein Band"
+
+#: MainForm.pas:1597
+msgid "Tape %d/%d"
+msgstr "Band %d/%d"
+
+#: MainForm.pas:1619
+msgid "Cartridge browser (CR)"
+msgstr "Cartridge-Browser (CR)"
+
+#: MainForm.pas:1639 MainForm.pas:2934 MainForm.pas:2980
+msgid "ZX Spectrum Next"
+msgstr "ZX Spectrum Next"
+
+#: MainForm.pas:1639
+msgid "The Next's firmware tried to start another machine's core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead."
+msgstr "Die Firmware des Next versuchte, den Core einer anderen Maschine zu starten (ein zusätzlicher Core, Slots 8-31). emu80 emuliert nur den ZX-Spectrum-Next-Core, daher startet der Next neu."
+
+#: MainForm.pas:1644
+msgid "Paused"
+msgstr "Pausiert"
+
+#: MainForm.pas:1646
+msgid "%d fps"
+msgstr "%d fps"
+
+#: MainForm.pas:2059
+msgid "That does not look like an MSX cartridge: its size is %d bytes."
+msgstr "Das sieht nicht wie ein MSX-Cartridge aus: seine Größe beträgt %d Bytes."
+
+#: MainForm.pas:2085
+msgid "Could not insert "
+msgstr "Einlegen nicht möglich: "
+
+#: MainForm.pas:2554
+msgid "ZX-Uno: "
+msgstr "ZX-Uno: "
+
+#: MainForm.pas:2603 MainForm.pas:2609 MainForm.pas:2621
+msgid "Could not open "
+msgstr "Öffnen nicht möglich: "
+
+#: MainForm.pas:2604
+msgid "A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes."
+msgstr "Eine .tap-Datei ist ein ZX-Spectrum-Band; der MSX verwendet .cas-Bänder."
+
+#: MainForm.pas:2610
+msgid "A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes."
+msgstr "Eine .tap-Datei ist ein ZX-Spectrum-Band; der Amstrad CPC verwendet .cdt- (oder .tzx-) Bänder."
+
+#: MainForm.pas:2642
+msgid "%s has %d block(s) of the ZX Spectrum's standard tape speed, which an Amstrad CPC can't load. The tape is inserted anyway; its other blocks play as they are."
+msgstr "%s hat %d Block/Blöcke mit der Standard-Bandgeschwindigkeit des ZX Spectrum, die ein Amstrad CPC nicht laden kann. Das Band wird trotzdem eingelegt; seine anderen Blöcke werden unverändert abgespielt."
+
+#: MainForm.pas:2678
+msgid "Unsupported file type: "
+msgstr "Nicht unterstützter Dateityp: "
+
+#: MainForm.pas:2703
+msgid "Amstrad CPC tape"
+msgstr "Amstrad-CPC-Band"
+
+#: MainForm.pas:2725
+msgid "Tape images (*.cdt;*.tzx)"
+msgstr "Band-Images (*.cdt;*.tzx)"
+
+#: MainForm.pas:2727
+msgid "MSX tape images (*.cas;*.tsx;*.tzx)"
+msgstr "MSX-Band-Images (*.cas;*.tsx;*.tzx)"
+
+#: MainForm.pas:2729
+msgid "Tape images (*.tap;*.tzx)"
+msgstr "Band-Images (*.tap;*.tzx)"
+
+#: MainForm.pas:2751
+msgid "Insert a tape"
+msgstr "Band einlegen"
+
+#: MainForm.pas:2792
+msgid "CPC snapshot (*.sna)"
+msgstr "CPC-Snapshot (*.sna)"
+
+#: MainForm.pas:2792 MainForm.pas:2797 MainForm.pas:2802
+msgid "emu80 snapshot (*.e80)"
+msgstr "emu80-Snapshot (*.e80)"
+
+#: MainForm.pas:2802
+msgid "Z80 snapshot (*.z80)"
+msgstr "Z80-Snapshot (*.z80)"
+
+#: MainForm.pas:2802
+msgid "SNA snapshot (*.sna)"
+msgstr "SNA-Snapshot (*.sna)"
+
+#: MainForm.pas:2867
+msgid "ZX Spectrum Next SD card"
+msgstr "SD-Karte des ZX Spectrum Next"
+
+#: MainForm.pas:2867
+msgid "A new card for the ZX Spectrum Next, with its distribution (%d MB) and room for your files."
+msgstr "Eine neue Karte für den ZX Spectrum Next, mit seiner Distribution (%d MB) und Platz für Ihre Dateien."
+
+#: MainForm.pas:2880
+msgid "Making the ZX Spectrum Next SD card..."
+msgstr "SD-Karte des ZX Spectrum Next wird erstellt..."
+
+#: MainForm.pas:2891
+msgid "Could not make the ZX Spectrum Next SD card: "
+msgstr "Die SD-Karte des ZX Spectrum Next konnte nicht erstellt werden: "
+
+#: MainForm.pas:2934
+msgid "There is a new ZX Spectrum Next distribution (%s). Make a new SD card from it?"
+msgstr "Es gibt eine neue ZX-Spectrum-Next-Distribution (%s). Eine neue SD-Karte damit erstellen?"
+
+#: MainForm.pas:2935
+msgid "The current card is kept as %s."
+msgstr "Die aktuelle Karte bleibt als %s erhalten."
+
+#: MainForm.pas:2940
+msgid "Could not rename "
+msgstr "Umbenennen nicht möglich: "
+
+#: MainForm.pas:2960
+msgid "Could not use the SD card "
+msgstr "SD-Karte kann nicht verwendet werden: "
+
+#: MainForm.pas:2980
+msgid "These files on the Next's SD card were empty (an older version of emu80 didn't save what NextZXOS and the firmware wrote) and have been mended from the distribution:"
+msgstr "Diese Dateien auf der SD-Karte des Next waren leer (eine ältere emu80-Version speicherte nicht, was NextZXOS und die Firmware schrieben) und wurden aus der Distribution repariert:"
+
+#: MainForm.pas:2995 MainForm.pas:4050
+msgid "Could not save the Next's SD card: "
+msgstr "Die SD-Karte des Next konnte nicht gespeichert werden: "
+
+#: MainForm.pas:3070 SettingsForm.pas:509
+msgid "DivMMC"
+msgstr "DivMMC"
+
+#: MainForm.pas:3070
+msgid "This is a standard ZX Spectrum. Do you want to switch off the DivMMC interface?"
+msgstr "Dies ist ein Standard-ZX-Spectrum. Soll die DivMMC-Schnittstelle ausgeschaltet werden?"
+
+#: MainForm.pas:3113
+msgid "Installing the ZX Spectrum Next distribution... %d%%"
+msgstr "ZX-Spectrum-Next-Distribution wird installiert... %d%%"
+
+#: MainForm.pas:3134
+msgid "The ZX Spectrum Next distribution downloaded"
+msgstr "Die heruntergeladene ZX-Spectrum-Next-Distribution"
+
+#: MainForm.pas:3135
+msgid "Zip files (*.zip)"
+msgstr "Zip-Dateien (*.zip)"
+
+#: MainForm.pas:3156
+msgid "Distribution installed."
+msgstr "Distribution installiert."
+
+#: MainForm.pas:3157
+msgid "Do you want to start the ZX Spectrum Next emulation?"
+msgstr "Soll die Emulation des ZX Spectrum Next gestartet werden?"
+
+#: MainForm.pas:3168
+msgid "Invalid distribution."
+msgstr "Ungültige Distribution."
+
+#: MainForm.pas:3174
+msgid "The distribution could not be installed: "
+msgstr "Die Distribution konnte nicht installiert werden: "
+
+#: MainForm.pas:3175
+msgid "Nothing was installed."
+msgstr "Es wurde nichts installiert."
+
+#: MainForm.pas:3195
+msgid "New SD card with the ZX Spectrum Next distribution"
+msgstr "Neue SD-Karte mit der ZX-Spectrum-Next-Distribution"
+
+#: MainForm.pas:3198 MainForm.pas:3925 MainForm.pas:3989
+msgid "SD card images (*.img)"
+msgstr "SD-Karten-Images (*.img)"
+
+#: MainForm.pas:3521
+msgid "Disk %s: has been modified. Save changes?"
+msgstr "Die Diskette %s: wurde geändert. Änderungen speichern?"
+
+#: MainForm.pas:3640 MainForm.pas:4286
+msgid "The disk is inserted, but this computer has no disk drive."
+msgstr "Die Diskette ist eingelegt, aber dieser Computer hat kein Diskettenlaufwerk."
+
+#: MainForm.pas:3818
+msgid "SD card images (*.img;*.mmc;*.hdf;*.bin)"
+msgstr "SD-Karten-Images (*.img;*.mmc;*.hdf;*.bin)"
+
+#: MainForm.pas:3857
+msgid "Size (FAT16):"
+msgstr "Größe (FAT16):"
+
+#: MainForm.pas:3866
+msgid "%d MB"
+msgstr "%d MB"
+
+#: MainForm.pas:3877 NextNotice.pas:78 SettingsForm.pas:288
+msgid "OK"
+msgstr "OK"
+
+#: MainForm.pas:3899
+msgid "New SD card with ESXDOS"
+msgstr "Neue SD-Karte mit ESXDOS"
+
+#: MainForm.pas:3899
+msgid "The card gets the ESXDOS SYS, BIN and TMP folders."
+msgstr "Die Karte erhält die ESXDOS-Ordner SYS, BIN und TMP."
+
+#: MainForm.pas:3902
+msgid "New SD card"
+msgstr "Neue SD-Karte"
+
+#: MainForm.pas:3902
+msgid "An empty card with one FAT16 partition."
+msgstr "Eine leere Karte mit einer FAT16-Partition."
+
+#: MainForm.pas:3919 MainForm.pas:4149
+msgid "The esxdos folder (with SYS and BIN) was not found next to emu80."
+msgstr "Der Ordner esxdos (mit SYS und BIN) wurde nicht neben emu80 gefunden."
+
+#: MainForm.pas:3971
+msgid "Could not create the SD card: "
+msgstr "Die SD-Karte konnte nicht erstellt werden: "
+
+#: MainForm.pas:4009 MainForm.pas:4069 MainForm.pas:4086
+msgid "Could not save the SD card: "
+msgstr "Die SD-Karte konnte nicht gespeichert werden: "
+
+#: MainForm.pas:4056
+msgid "The SD card made from the folder %s has been modified. Save it as an SD card image?"
+msgstr "Die aus dem Ordner %s erstellte SD-Karte wurde geändert. Als SD-Karten-Image speichern?"
+
+#: MainForm.pas:4062
+msgid "The SD card %s has been modified. Save the changes?"
+msgstr "Die SD-Karte %s wurde geändert. Änderungen speichern?"
+
+#: MainForm.pas:4080
+msgid "There is no SD card inserted."
+msgstr "Es ist keine SD-Karte eingelegt."
+
+#: MainForm.pas:4100 MainForm.pas:4312
+msgid "There is no disk in that drive."
+msgstr "In diesem Laufwerk ist keine Diskette."
+
+#: MainForm.pas:4120
+msgid "Could not save the disk: "
+msgstr "Die Diskette konnte nicht gespeichert werden: "
+
+#: MainForm.pas:4161
+msgid "The folder is too big for an SD card of up to 2 GB."
+msgstr "Der Ordner ist zu groß für eine SD-Karte mit bis zu 2 GB."
+
+#: MainForm.pas:4198
+msgid "Could not make the SD card from the folder: "
+msgstr "Die SD-Karte konnte nicht aus dem Ordner erstellt werden: "
+
+#: MainForm.pas:4234
+msgid "Folder to use as the SD card"
+msgstr "Ordner, der als SD-Karte verwendet wird"
+
+#: MainForm.pas:4348
+msgid "This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) may help, especially with games from the early days of the MSX."
+msgstr "Dieser Emulator emuliert einen MSX2 und verwendet inoffizielle QUANTIKA-ROMs. Die Quantika-ROMs sind bis zu einem gewissen Grad mit den Originalen kompatibel, aber manche Spiele funktionieren möglicherweise nicht. Der MSX1-Kompatibilitätsmodus (Menü Optionen) kann helfen, besonders bei Spielen aus der Frühzeit des MSX."
+
+#: MainForm.pas:4351
+msgid "If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them."
+msgstr "Wenn Sie die offiziellen ROMs verwenden möchten, benötigen Sie die Dateien MSX2.ROM, MSX2EXT.ROM und PHILIPSDISK.rom. Legen Sie sie im Ordner roms/msx ab, gehen Sie zu Einstellungen > Allgemein > ROMs, wählen Sie MSX2 und wählen Sie die Dateien aus."
+
+#: MainForm.pas:4353
+msgid "Searching for PHILIPSDISK.rom will probably lead you to the other two files as well."
+msgstr "Wer nach PHILIPSDISK.rom sucht, findet wahrscheinlich auch die beiden anderen Dateien."
+
+#: MainForm.pas:4357
+msgid "MSX 2"
+msgstr "MSX 2"
+
+#: MainForm.pas:4487 SettingsForm.pas:604
+msgid "Mouse"
+msgstr "Maus"
+
+#: MainForm.pas:4487
+msgid "Do you want to attach the mouse to the window?"
+msgstr "Soll die Maus an das Fenster gebunden werden?"
+
+#: MainForm.pas:4585
+msgid "%d POKE(s) went to ROM (or to no memory) and had no effect."
+msgstr "%d POKE(s) gingen ins ROM (oder in keinen Speicher) und hatten keine Wirkung."
+
+#: MainForm.pas:4586
+msgid "ROM changes can be allowed in Options > Settings."
+msgstr "Änderungen am ROM können unter Optionen > Einstellungen erlaubt werden."
+
+#: MainForm.pas:4602
+msgid "The tape has changed (blocks saved, moved or deleted). Save it?"
+msgstr "Das Band wurde geändert (Blöcke gespeichert, verschoben oder gelöscht). Speichern?"
+
+#: MainForm.pas:4657
+msgid "CPC screen (*.scr)"
+msgstr "CPC-Bildschirm (*.scr)"
+
+#: MainForm.pas:4658
+msgid "Spectrum screen (*.scr)"
+msgstr "Spectrum-Bildschirm (*.scr)"
+
+#: MainForm.pas:4681
+msgid "PNG image (*.png)"
+msgstr "PNG-Bild (*.png)"
+
+#: MainForm.pas:4737
+msgid "Restart emu80 now to use the new language?"
+msgstr "emu80 jetzt neu starten, um die neue Sprache zu verwenden?"
+
+#: MainForm.pas:4844
+msgid "Keeping the previous ROM folder."
+msgstr "Der bisherige ROM-Ordner wird beibehalten."
+
+#: MainForm.pas:5494
+msgid "Command line:"
+msgstr "Befehlszeile:"
+
+#: MainForm.pas:5495
+msgid "See Help > Documentation for the options."
+msgstr "Siehe Hilfe > Dokumentation für die Optionen."
+
+#: MainForm.pas:5623
+msgid "Could not load symbols from "
+msgstr "Symbole konnten nicht geladen werden aus: "
+
+#: MainForm.pas:5629
+msgid "No symbols found in "
+msgstr "Keine Symbole gefunden in: "
+
+#: MainForm.pas:5630
+msgid "Expected lines like \"LABEL: EQU 0x8000\" (as exported by SjASM / SjASMPlus)."
+msgstr "Erwartet werden Zeilen wie „LABEL: EQU 0x8000“ (wie von SjASM / SjASMPlus exportiert)."
+
+#: MainForm.pas:5647
+msgid "Symbol files (*.sym;*.exp;*.lab;*.txt)"
+msgstr "Symboldateien (*.sym;*.exp;*.lab;*.txt)"
+
+#: MainForm.pas:5704
+msgid "About emu80"
+msgstr "Über emu80"
+
+#: MainForm.pas:5707
+msgid "Release "
+msgstr "Version "
+
+#: MainForm.pas:5709
+msgid "Written in Free Pascal with Lazarus."
+msgstr "Geschrieben in Free Pascal mit Lazarus."
+
+#: MainForm.pas:5710
+msgid "Spectrum ROMs are copyright Amstrad, who allow their distribution."
+msgstr "Die Spectrum-ROMs sind urheberrechtlich geschützt durch Amstrad, das ihre Verbreitung erlaubt."
+
+#: MainForm.pas:383 SettingsForm.pas:623
+msgid "Auto-detect"
+msgstr "Automatisch erkennen"
+
+#: MainForm.pas:383 SettingsForm.pas:624
+msgid "Plain ROM (no mapper)"
+msgstr "Einfaches ROM (kein Mapper)"
+
+#: MainForm.pas:383 SettingsForm.pas:625
+msgid "Konami"
+msgstr "Konami"
+
+#: MainForm.pas:383 SettingsForm.pas:626
+msgid "Konami SCC"
+msgstr "Konami SCC"
+
+#: MainForm.pas:383 SettingsForm.pas:627
+msgid "ASCII8"
+msgstr "ASCII8"
+
+#: MainForm.pas:383 SettingsForm.pas:628
+msgid "ASCII16"
+msgstr "ASCII16"
+
+#: MainModern.inc:39
+msgid "btn:Settings"
+msgstr "Einst."
+
+#: MainModern.inc:108
+msgid "Machine model (click to change)"
+msgstr "Maschinenmodell (zum Ändern klicken)"
+
+#: MainModern.inc:117
+msgid "Switch to the classic interface"
+msgstr "Zur klassischen Oberfläche wechseln"
+
+#: MainModern.inc:133 SettingsForm.pas:470
+msgid "Machine"
+msgstr "Maschine"
+
+#: MainModern.inc:166 SettingsForm.pas:385
+msgid "Tape"
+msgstr "Band"
+
+#: MainModern.inc:172
+msgid "Click to insert a tape"
+msgstr "Zum Einlegen eines Bandes klicken"
+
+#: MainModern.inc:185
+msgid "Rewind the tape"
+msgstr "Band zurückspulen"
+
+#: MainModern.inc:194
+msgid "Tape menu"
+msgstr "Bandmenü"
+
+#: MainModern.inc:201
+msgid "Browser"
+msgstr "Browser"
+
+#: MainModern.inc:205 MainModern.inc:251
+msgid "Fast"
+msgstr "Schnell"
+
+#: MainModern.inc:205
+msgid "Fast loading: the ROM loader is skipped and blocks load at once"
+msgstr "Schnellladen: der ROM-Lader wird übersprungen und die Blöcke werden sofort geladen"
+
+#: MainModern.inc:213
+msgid "Media"
+msgstr "Medien"
+
+#: MainModern.inc:229
+msgid "Click a drive or the card reader to insert a disk or an SD card image"
+msgstr "Auf ein Laufwerk oder den Kartenleser klicken, um eine Diskette oder ein SD-Karten-Image einzulegen"
+
+#: MainModern.inc:233
+msgid "Floppy menu (drive %s:)"
+msgstr "Diskettenmenü (Laufwerk %s:)"
+
+#: MainModern.inc:236
+msgid "SD menu"
+msgstr "SD-Menü"
+
+#: MainModern.inc:244
+msgid "Disks"
+msgstr "Disketten"
+
+#: MainModern.inc:247 MainModern.inc:755 SDBrowser.pas:102
+msgid "SD card browser"
+msgstr "SD-Karten-Browser"
+
+#: MainModern.inc:251
+msgid "Fast floppy disk access: no real drive timing"
+msgstr "Schneller Diskettenzugriff: keine echte Laufwerkstaktung"
+
+#: MainModern.inc:264 MainModern.inc:267
+msgid "Zoom"
+msgstr "Zoom"
+
+#: MainModern.inc:270
+msgid "Zoom %dx"
+msgstr "Zoom %dx"
+
+#: MainModern.inc:642
+msgid "not available"
+msgstr "nicht verfügbar"
+
+#: MainModern.inc:704
+msgid "Block %d of %d - %s"
+msgstr "Block %d von %d - %s"
+
+#: MainModern.inc:709
+msgid "End of the tape"
+msgstr "Ende des Bandes"
+
+#: MainModern.inc:726
+msgid "(new disk)"
+msgstr "(neue Diskette)"
+
+#: MainModern.inc:15
+msgid "Open"
+msgstr "Öffnen"
+
+#: MainModern.inc:15
+msgid "Open a tape, snapshot, disk or program (F2)"
+msgstr "Band, Snapshot, Diskette oder Programm öffnen (F2)"
+
+#: MainModern.inc:16
+msgid "Save"
+msgstr "Speichern"
+
+#: MainModern.inc:17
+msgid "Off/on"
+msgstr "Aus/Ein"
+
+#: MainModern.inc:18
+msgid "Reset"
+msgstr "Reset"
+
+#: MainModern.inc:18
+msgid "Reset (Ctrl+F6)"
+msgstr "Reset (Strg+F6)"
+
+#: MainModern.inc:19
+msgid "NMI"
+msgstr "NMI"
+
+#: MainModern.inc:20
+msgid "Pause"
+msgstr "Pause"
+
+#: MainModern.inc:21
+msgid "Turbo"
+msgstr "Turbo"
+
+#: MainModern.inc:22
+msgid "POKE"
+msgstr "POKE"
+
+#: MainModern.inc:22
+msgid "POKE (F9)"
+msgstr "POKE (F9)"
+
+#: MainModern.inc:23
+msgid "Debug"
+msgstr "Debug"
+
+#: MainModern.inc:25
+msgid "Virt. Kb"
+msgstr "Virt. Tast."
+
+#: MainModern.inc:25
+msgid "Virtual keyboard: symbols to type on the machine"
+msgstr "Virtuelle Tastatur: Symbole zum Eintippen in die Maschine"
+
+#: MainModern.inc:26
+msgid "ZX Guide"
+msgstr "ZX-Hilfe"
+
+#: MainModern.inc:26
+msgid "The ZX keyboard guide: the keywords of the keys"
+msgstr "Die ZX-Tastaturhilfe: die Schlüsselwörter der Tasten"
+
+#: MemText.pas:62
+msgid "the file has no values"
+msgstr "die Datei enthält keine Werte"
+
+#: MemText.pas:85
+msgid "value %d is \"%s\": expected decimal 0-255, or $ and one or two hex digits"
+msgstr "Wert %d ist „%s“: erwartet wird dezimal 0-255 oder $ und eine oder zwei Hex-Ziffern"
+
+#: ModernUI.pas:1037
+msgid "WARNING"
+msgstr "WARNUNG"
+
+#: ModernUI.pas:1041
+msgid "This is the modern interface."
+msgstr "Dies ist die moderne Oberfläche."
+
+#: ModernUI.pas:1044
+msgid "To change to the classic one, click the "
+msgstr "Um zur klassischen zu wechseln, klicken Sie auf die Schaltfläche "
+
+#: ModernUI.pas:1045
+msgid " button."
+msgstr "."
+
+#: Msx.pas:362
+msgid "Memory mapper size must be a power of 2 up to %d segments"
+msgstr "Die Größe des Speicher-Mappers muss eine Zweierpotenz mit bis zu %d Segmenten sein"
+
+#: MsxDisk.pas:199 Plus3FS.pas:273
+msgid "the disk is not formatted"
+msgstr "die Diskette ist nicht formatiert"
+
+#: NextCard.pas:140
+msgid "Unsafe path in the zip: "
+msgstr "Unsicherer Pfad im Zip: "
+
+#: NextCard.pas:148 NextCard.pas:154 NextCard.pas:287
+msgid "Could not create "
+msgstr "Erstellen nicht möglich: "
+
+#: NextCard.pas:241
+msgid "The file %s does not exist."
+msgstr "Die Datei %s existiert nicht."
+
+#: NextCard.pas:254
+msgid "It is not a zip file."
+msgstr "Es ist keine Zip-Datei."
+
+#: NextCard.pas:263
+msgid "The zip has a path that would write outside the folder: "
+msgstr "Das Zip enthält einen Pfad, der außerhalb des Ordners schreiben würde: "
+
+#: NextCard.pas:280
+msgid "machines/next/enNextZX.rom is not in it."
+msgstr "machines/next/enNextZX.rom ist nicht enthalten."
+
+#: NextCard.pas:300
+msgid "The ZX Spectrum Next ROMs are not complete in it."
+msgstr "Die ROMs des ZX Spectrum Next sind darin nicht vollständig."
+
+#: NextCard.pas:320
+msgid "Could not move %s into %s"
+msgstr "%s konnte nicht nach %s verschoben werden"
+
+#: NextCard.pas:487
+msgid "There is no ZX Spectrum Next distribution in %s"
+msgstr "In %s ist keine ZX-Spectrum-Next-Distribution"
+
+#: NextCard.pas:511
+msgid "Could not replace %s"
+msgstr "%s konnte nicht ersetzt werden"
+
+#: NextCard.pas:514
+msgid "Could not create %s"
+msgstr "%s konnte nicht erstellt werden"
+
+#: NextNotice.pas:48
+msgid "The ZX Spectrum Next distribution is not installed. Please download it from"
+msgstr "Die ZX-Spectrum-Next-Distribution ist nicht installiert. Bitte laden Sie sie herunter von"
+
+#: NextNotice.pas:58
+msgid "Open it in the browser"
+msgstr "Im Browser öffnen"
+
+#: NextNotice.pas:72
+msgid "and then go to the Options menu > Install Spectrum Next Distribution."
+msgstr "und gehen Sie dann zum Menü Optionen > Spectrum-Next-Distribution installieren."
+
+#: Plus3FS.pas:204
+msgid "(no header)"
+msgstr "(kein Header)"
+
+#: Plus3FS.pas:206
+msgid "Program"
+msgstr "Programm"
+
+#: Plus3FS.pas:207 SamdosFS.pas:221
+msgid "Number array"
+msgstr "Zahlenfeld"
+
+#: Plus3FS.pas:208
+msgid "Character array"
+msgstr "Zeichenfeld"
+
+#: Plus3FS.pas:209
+msgid "Bytes"
+msgstr "Bytes"
+
+#: Plus3FS.pas:211
+msgid "Type %d"
+msgstr "Typ %d"
+
+#: Plus3FS.pas:309
+msgid "the disk is too small"
+msgstr "die Diskette ist zu klein"
+
+#: Plus3FS.pas:343
+msgid "sector %d of track %d is missing"
+msgstr "Sektor %d von Spur %d fehlt"
+
+#: Plus3FS.pas:605
+msgid "the directory is full"
+msgstr "das Verzeichnis ist voll"
+
+#: PokeForm.pas:69
+msgid "Address,value (decimal, or hex with $). Several POKEs separated by \":\", e.g.  35899,0 : 36000,201"
+msgstr "Adresse,Wert (dezimal oder hex mit $). Mehrere POKEs durch „:“ getrennt, z. B.  35899,0 : 36000,201"
+
+#: PokeForm.pas:77
+msgid "Last POKEs (click to use, double-click to apply):"
+msgstr "Letzte POKEs (Klick zum Übernehmen, Doppelklick zum Anwenden):"
+
+#: PokeForm.pas:101
+msgid "Close"
+msgstr "Schließen"
+
+#: Pokes.pas:60
+msgid "\"%s\": expected address,value"
+msgstr "„%s“: erwartet wird Adresse,Wert"
+
+#: Pokes.pas:65
+msgid "\"%s\": bad address"
+msgstr "„%s“: ungültige Adresse"
+
+#: Pokes.pas:70
+msgid "\"%s\": value must be 0-255"
+msgstr "„%s“: Der Wert muss 0-255 sein"
+
+#: Pokes.pas:82
+msgid "Nothing to POKE"
+msgstr "Nichts zu POKEn"
+
+#: SDBrowser.pas:123
+msgid "Up to the parent folder"
+msgstr "Zum übergeordneten Ordner"
+
+#: SDBrowser.pas:124
+msgid "Read the card again"
+msgstr "Karte neu einlesen"
+
+#: SDBrowser.pas:126
+msgid "New folder..."
+msgstr "Neuer Ordner..."
+
+#: SDBrowser.pas:127
+msgid "Import files from the PC into this folder... (or drop files and folders here)"
+msgstr "Dateien vom PC in diesen Ordner importieren... (oder Dateien und Ordner hierher ziehen)"
+
+#: SDBrowser.pas:128
+msgid "Import a folder of the PC with its contents into this folder..."
+msgstr "Einen PC-Ordner mit Inhalt in diesen Ordner importieren..."
+
+#: SDBrowser.pas:131
+msgid "Rename the selected file or folder... (F2)"
+msgstr "Markierte Datei oder markierten Ordner umbenennen... (F2)"
+
+#: SDBrowser.pas:132
+msgid "Delete the selected files and folders (folders with all they hold) (Del)"
+msgstr "Markierte Dateien und Ordner löschen (Ordner mit allem Inhalt) (Entf)"
+
+#: SDBrowser.pas:163
+msgid "Size"
+msgstr "Größe"
+
+#: SDBrowser.pas:167
+msgid "Date"
+msgstr "Datum"
+
+#: SDBrowser.pas:169
+msgid "8.3 name"
+msgstr "8.3-Name"
+
+#: SDBrowser.pas:222
+msgid "There is no SD card in the DivMMC."
+msgstr "Im DivMMC ist keine SD-Karte."
+
+#: SDBrowser.pas:237
+msgid "Can't read the card: "
+msgstr "Die Karte kann nicht gelesen werden: "
+
+#: SDBrowser.pas:273
+msgid "Can't read the folder: "
+msgstr "Der Ordner kann nicht gelesen werden: "
+
+#: SDBrowser.pas:284
+msgid "Parent folder"
+msgstr "Übergeordneter Ordner"
+
+#: SDBrowser.pas:299
+msgid "Folder"
+msgstr "Ordner"
+
+#: SDBrowser.pas:341
+msgid "FAT%d   %d items   %s free of %s"
+msgstr "FAT%d   %d Einträge   %s frei von %s"
+
+#: SDBrowser.pas:344
+msgid "SD card browser - "
+msgstr "SD-Karten-Browser - "
+
+#: SDBrowser.pas:397
+msgid "New folder"
+msgstr "Neuer Ordner"
+
+#: SDBrowser.pas:397
+msgid "Name (up to 8 characters, optional extension of 3):"
+msgstr "Name (bis zu 8 Zeichen, optionale Erweiterung mit 3):"
+
+#: SDBrowser.pas:414
+msgid "Could not create the folder: "
+msgstr "Der Ordner konnte nicht erstellt werden: "
+
+#: SDBrowser.pas:477 SDBrowser.pas:539 SDBrowser.pas:625
+msgid "there is no SD card"
+msgstr "keine SD-Karte vorhanden"
+
+#: SDBrowser.pas:631
+msgid "Could not read the file: "
+msgstr "Die Datei konnte nicht gelesen werden: "
+
+#: SDBrowser.pas:648
+msgid "New name (8.3; a long name is dropped):"
+msgstr "Neuer Name (8.3; ein langer Name wird verworfen):"
+
+#: SDBrowser.pas:665
+msgid "Could not rename: "
+msgstr "Umbenennen nicht möglich: "
+
+#: SDBrowser.pas:681
+msgid "Delete %s from the card?"
+msgstr "%s von der Karte löschen?"
+
+#: SDBrowser.pas:682
+msgid "Delete the %d selected entries from the card?"
+msgstr "Die %d markierten Einträge von der Karte löschen?"
+
+#: SDBrowser.pas:684
+msgid "Folders are deleted with all the files and folders in them."
+msgstr "Ordner werden mit allen darin enthaltenen Dateien und Ordnern gelöscht."
+
+#: SDBrowser.pas:706
+msgid "Could not delete:"
+msgstr "Löschen nicht möglich:"
+
+#: SamdosFS.pas:136
+msgid "not a SAM Coupe disk"
+msgstr "keine SAM-Coupe-Diskette"
+
+#: SamdosFS.pas:160
+msgid "the directory can't be read"
+msgstr "das Verzeichnis kann nicht gelesen werden"
+
+#: SamdosFS.pas:222
+msgid "String array"
+msgstr "Zeichenkettenfeld"
+
+#: SamdosFS.pas:226
+msgid "Type "
+msgstr "Typ "
+
+#: SamdosFS.pas:259
+msgid "a SAMDOS file needs a name"
+msgstr "eine SAMDOS-Datei braucht einen Namen"
+
+#: SamdosFS.pas:288
+msgid "sector %d of track %d can't be read"
+msgstr "Sektor %d von Spur %d kann nicht gelesen werden"
+
+#: SamdosFS.pas:346
+msgid "the directory is full (80 files)"
+msgstr "das Verzeichnis ist voll (80 Dateien)"
+
+#: SamdosFS.pas:348
+msgid "the file is too long for SAMDOS"
+msgstr "die Datei ist zu lang für SAMDOS"
+
+#: SamdosFS.pas:377
+msgid "the disk is full"
+msgstr "die Diskette ist voll"
+
+#: SamdosFS.pas:383
+msgid "the disk can't be written"
+msgstr "die Diskette kann nicht beschrieben werden"
+
+#: SettingsForm.pas:277
+msgid "Apply"
+msgstr "Übernehmen"
+
+#: SettingsForm.pas:302
+msgid "Common"
+msgstr "Allgemein"
+
+#: SettingsForm.pas:308 SettingsForm.pas:314
+msgid "General"
+msgstr "Allgemein"
+
+#: SettingsForm.pas:316
+msgid "CPU speed:"
+msgstr "CPU-Geschwindigkeit:"
+
+#: SettingsForm.pas:332
+msgid "The Z80 runs this many times faster; interrupts stay at 50 per second"
+msgstr "Der Z80 läuft entsprechend schneller; die Interrupts bleiben bei 50 pro Sekunde"
+
+#: SettingsForm.pas:335
+msgid "Allow writing to ROM"
+msgstr "Schreiben ins ROM erlauben"
+
+#: SettingsForm.pas:336
+msgid "From the debugger and with POKE"
+msgstr "Vom Debugger aus und mit POKE"
+
+#: SettingsForm.pas:338 TZX.pas:258
+msgid "Language"
+msgstr "Sprache"
+
+#: SettingsForm.pas:342
+msgid "Automatic"
+msgstr "Automatisch"
+
+#: SettingsForm.pas:343
+msgid "The language of the interface; Automatic follows the system's. Holding the left Ctrl key while emu80 starts always gives English"
+msgstr "Die Sprache der Oberfläche; Automatisch folgt der des Systems. Hält man beim Start von emu80 die linke Strg-Taste gedrückt, erscheint immer Englisch"
+
+#: SettingsForm.pas:347
+msgid "Save the settings when emu80 closes"
+msgstr "Einstellungen beim Beenden speichern"
+
+#: SettingsForm.pas:348
+msgid "Off: changes made while running (zoom, machine, recent files...) are forgotten; OK in this window still saves"
+msgstr "Aus: Änderungen während des Betriebs (Zoom, Maschine, zuletzt geöffnete Dateien...) gehen verloren; OK in diesem Fenster speichert trotzdem"
+
+#: SettingsForm.pas:351
+msgid "Attach mouse to window"
+msgstr "Maus an das Fenster binden"
+
+#: SettingsForm.pas:352
+msgid "While the emulated mouse is used, the PC mouse stays over the picture (hidden), so the two stay aligned (Ctrl+Alt or Alt-Tab frees it)"
+msgstr "Solange die emulierte Maus benutzt wird, bleibt die PC-Maus (unsichtbar) über dem Bild, damit beide ausgerichtet bleiben (Strg+Alt oder Alt-Tab gibt sie frei)"
+
+#: SettingsForm.pas:354
+msgid "Layout"
+msgstr "Layout"
+
+#: SettingsForm.pas:355
+msgid "Theme:"
+msgstr "Design:"
+
+#: SettingsForm.pas:358
+msgid "Classic (menus and toolbar)"
+msgstr "Klassisch (Menüs und Symbolleiste)"
+
+#: SettingsForm.pas:359
+msgid "Modern (dark)"
+msgstr "Modern (dunkel)"
+
+#: SettingsForm.pas:360
+msgid "Zoom:"
+msgstr "Zoom:"
+
+#: SettingsForm.pas:364 SettingsForm.pas:550
+msgid "Video"
+msgstr "Video"
+
+#: SettingsForm.pas:365
+msgid "Monitor:"
+msgstr "Monitor:"
+
+#: SettingsForm.pas:369
+msgid "How the picture is shown: in colour, in black and white, or in the shades of a green or orange phosphor"
+msgstr "Wie das Bild dargestellt wird: in Farbe, in Schwarzweiß oder in den Tönen eines grünen oder orangen Phosphors"
+
+#: SettingsForm.pas:372
+msgid "Scanlines (zoom 2x or more)"
+msgstr "Scanlines (Zoom 2x oder mehr)"
+
+#: SettingsForm.pas:373 SettingsForm.pas:592
+msgid "Sound"
+msgstr "Ton"
+
+#: SettingsForm.pas:374
+msgid "Volume:"
+msgstr "Lautstärke:"
+
+#: SettingsForm.pas:381
+msgid "Mute sound"
+msgstr "Ton ausschalten"
+
+#: SettingsForm.pas:384
+msgid "Storage"
+msgstr "Speicher"
+
+#: SettingsForm.pas:387
+msgid "Fast tape loading"
+msgstr "Schnelles Bandladen"
+
+#: SettingsForm.pas:389
+msgid "Smart Tape Player"
+msgstr "Intelligenter Bandspieler"
+
+#: SettingsForm.pas:390
+msgid "Start/stop the tape automatically when the machine loads"
+msgstr "Startet/stoppt das Band automatisch, wenn die Maschine lädt"
+
+#: SettingsForm.pas:392
+msgid "Continuous tape playback"
+msgstr "Endloses Abspielen des Bandes"
+
+#: SettingsForm.pas:393
+msgid "From the start again at the end"
+msgstr "Beginnt am Ende wieder von vorn"
+
+#: SettingsForm.pas:394
+msgid "Floppy"
+msgstr "Diskette"
+
+#: SettingsForm.pas:396
+msgid "Fast floppy disk access"
+msgstr "Schneller Diskettenzugriff"
+
+#: SettingsForm.pas:397
+msgid "No real drive timing"
+msgstr "Keine echte Laufwerkstaktung"
+
+#: SettingsForm.pas:399
+msgid "Drive B: connected"
+msgstr "Laufwerk B: angeschlossen"
+
+#: SettingsForm.pas:401
+msgid "Emulate floppy drive noise"
+msgstr "Diskettenlaufwerk-Geräusche emulieren"
+
+#: SettingsForm.pas:402
+msgid "Motor, head steps and reading, when the drive works at real speed"
+msgstr "Motor, Kopfschritte und Lesen, wenn das Laufwerk mit echter Geschwindigkeit arbeitet"
+
+#: SettingsForm.pas:405 SettingsForm.pas:406
+msgid "ROMs"
+msgstr "ROMs"
+
+#: SettingsForm.pas:408
+msgid "Standard ROM folder:"
+msgstr "Standard-ROM-Ordner:"
+
+#: SettingsForm.pas:414 SettingsForm.pas:434 SettingsForm.pas:520
+msgid "Browse..."
+msgstr "Durchsuchen..."
+
+#: SettingsForm.pas:418
+msgid "ROM files for:"
+msgstr "ROM-Dateien für:"
+
+#: SettingsForm.pas:430
+msgid "Labels for a ROM are read from a .sym file next to it"
+msgstr "Die Labels eines ROMs werden aus einer .sym-Datei daneben gelesen"
+
+#: SettingsForm.pas:440
+msgid "On the CPC models ROM 0 is the 32K firmware (operating system and BASIC) and ROM 1 the AMSDOS disc ROM."
+msgstr "Bei den CPC-Modellen ist ROM 0 die 32K-Firmware (Betriebssystem und BASIC) und ROM 1 das AMSDOS-Disketten-ROM."
+
+#: SettingsForm.pas:442
+msgid "On the MSX 2 the alternative QUANTIKA ROMs are used (QUANTIKA_DISK.ROM for the floppy drive). The original ones would be MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom; a disk ROM works only with the main ROM of its own kind (otherwise there is no floppy drive)."
+msgstr "Beim MSX 2 werden die alternativen QUANTIKA-ROMs verwendet (QUANTIKA_DISK.ROM für das Diskettenlaufwerk). Die Originale wären MSX2.ROM, MSX2EXT.ROM und PHILIPSDISK.rom; ein Disketten-ROM funktioniert nur mit dem Haupt-ROM derselben Art (sonst gibt es kein Diskettenlaufwerk)."
+
+#: SettingsForm.pas:447
+msgid "Hardware"
+msgstr "Hardware"
+
+#: SettingsForm.pas:449
+msgid "TurboSound"
+msgstr "Turbosound"
+
+#: SettingsForm.pas:450
+msgid "Two AY sound chips on the 128K and later models"
+msgstr "Zwei AY-Soundchips beim 128K und späteren Modellen"
+
+#: SettingsForm.pas:452
+msgid "AY sound chip on the 16K and 48K"
+msgstr "AY-Soundchip beim 16K und 48K"
+
+#: SettingsForm.pas:453
+msgid "An AY interface at the 128K's ports (FFFD and BFFD)"
+msgstr "Eine AY-Schnittstelle an den Ports des 128K (FFFD und BFFD)"
+
+#: SettingsForm.pas:455
+msgid "Kempston mouse"
+msgstr "Kempston-Maus"
+
+#: SettingsForm.pas:456
+msgid "Moved with the PC mouse over the picture"
+msgstr "Wird mit der PC-Maus über dem Bild bewegt"
+
+#: SettingsForm.pas:458
+msgid "DivMMC interface"
+msgstr "DivMMC-Schnittstelle"
+
+#: SettingsForm.pas:459
+msgid "SD card with the esxDOS firmware (see the SD menu); changing it switches the machine off and on"
+msgstr "SD-Karte mit der esxDOS-Firmware (siehe SD-Menü); eine Änderung schaltet die Maschine aus und wieder ein"
+
+#: SettingsForm.pas:462
+msgid "Currah µSpeech"
+msgstr "Currah µSpeech"
+
+#: SettingsForm.pas:463
+msgid "Speech synthesizer for the 48K BASIC (LET s$=\"...\"); changing it switches the machine off and on"
+msgstr "Sprachsynthesizer für das 48K-BASIC (LET s$=\"...\"); eine Änderung schaltet die Maschine aus und wieder ein"
+
+#: SettingsForm.pas:466
+msgid "SAVE writes the blocks to the tape"
+msgstr "SAVE schreibt die Blöcke aufs Band"
+
+#: SettingsForm.pas:467
+msgid "The ROM's SAVE adds its blocks to the inserted tape at once"
+msgstr "Das SAVE des ROMs fügt seine Blöcke sofort dem eingelegten Band hinzu"
+
+#: SettingsForm.pas:471
+msgid "Graphics"
+msgstr "Grafik"
+
+#: SettingsForm.pas:473
+msgid "ULAplus (64-colour palette)"
+msgstr "ULAplus (64-Farben-Palette)"
+
+#: SettingsForm.pas:475
+msgid "Timex screen modes (second screen, hi-colour, 512x192 hi-res)"
+msgstr "Timex-Bildschirmmodi (zweiter Bildschirm, Hi-Colour, Hi-Res 512x192)"
+
+#: SettingsForm.pas:477
+msgid "Radastan mode"
+msgstr "Radastan-Modus"
+
+#: SettingsForm.pas:479
+msgid "Deinterlace:"
+msgstr "Deinterlacing:"
+
+#: SettingsForm.pas:483
+msgid "The frames taken as the fields of an interlaced picture: needed by demos that alternate two pictures (Mescaline, Paralactika, Ultraviolet)"
+msgstr "Die Bilder werden als Halbbilder eines Zeilensprungbildes behandelt: nötig für Demos, die zwei Bilder abwechseln (Mescaline, Paralactika, Ultraviolet)"
+
+#: SettingsForm.pas:486 SettingsForm.pas:572 SettingsForm.pas:597
+msgid "Controls"
+msgstr "Steuerung"
+
+#: SettingsForm.pas:488
+msgid "Keyboard (16K/48K):"
+msgstr "Tastatur (16K/48K):"
+
+#: SettingsForm.pas:490
+msgid "Issue 2"
+msgstr "Issue 2"
+
+#: SettingsForm.pas:491
+msgid "Issue 3"
+msgstr "Issue 3"
+
+#: SettingsForm.pas:493
+msgid "Joystick (cursors + Ctrl):"
+msgstr "Joystick (Cursor + Strg):"
+
+#: SettingsForm.pas:498
+msgid "Make Left Ctrl be CAPS SHIFT instead of Left Shift"
+msgstr "Linke Strg-Taste als CAPS SHIFT statt der linken Umschalttaste verwenden"
+
+#: SettingsForm.pas:499
+msgid "CAPS SHIFT is the left Shift, or the left Ctrl when on (then only the right Ctrl is the joystick's fire; off, either Ctrl is)"
+msgstr "CAPS SHIFT ist die linke Umschalttaste, bei Aktivierung die linke Strg-Taste (dann ist nur die rechte Strg-Taste der Feuerknopf des Joysticks; sonst jede Strg-Taste)"
+
+#: SettingsForm.pas:501
+msgid "Core features"
+msgstr "Grundfunktionen"
+
+#: SettingsForm.pas:503
+msgid "Contended memory and I/O (real timing)"
+msgstr "Contended Memory und E/A (echte Taktung)"
+
+#: SettingsForm.pas:505
+msgid "ULA snow (16K, 48K, 128K and +2)"
+msgstr "ULA-Schnee (16K, 48K, 128K und +2)"
+
+#: SettingsForm.pas:508
+msgid "Firmware"
+msgstr "Firmware"
+
+#: SettingsForm.pas:511
+msgid "Firmware:"
+msgstr "Firmware:"
+
+#: SettingsForm.pas:516
+msgid "An 8K EEPROM image"
+msgstr "Ein 8K-EEPROM-Image"
+
+#: SettingsForm.pas:523
+msgid "ZX-Uno"
+msgstr "ZX-Uno"
+
+#: SettingsForm.pas:525
+msgid "BIOS:"
+msgstr "BIOS:"
+
+#: SettingsForm.pas:525
+msgid "zxuno/FIRMWARE.ZX1"
+msgstr "zxuno/FIRMWARE.ZX1"
+
+#: SettingsForm.pas:527
+msgid "ROMs:"
+msgstr "ROMs:"
+
+#: SettingsForm.pas:527
+msgid "zxuno/ROMS.ZX1"
+msgstr "zxuno/ROMS.ZX1"
+
+#: SettingsForm.pas:529
+msgid "Custom ROM:"
+msgstr "Eigenes ROM:"
+
+#: SettingsForm.pas:529
+msgid "none"
+msgstr "keins"
+
+#: SettingsForm.pas:530
+msgid "A 16K ROM that runs as a 48K instead of the BIOS's choice; changes switch the ZX-Uno off and on"
+msgstr "Ein 16K-ROM, das als 48K läuft statt nach der Wahl des BIOS; Änderungen schalten den ZX-Uno aus und wieder ein"
+
+#: SettingsForm.pas:535
+msgid "Distribution:"
+msgstr "Distribution:"
+
+#: SettingsForm.pas:535
+msgid "the specnext folder"
+msgstr "der Ordner specnext"
+
+#: SettingsForm.pas:536
+msgid "The folder with the ZX Spectrum Next's system distribution (from specnext.com), with machines/next in it"
+msgstr "Der Ordner mit der System-Distribution des ZX Spectrum Next (von specnext.com), in dem machines/next liegt"
+
+#: SettingsForm.pas:540
+msgid "SD card:"
+msgstr "SD-Karte:"
+
+#: SettingsForm.pas:540
+msgid "zxnext.img next to emu80.ini"
+msgstr "zxnext.img neben emu80.ini"
+
+#: SettingsForm.pas:541
+msgid "Its SD card image, made from the distribution if it doesn't exist"
+msgstr "Sein SD-Karten-Image, aus der Distribution erstellt, falls es nicht existiert"
+
+#: SettingsForm.pas:544
+msgid "Start through its firmware (TBBLUE.FW: boot screen and menu)"
+msgstr "Über die Firmware starten (TBBLUE.FW: Startbild und Menü)"
+
+#: SettingsForm.pas:545
+msgid "Off: NextZXOS starts directly, without the firmware's screen"
+msgstr "Aus: NextZXOS startet direkt, ohne den Bildschirm der Firmware"
+
+#: SettingsForm.pas:552
+msgid "CRTC chip:"
+msgstr "CRTC-Chip:"
+
+#: SettingsForm.pas:556
+msgid "Type 0: HD6845S / UM6845"
+msgstr "Typ 0: HD6845S / UM6845"
+
+#: SettingsForm.pas:557
+msgid "Type 1: UM6845R"
+msgstr "Typ 1: UM6845R"
+
+#: SettingsForm.pas:558
+msgid "Type 2: MC6845"
+msgstr "Typ 2: MC6845"
+
+#: SettingsForm.pas:559
+msgid "Type 3: AMS40489 (CPC+ ASIC)"
+msgstr "Typ 3: AMS40489 (CPC+-ASIC)"
+
+#: SettingsForm.pas:560
+msgid "Type 4: AMS40226 (pre-ASIC)"
+msgstr "Typ 4: AMS40226 (Pre-ASIC)"
+
+#: SettingsForm.pas:561
+msgid "The model's own: type 0 on the 464, type 1 on the 664 and 6128. The chips differ in which registers they read back, the VSYNC width, the HSYNC of width 0, the display skew and when the sync and display compares happen"
+msgstr "Das des Modells: Typ 0 beim 464, Typ 1 beim 664 und 6128. Die Chips unterscheiden sich darin, welche Register sie beim Lesen zurückgeben, in der VSYNC-Breite, dem HSYNC der Breite 0, dem Display-Skew und wann die Sync- und Display-Vergleiche stattfinden"
+
+#: SettingsForm.pas:564
+msgid "Programs detect the chip (and some demos need a particular one); the registers written are kept when it is changed."
+msgstr "Programme erkennen den Chip (und manche Demos brauchen einen bestimmten); die geschriebenen Register bleiben beim Wechsel erhalten."
+
+#: SettingsForm.pas:567
+msgid "Timing"
+msgstr "Taktung"
+
+#: SettingsForm.pas:569
+msgid "Gate Array wait states (every access on the 1 MHz grid)"
+msgstr "Gate-Array-Wartezustände (jeder Zugriff im 1-MHz-Raster)"
+
+#: SettingsForm.pas:570
+msgid "Real timing: instructions take a whole number of microseconds; off makes every access take its nominal time"
+msgstr "Echte Taktung: Befehle dauern eine ganze Zahl von Mikrosekunden; aus lässt jeden Zugriff seine Nennzeit dauern"
+
+#: SettingsForm.pas:574 SettingsForm.pas:654
+msgid "Cursor keys and right Ctrl as joystick 1"
+msgstr "Cursortasten und rechte Strg-Taste als Joystick 1"
+
+#: SettingsForm.pas:575
+msgid "On the CPC the cursor keys are always the cursor keys; with this on they also move joystick 1, and the right Ctrl is its fire button"
+msgstr "Beim CPC sind die Cursortasten immer die Cursortasten; wenn aktiviert, bewegen sie auch Joystick 1, und die rechte Strg-Taste ist sein Feuerknopf"
+
+#: SettingsForm.pas:579
+msgid "SAM Coupé"
+msgstr "SAM Coupé"
+
+#: SettingsForm.pas:581 SettingsForm.pas:634
+msgid "Memory"
+msgstr "Speicher"
+
+#: SettingsForm.pas:583
+msgid "RAM:"
+msgstr "RAM:"
+
+#: SettingsForm.pas:588
+msgid "The basic machine has 256K, with 256K more on its expansion connector. Changing it resets the machine"
+msgstr "Die Grundmaschine hat 256K, mit weiteren 256K am Erweiterungsanschluss. Eine Änderung setzt die Maschine zurück"
+
+#: SettingsForm.pas:591
+msgid "The ROM tells the size by trying the pages: 512K is the usual machine."
+msgstr "Das ROM ermittelt die Größe durch Ausprobieren der Seiten: 512K ist die übliche Maschine."
+
+#: SettingsForm.pas:594
+msgid "Philips SAA1099 sound generator"
+msgstr "Philips-SAA1099-Tongenerator"
+
+#: SettingsForm.pas:595
+msgid "Six tone generators, two noise generators and two envelopes, in stereo; off leaves just the beeper (the generator keeps running)"
+msgstr "Sechs Tongeneratoren, zwei Rauschgeneratoren und zwei Hüllkurven, in Stereo; aus lässt nur den Beeper (der Generator läuft weiter)"
+
+#: SettingsForm.pas:599
+msgid "Cursor keys and right Ctrl as a joystick"
+msgstr "Cursortasten und rechte Strg-Taste als Joystick"
+
+#: SettingsForm.pas:600
+msgid "On the SAM Coupe the cursor keys are always the cursor keys; with this on they also move a Kempston joystick (port 31), and the right Ctrl is its fire button"
+msgstr "Beim SAM Coupe sind die Cursortasten immer die Cursortasten; wenn aktiviert, bewegen sie auch einen Kempston-Joystick (Port 31), und die rechte Strg-Taste ist sein Feuerknopf"
+
+#: SettingsForm.pas:602
+msgid "Peripherals"
+msgstr "Peripherie"
+
+#: SettingsForm.pas:605
+msgid "Moving the PC mouse over the picture moves the SAM's mouse (left, right and middle buttons); the pointer is hidden over the picture"
+msgstr "Das Bewegen der PC-Maus über dem Bild bewegt die Maus des SAM (linke, rechte und mittlere Taste); der Zeiger ist über dem Bild unsichtbar"
+
+#: SettingsForm.pas:608
+msgid "Clock (SAMBUS interface)"
+msgstr "Uhr (SAMBUS-Schnittstelle)"
+
+#: SettingsForm.pas:609
+msgid "A real-time clock, the one of the SAMBUS interface, that follows the PC's"
+msgstr "Eine Echtzeituhr, die der SAMBUS-Schnittstelle, die der des PCs folgt"
+
+#: SettingsForm.pas:610
+msgid "DOS"
+msgstr "DOS"
+
+#: SettingsForm.pas:612
+msgid "Boot SAMDOS automatically"
+msgstr "SAMDOS automatisch starten"
+
+#: SettingsForm.pas:613
+msgid "On start, on reset and on choosing the SAM Coupé with drive 1 empty, "
+msgstr "Beim Start, beim Reset und bei der Wahl des SAM Coupé mit leerem Laufwerk 1 "
+
+#: SettingsForm.pas:616
+msgid "MSX"
+msgstr "MSX"
+
+#: SettingsForm.pas:618
+msgid "Cartridges"
+msgstr "Cartridges"
+
+#: SettingsForm.pas:620
+msgid "Mapper:"
+msgstr "Mapper:"
+
+#: SettingsForm.pas:629
+msgid "How the banks of a ROM bigger than 32K are switched. Auto-detect guesses it from the writes the code makes to the mapper registers; if a game does not start, choose another one. Changing it inserts the cartridge again"
+msgstr "Wie die Bänke eines ROMs über 32K umgeschaltet werden. Die automatische Erkennung errät es aus den Schreibzugriffen des Codes auf die Mapper-Register; startet ein Spiel nicht, wählen Sie einen anderen. Eine Änderung legt das Cartridge erneut ein"
+
+#: SettingsForm.pas:633
+msgid "ROMs of up to 32K never need a mapper."
+msgstr "ROMs bis 32K brauchen nie einen Mapper."
+
+#: SettingsForm.pas:636
+msgid "RAM mapper:"
+msgstr "RAM-Mapper:"
+
+#: SettingsForm.pas:639
+msgid "Auto (off when a tape starts the machine)"
+msgstr "Auto (aus, wenn ein Band die Maschine startet)"
+
+#: SettingsForm.pas:640
+msgid "On (128K of mapper RAM)"
+msgstr "An (128K Mapper-RAM)"
+
+#: SettingsForm.pas:641
+msgid "Off (64K of RAM, as an MSX1)"
+msgstr "Aus (64K RAM, wie ein MSX1)"
+
+#: SettingsForm.pas:642
+msgid "The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset"
+msgstr "Der Speicher-Mapper antwortet an den Ports FCh-FFh. Manche Bandspiele (die ZX-Spectrum-Umsetzungen) schreiben aus eigenen Gründen auf Port FEh und verschieben dabei mit dem Mapper das RAM unter sich; Auto lässt den Mapper aus, wenn das automatische Laden ein Band startet. Wirkt ab dem nächsten Reset"
+
+#: SettingsForm.pas:646
+msgid "MSX-DOS 2 needs the mapper."
+msgstr "MSX-DOS 2 braucht den Mapper."
+
+#: SettingsForm.pas:647
+msgid "MSX 1 compatibility mode"
+msgstr "MSX-1-Kompatibilitätsmodus"
+
+#: SettingsForm.pas:648
+msgid "Some MSX1 programs use FFFFh as ordinary RAM or look for RAM in a primary slot alone, which the MSX2's expanded slot 3 breaks. With this on no slot is expanded (the RAM is slot 3 alone, the sub-ROM is in slot 2) and there is no disk drive. It is also in the Options menu. Resets the machine"
+msgstr "Manche MSX1-Programme verwenden FFFFh als normales RAM oder suchen RAM in einem einzelnen Primär-Slot, was der erweiterte Slot 3 des MSX2 stört. Ist es aktiviert, ist kein Slot erweitert (das RAM liegt allein in Slot 3, das Sub-ROM in Slot 2) und es gibt kein Diskettenlaufwerk. Es steht auch im Menü Optionen. Setzt die Maschine zurück"
+
+#: SettingsForm.pas:655
+msgid "On the MSX the cursor keys are always the cursor keys; with this on they also move joystick 1, and the right Ctrl is its first button"
+msgstr "Beim MSX sind die Cursortasten immer die Cursortasten; wenn aktiviert, bewegen sie auch Joystick 1, und die rechte Strg-Taste ist sein erster Knopf"
+
+#: SettingsForm.pas:886 SettingsForm.pas:949
+msgid "ROM images (*.rom;*.bin)"
+msgstr "ROM-Images (*.rom;*.bin)"
+
+#: SettingsForm.pas:927
+msgid "ZX Spectrum Next distribution folder"
+msgstr "Ordner der ZX-Spectrum-Next-Distribution"
+
+#: SettingsForm.pas:938
+msgid "ZX Spectrum Next SD card image (made if it doesn't exist)"
+msgstr "SD-Karten-Image des ZX Spectrum Next (wird erstellt, falls nicht vorhanden)"
+
+#: SettingsForm.pas:951
+msgid "ZX-Uno files (*.zx*)"
+msgstr "ZX-Uno-Dateien (*.zx*)"
+
+#: SettingsForm.pas:970
+msgid "Firmware images (*.bin;*.rom)"
+msgstr "Firmware-Images (*.bin;*.rom)"
+
+#: SettingsForm.pas:1035
+msgid "ROM %d (%s):"
+msgstr "ROM %d (%s):"
+
+#: SettingsForm.pas:1077
+msgid "The ZX-Uno always has it (its own registers can switch it off)"
+msgstr "Der ZX-Uno hat es immer (seine eigenen Register können es abschalten)"
+
+#: SettingsForm.pas:980
+msgid "ROM"
+msgstr "ROM"
+
+#: SettingsForm.pas:980
+msgid "SUBROM"
+msgstr "SUBROM"
+
+#: SettingsForm.pas:980
+msgid "FLOPPY DISK"
+msgstr "DISKETTE"
+
+#: Snapshot.pas:119
+msgid "Invalid SNA file"
+msgstr "Ungültige SNA-Datei"
+
+#: Snapshot.pas:316
+msgid "Invalid Z80 file"
+msgstr "Ungültige Z80-Datei"
+
+#: Spectrum.pas:1434
+msgid "play pressed, waiting for the motor"
+msgstr "Play gedrückt, wartet auf den Motor"
+
+#: Spectrum.pas:1436
+msgid "end of tape"
+msgstr "Bandende"
+
+#: Spectrum.pas:1437
+msgid "stopped (auto play waits for the next load)"
+msgstr "gestoppt (der automatische Start wartet auf das nächste Laden)"
+
+#: Spectrum.pas:3037
+msgid "ZX-Uno BIOS not found: %s"
+msgstr "ZX-Uno-BIOS nicht gefunden: %s"
+
+#: Spectrum.pas:3039
+msgid "ZX-Uno ROMs not found: %s"
+msgstr "ZX-Uno-ROMs nicht gefunden: %s"
+
+#: SpectrumCPC.inc:750
+msgid "Invalid CPC snapshot"
+msgstr "Ungültiger CPC-Snapshot"
+
+#: SpectrumCPC.inc:752
+msgid "Not a CPC snapshot"
+msgstr "Kein CPC-Snapshot"
+
+#: SpectrumCPC.inc:758
+msgid "This snapshot keeps its memory in compressed chunks, which emu80 doesn't read"
+msgstr "Dieser Snapshot speichert seinen Speicher in komprimierten Blöcken, die emu80 nicht liest"
+
+#: SpectrumCPC.inc:761
+msgid "A CPC snapshot with %d KB of memory isn't supported (64 or 128)"
+msgstr "Ein CPC-Snapshot mit %d KB Speicher wird nicht unterstützt (64 oder 128)"
+
+#: SpectrumCPC.inc:763
+msgid "A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only"
+msgstr "Ein Snapshot eines CPC+ oder GX4000: emu80 emuliert nur die ursprüngliche CPC-Reihe"
+
+#: SpectrumCPC.inc:765
+msgid "The snapshot is cut short"
+msgstr "Der Snapshot ist abgeschnitten"
+
+#: SpectrumNext.inc:851
+msgid "The .nex file is cut short"
+msgstr "Die .nex-Datei ist abgeschnitten"
+
+#: SpectrumNext.inc:871
+msgid "Not a .nex file"
+msgstr "Keine .nex-Datei"
+
+#: SpectrumSAM.inc:16
+msgid "The SAM Coupé's ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs."
+msgstr "Das ROM des SAM Coupé wird nicht mit emu80 mitgeliefert: Legen Sie das 32K-ROM (Version 3.0) als samcoupe.rom im ROM-Ordner ab oder wählen Sie die Datei unter Einstellungen > Allgemein > ROMs."
+
+#: SpectrumSAM.inc:21
+msgid "%s is not a SAM Coupe ROM (it should be 32K)"
+msgstr "%s ist kein SAM-Coupe-ROM (es sollte 32K groß sein)"
+
+#: SpectrumSAM.inc:483
+msgid "Not a snapshot of this machine"
+msgstr "Kein Snapshot dieser Maschine"
+
+#: TZX.pas:57
+msgid "The file is cut short"
+msgstr "Die Datei ist abgeschnitten"
+
+#: TZX.pas:303
+msgid "A KCS block of a TSX file is too short"
+msgstr "Ein KCS-Block einer TSX-Datei ist zu kurz"
+
+#: TZX.pas:353 Tape.pas:688
+msgid "Binary (BLOAD): "
+msgstr "Binär (BLOAD): "
+
+#: TZX.pas:354 Tape.pas:689
+msgid "BASIC program: "
+msgstr "BASIC-Programm: "
+
+#: TZX.pas:356 Tape.pas:690
+msgid "ASCII file: "
+msgstr "ASCII-Datei: "
+
+#: TZX.pas:359 Tape.pas:407 Tape.pas:695
+msgid "Data (%d bytes)"
+msgstr "Daten (%d Bytes)"
+
+#: TZX.pas:392
+msgid "This is not a TZX file"
+msgstr "Keine TZX-Datei"
+
+#: TZX.pas:393
+msgid "This TZX version is not supported"
+msgstr "Diese TZX-Version wird nicht unterstützt"
+
+#: TZX.pas:507
+msgid "Info: "
+msgstr "Info: "
+
+#: TZX.pas:258
+msgid "Title"
+msgstr "Titel"
+
+#: TZX.pas:258
+msgid "Publisher"
+msgstr "Herausgeber"
+
+#: TZX.pas:258
+msgid "Author"
+msgstr "Autor"
+
+#: TZX.pas:258
+msgid "Year"
+msgstr "Jahr"
+
+#: TZX.pas:259
+msgid "Price"
+msgstr "Preis"
+
+#: TZX.pas:259
+msgid "Loader"
+msgstr "Lader"
+
+#: TZX.pas:259
+msgid "Origin"
+msgstr "Herkunft"
+
+#: Tape.pas:398
+msgid "Program: "
+msgstr "Programm: "
+
+#: Tape.pas:399
+msgid "Number array: "
+msgstr "Zahlenfeld: "
+
+#: Tape.pas:400
+msgid "Character array: "
+msgstr "Zeichenfeld: "
+
+#: Tape.pas:401
+msgid "Bytes: "
+msgstr "Bytes: "
+
+#: Tape.pas:403
+msgid "Header: "
+msgstr "Header: "
+
+#: Tape.pas:409
+msgid "Block, flag %d (%d bytes)"
+msgstr "Block, Flag %d (%d Bytes)"
+
+#: Tape.pas:410
+msgid "Turbo: "
+msgstr "Turbo: "
+
+#: Tape.pas:411
+msgid "Pure data: "
+msgstr "Reine Daten: "
+
+#: Tape.pas:413
+msgid "Tone: %d pulses of %d T"
+msgstr "Ton: %d Impulse zu %d T"
+
+#: Tape.pas:415
+msgid "Pulses: %d"
+msgstr "Impulse: %d"
+
+#: Tape.pas:416
+msgid "Direct recording (%d samples)"
+msgstr "Direktaufnahme (%d Samples)"
+
+#: Tape.pas:417
+msgid "CSW recording (%d pulses)"
+msgstr "CSW-Aufnahme (%d Impulse)"
+
+#: Tape.pas:418
+msgid "Generalized data (%d symbols)"
+msgstr "Verallgemeinerte Daten (%d Symbole)"
+
+#: Tape.pas:420
+msgid "Stop the tape"
+msgstr "Band anhalten"
+
+#: Tape.pas:420
+msgid "Pause: %d ms"
+msgstr "Pause: %d ms"
+
+#: Tape.pas:421
+msgid "Group: "
+msgstr "Gruppe: "
+
+#: Tape.pas:422
+msgid "Group end"
+msgstr "Gruppenende"
+
+#: Tape.pas:423
+msgid "Jump to block %+d"
+msgstr "Sprung zu Block %+d"
+
+#: Tape.pas:424
+msgid "Loop: %d times"
+msgstr "Schleife: %d Mal"
+
+#: Tape.pas:425
+msgid "Loop end"
+msgstr "Schleifenende"
+
+#: Tape.pas:426
+msgid "Call sequence (%d)"
+msgstr "Sequenzaufruf (%d)"
+
+#: Tape.pas:427
+msgid "Return from the sequence"
+msgstr "Rückkehr aus der Sequenz"
+
+#: Tape.pas:428
+msgid "Select: "
+msgstr "Auswahl: "
+
+#: Tape.pas:429
+msgid "Stop the tape on a 48K"
+msgstr "Band bei einem 48K anhalten"
+
+#: Tape.pas:430
+msgid "Signal level: high"
+msgstr "Signalpegel: hoch"
+
+#: Tape.pas:430
+msgid "Signal level: low"
+msgstr "Signalpegel: niedrig"
+
+#: Tape.pas:431
+msgid "Text: "
+msgstr "Text: "
+
+#: Tape.pas:432
+msgid "Message: "
+msgstr "Meldung: "
+
+#: Tape.pas:433
+msgid "Archive info: "
+msgstr "Archivinformationen: "
+
+#: Tape.pas:434
+msgid "Hardware type"
+msgstr "Hardwaretyp"
+
+#: Tape.pas:435
+msgid "Custom info: "
+msgstr "Benutzerdefinierte Infos: "
+
+#: Tape.pas:436
+msgid "Glue"
+msgstr "Glue"
+
+#: Tape.pas:438
+msgid "Block %.2Xh"
+msgstr "Block %.2Xh"
+
+#: Tape.pas:626
+msgid "The .cas file is empty"
+msgstr "Die .cas-Datei ist leer"
+
+#: Tape.pas:694
+msgid "File header"
+msgstr "Dateikopf"
+
+#: Tape.pas:1214
+msgid "The tape has a block (type %.2X) that can't be saved as a TZX or CDT"
+msgstr "Das Band hat einen Block (Typ %.2X), der nicht als TZX oder CDT gespeichert werden kann"
+
+#: TapeBrowser.pas:87 TapeBrowser.pas:135
+msgid "Save tape"
+msgstr "Band speichern"
+
+#: TapeBrowser.pas:90
+msgid "Save it anyway?"
+msgstr "Trotzdem speichern?"
+
+#: TapeBrowser.pas:110
+msgid "CPC tape images (*.cdt)"
+msgstr "CPC-Band-Images (*.cdt)"
+
+#: TapeBrowser.pas:110 TapeBrowser.pas:115
+msgid "TZX tape images (*.tzx)"
+msgstr "TZX-Band-Images (*.tzx)"
+
+#: TapeBrowser.pas:115
+msgid "Tape images (*.tap)"
+msgstr "Band-Images (*.tap)"
+
+#: TapeBrowser.pas:167 TapeBrowser.pas:312
+msgid "Tape browser"
+msgstr "Band-Browser"
+
+#: TapeBrowser.pas:188
+msgid "Play"
+msgstr "Abspielen"
+
+#: TapeBrowser.pas:189
+msgid "Stop"
+msgstr "Stopp"
+
+#: TapeBrowser.pas:190
+msgid "Record onto the tape (REC): blocks are added at the end"
+msgstr "Auf das Band aufnehmen (REC): Blöcke werden am Ende angehängt"
+
+#: TapeBrowser.pas:193
+msgid "Rewind"
+msgstr "Zurückspulen"
+
+#: TapeBrowser.pas:194
+msgid "Play from the selected block (or double-click it)"
+msgstr "Ab dem markierten Block abspielen (oder doppelklicken)"
+
+#: TapeBrowser.pas:196
+msgid "Move the selected block up"
+msgstr "Markierten Block nach oben schieben"
+
+#: TapeBrowser.pas:197
+msgid "Move the selected block down"
+msgstr "Markierten Block nach unten schieben"
+
+#: TapeBrowser.pas:198
+msgid "Delete the selected block (Del)"
+msgstr "Markierten Block löschen (Entf)"
+
+#: TapeBrowser.pas:200
+msgid "Save the tape as..."
+msgstr "Band speichern unter..."
+
+#: TapeBrowser.pas:210
+msgid "Fast loading"
+msgstr "Schnellladen"
+
+#: TapeBrowser.pas:215
+msgid "Real-time loading"
+msgstr "Laden in Echtzeit"
+
+#: TapeBrowser.pas:233
+msgid "Export block as binary..."
+msgstr "Block als Binärdatei exportieren..."
+
+#: TapeBrowser.pas:250
+msgid "Block"
+msgstr "Block"
+
+#: TapeBrowser.pas:256
+msgid "Checksum"
+msgstr "Prüfsumme"
+
+#: TapeBrowser.pas:310
+msgid "Tape browser - "
+msgstr "Band-Browser - "
+
+#: TapeBrowser.pas:336
+msgid "No blocks"
+msgstr "Keine Blöcke"
+
+#: TapeBrowser.pas:338
+msgid "At the end of the tape (Play starts it again from the first block)"
+msgstr "Am Ende des Bandes (Abspielen beginnt wieder beim ersten Block)"
+
+#: TapeBrowser.pas:340
+msgid "Playing block %d of %d"
+msgstr "Spiele Block %d von %d"
+
+#: TapeBrowser.pas:342
+msgid "Stopped at block %d of %d"
+msgstr "Gestoppt bei Block %d von %d"
+
+#: TapeBrowser.pas:360
+msgid "Bad"
+msgstr "Fehlerhaft"
+
+#: TapeBrowser.pas:513
+msgid "Delete block %d (%s)?"
+msgstr "Block %d (%s) löschen?"
+
+#: TapeBrowser.pas:567
+msgid "Export block"
+msgstr "Block exportieren"
+
+#: TapeBrowser.pas:567
+msgid "Only blocks with data (standard, turbo or pure data) can be exported."
+msgstr "Nur Blöcke mit Daten (Standard, Turbo oder reine Daten) können exportiert werden."
+
+#: TapeBrowser.pas:575
+msgid "Export block %d as binary"
+msgstr "Block %d als Binärdatei exportieren"
+
+#: TapeBrowser.pas:590
+msgid "Could not save: "
+msgstr "Speichern nicht möglich: "
+
+#: VirtualKeyboard.pas:109
+msgid "Virtual Keyboard"
+msgstr "Virtuelle Tastatur"

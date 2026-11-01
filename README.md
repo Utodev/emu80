@@ -16,6 +16,7 @@ also shown by Help > Documentation, F1).
 - [2. Keyboard](#2-keyboard)
 - [3. Menus and toolbar](#3-menus-and-toolbar)
 - [4. Settings](#4-settings)
+  - [Language](#language)
   - [Interface](#interface)
   - [ZX-Uno](#zx-uno)
   - [Video modes](#video-modes)
@@ -391,7 +392,7 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 
 | Tab | Contents |
 |---|---|
-| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
+| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)) and the interface's language, a list to the right of "Allow writing to ROM" (see [Language](#language)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
 | Common > Storage | Tape: fast loading, Smart Tape Player (starts and stops the tape by itself when the machine loads: Auto play/stop in the Tape menu) and continuous tape playback (from the start again at the end). Floppy: fast floppy disk access (no real drive timing), drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
@@ -411,7 +412,7 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 
 | Section | Keys |
 |---|---|
-| `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `monitor` (`color`, `bw`, `green` or `orange`), `mute`, `volume`, `speed`, `saveonexit` |
+| `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `monitor` (`color`, `bw`, `green` or `orange`), `mute`, `volume`, `speed`, `lang` (`auto`, `en`, `es`, `fr`, `pt` or `de`), `saveonexit` |
 | `[Machine]` | `romedit`, `scanlines`, `attachmouse` |
 | `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
@@ -423,6 +424,26 @@ The recent files, pokes and last folder are kept in sections of their own. An em
 older version is read and rewritten with these keys; the names the options had before they took
 `zx_` and `cpc_` (`turbosound`, `joystick`, `issue`, `nextdir`, `sdcard`, `cpcjoystick`...) are still understood, in the file and on the
 command line, and the file is written with the new ones.
+
+### Language
+
+The interface (menus, toolbar, settings, dialogs, messages and the browsers) comes in English, Spanish
+(`es`), French (`fr`), Portuguese (`pt`, Brazilian) and German (`de`). The Debugger, the Adventure
+Debugger, the Z80 instruction help, this documentation and `--help` are always in English, and so are
+the names of the machines and of some terms (Debug, NMI, SD, Zoom, Turbosound, DivMMC, Currah, ULAplus,
+Timex, Radastan, Joystick, Scanlines, Breakpoints, Watches...). The language is chosen like this, in
+this order:
+
+1. If the **left Ctrl** key is held down while emu80 starts, English, whatever the rest says (a way out
+   if a language is set that can't be read).
+2. `--lang auto|en|es|fr|pt|de` on the command line, for that run.
+3. `lang` in emu80.ini (`[General] lang`), set in Settings > Common > General > Language. **Automatic**
+   (the default) uses the language of the system (Windows' display language; on Linux and macOS
+   `LC_ALL`, `LC_MESSAGES`, `LANGUAGE` or `LANG`) if it is one of the four, and English otherwise.
+
+The language is used when emu80 starts: after changing it in Settings (OK), emu80 offers to restart
+at once, and comes back with the machine that was running (in a snapshot for every machine but the
+MSX2, which starts again with its model). If the answer is No, it is used the next time.
 
 ### Interface
 
@@ -1846,6 +1867,7 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | Option | Setting | Where |
 |---|---|---|
 | `--ui classic\|modern` | the interface (see [Interface](#interface)); modern if not given | Common > General |
+| `--lang auto\|en\|es\|fr\|pt\|de` | the interface's language (see [Language](#language)); the settings' (automatic by default) if not given. Left Ctrl held at start overrides it | Common > General |
 | `--monitor M` | the monitor, for any machine: `color` (the default), `bw` (black and white), `green` or `orange` (shades of a green or orange phosphor); `--bw` is the same as `--monitor bw` | Common > General |
 | `--mute` | mute the sound | Common > General |
 | `--volume N` | volume 0 to 100 | Common > General |

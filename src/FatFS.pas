@@ -134,6 +134,10 @@ function FolderSize(const Dir: string; out Entries: Integer): Int64;
 
 implementation
 
+uses
+  Lang;
+
+
 const
   ATTR_READONLY = $01;
   ATTR_HIDDEN = $02;
@@ -196,13 +200,13 @@ begin
   end;
   if (Base = '') or (Length(Base) > 8) or (Length(Ext) > 3) then
   begin
-    Error := 'the name must be 1 to 8 characters, with an optional extension of up to 3';
+    Error := _('the name must be 1 to 8 characters, with an optional extension of up to 3');
     Exit;
   end;
   for I := 1 to Length(Base + Ext) do
     if not ((Base + Ext)[I] in OK_CHARS) then
     begin
-      Error := Format('"%s" can''t be used in a name', [(Base + Ext)[I]]);
+      Error := Format(_('"%s" can''t be used in a name'), [(Base + Ext)[I]]);
       Exit;
     end;
   for I := 0 to 7 do
@@ -268,7 +272,7 @@ var
 begin
   inherited Create;
   FStream := AStream;
-  if FStream.Size < 4096 then raise EFatError.Create('the image is too small');
+  if FStream.Size < 4096 then raise EFatError.Create(_('the image is too small'));
   FStream.Position := 0;
   FStream.ReadBuffer(Sec, 512);
   // A partition table, or a FAT volume right from sector 0
@@ -287,7 +291,7 @@ begin
   if FBase < 0 then FBase := 0;
   FStream.Position := FBase;
   FStream.ReadBuffer(Sec, 512);
-  if not LooksLikeBoot(Sec) then raise EFatError.Create('no FAT file system found on the card');
+  if not LooksLikeBoot(Sec) then raise EFatError.Create(_('no FAT file system found on the card'));
   FBytesPerSector := GetW(Sec, 11);
   FSecPerCluster := Sec[13];
   FReserved := GetW(Sec, 14);
@@ -310,7 +314,7 @@ begin
   if FClusters < 4085 then FFatType := 12
   else if FClusters < 65525 then FFatType := 16
   else FFatType := 32;
-  if (FFatType = 32) and (FRootCluster < 2) then raise EFatError.Create('bad FAT32 root directory');
+  if (FFatType = 32) and (FRootCluster < 2) then raise EFatError.Create(_('bad FAT32 root directory'));
   if FFatType = 32 then
     FLabel := TrimRight(Copy(PChar(@Sec[71]), 1, 11))
   else
@@ -569,7 +573,7 @@ begin
     FStream.ReadBuffer(Result[Done], Len);
     Inc(Done, Len);
   end;
-  if Done < E.Size then raise EFatError.Create('the file''s clusters are broken');
+  if Done < E.Size then raise EFatError.Create(_('the file''s clusters are broken'));
 end;
 
 function TFatVolume.ReadStart(const E: TFatEntry; Count: Integer): TBytes;
@@ -603,7 +607,7 @@ begin
       if Previous >= 2 then SetFat(Previous, C);
       Exit(C);
     end;
-  raise EFatError.Create('the card is full');
+  raise EFatError.Create(_('the card is full'));
 end;
 
 { The clusters for Bytes of data, linked in a chain: all in one run if the
@@ -641,7 +645,7 @@ begin
         Inc(I);
         if I = N then Break;
       end;
-    if I < N then raise EFatError.Create('the card is full');
+    if I < N then raise EFatError.Create(_('the card is full'));
   end;
   for I := 0 to N - 2 do SetFat(Result[I], Result[I + 1]);
   SetFat(Result[N - 1], EndMark);
@@ -682,7 +686,7 @@ begin
       if Sec[I * 32] in [0, $E5] then Exit(Sectors[S] + I * 32);
   end;
   if (DirCluster = 0) and (FFatType <> 32) then
-    raise EFatError.Create('the root directory is full');
+    raise EFatError.Create(_('the root directory is full'));
   // Grow the directory by a cluster
   if (DirCluster = 0) then DirCluster := FRootCluster;
   Clusters := Chain(DirCluster);
@@ -736,9 +740,9 @@ var
   Pos: Int64;
 begin
   if not MakeName83(AName, Raw, Error) then raise EFatError.Create(Error);
-  if Exists(DirCluster, Raw) then raise EFatError.CreateFmt('there is already a file called %s', [UpperCase(AName)]);
+  if Exists(DirCluster, Raw) then raise EFatError.CreateFmt(_('there is already a file called %s'), [UpperCase(AName)]);
   if Length(Data) > FreeBytes then
-    raise EFatError.CreateFmt('not enough space: %d bytes needed, %d free', [Length(Data), FreeBytes]);
+    raise EFatError.CreateFmt(_('not enough space: %d bytes needed, %d free'), [Length(Data), FreeBytes]);
   Pos := FindFreeEntry(DirCluster);
   First := WriteData(Data);
   WriteEntry(Pos, Raw, ATTR_ARCHIVE, First, Length(Data));
@@ -752,7 +756,7 @@ var
   Pos: Int64;
 begin
   if not MakeName83(AName, Raw, Error) then raise EFatError.Create(Error);
-  if Exists(DirCluster, Raw) then raise EFatError.CreateFmt('there is already a file called %s', [UpperCase(AName)]);
+  if Exists(DirCluster, Raw) then raise EFatError.CreateFmt(_('there is already a file called %s'), [UpperCase(AName)]);
   Pos := FindFreeEntry(DirCluster);
   C := AllocCluster(0);
   ZeroCluster(C);
@@ -773,7 +777,7 @@ var
   I: Integer;
 begin
   if IsDirectory(E) and (Length(ListDir(E.Cluster)) > 0) then
-    raise EFatError.Create('the folder isn''t empty');
+    raise EFatError.Create(_('the folder isn''t empty'));
   B := $E5;
   FStream.Position := E.EntryPos;
   FStream.WriteBuffer(B, 1);
@@ -797,7 +801,7 @@ begin
     Exit;
   if Exists(DirCluster, Raw) and not (MakeName83(E.ShortName, Old, Error) and
      CompareMem(@Raw[0], @Old[0], 11)) then
-    raise EFatError.CreateFmt('there is already a file called %s', [UpperCase(NewName)]);
+    raise EFatError.CreateFmt(_('there is already a file called %s'), [UpperCase(NewName)]);
   FStream.Position := E.EntryPos;
   FStream.WriteBuffer(Raw, 11);
   // The old long name would no longer match: drop it
@@ -834,7 +838,7 @@ begin
         Break;
       end;
     if Found then Continue;
-    if not CreateMissing then raise EFatError.CreateFmt('there is no folder %s', [Parts[I]]);
+    if not CreateMissing then raise EFatError.CreateFmt(_('there is no folder %s'), [Parts[I]]);
     // An 8.3 name as it is; any other with its long name
     if MakeName83(Parts[I], Raw, Error) then
     begin
@@ -1142,7 +1146,7 @@ begin
           Run := 0;
     end;
     if (Dir = 0) and (FFatType <> 32) then
-      raise EFatError.Create('the root directory is full');
+      raise EFatError.Create(_('the root directory is full'));
     // Grow the directory by a cluster; a run of free entries at its end
     // carries on into it
     if Dir = 0 then Dir := FRootCluster;
@@ -1152,7 +1156,7 @@ begin
     for K := 0 to Count - 1 - Run do
     begin
       Result[Run + K] := ClusterPos(NewCluster) + K * 32;
-      if K * 32 >= ClusterBytes then raise EFatError.Create('the name is too long');
+      if K * 32 >= ClusterBytes then raise EFatError.Create(_('the name is too long'));
     end;
     Exit;
   until False;
@@ -1241,7 +1245,7 @@ var
   Done, Len: Int64;
 begin
   if Length(Data) > FreeBytes then
-    raise EFatError.CreateFmt('not enough space: %d bytes needed, %d free', [Length(Data), FreeBytes]);
+    raise EFatError.CreateFmt(_('not enough space: %d bytes needed, %d free'), [Length(Data), FreeBytes]);
   Result := 0;
   Clusters := AllocClusters(Length(Data));
   Done := 0;
@@ -1305,7 +1309,7 @@ var
   Sec: array[0..511] of Byte;
   LabelText: string;
 begin
-  if (SizeMB < 16) or (SizeMB > 2048) then raise EFatError.Create('the card size must be 16 to 2048 MB');
+  if (SizeMB < 16) or (SizeMB > 2048) then raise EFatError.Create(_('the card size must be 16 to 2048 MB'));
   Total := Int64(SizeMB) * 2048;
   PartSectors := Total - START;
   // Cluster size: FAT16 needs between 4085 and 65524 clusters

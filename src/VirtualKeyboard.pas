@@ -20,6 +20,10 @@ procedure ShowVirtualKeyboard(AOwner: TComponent; OnType: TTypeSymbolEvent);
 
 implementation
 
+uses
+  Lang;
+
+
 const
   SYMBOLS: array[0..34] of string = (
     '|', ':', ';', '.', ',', '/',
@@ -102,7 +106,7 @@ begin
   with Keyboard do
   begin
     FOnType := OnType;
-    Caption := 'Virtual Keyboard';
+    Caption := _('Virtual Keyboard');
     BorderStyle := bsToolWindow;
     FormStyle := fsStayOnTop;
     KeyPreview := True;

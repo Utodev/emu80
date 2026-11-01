@@ -21,6 +21,10 @@ procedure ShowLicense;
 
 implementation
 
+uses
+  Lang;
+
+
 var
   DocWindow, LicenseWindow: TForm;
 
@@ -73,7 +77,7 @@ begin
     if FileName <> '' then
       Memo.Lines.LoadFromFile(FileName)
     else
-      Memo.Lines.Text := Name + ' was not found next to the emu80 executable.';
+      Memo.Lines.Text := Format(_('%s was not found next to the emu80 executable.'), [Name]);
   end;
   Window.Show;
   Window.BringToFront;
@@ -102,7 +106,7 @@ var
   FileName: string;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'emu80 documentation';
+  Caption := _('emu80 documentation');
   Width := 860;
   Height := 720;
   Position := poMainFormCenter;
@@ -116,7 +120,7 @@ begin
   Bar.BorderSpacing.Around := 4;
   Lbl := TLabel.Create(Self);
   Lbl.Parent := Bar;
-  Lbl.Caption := 'Find:';
+  Lbl.Caption := _('Find:');
   Lbl.Align := alLeft;
   Lbl.Layout := tlCenter;
   Lbl.BorderSpacing.Right := 6;
@@ -129,7 +133,7 @@ begin
   FFind.OnChange := @FindChange;
   Btn := TButton.Create(Self);
   Btn.Parent := Bar;
-  Btn.Caption := 'Next';
+  Btn.Caption := _('Next');
   Btn.Align := alLeft;
   Btn.Left := 400;
   Btn.AutoSize := True;
@@ -147,14 +151,14 @@ begin
   FView.Align := alClient;
   FileName := Emu80File(DOC_FILE);
   if FileName <> '' then FView.LoadFromFile(FileName)
-  else FView.LoadFromText(DOC_FILE + ' was not found next to the emu80 executable.');
+  else FView.LoadFromText(Format(_('%s was not found next to the emu80 executable.'), [DOC_FILE]));
   ActiveControl := FView;
 end;
 
 procedure TDocWindow.FindNext(Sender: TObject);
 begin
   if FView.Find(FFind.Text) then FNotFound.Caption := ''
-  else if FFind.Text <> '' then FNotFound.Caption := 'Not found (Next starts again at the top)';
+  else if FFind.Text <> '' then FNotFound.Caption := _('Not found (Next starts again at the top)');
 end;
 
 procedure TDocWindow.FindChange(Sender: TObject);
@@ -202,7 +206,7 @@ end;
 
 procedure ShowLicense;
 begin
-  ShowTextFile(LicenseWindow, LICENSE_FILE, 'emu80 license (GNU GPL v3)');
+  ShowTextFile(LicenseWindow, LICENSE_FILE, _('emu80 license (GNU GPL v3)'));
 end;
 
 end.

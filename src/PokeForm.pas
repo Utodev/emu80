@@ -19,7 +19,7 @@ procedure ShowPokeDialog(const CurrentFile: string; Apply: TApplyPokes);
 implementation
 
 uses
-  Config;
+  Config, Lang;
 
 type
   TPokeDialog = class(TForm)
@@ -66,15 +66,15 @@ begin
     Lbl.AutoSize := False;
     Lbl.SetBounds(10, 10, 420, 36);
     Lbl.WordWrap := True;
-    Lbl.Caption := 'Address,value (decimal, or hex with $). Several POKEs separated by ":",' +
-      ' e.g.  35899,0 : 36000,201';
+    Lbl.Caption := _('Address,value (decimal, or hex with $). Several POKEs separated by ":",' +
+      ' e.g.  35899,0 : 36000,201');
     Dlg.Edit := TEdit.Create(Dlg);
     Dlg.Edit.Parent := Dlg;
     Dlg.Edit.SetBounds(10, 50, 420, 24);
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
     Lbl.SetBounds(10, 84, 420, 18);
-    Lbl.Caption := 'Last POKEs (click to use, double-click to apply):';
+    Lbl.Caption := _('Last POKEs (click to use, double-click to apply):');
     Dlg.List := TListBox.Create(Dlg);
     Dlg.List.Parent := Dlg;
     Dlg.List.SetBounds(10, 106, 420, 220);
@@ -98,7 +98,7 @@ begin
     Btn.SetBounds(270, 340, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
-    Btn.Caption := 'Close';
+    Btn.Caption := _('Close');
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
     Btn.SetBounds(355, 340, 75, 28);

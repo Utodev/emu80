@@ -12,13 +12,13 @@ var
 begin
   FileName := RomPath(0);
   if not FileExists(FileName) then
-    raise Exception.CreateFmt('ROM file not found: %s' + LineEnding + LineEnding +
-      'The SAM Coup'#$C3#$A9'''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM ' +
-      'folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.', [FileName]);
+    raise Exception.CreateFmt(_('ROM file not found: %s') + LineEnding + LineEnding +
+      _('The SAM Coup'#$C3#$A9'''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM ' +
+      'folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.'), [FileName]);
   S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
     if S.Size < 2 * SizeOf(TBank) then
-      raise Exception.CreateFmt('%s is not a SAM Coupe ROM (it should be 32K)', [FileName]);
+      raise Exception.CreateFmt(_('%s is not a SAM Coupe ROM (it should be 32K)'), [FileName]);
     FillChar(FRom[0], SizeOf(TBank), $FF);
     FillChar(FRom[1], SizeOf(TBank), $FF);
     S.ReadBuffer(FRom[0], SizeOf(TBank));
@@ -480,7 +480,7 @@ var
 begin
   Banks := RamBanksUsed;
   IO(Banks, SizeOf(Banks));
-  if Banks <> RamBanksUsed then raise Exception.Create('Not a snapshot of this machine');
+  if Banks <> RamBanksUsed then raise Exception.Create(_('Not a snapshot of this machine'));
   IO(FRam, Banks * SizeOf(TBank));
   IO(FCpu.A, 1); IO(FCpu.F, 1); IO(FCpu.A_, 1); IO(FCpu.F_, 1);
   IO(FCpu.BC, 2); IO(FCpu.DE, 2); IO(FCpu.HL, 2); IO(FCpu.BC_, 2); IO(FCpu.DE_, 2);

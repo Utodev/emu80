@@ -14,6 +14,10 @@ procedure ShowKeyboardGuide(AOwner: TComponent);
 
 implementation
 
+uses
+  Lang;
+
+
 {$I KeyboardGuide.inc}
 
 type
@@ -80,7 +84,7 @@ begin
     H := (Work.Bottom - Work.Top) * 85 div 100;
   end;
   Guide := TGuideForm.CreateNew(AOwner);
-  Guide.Caption := 'ZX Spectrum keyboard';
+  Guide.Caption := _('ZX Spectrum keyboard');
   Guide.BorderStyle := bsDialog;
   Guide.Position := poScreenCenter;
   Guide.KeyPreview := True;

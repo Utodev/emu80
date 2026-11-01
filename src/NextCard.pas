@@ -53,6 +53,10 @@ function RepairNextCard(V: TFatVolume; const Dir: string): TStringList;
 
 implementation
 
+uses
+  Lang;
+
+
 procedure WriteDefaultConfig(V: TFatVolume); forward;
 
 type
@@ -133,7 +137,7 @@ begin
   // under its own name, wherever that leads
   AStream := TSinkStream.Create;
   if not SafeEntryName(AItem.ArchiveFileName, Clean) then
-    raise Exception.Create('Unsafe path in the zip: ' + AItem.ArchiveFileName);
+    raise Exception.Create(_('Unsafe path in the zip: ') + AItem.ArchiveFileName);
   if (FStrip <> '') and (Copy(Clean + '/', 1, Length(FStrip)) <> FStrip) then Exit;   // outside the distribution
   Clean := Copy(Clean, Length(FStrip) + 1, MaxInt);
   if Clean = '' then Exit;
@@ -141,13 +145,13 @@ begin
   Name := AItem.ArchiveFileName;
   if AItem.IsDirectory or ((Name <> '') and (Name[Length(Name)] in ['/', '\'])) then
   begin
-    if not ForceDirectories(Dest) then raise Exception.Create('Could not create ' + Dest);
+    if not ForceDirectories(Dest) then raise Exception.Create(_('Could not create ') + Dest);
     Exit;
   end;
   // Links are not made: only files and folders, which stay inside FRoot
   if AItem.IsLink then Exit;
   if not ForceDirectories(ExtractFilePath(Dest)) then
-    raise Exception.Create('Could not create ' + ExtractFilePath(Dest));
+    raise Exception.Create(_('Could not create ') + ExtractFilePath(Dest));
   FreeAndNil(AStream);
   AStream := TFileStream.Create(Dest, fmCreate);
 end;
@@ -234,7 +238,7 @@ begin
     try
       if not FileExists(ZipFile) then
       begin
-        Msg := 'The file ' + ZipFile + ' does not exist.';
+        Msg := Format(_('The file %s does not exist.'), [ZipFile]);
         Exit;
       end;
       UnZip.FileName := ZipFile;
@@ -247,7 +251,7 @@ begin
       end;
       if not Zipped then
       begin
-        Msg := 'It is not a zip file.';
+        Msg := _('It is not a zip file.');
         Exit(diInvalid);
       end;
       Strip := '';
@@ -256,7 +260,7 @@ begin
       begin
         if not SafeEntryName(UnZip.Entries[I].ArchiveFileName, Clean) then
         begin
-          Msg := 'The zip has a path that would write outside the folder: ' + UnZip.Entries[I].ArchiveFileName;
+          Msg := _('The zip has a path that would write outside the folder: ') + UnZip.Entries[I].ArchiveFileName;
           Exit;
         end;
         // The distribution: where its machines/next/enNextZX.rom is (at the
@@ -273,14 +277,14 @@ begin
       end;
       if not Zipped then
       begin
-        Msg := 'machines/next/enNextZX.rom is not in it.';
+        Msg := _('machines/next/enNextZX.rom is not in it.');
         Exit(diInvalid);
       end;
       // Into the work folder: nothing of it counts until it is checked
       RemoveTree(Work);
       if not ForceDirectories(Work) then
       begin
-        Msg := 'Could not create ' + Work;
+        Msg := _('Could not create ') + Work;
         Exit;
       end;
       Un.FRoot := Work;
@@ -293,7 +297,7 @@ begin
       UnZip.UnZipAllFiles;
       if not NextDistroReady(Work) then
       begin
-        Msg := 'The ZX Spectrum Next ROMs are not complete in it.';
+        Msg := _('The ZX Spectrum Next ROMs are not complete in it.');
         RemoveTree(Work);
         Exit(diInvalid);
       end;
@@ -313,7 +317,7 @@ begin
         Dst := IncludeTrailingPathDelimiter(Dir) + Entries[I];
         RemoveTree(Dst);
         if not RenameFile(Work + Entries[I], Dst) then
-          raise Exception.Create('Could not move ' + Entries[I] + ' into ' + Dir);
+          raise Exception.CreateFmt(_('Could not move %s into %s'), [Entries[I], Dir]);
         Moved.Add(Dst);
       end;
       RemoveTree(Work);
@@ -480,7 +484,7 @@ var
   V: TFatVolume;
 begin
   if not NextDistroReady(Dir) then
-    raise Exception.CreateFmt('There is no ZX Spectrum Next distribution in %s', [Dir]);
+    raise Exception.CreateFmt(_('There is no ZX Spectrum Next distribution in %s'), [Dir]);
   // Made under another name first: an error leaves the old card as it was
   Temp := ImageFile + '.new';
   F := TFileStream.Create(Temp, fmCreate);
@@ -504,10 +508,10 @@ begin
   if FileExists(ImageFile) and not DeleteFile(ImageFile) then
   begin
     DeleteFile(Temp);
-    raise Exception.CreateFmt('Could not replace %s', [ImageFile]);
+    raise Exception.CreateFmt(_('Could not replace %s'), [ImageFile]);
   end;
   if not RenameFile(Temp, ImageFile) then
-    raise Exception.CreateFmt('Could not create %s', [ImageFile]);
+    raise Exception.CreateFmt(_('Could not create %s'), [ImageFile]);
 end;
 
 end.

@@ -28,7 +28,7 @@ function ReadTZX(S: TStream): TTapeBlockArray;
 implementation
 
 uses
-  ZStream;
+  ZStream, Lang;
 
 type
   { The file's bytes, read with bounds checking: past the end raises }
@@ -54,7 +54,7 @@ end;
 
 procedure TReader.Need(N: Integer);
 begin
-  if (N < 0) or (N > Left) then raise ETruncated.Create('The file is cut short');
+  if (N < 0) or (N > Left) then raise ETruncated.Create(_('The file is cut short'));
 end;
 
 function TReader.B: Byte;
@@ -254,8 +254,10 @@ begin
 end;
 
 const
+  // TR-BEGIN (translated where used)
   ARCHIVE_TYPES: array[0..8] of string = ('Title', 'Publisher', 'Author', 'Year', 'Language', 'Type',
     'Price', 'Loader', 'Origin');
+  // TR-END
 
 { Block 4Bh, the MSX's data: a pilot tone, then each byte as the start bits, its eight bits and the stop bits, each bit
   a number of pulses of its length: a tone block, the pulses and the pause that follows them }
@@ -298,7 +300,7 @@ var
 begin
   Result := nil;
   Total := R.D;
-  if Total < 12 then raise Exception.Create('A KCS block of a TSX file is too short');
+  if Total < 12 then raise Exception.Create(_('A KCS block of a TSX file is too short'));
   Pause := R.W;
   PilotLen := R.W;
   PilotCount := R.W;
@@ -348,13 +350,13 @@ begin
     for I := 10 to 15 do
       if (Data[I] >= 32) and (Data[I] < 127) then Name := Name + Chr(Data[I]) else Name := Name + ' ';
     case Data[0] of
-      $D0: Blk.Text := 'Binary (BLOAD): ' + Trim(Name);
-      $D3: Blk.Text := 'BASIC program: ' + Trim(Name);
+      $D0: Blk.Text := _('Binary (BLOAD): ') + Trim(Name);
+      $D3: Blk.Text := _('BASIC program: ') + Trim(Name);
     else
-      Blk.Text := 'ASCII file: ' + Trim(Name);
+      Blk.Text := _('ASCII file: ') + Trim(Name);
     end;
   end
-  else Blk.Text := Format('Data (%d bytes)', [Length(Data)]);
+  else Blk.Text := Format(_('Data (%d bytes)'), [Length(Data)]);
   Put(Blk);
   if Pause > 0 then
   begin
@@ -387,8 +389,8 @@ begin
   if Length(R.Buf) > 0 then S.ReadBuffer(R.Buf[0], Length(R.Buf));
   R.Pos := 0;
   if (Length(R.Buf) < 10) or (R.Str(7) <> 'ZXTape!') or (R.B <> $1A) then
-    raise Exception.Create('This is not a TZX file');
-  if R.B <> 1 then raise Exception.Create('This TZX version is not supported');
+    raise Exception.Create(_('This is not a TZX file'));
+  if R.B <> 1 then raise Exception.Create(_('This TZX version is not supported'));
   R.B;   // minor version: any 1.x
   Blk := nil;
   try
@@ -501,8 +503,8 @@ begin
             begin
               Kind := R.B;
               if Info <> '' then Info := Info + '; ';
-              if Kind <= High(ARCHIVE_TYPES) then Info := Info + ARCHIVE_TYPES[Kind] + ': '
-              else if Kind <> $FF then Info := Info + 'Info: ';
+              if Kind <= High(ARCHIVE_TYPES) then Info := Info + _(ARCHIVE_TYPES[Kind]) + ': '
+              else if Kind <> $FF then Info := Info + _('Info: ');
               Info := Info + R.Str(R.B);
             end;
             Blk.Text := Info;

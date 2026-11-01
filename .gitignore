@@ -107,6 +107,7 @@ CLAUDE.md
 *.zip
 *.ZIP
 tools/*
+!tools/lang.py
 build/*
 to_be_ignored/*
 specnext/*

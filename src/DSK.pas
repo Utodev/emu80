@@ -62,6 +62,10 @@ type
 
 implementation
 
+uses
+  Lang;
+
+
 const
   STD_SIGNATURE = 'MV - CPC';
   EXT_SIGNATURE = 'EXTENDED';
@@ -211,10 +215,10 @@ begin
   else if Sig = STD_SIGNATURE then
     Extended := False
   else
-    raise Exception.Create('Not a DSK disk image');
+    raise Exception.Create(_('Not a DSK disk image'));
   Cyls := Header[$30];
   FSides := Header[$31];
-  if (FSides < 1) or (FSides > 2) then raise Exception.Create('Unsupported number of sides');
+  if (FSides < 1) or (FSides > 2) then raise Exception.Create(_('Unsupported number of sides'));
   StdTrackSize := Header[$32] or (Header[$33] shl 8);
   CreateBlank(Cyls, FSides);
   FSides := Header[$31];

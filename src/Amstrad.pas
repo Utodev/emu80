@@ -259,6 +259,10 @@ const
 
 implementation
 
+uses
+  Lang;
+
+
 { TAmstrad }
 
 constructor TAmstrad.Create(AModel: TSpectrumModel);
@@ -284,12 +288,12 @@ var
   Size: Int64;
 begin
   if not FileExists(FirmwareFile) then
-    raise Exception.CreateFmt('ROM file not found: %s', [FirmwareFile]);
+    raise Exception.CreateFmt(_('ROM file not found: %s'), [FirmwareFile]);
   S := TFileStream.Create(FirmwareFile, fmOpenRead or fmShareDenyWrite);
   try
     Size := S.Size;
     if (Size <> $8000) and (Size <> $4000) then
-      raise Exception.CreateFmt('%s: the CPC firmware is a 32K file (system ROM and BASIC)', [FirmwareFile]);
+      raise Exception.CreateFmt(_('%s: the CPC firmware is a 32K file (system ROM and BASIC)'), [FirmwareFile]);
     S.ReadBuffer(FRomLow, SizeOf(FRomLow));
     if Size = $8000 then S.ReadBuffer(FRomBasic, SizeOf(FRomBasic));
   finally
@@ -298,7 +302,7 @@ begin
   if FHasDisc then
   begin
     if not FileExists(DiscFile) then
-      raise Exception.CreateFmt('ROM file not found: %s', [DiscFile]);
+      raise Exception.CreateFmt(_('ROM file not found: %s'), [DiscFile]);
     S := TFileStream.Create(DiscFile, fmOpenRead or fmShareDenyWrite);
     try
       FillChar(FRomDisc, SizeOf(FRomDisc), $FF);
@@ -1263,9 +1267,9 @@ var
   B: Integer;
 begin
   S.ReadBuffer(Ver, 1);
-  if (Ver < 1) or (Ver > 2) then raise Exception.Create('Unknown CPC snapshot version');
+  if (Ver < 1) or (Ver > 2) then raise Exception.Create(_('Unknown CPC snapshot version'));
   S.ReadBuffer(B, SizeOf(B));
-  if B <> FRamBanks then raise Exception.Create('Not a snapshot of this CPC model');
+  if B <> FRamBanks then raise Exception.Create(_('Not a snapshot of this CPC model'));
   S.ReadBuffer(FRam, B * SizeOf(TCPCBank));
   S.ReadBuffer(FPenSel, 1);
   S.ReadBuffer(FPen, SizeOf(FPen));

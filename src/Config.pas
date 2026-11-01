@@ -46,6 +46,7 @@ type
     FloppyNoise: Boolean;         // the drive's sound at real speed
     SaveOnExit: Boolean;          // write the settings when emu80 closes
     ModernUI: Boolean;            // the modern interface (--ui modern), else the classic one
+    Language: string;             // the interface's language: auto, en, es, fr, pt or de (--lang)
     SaveToTape: Boolean;          // SAVE adds blocks to the tape
     ScreenshotBorder: Boolean;
     TurboSound: Boolean;          // two AY chips (128K and later)
@@ -150,8 +151,10 @@ const
   DEINTERLACE_KEYS: array[TDeinterlace] of string = ('progressive', 'bob', 'weave');
   { The monitors, as in --monitor and the settings file }
   MONITOR_KEYS: array[0..3] of string = ('color', 'bw', 'green', 'orange');
+  // TR-BEGIN (translated where used)
   MONITOR_NAMES: array[0..3] of string = ('Colour', 'Black and white', 'Green phosphor',
     'Orange phosphor (amber)');
+  // TR-END
   { The CRTC chips, types 0 to 4 }
   CRTC_NAMES: array[0..4] of string = ('HD6845S / UM6845', 'UM6845R', 'MC6845', 'AMS40489 (CPC+ ASIC)',
     'AMS40226 (pre-ASIC)');
@@ -246,12 +249,16 @@ const
     (NewName: 'zx_realspecnext'; OldName: 'realspecnext'; OldSection: 'ZXNext'),
     (NewName: 'zx_realspecnextok'; OldName: 'realspecnextok'; OldSection: 'ZXNext'));
 
+  // TR-BEGIN (translated where used)
   DEINTERLACE_NAMES: array[TDeinterlace] of string = (
     'Progressive (each frame on its own)', 'Bob (two frames blended)', 'Weave (two frames'' lines interleaved)');
+  // TR-END
+  // TR-BEGIN (translated where used)
   JOYSTICK_NAMES: array[TJoystickKeys] of string = (
     'None (cursor keys and Ctrl as on the keyboard)', 'Kempston',
     'Sinclair Interface 2, joystick 1 (keys 6-0)', 'Sinclair Interface 2, joystick 2 (keys 1-5)',
     'Cursor / Protek / AGF (keys 5-8, 0)', 'Fuller');
+  // TR-END
 
 var
   Settings: TSettings;
@@ -403,6 +410,7 @@ begin
   FloppyNoise := True;
   SaveOnExit := True;
   ModernUI := True;
+  Language := 'auto';
   SaveToTape := True;
   ScreenshotBorder := True;
   TurboSound := False;
@@ -663,6 +671,8 @@ begin
   CpuSpeed := Ini.ReadInteger('General', 'speed', CpuSpeed);
   S := LowerCase(Ini.ReadString('General', 'ui', ''));
   if S = 'modern' then ModernUI := True else if S = 'classic' then ModernUI := False;
+  S := LowerCase(Ini.ReadString('General', 'lang', Language));
+  if (S = 'auto') or (S = 'en') or (S = 'es') or (S = 'fr') or (S = 'pt') or (S = 'de') then Language := S;
   S := LowerCase(ReadOptString(Ini, SEC_ZX, 'zx_joystick', JOYSTICK_KEYS[Joystick]));
   for J := Low(TJoystickKeys) to High(TJoystickKeys) do
     if S = JOYSTICK_KEYS[J] then Joystick := J;
@@ -727,6 +737,7 @@ begin
   Put('General', 'model', ModelKey(Model));
   Put('General', 'scale', IntToStr(Scale));
   if ModernUI then Put('General', 'ui', 'modern') else Put('General', 'ui', 'classic');
+  Put('General', 'lang', Language);
   Put('General', 'volume', IntToStr(Volume));
   Put('General', 'speed', IntToStr(CpuSpeed));
   Put(SEC_ZX, 'zx_joystick', JOYSTICK_KEYS[Joystick]);

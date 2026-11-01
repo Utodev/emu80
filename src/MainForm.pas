@@ -7,7 +7,7 @@ unit MainForm;
 interface
 
 uses
-  Classes, SysUtils, Math, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
+  Classes, SysUtils, Math, Process, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
   ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, Msx, MsxMachine, DSK, Emulator, Config, Icons, PokeForm,
   Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide, VirtualKeyboard;
 
@@ -70,6 +70,9 @@ type
     FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
     FPrevPixels: array of LongWord;   // the frame before (the other field)
     FPixelsOdd: Boolean;              // FPixels is the odd field
+    FOldLang: string;                        // the settings' language when the window was opened
+    FRestarting: Boolean;                    // emu80 closes to start again (a new language)
+    FRestartSnap, FRestartModel: string;
     FOldRomDir, FOldUno: string;             // what was set before the settings window's last Apply
     FDeinterlaceTop, FCrtcTop: TMenuItem;   // Options entries of the Spectrum and of the CPC
     FCrtcItems: array[0..5] of TMenuItem;    // automatic and chips 0-4
@@ -271,6 +274,8 @@ type
     procedure MsxNotice;
     function TypeVirtualSymbol(const Sym: string; DryRun: Boolean): Boolean;
     procedure SettingsApplied(Sender: TObject);
+    procedure OfferRestart;
+    procedure Relaunch;
     procedure DoTapeInsert(Sender: TObject);
     procedure DoTapeInsertOnly(Sender: TObject);
     procedure InsertTapeDialog(AutoStart: Boolean);
@@ -352,7 +357,7 @@ implementation
 
 uses
   Snapshot, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, CartBrowser, FatFS, DebugFiles, NextCard, DiskFormat;
+  SDBrowser, CartBrowser, FatFS, DebugFiles, NextCard, DiskFormat, Lang;
 
 {$IFDEF WINDOWS}
 { (The Windows unit would hide SysUtils' DeleteFile and others) }
@@ -373,15 +378,31 @@ end;
 
 const
   SAMDOS_FILE = 'SAMDOS2.dsk';     // the SAM Coupe's DOS disk, in the roms folder
-  DISK_FILTER = 'Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad';
-  SAVE_DISK_FILTER = 'Disk images (*.dsk)|*.dsk|SAM Coupe MGT images (*.mgt)|*.mgt|SAM Coupe SAD images (*.sad)|*.sad';
   CART_MAPPER_KEYS: array[0..5] of string = ('auto', 'plain', 'konami', 'konamiscc', 'ascii8', 'ascii16');
+  // TR-BEGIN (translated where used)
   CART_MAPPER_NAMES: array[0..5] of string = ('Auto-detect', 'Plain ROM (no mapper)', 'Konami', 'Konami SCC', 'ASCII8', 'ASCII16');
-  OPEN_FILTER = 'All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80;*.rom;*.cas;*.tsx|' +
+  // TR-END
+
+{ The file dialogs' filters (their descriptions in the language in use) }
+function DiskFilter: string;
+begin
+  Result := _F('Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad');
+end;
+
+function SaveDiskFilter: string;
+begin
+  Result := _F('Disk images (*.dsk)|*.dsk|SAM Coupe MGT images (*.mgt)|*.mgt|SAM Coupe SAD images (*.sad)|*.sad');
+end;
+
+function OpenFilter: string;
+begin
+  Result := _F('All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80;*.rom;*.cas;*.tsx|' +
     'MSX cartridges (*.rom)|*.rom|' +
     'Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)|*.tap;*.tzx;*.cdt;*.cas;*.tsx|' +
-    'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|' + DISK_FILTER + '|' +
-    'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*';
+    'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|' +
+    'Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad|' +
+    'ZX Spectrum Next programs (*.nex)|*.nex|All files|*.*');
+end;
 
 { TMainWindow }
 
@@ -389,6 +410,8 @@ var
   { --ui on the command line ('' if not given): it is applied at once, and
     the first-run question isn't asked }
   CommandLineUI: string = '';
+  { --lang on the command line ('' if not given): over the settings' language, for this run }
+  CommandLineLang: string = '';
 
 { --config FILE / --config-add FILE (and --ui) must be known before the
   settings load }
@@ -414,6 +437,11 @@ begin
       if (Value = '') and (I < ParamCount) then Value := ParamStr(I + 1);
       CommandLineUI := LowerCase(Value);
     end
+    else if Arg = 'lang' then
+    begin
+      if (Value = '') and (I < ParamCount) then Value := ParamStr(I + 1);
+      CommandLineLang := LowerCase(Value);
+    end
     else if (Arg = 'config') or (Arg = 'config-add') then
     begin
       if Value = '' then
@@ -428,9 +456,9 @@ begin
           // A settings file asked for by name must exist (an extra one may not)
           if not FileExists(Value) then
           begin
-            MessageDlg('emu80', 'The settings file given with --config does not exist.' +
-              LineEnding + LineEnding + 'File: ' + ExtractFileName(Value) + LineEnding +
-              'Folder: ' + ExtractFilePath(ExpandFileName(Value)), mtError, [mbOK], 0);
+            MessageDlg('emu80', _('The settings file given with --config does not exist.') +
+              LineEnding + LineEnding + _('File: ') + ExtractFileName(Value) + LineEnding +
+              _('Folder: ') + ExtractFilePath(ExpandFileName(Value)), mtError, [mbOK], 0);
             Halt(1);
           end;
           Settings.UseFile(Value);
@@ -441,6 +469,24 @@ begin
     end;
     Inc(I);
   end;
+end;
+
+{ The language of the interface, before any text is made: English if the left
+  Ctrl is down, whatever the settings say; else --lang, else the settings'
+  (auto: the system's) }
+procedure ApplyLanguage;
+var
+  L: TLanguage;
+  Code: string;
+begin
+  L := lgEnglish;
+  if not LeftCtrlHeld then
+  begin
+    Code := CommandLineLang;
+    if Code = '' then Code := Settings.Language;
+    if not LanguageFromCode(Code, L) then L := lgAuto;
+  end;
+  SetLanguage(L);
 end;
 
 { Cards made from folders that an emu80 closed abruptly left behind (one still
@@ -490,6 +536,7 @@ begin
   if (CommandLineUI = 'modern') or (CommandLineUI = 'classic') then
     Settings.ModernUI := CommandLineUI = 'modern';
   FShowNotice := FirstRun and Settings.ModernUI;
+  ApplyLanguage;
   RemoveStaleTempCards;
   Err := '';
   // The Next needs its distribution and its card: started as the 48K and
@@ -600,7 +647,7 @@ begin
   UpdateChecks;
   FEmu.Start;
   if Err <> '' then
-    MessageDlg('ROM folder not usable, using the default one instead.' + LineEnding + Err,
+    MessageDlg(_('ROM folder not usable, using the default one instead.') + LineEnding + Err,
       mtWarning, [mbOK], 0);
 end;
 
@@ -635,160 +682,160 @@ begin
   FMenu := TMainMenu.Create(Self);
   Menu := FMenu;
 
-  TopItem := AddItem(FMenu.Items, '&File', nil);
-  AddItem(TopItem, '&Open...', @DoOpen, ShortCut(VK_F2, []));
-  FRecentMenu := AddItem(TopItem, 'Open &recent', nil);
-  AddItem(TopItem, '&Save snapshot...', @DoSaveSnapshot, ShortCut(VK_F3, []));
+  TopItem := AddItem(FMenu.Items, _('&File'), nil);
+  AddItem(TopItem, _('&Open...'), @DoOpen, ShortCut(VK_F2, []));
+  FRecentMenu := AddItem(TopItem, _('Open &recent'), nil);
+  AddItem(TopItem, _('&Save snapshot...'), @DoSaveSnapshot, ShortCut(VK_F3, []));
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, 'Screens&hot', nil);
-  AddItem(Item, 'Save as &SCR...', @DoScreenshotSCR);
-  AddItem(Item, 'Save as PNG &1x...', @DoScreenshotPNG).Tag := 1;
-  AddItem(Item, 'Save as PNG &2x...', @DoScreenshotPNG).Tag := 2;
+  Item := AddItem(TopItem, _('Screens&hot'), nil);
+  AddItem(Item, _('Save as &SCR...'), @DoScreenshotSCR);
+  AddItem(Item, _('Save as PNG &1x...'), @DoScreenshotPNG).Tag := 1;
+  AddItem(Item, _('Save as PNG &2x...'), @DoScreenshotPNG).Tag := 2;
   AddItem(Item, '-', nil);
-  FBorderShotItem := AddItem(Item, 'Include &border in PNG', @DoScreenshotBorder);
+  FBorderShotItem := AddItem(Item, _('Include &border in PNG'), @DoScreenshotBorder);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, 'E&xit', @DoQuit);
+  AddItem(TopItem, _('E&xit'), @DoQuit);
 
   // The model is chosen with the toolbar's chip button or in Settings
-  TopItem := AddItem(FMenu.Items, '&Machine', nil);
-  AddItem(TopItem, '&NMI', @DoNMI, ShortCut(VK_F5, []));
+  TopItem := AddItem(FMenu.Items, _('&Machine'), nil);
+  AddItem(TopItem, _('&NMI'), @DoNMI, ShortCut(VK_F5, []));
   // The ZX Spectrum Next's second NMI button (F5 is its M1 button)
-  FDriveNmiItem := AddItem(TopItem, '&DRIVE button (DivMMC NMI)', @DoDriveNMI, ShortCut(VK_F5, [ssCtrl]));
-  AddItem(TopItem, '&Hard reset', @DoHardReset, ShortCut(VK_F6, []));
-  AddItem(TopItem, '&Reset', @DoReset, ShortCut(VK_F6, [ssCtrl]));
+  FDriveNmiItem := AddItem(TopItem, _('&DRIVE button (DivMMC NMI)'), @DoDriveNMI, ShortCut(VK_F5, [ssCtrl]));
+  AddItem(TopItem, _('&Hard reset'), @DoHardReset, ShortCut(VK_F6, []));
+  AddItem(TopItem, _('&Reset'), @DoReset, ShortCut(VK_F6, [ssCtrl]));
   AddItem(TopItem, '-', nil);
-  FPauseItem := AddItem(TopItem, '&Pause', @DoPause, ShortCut(VK_F4, []));
+  FPauseItem := AddItem(TopItem, _('&Pause'), @DoPause, ShortCut(VK_F4, []));
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&POKE...', @DoPoke, ShortCut(VK_F9, []));
+  AddItem(TopItem, _('&POKE...'), @DoPoke, ShortCut(VK_F9, []));
 
   // The storage menus (Tape, Floppy, SD) between separators
   AddItem(FMenu.Items, '|', nil).Enabled := False;
-  TopItem := AddItem(FMenu.Items, '&Tape', nil);
+  TopItem := AddItem(FMenu.Items, _('&Tape'), nil);
   FTapeTop := TopItem;
-  AddItem(TopItem, '&Insert tape && load...', @DoTapeInsert);
-  AddItem(TopItem, '&Just insert tape...', @DoTapeInsertOnly);
-  FRecentTapesMenu := AddItem(TopItem, 'Insert &recent tape && load', nil);
-  FRecentTapesMenuJ := AddItem(TopItem, 'Just insert recent &tape', nil);
+  AddItem(TopItem, _('&Insert tape && load...'), @DoTapeInsert);
+  AddItem(TopItem, _('&Just insert tape...'), @DoTapeInsertOnly);
+  FRecentTapesMenu := AddItem(TopItem, _('Insert &recent tape && load'), nil);
+  FRecentTapesMenuJ := AddItem(TopItem, _('Just insert recent &tape'), nil);
   AddItem(TopItem, '-', nil);
   FModernHide := TList.Create;
-  FModernHide.Add(AddItem(TopItem, 'Tape &browser...', @DoTapeBrowser, ShortCut(VK_F7, [])));
-  FModernHide.Add(AddItem(TopItem, '&Play/pause', @DoTapePlay, ShortCut(VK_F8, [])));
-  FModernHide.Add(AddItem(TopItem, '&Stop', @DoTapeStop, ShortCut(VK_F8, [ssCtrl])));
-  FRecItem := AddItem(TopItem, 'Re&cord (REC)', @DoTapeRecord);
+  FModernHide.Add(AddItem(TopItem, _('Tape &browser...'), @DoTapeBrowser, ShortCut(VK_F7, [])));
+  FModernHide.Add(AddItem(TopItem, _('&Play/pause'), @DoTapePlay, ShortCut(VK_F8, [])));
+  FModernHide.Add(AddItem(TopItem, _('&Stop'), @DoTapeStop, ShortCut(VK_F8, [ssCtrl])));
+  FRecItem := AddItem(TopItem, _('Re&cord (REC)'), @DoTapeRecord);
   FModernHide.Add(FRecItem);
-  FModernHide.Add(AddItem(TopItem, '&Rewind', @DoTapeRewind));
-  AddItem(TopItem, '&Eject', @DoTapeEject);
-  AddItem(TopItem, 'Save tape &as...', @DoTapeSave);
+  FModernHide.Add(AddItem(TopItem, _('&Rewind'), @DoTapeRewind));
+  AddItem(TopItem, _('&Eject'), @DoTapeEject);
+  AddItem(TopItem, _('Save tape &as...'), @DoTapeSave);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&New blank tape', @DoNewTape);
+  AddItem(TopItem, _('&New blank tape'), @DoNewTape);
   AddItem(TopItem, '-', nil);
-  FFastLoadItem := AddItem(TopItem, '&Fast loading', @DoFastLoad);
+  FFastLoadItem := AddItem(TopItem, _('&Fast loading'), @DoFastLoad);
   FModernHide.Add(FFastLoadItem);
-  FAutoPlayItem := AddItem(TopItem, '&Auto play/stop', @DoAutoPlay);
-  FSaveToTapeItem := AddItem(TopItem, 'SA&VE writes to the tape', @DoSaveToTape);
+  FAutoPlayItem := AddItem(TopItem, _('&Auto play/stop'), @DoAutoPlay);
+  FSaveToTapeItem := AddItem(TopItem, _('SA&VE writes to the tape'), @DoSaveToTape);
 
-  TopItem := AddItem(FMenu.Items, 'F&loppy', nil);
+  TopItem := AddItem(FMenu.Items, _('F&loppy'), nil);
   FFloppyTop := TopItem;
-  FDiskBrowserItem := AddItem(TopItem, 'Disk &browser...', @DoDiskBrowser);
+  FDiskBrowserItem := AddItem(TopItem, _('Disk &browser...'), @DoDiskBrowser);
   FModernHide.Add(FDiskBrowserItem);
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, 'Insert disk in drive &A:...', @DoDiskInsert, ShortCut(VK_F2, [ssCtrl]));
+  Item := AddItem(TopItem, _('Insert disk in drive &A:...'), @DoDiskInsert, ShortCut(VK_F2, [ssCtrl]));
   Item.Tag := 0;
-  FRecentDisksMenu := AddItem(TopItem, 'Insert &recent disk (A:)', nil);
+  FRecentDisksMenu := AddItem(TopItem, _('Insert &recent disk (A:)'), nil);
   // Drive B's entries show only while it is connected (UpdateChecks)
-  Item := AddItem(TopItem, 'Insert disk in drive &B:...', @DoDiskInsert);
+  Item := AddItem(TopItem, _('Insert disk in drive &B:...'), @DoDiskInsert);
   Item.Tag := 1;
   AddDriveBItem(Item);
-  FRecentDisksMenuB := AddItem(TopItem, 'Insert recent disk (B:)', nil);
+  FRecentDisksMenuB := AddItem(TopItem, _('Insert recent disk (B:)'), nil);
   AddDriveBItem(FRecentDisksMenuB);
-  Item := AddItem(TopItem, '&New disk in A: (formatted)', @DoDiskNew);
+  Item := AddItem(TopItem, _('&New disk in A: (formatted)'), @DoDiskNew);
   Item.Tag := 0;
-  Item := AddItem(TopItem, 'New disk in B: (formatted)', @DoDiskNew);
+  Item := AddItem(TopItem, _('New disk in B: (formatted)'), @DoDiskNew);
   Item.Tag := 1;
   AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, '&Save disk A:', @DoDiskSaveSame);
+  Item := AddItem(TopItem, _('&Save disk A:'), @DoDiskSaveSame);
   Item.Tag := 0;
-  Item := AddItem(TopItem, 'Save disk A: &as...', @DoDiskSave);
+  Item := AddItem(TopItem, _('Save disk A: &as...'), @DoDiskSave);
   Item.Tag := 0;
-  Item := AddItem(TopItem, 'Save disk B:', @DoDiskSaveSame);
+  Item := AddItem(TopItem, _('Save disk B:'), @DoDiskSaveSame);
   Item.Tag := 1;
   AddDriveBItem(Item);
-  Item := AddItem(TopItem, 'Save disk B: as...', @DoDiskSave);
-  Item.Tag := 1;
-  AddDriveBItem(Item);
-  AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, '&Eject disk A:', @DoDiskEject);
-  Item.Tag := 0;
-  Item := AddItem(TopItem, 'Eject disk B:', @DoDiskEject);
+  Item := AddItem(TopItem, _('Save disk B: as...'), @DoDiskSave);
   Item.Tag := 1;
   AddDriveBItem(Item);
   AddItem(TopItem, '-', nil);
-  FFastDiskItem := AddItem(TopItem, '&Fast floppy disk access', @DoFastDisk);
+  Item := AddItem(TopItem, _('&Eject disk A:'), @DoDiskEject);
+  Item.Tag := 0;
+  Item := AddItem(TopItem, _('Eject disk B:'), @DoDiskEject);
+  Item.Tag := 1;
+  AddDriveBItem(Item);
+  AddItem(TopItem, '-', nil);
+  FFastDiskItem := AddItem(TopItem, _('&Fast floppy disk access'), @DoFastDisk);
   FModernHide.Add(FFastDiskItem);
-  FDriveBItem := AddItem(TopItem, 'Drive &B: connected', @DoDriveB);
+  FDriveBItem := AddItem(TopItem, _('Drive &B: connected'), @DoDriveB);
 
   // MSX cartridge slot (the MSX has no SD card reader: the slot takes ROM cartridges)
-  TopItem := AddItem(FMenu.Items, '&Cartridge', nil);
+  TopItem := AddItem(FMenu.Items, _('&Cartridge'), nil);
   FCartTop := TopItem;
-  FCartBrowserItem := AddItem(TopItem, 'Cartridge &browser...', @DoSDBrowser);
+  FCartBrowserItem := AddItem(TopItem, _('Cartridge &browser...'), @DoSDBrowser);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&Insert cartridge...', @DoCartInsert);
-  FRecentCartsMenu := AddItem(TopItem, 'Insert &recent cartridge', nil);
-  AddItem(TopItem, '&Eject cartridge', @DoCartEject);
+  AddItem(TopItem, _('&Insert cartridge...'), @DoCartInsert);
+  FRecentCartsMenu := AddItem(TopItem, _('Insert &recent cartridge'), nil);
+  AddItem(TopItem, _('&Eject cartridge'), @DoCartEject);
   AddItem(TopItem, '-', nil);
-  Item := AddItem(TopItem, '&Mapper', nil);
+  Item := AddItem(TopItem, _('&Mapper'), nil);
   for I := 0 to 5 do
   begin
-    if I = 0 then FCartMapperItems[I] := AddItem(Item, '&Auto-detect', @DoCartMapper)
-    else FCartMapperItems[I] := AddItem(Item, CART_MAPPER_NAMES[I], @DoCartMapper);
+    if I = 0 then FCartMapperItems[I] := AddItem(Item, _('&Auto-detect'), @DoCartMapper)
+    else FCartMapperItems[I] := AddItem(Item, _(CART_MAPPER_NAMES[I]), @DoCartMapper);
     FCartMapperItems[I].Tag := I;
     FCartMapperItems[I].RadioItem := True;
     FCartMapperItems[I].GroupIndex := 7;
   end;
 
   // DivMMC SD card (the interface is switched on in Settings > Hardware)
-  TopItem := AddItem(FMenu.Items, '&SD', nil);
+  TopItem := AddItem(FMenu.Items, _('&SD'), nil);
   FSDTop := TopItem;
-  FSDBrowserItem := AddItem(TopItem, 'SD card &browser...', @DoSDBrowser);
+  FSDBrowserItem := AddItem(TopItem, _('SD card &browser...'), @DoSDBrowser);
   FModernHide.Add(FSDBrowserItem);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&Insert SD card image...', @DoSDInsert);
-  FRecentCardsMenu := AddItem(TopItem, 'Insert &recent SD card', nil);
-  AddItem(TopItem, 'Use a PC &folder as SD card...', @DoSDFolder);
-  AddItem(TopItem, '&New SD card...', @DoSDNew).Tag := 0;
-  AddItem(TopItem, 'New SD card with &ESXDOS...', @DoSDNew).Tag := 1;
-  AddItem(TopItem, 'New SD card with the &Next distribution...', @DoNewNextCard);
+  AddItem(TopItem, _('&Insert SD card image...'), @DoSDInsert);
+  FRecentCardsMenu := AddItem(TopItem, _('Insert &recent SD card'), nil);
+  AddItem(TopItem, _('Use a PC &folder as SD card...'), @DoSDFolder);
+  AddItem(TopItem, _('&New SD card...'), @DoSDNew).Tag := 0;
+  AddItem(TopItem, _('New SD card with &ESXDOS...'), @DoSDNew).Tag := 1;
+  AddItem(TopItem, _('New SD card with the &Next distribution...'), @DoNewNextCard);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&Save SD card', @DoSDSave).Tag := 0;
-  AddItem(TopItem, 'Save SD card &as...', @DoSDSave).Tag := 1;
+  AddItem(TopItem, _('&Save SD card'), @DoSDSave).Tag := 0;
+  AddItem(TopItem, _('Save SD card &as...'), @DoSDSave).Tag := 1;
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, 'E&ject SD card', @DoSDEject);
+  AddItem(TopItem, _('E&ject SD card'), @DoSDEject);
 
   AddItem(FMenu.Items, '|', nil).Enabled := False;
-  TopItem := AddItem(FMenu.Items, '&Debug', nil);
-  AddItem(TopItem, '&Debugger...', @DoDebugger, ShortCut(VK_F12, []));
-  AddItem(TopItem, '&Clear all breakpoints', @DoClearBreakpoints);
+  TopItem := AddItem(FMenu.Items, _('&Debug'), nil);
+  AddItem(TopItem, _('&Debugger...'), @DoDebugger, ShortCut(VK_F12, []));
+  AddItem(TopItem, _('&Clear all breakpoints'), @DoClearBreakpoints);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&Load symbols...', @DoLoadSymbols);
-  FRecentSymbolsMenu := AddItem(TopItem, 'Load &recent symbols', nil);
-  AddItem(TopItem, 'C&lear symbols', @DoClearSymbols);
+  AddItem(TopItem, _('&Load symbols...'), @DoLoadSymbols);
+  FRecentSymbolsMenu := AddItem(TopItem, _('Load &recent symbols'), nil);
+  AddItem(TopItem, _('C&lear symbols'), @DoClearSymbols);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&Adventure Debugger...', @DoDaadDebugger, ShortCut(VK_F11, []));
+  AddItem(TopItem, _('&Adventure Debugger...'), @DoDaadDebugger, ShortCut(VK_F11, []));
 
-  TopItem := AddItem(FMenu.Items, '&Options', nil);
+  TopItem := AddItem(FMenu.Items, _('&Options'), nil);
   TopItem.OnClick := @UpdateInstallNextItem;
   // The monitor, for both machines
-  Item := AddItem(TopItem, '&Monitor', nil);
+  Item := AddItem(TopItem, _('&Monitor'), nil);
   for S := 0 to 3 do
   begin
-    FMonitorItems[S] := AddItem(Item, MONITOR_NAMES[S], @DoMonitor);
+    FMonitorItems[S] := AddItem(Item, _(MONITOR_NAMES[S]), @DoMonitor);
     FMonitorItems[S].Tag := S;
     FMonitorItems[S].RadioItem := True;
     FMonitorItems[S].GroupIndex := 5;
   end;
-  FScanlinesItem := AddItem(TopItem, '&Scanlines (zoom 2x or more)', @DoScanlines);
-  Item := AddItem(TopItem, '&Zoom', nil);
+  FScanlinesItem := AddItem(TopItem, _('&Scanlines (zoom 2x or more)'), @DoScanlines);
+  Item := AddItem(TopItem, _('&Zoom'), nil);
   for S := 1 to 4 do
   begin
     FScaleItems[S] := AddItem(Item, Format('%dx', [S]), @DoScale);
@@ -796,46 +843,46 @@ begin
     FScaleItems[S].RadioItem := True;
     FScaleItems[S].GroupIndex := 2;
   end;
-  Item := AddItem(TopItem, '&Deinterlace', nil);
+  Item := AddItem(TopItem, _('&Deinterlace'), nil);
   FDeinterlaceTop := Item;
   for D := Low(TDeinterlace) to High(TDeinterlace) do
   begin
-    FDeinterlaceItems[D] := AddItem(Item, DEINTERLACE_NAMES[D], @DoDeinterlace);
+    FDeinterlaceItems[D] := AddItem(Item, _(DEINTERLACE_NAMES[D]), @DoDeinterlace);
     FDeinterlaceItems[D].Tag := Ord(D);
     FDeinterlaceItems[D].RadioItem := True;
     FDeinterlaceItems[D].GroupIndex := 3;
   end;
   // The CPC's CRTC chip, in the place of the Spectrum's deinterlacing
-  Item := AddItem(TopItem, '&CRTC chip', nil);
+  Item := AddItem(TopItem, _('&CRTC chip'), nil);
   FCrtcTop := Item;
   for S := 0 to 5 do
   begin
-    if S = 0 then FCrtcItems[S] := AddItem(Item, 'The model''s own', @DoCrtc)
-    else FCrtcItems[S] := AddItem(Item, Format('Type %d: %s', [S - 1,
+    if S = 0 then FCrtcItems[S] := AddItem(Item, _('The model''s own'), @DoCrtc)
+    else FCrtcItems[S] := AddItem(Item, Format(_('Type %d: %s'), [S - 1,
       CRTC_NAMES[S - 1]]), @DoCrtc);
     FCrtcItems[S].Tag := S;
     FCrtcItems[S].RadioItem := True;
     FCrtcItems[S].GroupIndex := 4;
   end;
-  FMuteItem := AddItem(TopItem, '&Mute sound', @DoMute);
-  FTurboItem := AddItem(TopItem, '&Turbo speed', @DoTurbo, ShortCut(VK_F11, [ssShift]));
-  FModernItem := AddItem(TopItem, 'Mo&dern interface (dark)', @DoToggleTheme);
+  FMuteItem := AddItem(TopItem, _('&Mute sound'), @DoMute);
+  FTurboItem := AddItem(TopItem, _('&Turbo speed'), @DoTurbo, ShortCut(VK_F11, [ssShift]));
+  FModernItem := AddItem(TopItem, _('Mo&dern interface (dark)'), @DoToggleTheme);
   // The MSX2 with an MSX1's slots (none expanded): resets the machine
-  FMsxCompatItem := AddItem(TopItem, 'MSX 1 &compatibility mode', @DoMsxCompat);
+  FMsxCompatItem := AddItem(TopItem, _('MSX 1 &compatibility mode'), @DoMsxCompat);
   // Every machine; the modern interface has a button for it
-  FModernHide.Add(AddItem(TopItem, '&Virtual Keyboard', @DoVirtualKeyboard));
+  FModernHide.Add(AddItem(TopItem, _('&Virtual Keyboard'), @DoVirtualKeyboard));
   // Every Spectrum, not the CPC, the SAM Coupe or the MSX; the modern interface has a button for it
-  FKeyboardItem := AddItem(TopItem, 'ZX &Keyboard Guide', @DoKeyboardGuide);
+  FKeyboardItem := AddItem(TopItem, _('ZX &Keyboard Guide'), @DoKeyboardGuide);
   FModernHide.Add(FKeyboardItem);
-  FInstallNextItem := AddItem(TopItem, 'Install Spectrum Next Distribution', @DoInstallNextDistro);
+  FInstallNextItem := AddItem(TopItem, _('Install Spectrum Next Distribution'), @DoInstallNextDistro);
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, 'S&ettings...', @DoSettings);
+  AddItem(TopItem, _('S&ettings...'), @DoSettings);
 
-  TopItem := AddItem(FMenu.Items, '&Help', nil);
-  AddItem(TopItem, '&Documentation', @DoDocumentation, ShortCut(VK_F1, []));
+  TopItem := AddItem(FMenu.Items, _('&Help'), nil);
+  AddItem(TopItem, _('&Documentation'), @DoDocumentation, ShortCut(VK_F1, []));
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, '&License (GPL v3)', @DoLicense);
-  AddItem(TopItem, '&About emu80...', @DoAbout);
+  AddItem(TopItem, _('&License (GPL v3)'), @DoLicense);
+  AddItem(TopItem, _('&About emu80...'), @DoAbout);
 end;
 
 function TMainWindow.AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
@@ -876,18 +923,18 @@ begin
   FToolBar.ButtonHeight := IconSize + 10;
   FToolBar.AutoSize := True;
 
-  AddButton(ikOpen, 'Open a tape, snapshot or disk (F2)', @DoOpen);
-  AddButton(ikSave, 'Save snapshot (F3)', @DoSaveSnapshot);
+  AddButton(ikOpen, _('Open a tape, snapshot or disk (F2)'), @DoOpen);
+  AddButton(ikSave, _('Save snapshot (F3)'), @DoSaveSnapshot);
   AddSeparator;
 
   // Machine model: a chip button that drops down the list of models
   // Two levels: the family (ZX Spectrum above, Amstrad CPC below), then its machines; the SAM Coupe is a lone entry at the end
   FModelMenu := TPopupMenu.Create(Self);
   FModelMenuTop[0] := TMenuItem.Create(FModelMenu);
-  FModelMenuTop[0].Caption := 'ZX Spectrum';
+  FModelMenuTop[0].Caption := _('ZX Spectrum');
   FModelMenu.Items.Add(FModelMenuTop[0]);
   FModelMenuTop[1] := TMenuItem.Create(FModelMenu);
-  FModelMenuTop[1].Caption := 'Amstrad CPC';
+  FModelMenuTop[1].Caption := _('Amstrad CPC');
   FModelMenu.Items.Add(FModelMenuTop[1]);
   SamItem := nil;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
@@ -907,28 +954,28 @@ begin
       FModelMenuTop[Ord(IsCPCModel(M))].Add(FModelPopupItems[M]);
   end;
   if SamItem <> nil then FModelMenu.Items.Add(SamItem);
-  FModelButton := AddButton(ikModel, 'Machine model', @DoModelButton);
+  FModelButton := AddButton(ikModel, _('Machine model'), @DoModelButton);
   AddSeparator;
 
-  AddButton(ikReset, 'Hard reset: switch the machine off and on (F6)', @DoHardReset);
-  AddButton(ikNMI, 'Non-maskable interrupt (F5)', @DoNMI);
-  FPauseButton := AddButton(ikPause, 'Pause emulation (F4)', @DoPause);
+  AddButton(ikReset, _('Hard reset: switch the machine off and on (F6)'), @DoHardReset);
+  AddButton(ikNMI, _('Non-maskable interrupt (F5)'), @DoNMI);
+  FPauseButton := AddButton(ikPause, _('Pause emulation (F4)'), @DoPause);
   FPauseButton.Style := tbsCheck;
-  FTurboButton := AddButton(ikTurbo, 'Run as fast as possible (Shift+F11)', @DoTurbo);
+  FTurboButton := AddButton(ikTurbo, _('Run as fast as possible (Shift+F11)'), @DoTurbo);
   FTurboButton.Style := tbsCheck;
   AddSeparator;
-  AddButton(ikTape, 'Tape browser (F7)', @DoTapeBrowser);
-  FTapePlayButton := AddButton(ikPlay, 'Play/pause tape (F8)', @DoTapePlay);
-  AddButton(ikStop, 'Stop tape (Ctrl+F8)', @DoTapeStop);
-  FRecButton := AddButton(ikRecord, 'Record onto the tape (REC)', @DoTapeRecord);
+  AddButton(ikTape, _('Tape browser (F7)'), @DoTapeBrowser);
+  FTapePlayButton := AddButton(ikPlay, _('Play/pause tape (F8)'), @DoTapePlay);
+  AddButton(ikStop, _('Stop tape (Ctrl+F8)'), @DoTapeStop);
+  FRecButton := AddButton(ikRecord, _('Record onto the tape (REC)'), @DoTapeRecord);
   FRecButton.Style := tbsCheck;
   AddSeparator;
-  FDiskButton := AddButton(ikDisk, 'Disk browser', @DoDiskBrowser);
-  FSDButton := AddButton(ikSDCard, 'SD card browser (DivMMC)', @DoSDBrowser);
+  FDiskButton := AddButton(ikDisk, _('Disk browser'), @DoDiskBrowser);
+  FSDButton := AddButton(ikSDCard, _('SD card browser (DivMMC)'), @DoSDBrowser);
   AddSeparator;
-  AddButton(ikDebugger, 'Debugger (F12)', @DoDebugger);
-  AddButton(ikSettings, 'Settings', @DoSettings);
-  AddButton(ikTheme, 'Switch to the modern interface (dark)', @DoToggleTheme);
+  AddButton(ikDebugger, _('Debugger (F12)'), @DoDebugger);
+  AddButton(ikSettings, _('Settings'), @DoSettings);
+  AddButton(ikTheme, _('Switch to the modern interface (dark)'), @DoToggleTheme);
 end;
 
 { Contention on the Spectrum models; the Gate Array's wait states and the CRTC
@@ -1006,7 +1053,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Err <> '' then MessageDlg('ZX Spectrum Next: ' + Err, mtError, [mbOK], 0);
+  if Err <> '' then MessageDlg(_('ZX Spectrum Next: ') + Err, mtError, [mbOK], 0);
   FEmu.Sound := Settings.Sound;
   ApplyRomFiles;
   ApplyDivMMC;
@@ -1042,8 +1089,8 @@ begin
   if Err <> '' then
   begin
     Settings.Currah := False;
-    MessageDlg('Currah ' + #$C2#$B5 + 'Speech: ' + Err + LineEnding +
-      'It needs currah.rom and sp0256-al2.rom in the ROM folder.', mtError, [mbOK], 0);
+    MessageDlg(_('Currah ' + #$C2#$B5 + 'Speech: ') + Err + LineEnding +
+      _('It needs currah.rom and sp0256-al2.rom in the ROM folder.'), mtError, [mbOK], 0);
   end;
 end;
 
@@ -1060,7 +1107,7 @@ begin
   begin
     Firmware := DivMMCFirmwareFile;
     if (Firmware = '') or not FileExists(Firmware) then
-      Err := 'The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.'
+      Err := _('The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.')
     else
     begin
       FEmu.Lock;
@@ -1080,7 +1127,7 @@ begin
     begin
       Settings.DivMMC := False;
       Result := False;
-      MessageDlg('DivMMC: ' + Err, mtError, [mbOK], 0);
+      MessageDlg(_('DivMMC: ') + Err, mtError, [mbOK], 0);
     end;
   end
   else
@@ -1116,7 +1163,7 @@ begin
   end;
   if Err <> '' then
   begin
-    MessageDlg('Could not open the SD card image:' + LineEnding + Err, mtError, [mbOK], 0);
+    MessageDlg(_('Could not open the SD card image:') + LineEnding + Err, mtError, [mbOK], 0);
     Exit(False);
   end;
   if Remember then
@@ -1175,7 +1222,7 @@ begin
     FEmu.Unlock;
   end;
   if Err <> '' then
-    MessageDlg(Err + LineEnding + 'Using the standard ROMs for this model.', mtError, [mbOK], 0);
+    MessageDlg(Err + LineEnding + _('Using the standard ROMs for this model.'), mtError, [mbOK], 0);
 end;
 
 procedure TMainWindow.UpdateChecks;
@@ -1185,7 +1232,7 @@ var
 begin
   M := FEmu.Spec.Model;
   for MM := Low(TSpectrumModel) to High(TSpectrumModel) do FModelPopupItems[MM].Checked := MM = M;
-  FModelButton.Hint := 'Machine: ' + ModelInfo[M].Name + ' (click to change)';
+  FModelButton.Hint := Format(_('Machine: %s (click to change)'), [ModelInfo[M].Name]);
   FFastLoadItem.Checked := Settings.FastLoad;
   FModernItem.Checked := Settings.ModernUI;
   FAutoPlayItem.Checked := Settings.AutoPlayTape;
@@ -1542,12 +1589,12 @@ begin
   try
     Spec := FEmu.Spec;
     if Spec.Recording then
-      TapeText := Format('Recording (%d blocks)', [Spec.Tape.Count])
+      TapeText := Format(_('Recording (%d blocks)'), [Spec.Tape.Count])
     else if Spec.Tape.Count = 0 then
-      TapeText := 'No tape'
+      TapeText := _('No tape')
     else
     begin
-      TapeText := Format('Tape %d/%d', [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count]);
+      TapeText := Format(_('Tape %d/%d'), [Min(Spec.Tape.Current + 1, Spec.Tape.Count), Spec.Tape.Count]);
       TapeText := TapeText + ' ' + Spec.TapeStateText;
       if Spec.Tape.Current < Spec.Tape.Count then
         TapeText := TapeText + ': ' + Spec.Tape[Spec.Tape.Current].Description;
@@ -1569,14 +1616,14 @@ begin
     if IsMSXModel(Spec.Model) then
     begin
       FSDButton.ImageIndex := Ord(ikCartridge);
-      FSDButton.Hint := 'Cartridge browser (CR)';
-      FSDBrowserItem.Caption := 'Cartridge &browser...';
+      FSDButton.Hint := _('Cartridge browser (CR)');
+      FSDBrowserItem.Caption := _('Cartridge &browser...');
     end
     else
     begin
       FSDButton.ImageIndex := Ord(ikSDCard);
-      FSDButton.Hint := 'SD card browser (DivMMC)';
-      FSDBrowserItem.Caption := 'SD card &browser...';
+      FSDButton.Hint := _('SD card browser (DivMMC)');
+      FSDBrowserItem.Caption := _('SD card &browser...');
     end;
     if FSDBrowserItem.Enabled <> HaveCard then FSDBrowserItem.Enabled := HaveCard;
     if FCartBrowserItem.Enabled <> (IsMSXModel(Spec.Model) and HaveCard) then FCartBrowserItem.Enabled := IsMSXModel(Spec.Model) and HaveCard;
@@ -1589,14 +1636,14 @@ begin
   if FEmu.Spec.ForeignCore >= 0 then
   begin
     FEmu.Spec.ForeignCore := -1;
-    MessageDlg('ZX Spectrum Next', 'The Next''s firmware tried to start another machine''s core ' +
+    MessageDlg(_('ZX Spectrum Next'), _('The Next''s firmware tried to start another machine''s core ' +
       '(an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next ' +
-      'starts again instead.', mtInformation, [mbOK], 0);
+      'starts again instead.'), mtInformation, [mbOK], 0);
   end;
   if FEmu.Paused then
-    FStatus.Panels[1].Text := 'Paused'
+    FStatus.Panels[1].Text := _('Paused')
   else
-    FStatus.Panels[1].Text := Format('%d fps', [FEmu.Fps]);
+    FStatus.Panels[1].Text := Format(_('%d fps'), [FEmu.Fps]);
   if FEmu.Spec.Speed > 1 then
     FStatus.Panels[1].Text := FStatus.Panels[1].Text + Format(' CPU x%d', [FEmu.Spec.Speed]);
   FStatus.Panels[2].Text := TapeText;
@@ -2009,7 +2056,7 @@ begin
     F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
       if (F.Size < 16) or (F.Size > 4 * 1024 * 1024) then
-        raise Exception.Create('That does not look like an MSX cartridge: its size is ' + IntToStr(F.Size) + ' bytes.');
+        raise Exception.CreateFmt(_('That does not look like an MSX cartridge: its size is %d bytes.'), [F.Size]);
       SetLength(Data, F.Size);
       F.ReadBuffer(Data[0], F.Size);
     finally
@@ -2035,7 +2082,7 @@ begin
     FStatus.Panels[0].Text := FEmu.Spec.Info.Name + ': ' + ExtractFileName(FileName) + ' (' + MapperName(Used) + ')';
   except
     on E: Exception do
-      MessageDlg('Could not insert ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message, mtError, [mbOK], 0);
+      MessageDlg(_('Could not insert ') + ExtractFileName(FileName) + ':' + LineEnding + E.Message, mtError, [mbOK], 0);
   end;
 end;
 
@@ -2045,7 +2092,7 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := 'MSX cartridges (*.rom)|*.rom|All files|*.*';
+    Dlg.Filter := _F('MSX cartridges (*.rom)|*.rom|All files|*.*');
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then InsertCartridgeFile(Dlg.FileName);
@@ -2471,11 +2518,14 @@ begin
      not ConfirmCardChanges then
   begin
     CloseAction := caNone;
+    if FRestarting and (FRestartSnap <> '') then DeleteFile(FRestartSnap);
+    FRestarting := False;
     Exit;
   end;
   Settings.Model := FEmu.Spec.Model;
   StoreZXUnoBios;
   if Settings.SaveOnExit then Settings.Save;
+  if FRestarting then Relaunch;
 end;
 
 { The ZX-Uno's files and saved BIOS settings to the machine; Reload: start
@@ -2501,7 +2551,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Err <> '' then MessageDlg('ZX-Uno: ' + Err, mtError, [mbOK], 0);
+  if Err <> '' then MessageDlg(_('ZX-Uno: ') + Err, mtError, [mbOK], 0);
 end;
 
 { What the ZX-Uno's BIOS saved in its flash goes into the settings }
@@ -2550,14 +2600,14 @@ begin
   end;
   if (Ext = '.tap') and IsMSXModel(FEmu.Spec.Model) then
   begin
-    MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding +
-      'A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes.', mtError, [mbOK], 0);
+    MessageDlg(_('Could not open ') + ExtractFileName(FileName) + ':' + LineEnding +
+      _('A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes.'), mtError, [mbOK], 0);
     Exit;
   end;
   if (Ext = '.tap') and (FEmu.Spec.CPC <> nil) then
   begin
-    MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding +
-      'A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes.',
+    MessageDlg(_('Could not open ') + ExtractFileName(FileName) + ':' + LineEnding +
+      _('A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes.'),
       mtError, [mbOK], 0);
     Exit;
   end;
@@ -2568,7 +2618,7 @@ begin
     except
       on E: Exception do
       begin
-        MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message,
+        MessageDlg(_('Could not open ') + ExtractFileName(FileName) + ':' + LineEnding + E.Message,
           mtError, [mbOK], 0);
         Exit;
       end;
@@ -2589,8 +2639,8 @@ begin
         // A CPC reads its own signals: a Spectrum standard-speed block (what a
         // .tzx made for the Spectrum has) plays, but nothing will load from it
         if (FEmu.Spec.CPC <> nil) and (FEmu.Spec.Tape.CountKind(TZX_STANDARD) > 0) then
-          CPCNote := Format('%s has %d block(s) of the ZX Spectrum''s standard tape speed, which an ' +
-            'Amstrad CPC can''t load. The tape is inserted anyway; its other blocks play as they are.',
+          CPCNote := Format(_('%s has %d block(s) of the ZX Spectrum''s standard tape speed, which an ' +
+            'Amstrad CPC can''t load. The tape is inserted anyway; its other blocks play as they are.'),
             [ExtractFileName(FileName), FEmu.Spec.Tape.CountKind(TZX_STANDARD)]);
         // On the Next the tape is loaded from NextZXOS (LOAD "" or the Browser)
         if AutoStart and (FEmu.Spec.Model <> smZXNext) then FEmu.Spec.AutoLoad;
@@ -2625,13 +2675,13 @@ begin
         Settings.AddRecentDisk(FileName);
       end
       else
-        raise Exception.Create('Unsupported file type: ' + Ext);
+        raise Exception.Create(_('Unsupported file type: ') + Ext);
     except
       on E: Exception do
       begin
         FEmu.Unlock;
         try
-          MessageDlg('Could not open ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message,
+          MessageDlg(_('Could not open ') + ExtractFileName(FileName) + ':' + LineEnding + E.Message,
             mtError, [mbOK], 0);
         finally
           FEmu.Lock;
@@ -2650,7 +2700,7 @@ begin
   UpdateChecks;
   Caption := 'emu80 - ' + ExtractFileName(FileName);
   if TapeBrowserWindow <> nil then TapeBrowserWindow.Refresh(True);
-  if CPCNote <> '' then MessageDlg('Amstrad CPC tape', CPCNote, mtWarning, [mbOK], 0);
+  if CPCNote <> '' then MessageDlg(_('Amstrad CPC tape'), CPCNote, mtWarning, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoOpen(Sender: TObject);
@@ -2659,7 +2709,7 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := OPEN_FILTER;
+    Dlg.Filter := OpenFilter;
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then OpenFile(Dlg.FileName);
@@ -2672,11 +2722,11 @@ end;
 function TMainWindow.TapeFilter: string;
 begin
   if FEmu.Spec.Info.Memory = mkCPC then
-    Result := 'Tape images (*.cdt;*.tzx)|*.cdt;*.tzx'
+    Result := _F('Tape images (*.cdt;*.tzx)|*.cdt;*.tzx')
   else if FEmu.Spec.Info.Memory = mkMSX then
-    Result := 'MSX tape images (*.cas;*.tsx;*.tzx)|*.cas;*.tsx;*.tzx'
+    Result := _F('MSX tape images (*.cas;*.tsx;*.tzx)|*.cas;*.tsx;*.tzx')
   else
-    Result := 'Tape images (*.tap;*.tzx)|*.tap;*.tzx';
+    Result := _F('Tape images (*.tap;*.tzx)|*.tap;*.tzx');
 end;
 
 { A tape into the recorder (a click on the cassette in the modern interface): as File > Open,
@@ -2698,7 +2748,7 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Title := 'Insert a tape';
+    Dlg.Title := _('Insert a tape');
     Dlg.Filter := TapeFilter;
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
@@ -2739,17 +2789,17 @@ begin
     if FEmu.Spec.CPC <> nil then
     begin
       // The CPC's own .SNA (CPCEmu, Winape), or emu80's
-      Dlg.Filter := 'CPC snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80';
+      Dlg.Filter := _F('CPC snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'sna';
     end
     else if FEmu.Spec.NeedsOwnSnapshot then
     begin
-      Dlg.Filter := 'emu80 snapshot (*.e80)|*.e80';
+      Dlg.Filter := _F('emu80 snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'e80';
     end
     else
     begin
-      Dlg.Filter := 'Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80';
+      Dlg.Filter := _F('Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'z80';
       Dlg.FilterIndex := 1;
     end;
@@ -2814,8 +2864,8 @@ var
   Entries, DistroMB: Integer;
 begin
   DistroMB := Integer(FolderSize(NextDistroDir, Entries) div (1024 * 1024)) + 1;
-  Result := AskSize('ZX Spectrum Next SD card', Format('A new card for the ZX Spectrum Next, ' +
-    'with its distribution (%d MB) and room for your files.', [DistroMB]),
+  Result := AskSize(_('ZX Spectrum Next SD card'), Format(_('A new card for the ZX Spectrum Next, ' +
+    'with its distribution (%d MB) and room for your files.'), [DistroMB]),
     DistroMB * 5 div 4 + 16, 512, SizeMB);
 end;
 
@@ -2827,7 +2877,7 @@ begin
   if (SizeMB = 0) and not AskNextCardSize(SizeMB) then Exit(False);
   Result := True;
   OldStatus := FStatus.Panels[2].Text;
-  FStatus.Panels[2].Text := 'Making the ZX Spectrum Next SD card...';
+  FStatus.Panels[2].Text := _('Making the ZX Spectrum Next SD card...');
   Screen.Cursor := crHourGlass;
   Application.ProcessMessages;
   try
@@ -2838,7 +2888,7 @@ begin
       on E: Exception do
       begin
         Result := False;
-        MessageDlg('Could not make the ZX Spectrum Next SD card: ' + E.Message, mtError, [mbOK], 0);
+        MessageDlg(_('Could not make the ZX Spectrum Next SD card: ') + E.Message, mtError, [mbOK], 0);
       end;
     end;
   finally
@@ -2881,13 +2931,13 @@ begin
   else if (Settings.NextDistroId <> '') and (Settings.NextDistroId <> Id) then
   begin
     Old := ChangeFileExt(Card, '') + '-' + FormatDateTime('yyyymmdd-hhnn', Now) + ExtractFileExt(Card);
-    if MessageDlg('ZX Spectrum Next', Format('There is a new ZX Spectrum Next distribution (%s). ' +
-      'Make a new SD card from it?' + LineEnding + LineEnding + 'The current card is kept as %s.',
+    if MessageDlg(_('ZX Spectrum Next'), Format(_('There is a new ZX Spectrum Next distribution (%s). Make a new SD card from it?') +
+      LineEnding + LineEnding + _('The current card is kept as %s.'),
       [NextDistroVersion(Dir), ExtractFileName(Old)]), mtConfirmation, [mbYes, mbNo], 0) = mrYes then
     begin
       if not RenameFile(Card, Old) then
       begin
-        MessageDlg('Could not rename ' + Card, mtError, [mbOK], 0);
+        MessageDlg(_('Could not rename ') + Card, mtError, [mbOK], 0);
         Exit;
       end;
       if not MakeNextCardFile(Card) then Exit;
@@ -2907,7 +2957,7 @@ begin
       Result := True;
     except
       on E: Exception do
-        MessageDlg('Could not use the SD card ' + Card + ': ' + E.Message, mtError, [mbOK], 0);
+        MessageDlg(_('Could not use the SD card ') + Card + ': ' + E.Message, mtError, [mbOK], 0);
     end;
     // Files that older versions of emu80 left empty, mended from the distribution
     if Result then
@@ -2927,9 +2977,9 @@ begin
   if Repaired <> nil then
   try
     if Repaired.Count > 0 then
-      MessageDlg('ZX Spectrum Next', 'These files on the Next''s SD card were empty (an older ' +
+      MessageDlg(_('ZX Spectrum Next'), _('These files on the Next''s SD card were empty (an older ' +
         'version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
-        'from the distribution:' + LineEnding + LineEnding + Repaired.Text, mtInformation, [mbOK], 0);
+        'from the distribution:') + LineEnding + LineEnding + Repaired.Text, mtInformation, [mbOK], 0);
   finally
     Repaired.Free;
   end;
@@ -2942,7 +2992,7 @@ var
 begin
   if (FEmu.Spec.DivMMC.Card <> nil) and FEmu.Spec.DivMMC.Card.Modified then
     if not SaveCardInPlace(FEmu, Err) then
-      MessageDlg('Could not save the Next''s SD card: ' + Err, mtError, [mbOK], 0);
+      MessageDlg(_('Could not save the Next''s SD card: ') + Err, mtError, [mbOK], 0);
   FEmu.Lock;
   try
     FEmu.Spec.DivMMC.EjectCard;
@@ -3017,8 +3067,8 @@ begin
   end;
   // Out of either to a standard Spectrum: keep the DivMMC?
   if (Old in OWN) and not (New in OWN) and Settings.DivMMC then
-    if MessageDlg('DivMMC', 'This is a standard ZX Spectrum. Do you want to switch off the DivMMC ' +
-       'interface?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then Settings.DivMMC := False;
+    if MessageDlg(_('DivMMC'), _('This is a standard ZX Spectrum. Do you want to switch off the DivMMC ' +
+       'interface?'), mtConfirmation, [mbYes, mbNo], 0) = mrYes then Settings.DivMMC := False;
   // The standard models start without the mouse, as they do by default
   if (Old in OWN) and not (New in OWN) then Settings.KempstonMouse := False;
 end;
@@ -3039,7 +3089,7 @@ procedure TMainWindow.ConfirmRealSpecNext;
 begin
   if Settings.RealSpecNext and not Settings.RealSpecNextOk then
   begin
-    if MessageDlg('ZX Spectrum Next', 'Al usar esta característica puede estar violando la licencia ' +
+    if MessageDlg(_('ZX Spectrum Next'), 'Al usar esta característica puede estar violando la licencia ' +
        'del software del Spectrum Next. ¿Quiere continuar?', mtWarning, [mbYes, mbNo], 0) = mrYes then
       Settings.AcceptRealSpecNext
     else
@@ -3060,7 +3110,7 @@ end;
 
 procedure TMainWindow.InstallProgress(Percent: Integer);
 begin
-  FStatus.Panels[2].Text := Format('Installing the ZX Spectrum Next distribution... %d%%', [Percent]);
+  FStatus.Panels[2].Text := Format(_('Installing the ZX Spectrum Next distribution... %d%%'), [Percent]);
   Application.ProcessMessages;
 end;
 
@@ -3081,8 +3131,8 @@ begin
   Dir := NextDistroDir;
   Dlg := TOpenDialog.Create(nil);
   try
-    Dlg.Title := 'The ZX Spectrum Next distribution downloaded';
-    Dlg.Filter := 'Zip files (*.zip)|*.zip|All files|*.*';
+    Dlg.Title := _('The ZX Spectrum Next distribution downloaded');
+    Dlg.Filter := _F('Zip files (*.zip)|*.zip|All files|*.*');
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if not Dlg.Execute then Exit;
     ZipFile := Dlg.FileName;
@@ -3103,8 +3153,8 @@ begin
   UpdateInstallNextItem(nil);
   case R of
     diOk:
-      if MessageDlg('ZX Spectrum Next', 'Distribución instalada.' + LineEnding +
-         '¿Quiere iniciar la emulación de Spectrum Next?', mtConfirmation, [mbYes, mbNo], 0) = mrYes then
+      if MessageDlg(_('ZX Spectrum Next'), _('Distribution installed.') + LineEnding +
+         _('Do you want to start the ZX Spectrum Next emulation?'), mtConfirmation, [mbYes, mbNo], 0) = mrYes then
       begin
         FNextJustInstalled := True;
         try
@@ -3115,14 +3165,14 @@ begin
       end;
     diInvalid:
       begin
-        MessageDlg('ZX Spectrum Next', 'Distribución no valida', mtError, [mbOK], 0);
+        MessageDlg(_('ZX Spectrum Next'), _('Invalid distribution.'), mtError, [mbOK], 0);
         // As the message says: the folder is emptied
         ClearNextDistroDir(Dir);
         UpdateInstallNextItem(nil);
       end;
   else
-    MessageDlg('ZX Spectrum Next', 'The distribution could not be installed: ' + Msg + LineEnding +
-      'Nothing was installed.', mtError, [mbOK], 0);
+    MessageDlg(_('ZX Spectrum Next'), _('The distribution could not be installed: ') + Msg + LineEnding +
+      _('Nothing was installed.'), mtError, [mbOK], 0);
   end;
 end;
 
@@ -3142,10 +3192,10 @@ begin
   if not AskNextCardSize(SizeMB) then Exit;
   Dlg := TSaveDialog.Create(nil);
   try
-    Dlg.Title := 'New SD card with the ZX Spectrum Next distribution';
+    Dlg.Title := _('New SD card with the ZX Spectrum Next distribution');
     Dlg.FileName := ExtractFileName(NextCardFile);
     Dlg.InitialDir := ExtractFilePath(NextCardFile);
-    Dlg.Filter := 'SD card images (*.img)|*.img|All files|*.*';
+    Dlg.Filter := _F('SD card images (*.img)|*.img|All files|*.*');
     Dlg.DefaultExt := 'img';
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if not Dlg.Execute then Exit;
@@ -3468,7 +3518,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  Answer := MessageDlg(Format('Disk %s: has been modified. Save changes?', [Chr(Ord('A') + Drive)]),
+  Answer := MessageDlg(Format(_('Disk %s: has been modified. Save changes?'), [Chr(Ord('A') + Drive)]),
     mtConfirmation, [mbYes, mbNo, mbCancel], 0);
   if Answer = mrCancel then Exit(False);
   if Answer = mrNo then Exit;
@@ -3489,7 +3539,7 @@ begin
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := SAVE_DISK_FILTER;
+    Dlg.Filter := SaveDiskFilter;
     Dlg.DefaultExt := 'dsk';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
@@ -3534,7 +3584,7 @@ begin
   if not ConfirmDiskChanges(Drive) then Exit;
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := DISK_FILTER + '|All files|*.*';
+    Dlg.Filter := _F('Disk images (*.dsk;*.mgt;*.sad)|*.dsk;*.mgt;*.sad|All files|*.*');
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then InsertDiskFile(Drive, Dlg.FileName);
@@ -3587,7 +3637,7 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   if not FEmu.Spec.Info.HasFDC then
-    MessageDlg('The disk is inserted, but this computer has no disk drive.', mtInformation, [mbOK], 0);
+    MessageDlg(_('The disk is inserted, but this computer has no disk drive.'), mtInformation, [mbOK], 0);
   if DiskBrowserWindow <> nil then DiskBrowserWindow.Refresh;
   Result := True;
 end;
@@ -3765,7 +3815,7 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := 'SD card images (*.img;*.mmc;*.hdf;*.bin)|*.img;*.mmc;*.hdf;*.bin|All files|*.*';
+    Dlg.Filter := _F('SD card images (*.img;*.mmc;*.hdf;*.bin)|*.img;*.mmc;*.hdf;*.bin|All files|*.*');
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then InsertSDCard(Dlg.FileName);
@@ -3804,7 +3854,7 @@ begin
     Dlg.ClientHeight := 142;
     Lbl := TLabel.Create(Dlg);
     Lbl.Parent := Dlg;
-    Lbl.Caption := 'Size (FAT16):';
+    Lbl.Caption := _('Size (FAT16):');
     Lbl.SetBounds(10, 16, 120, 18);
     Combo := TComboBox.Create(Dlg);
     Combo.Parent := Dlg;
@@ -3813,7 +3863,7 @@ begin
     Combo.ItemIndex := 0;
     for I := 0 to High(Choices) do
     begin
-      Combo.Items.Add(Format('%d MB', [Choices[I]]));
+      Combo.Items.Add(Format(_('%d MB'), [Choices[I]]));
       if Choices[I] = DefaultMB then Combo.ItemIndex := I;
     end;
     Lbl := TLabel.Create(Dlg);
@@ -3824,13 +3874,13 @@ begin
     Lbl.SetBounds(10, 48, 340, 42);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
-    Btn.Caption := 'OK';
+    Btn.Caption := _('OK');
     Btn.Default := True;
     Btn.ModalResult := mrOK;
     Btn.SetBounds(190, 104, 75, 28);
     Btn := TButton.Create(Dlg);
     Btn.Parent := Dlg;
-    Btn.Caption := 'Cancel';
+    Btn.Caption := _('Cancel');
     Btn.Cancel := True;
     Btn.ModalResult := mrCancel;
     Btn.SetBounds(275, 104, 75, 28);
@@ -3846,10 +3896,10 @@ end;
 function AskCardSize(WithEsxdos: Boolean; out SizeMB: Integer): Boolean;
 begin
   if WithEsxdos then
-    Result := AskSize('New SD card with ESXDOS', 'The card gets the ESXDOS SYS, BIN and TMP folders.',
+    Result := AskSize(_('New SD card with ESXDOS'), _('The card gets the ESXDOS SYS, BIN and TMP folders.'),
       16, 128, SizeMB)
   else
-    Result := AskSize('New SD card', 'An empty card with one FAT16 partition.', 16, 128, SizeMB);
+    Result := AskSize(_('New SD card'), _('An empty card with one FAT16 partition.'), 16, 128, SizeMB);
 end;
 
 procedure TMainWindow.DoSDNew(Sender: TObject);
@@ -3866,13 +3916,13 @@ begin
   Esx := Emu80Path('esxdos');
   if WithEsxdos and (Esx = '') then
   begin
-    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to emu80.', mtError, [mbOK], 0);
+    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to emu80.'), mtError, [mbOK], 0);
     Exit;
   end;
   if not AskCardSize(WithEsxdos, SizeMB) then Exit;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'SD card images (*.img)|*.img';
+    Dlg.Filter := _F('SD card images (*.img)|*.img');
     Dlg.DefaultExt := 'img';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.FileName := 'sdcard.img';
@@ -3918,7 +3968,7 @@ begin
     end;
     if Err <> '' then
     begin
-      MessageDlg('Could not create the SD card: ' + Err, mtError, [mbOK], 0);
+      MessageDlg(_('Could not create the SD card: ') + Err, mtError, [mbOK], 0);
       Exit;
     end;
     InsertSDCard(Dlg.FileName);
@@ -3936,7 +3986,7 @@ begin
   if FEmu.Spec.DivMMC.Card = nil then Exit;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'SD card images (*.img)|*.img|All files|*.*';
+    Dlg.Filter := _F('SD card images (*.img)|*.img|All files|*.*');
     Dlg.DefaultExt := 'img';
     // Where it was loaded from
     Dlg.InitialDir := ExtractFilePath(FEmu.Spec.DivMMC.Card.FileName);
@@ -3956,7 +4006,7 @@ begin
       FEmu.Unlock;
     end;
     if Err <> '' then
-      MessageDlg('Could not save the SD card: ' + Err, mtError, [mbOK], 0)
+      MessageDlg(_('Could not save the SD card: ') + Err, mtError, [mbOK], 0)
     else
     begin
       Settings.AddRecentCard(Dlg.FileName);
@@ -3997,26 +4047,26 @@ begin
   if FEmu.Spec.Model = smZXNext then
   begin
     if not SaveCardInPlace(FEmu, Err) then
-      MessageDlg('Could not save the Next''s SD card: ' + Err, mtError, [mbOK], 0);
+      MessageDlg(_('Could not save the Next''s SD card: ') + Err, mtError, [mbOK], 0);
     Exit;
   end;
   if SameFileName(FEmu.Spec.DivMMC.Card.FileName, FTempCard) then
   begin
     // Made from a folder: the changes can only be kept as an image
-    Answer := MessageDlg(Format('The SD card made from the folder %s has been modified. ' +
-      'Save it as an SD card image?', [FTempFolder]), mtConfirmation, [mbYes, mbNo, mbCancel], 0);
+    Answer := MessageDlg(Format(_('The SD card made from the folder %s has been modified. ' +
+      'Save it as an SD card image?'), [FTempFolder]), mtConfirmation, [mbYes, mbNo, mbCancel], 0);
     if Answer = mrCancel then Exit(False);
     if Answer = mrYes then Result := SaveCardAs;
     Exit;
   end;
-  Answer := MessageDlg(Format('The SD card %s has been modified. Save the changes?',
+  Answer := MessageDlg(Format(_('The SD card %s has been modified. Save the changes?'),
     [ExtractFileName(FEmu.Spec.DivMMC.Card.FileName)]), mtConfirmation, [mbYes, mbNo, mbCancel], 0);
   if Answer = mrCancel then Exit(False);
   if Answer = mrNo then Exit;
   if FEmu.Spec.DivMMC.Card.ReadOnly then Exit(SaveCardAs);
   if not SaveCardInPlace(FEmu, Err) then
   begin
-    MessageDlg('Could not save the SD card: ' + Err, mtError, [mbOK], 0);
+    MessageDlg(_('Could not save the SD card: ') + Err, mtError, [mbOK], 0);
     Result := SaveCardAs;
   end;
 end;
@@ -4027,13 +4077,13 @@ var
 begin
   if FEmu.Spec.DivMMC.Card = nil then
   begin
-    MessageDlg('There is no SD card inserted.', mtInformation, [mbOK], 0);
+    MessageDlg(_('There is no SD card inserted.'), mtInformation, [mbOK], 0);
     Exit;
   end;
   if ((Sender as TComponent).Tag = 1) or FEmu.Spec.DivMMC.Card.ReadOnly then
     SaveCardAs
   else if not SaveCardInPlace(FEmu, Err) then
-    MessageDlg('Could not save the SD card: ' + Err, mtError, [mbOK], 0);
+    MessageDlg(_('Could not save the SD card: ') + Err, mtError, [mbOK], 0);
   if SDBrowserWindow <> nil then SDBrowserWindow.Refresh;
 end;
 
@@ -4047,7 +4097,7 @@ begin
   Disk := FEmu.Spec.DiskAt(Drive);
   if Disk = nil then
   begin
-    MessageDlg('There is no disk in that drive.', mtInformation, [mbOK], 0);
+    MessageDlg(_('There is no disk in that drive.'), mtInformation, [mbOK], 0);
     Exit;
   end;
   // A new disk has no file yet
@@ -4067,7 +4117,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Err <> '' then MessageDlg('Could not save the disk: ' + Err, mtError, [mbOK], 0);
+  if Err <> '' then MessageDlg(_('Could not save the disk: ') + Err, mtError, [mbOK], 0);
   if DiskBrowserWindow <> nil then DiskBrowserWindow.Refresh;
 end;
 
@@ -4096,7 +4146,7 @@ begin
   Esx := Emu80Path('esxdos');
   if Esx = '' then
   begin
-    MessageDlg('The esxdos folder (with SYS and BIN) was not found next to emu80.', mtError, [mbOK], 0);
+    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to emu80.'), mtError, [mbOK], 0);
     Exit;
   end;
   if not ConfirmCardChanges then Exit;
@@ -4108,7 +4158,7 @@ begin
     if (SizeMB = 0) and (Int64(SIZES[I]) * 1024 * 1024 >= Need) then SizeMB := SIZES[I];
   if SizeMB = 0 then
   begin
-    MessageDlg('The folder is too big for an SD card of up to 2 GB.', mtError, [mbOK], 0);
+    MessageDlg(_('The folder is too big for an SD card of up to 2 GB.'), mtError, [mbOK], 0);
     Exit;
   end;
   TempFile := IncludeTrailingPathDelimiter(GetTempDir) +
@@ -4145,7 +4195,7 @@ begin
   if Err <> '' then
   begin
     DeleteFile(TempFile);
-    MessageDlg('Could not make the SD card from the folder: ' + Err, mtError, [mbOK], 0);
+    MessageDlg(_('Could not make the SD card from the folder: ') + Err, mtError, [mbOK], 0);
     Exit;
   end;
   // The card in the DivMMC goes out (its changes were dealt with above)
@@ -4181,7 +4231,7 @@ var
 begin
   Dlg := TSelectDirectoryDialog.Create(Self);
   try
-    Dlg.Title := 'Folder to use as the SD card';
+    Dlg.Title := _('Folder to use as the SD card');
     Dlg.InitialDir := Settings.LastDir;
     if Dlg.Execute then UseFolderAsCard(Dlg.FileName);
   finally
@@ -4233,7 +4283,7 @@ begin
     FEmu.Unlock;
   end;
   if not FEmu.Spec.Info.HasFDC then
-    MessageDlg('The disk is inserted, but this computer has no disk drive.', mtInformation, [mbOK], 0);
+    MessageDlg(_('The disk is inserted, but this computer has no disk drive.'), mtInformation, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoDiskEject(Sender: TObject);
@@ -4259,12 +4309,12 @@ begin
   Drive := (Sender as TComponent).Tag;
   if FEmu.Spec.DiskAt(Drive) = nil then
   begin
-    MessageDlg('There is no disk in that drive.', mtInformation, [mbOK], 0);
+    MessageDlg(_('There is no disk in that drive.'), mtInformation, [mbOK], 0);
     Exit;
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := SAVE_DISK_FILTER;
+    Dlg.Filter := SaveDiskFilter;
     Dlg.DefaultExt := 'dsk';
     // Where it was loaded from, if it was
     if FEmu.Spec.DiskAt(Drive).FileName <> '' then
@@ -4292,18 +4342,19 @@ end;
 
 { The note the first time the MSX starts: what it emulates and the ROMs it uses (msx_notice turns it on again) }
 procedure TMainWindow.MsxNotice;
-const
-  NOTE = 'This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ' +
-    'ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) ' +
-    'may help, especially with games from the early days of the MSX.' + LineEnding + LineEnding +
-    'If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. ' +
-    'Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them.' + LineEnding + LineEnding +
-    'Searching for PHILIPSDISK.rom will probably lead you to the other two files as well.';
+var
+  NOTE: string;
 begin
+  NOTE := _('This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ' +
+    'ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) ' +
+    'may help, especially with games from the early days of the MSX.') + LineEnding + LineEnding +
+    _('If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. ' +
+    'Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them.') + LineEnding + LineEnding +
+    _('Searching for PHILIPSDISK.rom will probably lead you to the other two files as well.');
   if not Settings.MsxNotice or not IsMSXModel(FEmu.Spec.Model) then Exit;
   Settings.MsxNoticeShown;
   ReleaseAllKeys;
-  MessageDlg('MSX 2', NOTE, mtInformation, [mbOK], 0);
+  MessageDlg(_('MSX 2'), NOTE, mtInformation, [mbOK], 0);
 end;
 
 { The MSX with the slots of an MSX1 (no expanded slot) or the MSX2's own: it starts again with them }
@@ -4433,7 +4484,7 @@ begin
   begin
     FAttachAsked := True;
     ReleaseAllKeys;
-    if MessageDlg('Mouse', 'Do you want to attach the mouse to the window?',
+    if MessageDlg(_('Mouse'), _('Do you want to attach the mouse to the window?'),
        mtConfirmation, [mbYes, mbNo], 0) = mrYes then
     begin
       Settings.AttachMouse := True;
@@ -4531,8 +4582,8 @@ begin
     FEmu.Unlock;
   end;
   if Rom > 0 then
-    MessageDlg(Format('%d POKE(s) went to ROM (or to no memory) and had no effect.', [Rom]) +
-      LineEnding + 'ROM changes can be allowed in Options > Settings.', mtWarning, [mbOK], 0);
+    MessageDlg(Format(_('%d POKE(s) went to ROM (or to no memory) and had no effect.'), [Rom]) +
+      LineEnding + _('ROM changes can be allowed in Options > Settings.'), mtWarning, [mbOK], 0);
 end;
 
 procedure TMainWindow.DoPoke(Sender: TObject);
@@ -4548,7 +4599,7 @@ var
 begin
   Result := True;
   if not FEmu.Spec.Tape.Modified or (FEmu.Spec.Tape.Count = 0) then Exit;
-  Answer := MessageDlg('The tape has changed (blocks saved, moved or deleted). Save it?',
+  Answer := MessageDlg(_('The tape has changed (blocks saved, moved or deleted). Save it?'),
     mtConfirmation, [mbYes, mbNo, mbCancel], 0);
   if Answer = mrCancel then Exit(False);
   if Answer = mrYes then
@@ -4603,8 +4654,8 @@ var
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    if FEmu.Spec.CPC <> nil then Dlg.Filter := 'CPC screen (*.scr)|*.scr'
-    else Dlg.Filter := 'Spectrum screen (*.scr)|*.scr';
+    if FEmu.Spec.CPC <> nil then Dlg.Filter := _F('CPC screen (*.scr)|*.scr')
+    else Dlg.Filter := _F('Spectrum screen (*.scr)|*.scr');
     Dlg.DefaultExt := 'scr';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
@@ -4627,7 +4678,7 @@ var
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'PNG image (*.png)|*.png';
+    Dlg.Filter := _F('PNG image (*.png)|*.png');
     Dlg.DefaultExt := 'png';
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
@@ -4670,6 +4721,7 @@ end;
 
 procedure TMainWindow.DoSettings(Sender: TObject);
 begin
+  FOldLang := Settings.Language;
   FOldRomDir := Settings.RomDir;
   FOldMapper := Settings.MsxCartMapper;
   FOldUno := Settings.ZXUnoFirmware + '|' + Settings.ZXUnoRoms + '|' + Settings.ZXUnoCustomRom;
@@ -4678,12 +4730,90 @@ begin
   ShowSettings(@SettingsApplied);
 end;
 
+{ Another language: the interface is made at start, so emu80 offers to start again. The machine
+  goes with it in a snapshot (the MSX, which has none, as its model only) }
+procedure TMainWindow.OfferRestart;
+begin
+  if MessageDlg('emu80', _('Restart emu80 now to use the new language?'), mtConfirmation,
+     [mbYes, mbNo], 0) <> mrYes then Exit;
+  FRestartSnap := '';
+  FRestartModel := '';
+  if IsMSXModel(FEmu.Spec.Model) then
+    FRestartModel := ModelKey(FEmu.Spec.Model)
+  else
+  begin
+    FRestartSnap := IncludeTrailingPathDelimiter(GetTempDir) + 'emu80-restart-' +
+      IntToStr(GetProcessID) + '.e80';
+    FEmu.Lock;
+    try
+      try
+        FEmu.Spec.SaveOwnSnapshot(FRestartSnap);
+      except
+        FRestartSnap := '';
+        FRestartModel := ModelKey(FEmu.Spec.Model);
+      end;
+    finally
+      FEmu.Unlock;
+    end;
+  end;
+  FRestarting := True;
+  Close;
+end;
+
+{ Starts emu80 again (once this one has closed), with the same settings files and the
+  machine that was running }
+procedure TMainWindow.Relaunch;
+var
+  P: TProcess;
+  I: Integer;
+  Arg: string;
+begin
+  P := TProcess.Create(nil);
+  try
+    P.Executable := ParamStr(0);
+    I := 1;
+    while I <= ParamCount do
+    begin
+      Arg := LowerCase(ParamStr(I));
+      while (Arg <> '') and (Arg[1] = '-') do Delete(Arg, 1, 1);
+      if (Arg = 'config') or (Arg = 'config-add') then
+      begin
+        P.Parameters.Add(ParamStr(I));
+        if (I < ParamCount) then
+        begin
+          Inc(I);
+          P.Parameters.Add(ParamStr(I));
+        end;
+      end
+      else if (Pos('config=', Arg) = 1) or (Pos('config-add=', Arg) = 1) then
+        P.Parameters.Add(ParamStr(I));
+      Inc(I);
+    end;
+    if FRestartSnap <> '' then P.Parameters.Add('--restart-snapshot=' + FRestartSnap)
+    else if FRestartModel <> '' then P.Parameters.Add('--model=' + FRestartModel);
+    P.Options := [];
+    try
+      P.Execute;
+    except
+      on E: Exception do
+        MessageDlg('emu80', E.Message, mtError, [mbOK], 0);
+    end;
+  finally
+    P.Free;
+  end;
+end;
+
 { The settings window's Apply (and OK, and Cancel after an Apply): what changed
   takes effect }
 procedure TMainWindow.SettingsApplied(Sender: TObject);
 var
   OldRomDir, OldUno: string;
 begin
+  if SettingsOKPressed and (Settings.Language <> FOldLang) then
+  begin
+    FOldLang := Settings.Language;
+    OfferRestart;
+  end;
   OldRomDir := FOldRomDir;
   OldUno := FOldUno;
   // Another cartridge mapper: the cartridge in goes in again with it
@@ -4711,7 +4841,7 @@ begin
       except
         on E: Exception do
         begin
-          MessageDlg(E.Message + LineEnding + 'Keeping the previous ROM folder.', mtError, [mbOK], 0);
+          MessageDlg(E.Message + LineEnding + _('Keeping the previous ROM folder.'), mtError, [mbOK], 0);
           Settings.RomDir := OldRomDir;
           FEmu.Spec.RomDir := OldRomDir;
           FEmu.Spec.SetModel(FEmu.Spec.Model);
@@ -4781,6 +4911,8 @@ var
   UnoSet: Boolean;
   Addr: Word;
   Disk: TDiskImage;
+  LangTmp: TLanguage;
+  RestartSnap: string;
 
   function NeedsValue(const Name: string): Boolean;
   begin
@@ -4794,7 +4926,7 @@ var
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
       (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'monitor') or
-      (Name = 'ui') or (Name = 'breakpoints') or (Name = 'watches') or
+      (Name = 'ui') or (Name = 'lang') or (Name = 'restart-snapshot') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
 
@@ -5031,6 +5163,14 @@ begin
           Errors := Errors + '--rom "' + Value + '": expected MODEL,N,FILE (an existing file, ' +
             'N one of the model''s ROMs)' + LineEnding;
       end
+      else if Arg = 'restart-snapshot' then
+        RestartSnap := Value        // internal: how emu80 starts again after a change of language
+      else if Arg = 'lang' then
+      begin
+        // Applied before the window was made (ApplyLanguage)
+        if not LanguageFromCode(Value, LangTmp) then
+          Errors := Errors + 'Unknown --lang (auto, en, es, fr, pt or de): ' + Value + LineEnding;
+      end
       else if Arg = 'ui' then
       begin
         // Applied before the window was made (ReadSettingsOptions)
@@ -5238,6 +5378,17 @@ begin
     for I := 0 to Files.Count - 1 do
       if FileExists(Files[I]) then OpenFile(Files[I])
       else Errors := Errors + 'File not found: ' + Files[I] + LineEnding;
+    if (RestartSnap <> '') and FileExists(RestartSnap) then
+    begin
+      OpenFile(RestartSnap);
+      // Not a file of the user's: out of the recent list, and deleted
+      I := Settings.RecentFiles.IndexOf(RestartSnap);
+      if I >= 0 then Settings.RecentFiles.Delete(I);
+      FLastFile := '';
+      Caption := 'emu80 - 8 bit machines emulator';
+      UpdateRecentMenu;
+      DeleteFile(RestartSnap);
+    end;
     for I := 0 to Tapes.Count - 1 do
       if FileExists(Tapes[I]) then OpenFile(Tapes[I], False)
       else Errors := Errors + 'File not found: ' + Tapes[I] + LineEnding;
@@ -5340,8 +5491,8 @@ begin
   UpdateRecentDisksMenu;
   if Help then ShowDocumentation;
   if Errors <> '' then
-    MessageDlg('Command line:' + LineEnding + Errors + LineEnding +
-      'See Help > Documentation for the options.', mtWarning, [mbOK], 0);
+    MessageDlg(_('Command line:') + LineEnding + Errors + LineEnding +
+      _('See Help > Documentation for the options.'), mtWarning, [mbOK], 0);
 end;
 
 procedure TMainWindow.AddFilesToCard(Specs: TStrings; var Errors: string);
@@ -5469,14 +5620,14 @@ begin
   except
     on E: Exception do
     begin
-      MessageDlg('Could not load symbols from ' + FileName + ':' + LineEnding + E.Message,
+      MessageDlg(_('Could not load symbols from ') + FileName + ':' + LineEnding + E.Message,
         mtError, [mbOK], 0);
       Exit;
     end;
   end;
   if N = 0 then
-    MessageDlg('No symbols found in ' + ExtractFileName(FileName) + '.' + LineEnding +
-      'Expected lines like "LABEL: EQU 0x8000" (as exported by SjASM / SjASMPlus).',
+    MessageDlg(_('No symbols found in ') + ExtractFileName(FileName) + '.' + LineEnding +
+      _('Expected lines like "LABEL: EQU 0x8000" (as exported by SjASM / SjASMPlus).'),
       mtWarning, [mbOK], 0);
   if N > 0 then
   begin
@@ -5493,7 +5644,7 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.Filter := 'Symbol files (*.sym;*.exp;*.lab;*.txt)|*.sym;*.exp;*.lab;*.txt|All files|*.*';
+    Dlg.Filter := _F('Symbol files (*.sym;*.exp;*.lab;*.txt)|*.sym;*.exp;*.lab;*.txt|All files|*.*');
     Dlg.InitialDir := Settings.LastDir;
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if Dlg.Execute then LoadSymbols(Dlg.FileName);
@@ -5550,13 +5701,13 @@ end;
 procedure TMainWindow.DoAbout(Sender: TObject);
 {$I Release.inc}
 begin
-  MessageDlg('About emu80',
+  MessageDlg(_('About emu80'),
     'emu80 - 8 bit machines emulator' + LineEnding +
     'ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coup' + #$C3#$A9 + ' and MSX2.' + LineEnding +
-    'Release ' + EMU80_RELEASE + LineEnding +
+    _('Release ') + EMU80_RELEASE + LineEnding +
     '(C) Vivecoded by Uto - 2028' + LineEnding + LineEnding +
-    'Written in Free Pascal with Lazarus.' + LineEnding + LineEnding +
-    'Spectrum ROMs are copyright Amstrad, who allow their distribution.' + LineEnding +
+    _('Written in Free Pascal with Lazarus.') + LineEnding + LineEnding +
+    _('Spectrum ROMs are copyright Amstrad, who allow their distribution.') + LineEnding +
     'ROM labels (.sym files): 48K from "The Complete Spectrum ROM Disassembly" ' +
     '(Ian Logan and Frank O''Hara), via Richard Dymond''s SkoolKit disassembly; ' +
     '128K, +2 and +3 from the disassemblies by Paul Farrow, Garry Lancaster and ' +

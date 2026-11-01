@@ -62,6 +62,10 @@ function SaveDiskImage(Disk: TDiskImage; const FileName: string): string;
 
 implementation
 
+uses
+  Lang;
+
+
 { A disk whose tracks are all 9 sectors of 512 bytes, numbered from 1, in at most 83 cylinders }
 function MsxGeometry(Disk: TDiskImage): Boolean;
 var
@@ -94,17 +98,17 @@ begin
   begin
     if (ClassifyDisk(Disk) in [dkSAM, dkCPC]) or not MsxGeometry(Disk) then
     begin
-      Msg := Format('%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K ' +
-        'raw image or a +3 disk), and this one has %d cylinders and is %s.',
-        [ExtractFileName(FileName), Disk.Cylinders, DiskKindName(ClassifyDisk(Disk)) + ' format']);
+      Msg := Format(_('%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K ' +
+        'raw image or a +3 disk), and this one has %d cylinders and is %s.'),
+        [ExtractFileName(FileName), Disk.Cylinders, Format(_('%s format'), [DiskKindName(ClassifyDisk(Disk))])]);
       Result := False;
     end;
     Exit;
   end;
   if (Machine <> dmSAM) and (ClassifyDisk(Disk) = dkSAM) then
   begin
-    Msg := Format('%s is a SAM Coupe disk (%d cylinders, 10 sectors of 512 bytes a track): ' +
-      'its format isn''t one the %s reads. Choose the SAM Coupe in the machine menu to use it.',
+    Msg := Format(_('%s is a SAM Coupe disk (%d cylinders, 10 sectors of 512 bytes a track): ' +
+      'its format isn''t one the %s reads. Choose the SAM Coupe in the machine menu to use it.'),
       [ExtractFileName(FileName), Disk.Cylinders, NAMES[Machine]]);
     Result := False;
   end;
@@ -256,7 +260,7 @@ begin
     on E: Exception do
     begin
       Problem := dpUnreadable;
-      Error := 'Could not read ' + ExtractFileName(FileName) + ': ' + E.Message;
+      Error := Format(_('Could not read %s: %s'), [ExtractFileName(FileName), E.Message]);
       Exit;
     end;
   end;
@@ -264,7 +268,7 @@ begin
   if Length(Data) = 0 then
   begin
     Problem := dpCorrupt;
-    Error := ExtractFileName(FileName) + ' is empty.';
+    Error := Format(_('%s is empty.'), [ExtractFileName(FileName)]);
     Exit;
   end;
   SetString(Sig, PChar(@Data[0]), Min(Length(Data), 24));
@@ -273,12 +277,12 @@ begin
     if (Length(Data) >= 4) and (Data[0] = $50) and (Data[1] = $4B) and (Data[2] = 3) and (Data[3] = 4) then
     begin
       Problem := dpCompressed;
-      Error := ExtractFileName(FileName) + ' is a zip file, not a disk image: unzip it first.';
+      Error := Format(_('%s is a zip file, not a disk image: unzip it first.'), [ExtractFileName(FileName)]);
     end
     else if (Length(Data) >= 2) and (Data[0] = $1F) and (Data[1] = $8B) then
     begin
       Problem := dpCompressed;
-      Error := ExtractFileName(FileName) + ' is a gzip file, not a disk image: unzip it first.';
+      Error := Format(_('%s is a gzip file, not a disk image: unzip it first.'), [ExtractFileName(FileName)]);
     end
     else if (Copy(Sig, 1, 8) = 'MV - CPC') or (Copy(Sig, 1, 8) = 'EXTENDED') then
     begin
@@ -300,7 +304,7 @@ begin
       if Length(Data) < SAD_HEADER then
       begin
         Problem := dpCorrupt;
-        Error := ExtractFileName(FileName) + ' is a SAD image cut short.';
+        Error := Format(_('%s is a SAD image cut short.'), [ExtractFileName(FileName)]);
       end
       else
       begin
@@ -313,7 +317,7 @@ begin
            (SecSize > 1024) or (Length(Data) < Expected) then
         begin
           Problem := dpCorrupt;
-          Error := Format('%s is a corrupt SAD image (%d sides, %d cylinders, %d sectors of %d bytes, %d bytes long).',
+          Error := Format(_('%s is a corrupt SAD image (%d sides, %d cylinders, %d sectors of %d bytes, %d bytes long).'),
             [ExtractFileName(FileName), Sides, Cyls, Count, SecSize, Length(Data)]);
         end
         else
@@ -346,7 +350,7 @@ begin
     begin
       FreeAndNil(Disk);
       Problem := dpCorrupt;
-      Error := ExtractFileName(FileName) + ' is a corrupt disk image: ' + E.Message;
+      Error := Format(_('%s is a corrupt disk image: %s'), [ExtractFileName(FileName), E.Message]);
     end;
   end;
   if Disk <> nil then
@@ -549,7 +553,7 @@ begin
     if (Result = '') and ((Ext = '.mgt') or (Ext = '.sad') or (Disk.RawImage and ((Ext = '.dsk') or (Ext = '.img')))) then
       Disk.MarkSaved(FileName);
   except
-    on E: Exception do Result := 'Could not save ' + ExtractFileName(FileName) + ': ' + E.Message;
+    on E: Exception do Result := Format(_('Could not save %s: %s'), [ExtractFileName(FileName), E.Message]);
   end;
 end;
 

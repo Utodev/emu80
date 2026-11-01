@@ -116,7 +116,7 @@ procedure RefreshCartBrowser;
 implementation
 
 uses
-  Math, Msx, MsxMachine, Models;
+  Math, Msx, MsxMachine, Models, Lang;
 
 const
   BYTES_PER_ROW = 16;
@@ -539,7 +539,7 @@ var
 begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
-  Caption := 'Cartridge browser';
+  Caption := _('Cartridge browser');
   FTitle := TPathTitle.Create(Self);
   Width := 760;
   Height := 520;
@@ -559,14 +559,14 @@ begin
   FToolBar.ButtonWidth := IconSize + 10;
   FToolBar.ButtonHeight := IconSize + 10;
   FToolBar.AutoSize := True;
-  AddButton(ikSave, 'Save the cartridge to its file (Ctrl+S)', @DoSave);
-  AddButton(ikOpen, 'Save the cartridge as another file...', @DoSaveAs);
+  AddButton(ikSave, _('Save the cartridge to its file (Ctrl+S)'), @DoSave);
+  AddButton(ikOpen, _('Save the cartridge as another file...'), @DoSaveAs);
   AddSeparator;
-  AddButton(ikImportFolder, 'Import a block: write a file of the PC into the cartridge from the cursor...', @DoImport);
-  AddButton(ikFolderUp, 'Export a block: the selected bytes (or the range asked for) to a file of the PC...', @DoExport);
+  AddButton(ikImportFolder, _('Import a block: write a file of the PC into the cartridge from the cursor...'), @DoImport);
+  AddButton(ikFolderUp, _('Export a block: the selected bytes (or the range asked for) to a file of the PC...'), @DoExport);
   AddSeparator;
-  AddButton(ikGoTo, 'Go to an offset... (Ctrl+G)', @DoGoTo);
-  AddButton(ikRefresh, 'Read the cartridge again (the changes not saved are lost)', @DoRefresh);
+  AddButton(ikGoTo, _('Go to an offset... (Ctrl+G)'), @DoGoTo);
+  AddButton(ikRefresh, _('Read the cartridge again (the changes not saved are lost)'), @DoRefresh);
 
   FStatus := TStatusBar.Create(Self);
   FStatus.Parent := Self;
@@ -576,9 +576,9 @@ begin
   FPages.Parent := Self;
   FPages.Align := alClient;
   FInfoTab := FPages.AddTabSheet;
-  FInfoTab.Caption := 'Info';
+  FInfoTab.Caption := _('Info');
   FHexTab := FPages.AddTabSheet;
-  FHexTab.Caption := 'Hex';
+  FHexTab.Caption := _('Hex');
 
   FInfo := TMemo.Create(Self);
   FInfo.Parent := FInfoTab;
@@ -629,19 +629,19 @@ var
   Mark: string;
 begin
   if FDirty then Mark := ' *' else Mark := '';
-  if FFile <> '' then FTitle.SetTitle('Cartridge browser - ', FFile, Mark)
-  else FTitle.SetTitle('Cartridge browser - ', '', Mark);
-  if FFile = '' then Caption := 'Cartridge browser' + Mark;
+  if FFile <> '' then FTitle.SetTitle(_('Cartridge browser - '), FFile, Mark)
+  else FTitle.SetTitle(_('Cartridge browser - '), '', Mark);
+  if FFile = '' then Caption := _('Cartridge browser') + Mark;
 end;
 
 procedure TCartBrowserWindow.UpdateStatus(Sender: TObject);
 var
   Txt: string;
 begin
-  Txt := Format('Offset %.6X', [FHex.Cursor_]);
+  Txt := Format(_('Offset %.6X'), [FHex.Cursor_]);
   if FHex.HasSel then
-    Txt := Txt + Format('   Selected %.6X-%.6X (%d bytes)', [FHex.SelFirst, FHex.SelLast, FHex.SelLast - FHex.SelFirst + 1]);
-  if FDirty then Txt := Txt + '   Modified, not saved';
+    Txt := Txt + Format(_('   Selected %.6X-%.6X (%d bytes)'), [FHex.SelFirst, FHex.SelLast, FHex.SelLast - FHex.SelFirst + 1]);
+  if FDirty then Txt := Txt + _('   Modified, not saved');
   FStatus.SimpleText := Txt;
 end;
 
@@ -694,7 +694,7 @@ begin
       D := Hw.CartridgeData(1);
       Size := Hw.CartridgeSize(1);
       if D = nil then
-        L.Add('There is no cartridge in slot 1.')
+        L.Add(_('There is no cartridge in slot 1.'))
       else
       begin
         L.Add('Name:      ' + Hw.CartridgeName(1));
@@ -706,7 +706,7 @@ begin
         else if Hw.CartridgeMapper(1) <> mpPlain then
           L.Add(Format('Banks:     %d of 8K', [(Size + 8191) div 8192]))
         else
-          L.Add(Format('Shown at: %.4Xh-%.4Xh', [Hw.CartridgeBase(1), Min($FFFF, Hw.CartridgeBase(1) + Size - 1)]));
+          L.Add(Format(_('Shown at: %.4Xh-%.4Xh'), [Hw.CartridgeBase(1), Min($FFFF, Hw.CartridgeBase(1) + Size - 1)]));
         L.Add('');
         if (Size >= 16) and (D[0] = Ord('A')) and (D[1] = Ord('B')) then
         begin
@@ -728,7 +728,7 @@ begin
         if FDirty then
         begin
           L.Add('');
-          L.Add('The cartridge has been modified and not saved.');
+          L.Add(_('The cartridge has been modified and not saved.'));
         end;
       end;
     finally
@@ -781,7 +781,7 @@ begin
     Result := True;
   except
     on E: Exception do
-      MessageDlg('Could not save ' + ExtractFileName(FileName) + ':' + LineEnding + E.Message, mtError, [mbOK], 0);
+      MessageDlg(_('Could not save ') + ExtractFileName(FileName) + ':' + LineEnding + E.Message, mtError, [mbOK], 0);
   end;
 end;
 
@@ -807,7 +807,7 @@ var
 begin
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'MSX cartridges (*.rom)|*.rom|All files|*.*';
+    Dlg.Filter := _F('MSX cartridges (*.rom)|*.rom|All files|*.*');
     Dlg.DefaultExt := 'rom';
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     if FFile <> '' then Dlg.FileName := FFile;
@@ -857,10 +857,10 @@ begin
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if not Dlg.Execute then Exit;
     Txt := IntToHex(FHex.Cursor_, 6);
-    if not InputQuery('Import a block', 'Offset in the cartridge to write at (hex; # for decimal):', Txt) then Exit;
+    if not InputQuery(_('Import a block'), _('Offset in the cartridge to write at (hex; # for decimal):'), Txt) then Exit;
     if not ParseNumber(Txt, Off) or (Off >= Size) then
     begin
-      MessageDlg('That is not an offset inside the cartridge (0 to ' + IntToHex(Size - 1, 1) + ').', mtError, [mbOK], 0);
+      MessageDlg(_('That is not an offset inside the cartridge (0 to ') + IntToHex(Size - 1, 1) + ').', mtError, [mbOK], 0);
       Exit;
     end;
     F := TFileStream.Create(Dlg.FileName, fmOpenRead or fmShareDenyWrite);
@@ -868,8 +868,8 @@ begin
       N := F.Size;
       if Off + N > Size then
       begin
-        if MessageDlg(Format('The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): ' +
-          'write the first %d?', [N, Size - Off, Size - Off]), mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
+        if MessageDlg(Format(_('The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): ' +
+          'write the first %d?'), [N, Size - Off, Size - Off]), mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
         N := Size - Off;
       end;
       FEmu.Lock;
@@ -908,19 +908,19 @@ begin
   else
   begin
     Txt := '000000,' + IntToHex(Size, 6);
-    if not InputQuery('Export a block', 'No bytes are selected. Offset and length (hex; # for decimal):', Txt) then Exit;
+    if not InputQuery(_('Export a block'), _('No bytes are selected. Offset and length (hex; # for decimal):'), Txt) then Exit;
     Parts := Txt.Split(',');
     if (Length(Parts) <> 2) or not ParseNumber(Parts[0], First) or not ParseNumber(Parts[1], P) or (P < 1) or
        (First >= Size) then
     begin
-      MessageDlg('Type the offset and the length separated by a comma, like 004000,2000.', mtError, [mbOK], 0);
+      MessageDlg(_('Type the offset and the length separated by a comma, like 004000,2000.'), mtError, [mbOK], 0);
       Exit;
     end;
     Last := Min(Size - 1, First + P - 1);
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    Dlg.Filter := 'Binary files (*.bin)|*.bin|All files|*.*';
+    Dlg.Filter := _F('Binary files (*.bin)|*.bin|All files|*.*');
     Dlg.DefaultExt := 'bin';
     Dlg.Options := Dlg.Options + [ofOverwritePrompt];
     Dlg.FileName := Format('%s_%.6X-%.6X.bin', [ChangeFileExt(ExtractFileName(FFile), ''), First, Last]);
@@ -937,10 +937,10 @@ begin
       finally
         F.Free;
       end;
-      FStatus.SimpleText := Format('Exported %d bytes (%.6X-%.6X) to %s', [Last - First + 1, First, Last, Dlg.FileName]);
+      FStatus.SimpleText := Format(_('Exported %d bytes (%.6X-%.6X) to %s'), [Last - First + 1, First, Last, Dlg.FileName]);
     except
       on E: Exception do
-        MessageDlg('Could not write the file:' + LineEnding + E.Message, mtError, [mbOK], 0);
+        MessageDlg(_('Could not write the file:') + LineEnding + E.Message, mtError, [mbOK], 0);
     end;
   finally
     Dlg.Free;
@@ -954,7 +954,7 @@ var
 begin
   FPages.ActivePage := FHexTab;
   Txt := IntToHex(FHex.Cursor_, 6);
-  if InputQuery('Go to', 'Offset (hex; # for decimal):', Txt) and ParseNumber(Txt, V) then FHex.GoTo_(V);
+  if InputQuery(_('Go to'), _('Offset (hex; # for decimal):'), Txt) and ParseNumber(Txt, V) then FHex.GoTo_(V);
 end;
 
 procedure TCartBrowserWindow.DoRefresh(Sender: TObject);
@@ -967,7 +967,7 @@ begin
     FillInfo;
     Exit;
   end;
-  if FDirty and (MessageDlg('Discard the changes and read ' + ExtractFileName(FFile) + ' again?', mtConfirmation,
+  if FDirty and (MessageDlg(_('Discard the changes and read ') + ExtractFileName(FFile) + ' again?', mtConfirmation,
      [mbYes, mbNo], 0) <> mrYes) then Exit;
   if FileExists(FFile) then
   begin
@@ -997,7 +997,7 @@ begin
   // The changes live in the running machine: closing the window keeps them, but they are in no file until saved
   CanClose := True;
   if FDirty and Visible then
-    case MessageDlg('The cartridge has changes that are not saved to a file. Save them?', mtConfirmation,
+    case MessageDlg(_('The cartridge has changes that are not saved to a file. Save them?'), mtConfirmation,
          [mbYes, mbNo, mbCancel], 0) of
       mrYes: begin DoSave(nil); CanClose := not FDirty; end;
       mrCancel: CanClose := False;

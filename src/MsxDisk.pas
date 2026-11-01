@@ -74,6 +74,10 @@ type
 
 implementation
 
+uses
+  Lang;
+
+
 { TMsxDiskInterface }
 
 constructor TMsxDiskInterface.Create(const AName: string; const ARom; ASize: Integer; AWD: TWD1772);
@@ -192,7 +196,7 @@ begin
   inherited Create;
   FDisk := ADisk;
   Trk := FDisk.Track(0, 0);
-  if (Trk = nil) or (Length(Trk^.Sectors) = 0) then raise Exception.Create('the disk is not formatted');
+  if (Trk = nil) or (Length(Trk^.Sectors) = 0) then raise Exception.Create(_('the disk is not formatted'));
   FSectors := Length(Trk^.Sectors);
   FSecSize := Length(Trk^.Sectors[0].Data);
   FSize := Int64(FDisk.Cylinders) * FDisk.Sides * FSectors * FSecSize;

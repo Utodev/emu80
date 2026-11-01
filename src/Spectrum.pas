@@ -965,7 +965,7 @@ const
 implementation
 
 uses
-  ZStream, FatFS, Plus3FS;
+  ZStream, FatFS, Plus3FS, Lang;
 
 type
   { Bus for the dry run of an instruction: reads memory without side
@@ -1150,7 +1150,7 @@ begin
   begin
     FileName := RomPath(I);
     if not FileExists(FileName) then
-      raise Exception.CreateFmt('ROM file not found: %s', [FileName]);
+      raise Exception.CreateFmt(_('ROM file not found: %s'), [FileName]);
     S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
       FillChar(FRom[I], SizeOf(TBank), $FF);
@@ -1431,10 +1431,10 @@ function TSpectrum.TapeStateText: string;
 begin
   if (FIsMSX and FMsxArmed and not FMsxHw.Motor and not FTape.Playing) or
      (FIsCPC and FCPCArmed and not FCPC.Motor and not FTape.Playing) then
-    Result := 'play pressed, waiting for the motor'
+    Result := _('play pressed, waiting for the motor')
   else if FTape.Playing then Result := 'playing'
-  else if (FTape.Count > 0) and (FTape.Current >= FTape.Count) then Result := 'end of tape'
-  else if FTapeHeld and AutoPlayTape then Result := 'stopped (auto play waits for the next load)'
+  else if (FTape.Count > 0) and (FTape.Current >= FTape.Count) then Result := _('end of tape')
+  else if FTapeHeld and AutoPlayTape then Result := _('stopped (auto play waits for the next load)')
   else Result := 'stopped';
 end;
 
@@ -3034,9 +3034,9 @@ begin
   Firmware := ZXUnoFirmware;
   Roms := ZXUnoRoms;
   if not FileExists(Firmware) then
-    raise Exception.CreateFmt('ZX-Uno BIOS not found: %s', [Firmware]);
+    raise Exception.CreateFmt(_('ZX-Uno BIOS not found: %s'), [Firmware]);
   if not FileExists(Roms) then
-    raise Exception.CreateFmt('ZX-Uno ROMs not found: %s', [Roms]);
+    raise Exception.CreateFmt(_('ZX-Uno ROMs not found: %s'), [Roms]);
   SetLength(FZXFlash, ZXUNO_FLASH_SIZE);
   FillChar(FZXFlash[0], ZXUNO_FLASH_SIZE, 0);
   for I := $7000 to $703F do FZXFlash[I] := $FF;

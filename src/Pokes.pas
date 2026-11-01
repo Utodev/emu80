@@ -21,6 +21,10 @@ function ParsePokes(const Text: string; out Pokes: TPokeList; out Error: string)
 
 implementation
 
+uses
+  Lang;
+
+
 function ParseNumber(S: string; out V: Integer): Boolean;
 begin
   S := UpperCase(Trim(S));
@@ -53,17 +57,17 @@ begin
       P := Pos(',', Item);
       if P = 0 then
       begin
-        Error := Format('"%s": expected address,value', [Item]);
+        Error := Format(_('"%s": expected address,value'), [Item]);
         Exit;
       end;
       if not ParseNumber(Copy(Item, 1, P - 1), A) or (A > $FFFF) then
       begin
-        Error := Format('"%s": bad address', [Item]);
+        Error := Format(_('"%s": bad address'), [Item]);
         Exit;
       end;
       if not ParseNumber(Copy(Item, P + 1, MaxInt), V) or (V > 255) then
       begin
-        Error := Format('"%s": value must be 0-255', [Item]);
+        Error := Format(_('"%s": value must be 0-255'), [Item]);
         Exit;
       end;
       SetLength(Pokes, Length(Pokes) + 1);
@@ -75,7 +79,7 @@ begin
   end;
   if Length(Pokes) = 0 then
   begin
-    Error := 'Nothing to POKE';
+    Error := _('Nothing to POKE');
     Exit;
   end;
   Result := True;

@@ -138,6 +138,10 @@ type
 
 implementation
 
+uses
+  Lang;
+
+
 const
   CLOCK_DIVIDER = 6 * 4 * 13;
   PER_PAUSE = 64;
@@ -644,7 +648,7 @@ procedure TCurrah.LoadRoms(const CurrahFile, ChipFile: string);
     S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
     try
       if S.Size < Size then
-        raise Exception.CreateFmt('%s is %d bytes, %d expected', [ExtractFileName(FileName), S.Size, Size]);
+        raise Exception.CreateFmt(_('%s is %d bytes, %d expected'), [ExtractFileName(FileName), S.Size, Size]);
       SetLength(Result, Size);
       S.ReadBuffer(Result[0], Size);
     finally

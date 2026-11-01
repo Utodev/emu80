@@ -38,7 +38,7 @@ begin
     // The FPGA's boot ROM: it loads TBBLUE.FW from the card, which loads
     // the ROMs of the chosen machine into the SRAM
     if not FileExists(FNextBootRomFile) then
-      raise Exception.CreateFmt('ROM file not found: %s', [FNextBootRomFile]);
+      raise Exception.CreateFmt(_('ROM file not found: %s'), [FNextBootRomFile]);
     S := TFileStream.Create(FNextBootRomFile, fmOpenRead or fmShareDenyWrite);
     try
       FillChar(FNextBootRom, SizeOf(FNextBootRom), $FF);
@@ -50,7 +50,7 @@ begin
   end;
   Dir := IncludeTrailingPathDelimiter(FNextDir) + 'machines' + PathDelim + 'next' + PathDelim;
   if not FileExists(Dir + 'enNextZX.rom') then
-    raise Exception.CreateFmt('ROM file not found: %s', [Dir + 'enNextZX.rom']);
+    raise Exception.CreateFmt(_('ROM file not found: %s'), [Dir + 'enNextZX.rom']);
   // NextZXOS: four 16K ROMs (128K editor, syntax, +3DOS, 48K BASIC)
   S := TFileStream.Create(Dir + 'enNextZX.rom', fmOpenRead or fmShareDenyWrite);
   try
@@ -848,7 +848,7 @@ var
 
   procedure Need(Count: Integer);
   begin
-    if Pos_ + Count > Length(D) then raise Exception.Create('The .nex file is cut short');
+    if Pos_ + Count > Length(D) then raise Exception.Create(_('The .nex file is cut short'));
   end;
 
   procedure ToBank(B, Offset, Count: Integer);
@@ -868,7 +868,7 @@ begin
   end;
   if (Length(D) < 512) or (D[0] <> Ord('N')) or (D[1] <> Ord('e')) or (D[2] <> Ord('x')) or
      (D[3] <> Ord('t')) then
-    raise Exception.Create('Not a .nex file');
+    raise Exception.Create(_('Not a .nex file'));
   FNexOpen := False;
   FNexData := nil;
   FNexName := '';

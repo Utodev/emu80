@@ -211,7 +211,7 @@ function MapperFromName(const S: string; out K: TMsxMapperKind): Boolean;
 implementation
 
 uses
-  SysUtils;
+  SysUtils, Lang;
 
 { TMsxDevice }
 
@@ -359,7 +359,7 @@ constructor TMsxMapper.Create(ASegments: Integer);
 begin
   inherited Create;
   if (ASegments < 1) or (ASegments > MSX_SEGMENT_MAX) or ((ASegments and (ASegments - 1)) <> 0) then
-    raise Exception.CreateFmt('Memory mapper size must be a power of 2 up to %d segments', [MSX_SEGMENT_MAX]);
+    raise Exception.CreateFmt(_('Memory mapper size must be a power of 2 up to %d segments'), [MSX_SEGMENT_MAX]);
   FSegments := ASegments;
   Reset;
 end;

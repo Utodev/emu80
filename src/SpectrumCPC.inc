@@ -747,22 +747,22 @@ var
 begin
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
-    if F.Size < SNA_HEADER then raise Exception.Create('Invalid CPC snapshot');
+    if F.Size < SNA_HEADER then raise Exception.Create(_('Invalid CPC snapshot'));
     F.ReadBuffer(H, SizeOf(H));
-    if not CompareMem(@H[0], PChar('MV - SNA'), 8) then raise Exception.Create('Not a CPC snapshot');
+    if not CompareMem(@H[0], PChar('MV - SNA'), 8) then raise Exception.Create(_('Not a CPC snapshot'));
     KB := H[$6B] or (H[$6C] shl 8);
     Kind := H[$6D];
     if H[$10] >= 3 then
     begin
       if KB = 0 then
-        raise Exception.Create('This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read');
+        raise Exception.Create(_('This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read'));
     end;
     if (KB <> 64) and (KB <> 128) then
-      raise Exception.CreateFmt('A CPC snapshot with %d KB of memory isn''t supported (64 or 128)', [KB]);
+      raise Exception.CreateFmt(_('A CPC snapshot with %d KB of memory isn''t supported (64 or 128)'), [KB]);
     if Kind in [4, 5, 6] then
-      raise Exception.Create('A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only');
+      raise Exception.Create(_('A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only'));
     Size := KB * 1024;
-    if F.Size - SNA_HEADER < Size then raise Exception.Create('The snapshot is cut short');
+    if F.Size - SNA_HEADER < Size then raise Exception.Create(_('The snapshot is cut short'));
     SetLength(Mem, Size);
     F.ReadBuffer(Mem[0], Size);
   finally

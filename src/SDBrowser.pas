@@ -71,7 +71,7 @@ procedure ShowSDBrowser(Emu: TEmulator);
 implementation
 
 uses
-  Config, DiskBrowser, Models;
+  Config, DiskBrowser, Models, Lang;
 
 procedure ShowSDBrowser(Emu: TEmulator);
 begin
@@ -99,7 +99,7 @@ var
 begin
   inherited CreateNew(AOwner, 0);
   FEmu := AEmu;
-  Caption := 'SD card browser';
+  Caption := _('SD card browser');
   FTitle := TPathTitle.Create(Self);
   Width := 820;
   Height := 460;
@@ -120,16 +120,16 @@ begin
   FToolBar.ButtonWidth := IconSize + 10;
   FToolBar.ButtonHeight := IconSize + 10;
   FToolBar.AutoSize := True;
-  AddButton(ikFolderUp, 'Up to the parent folder', @DoUp);
-  AddButton(ikRefresh, 'Read the card again', @DoRefresh);
+  AddButton(ikFolderUp, _('Up to the parent folder'), @DoUp);
+  AddButton(ikRefresh, _('Read the card again'), @DoRefresh);
   AddSeparator;
-  AddButton(ikNewFolder, 'New folder...', @DoNewFolder);
-  AddButton(ikOpen, 'Import files from the PC into this folder... (or drop files and folders here)', @DoImport);
-  AddButton(ikImportFolder, 'Import a folder of the PC with its contents into this folder...',
+  AddButton(ikNewFolder, _('New folder...'), @DoNewFolder);
+  AddButton(ikOpen, _('Import files from the PC into this folder... (or drop files and folders here)'), @DoImport);
+  AddButton(ikImportFolder, _('Import a folder of the PC with its contents into this folder...'),
     @DoImportFolder);
-  AddButton(ikSave, 'Export the selected files to the PC...', @DoExport);
-  AddButton(ikRename, 'Rename the selected file or folder... (F2)', @DoRename);
-  AddButton(ikDelete, 'Delete the selected files and folders (folders with all they hold) (Del)',
+  AddButton(ikSave, _('Export the selected files to the PC...'), @DoExport);
+  AddButton(ikRename, _('Rename the selected file or folder... (F2)'), @DoRename);
+  AddButton(ikDelete, _('Delete the selected files and folders (folders with all they hold) (Del)'),
     @DoDelete);
 
   PathPanel := TPanel.Create(Self);
@@ -159,14 +159,14 @@ begin
   FList.OnDblClick := @ListDblClick;
   FList.OnKeyDown := @ListKeyDown;
   FList.SmallImages := FImages;
-  AddColumn('Name', 190);
-  AddColumn('Size', 80, True);
-  AddColumn('Type', 110);
-  AddColumn('Start / line', 85, True);
-  AddColumn('Length', 65, True);
-  AddColumn('Date', 120);
-  AddColumn('Attributes', 75);
-  AddColumn('8.3 name', 90);
+  AddColumn(_('Name'), 190);
+  AddColumn(_('Size'), 80, True);
+  AddColumn(_('Type'), 110);
+  AddColumn(_('Start / line'), 85, True);
+  AddColumn(_('Length'), 65, True);
+  AddColumn(_('Date'), 120);
+  AddColumn(_('Attributes'), 75);
+  AddColumn(_('8.3 name'), 90);
 
   SetLength(FPath, 1);
   FPath[0].Cluster := 0;
@@ -219,7 +219,7 @@ begin
   Card := FEmu.Spec.DivMMC.Card;
   if Card = nil then
   begin
-    FStatus.SimpleText := 'There is no SD card in the DivMMC.';
+    FStatus.SimpleText := _('There is no SD card in the DivMMC.');
     Exit(False);
   end;
   if FEmu.Spec.DivMMC.Card.FileName <> FCardFile then
@@ -234,7 +234,7 @@ begin
   except
     on E: Exception do
     begin
-      FStatus.SimpleText := 'Can''t read the card: ' + E.Message;
+      FStatus.SimpleText := _('Can''t read the card: ') + E.Message;
       Result := False;
     end;
   end;
@@ -270,7 +270,7 @@ begin
         except
           on Ex: Exception do
           begin
-            FStatus.SimpleText := 'Can''t read the folder: ' + Ex.Message;
+            FStatus.SimpleText := _('Can''t read the folder: ') + Ex.Message;
             Exit;
           end;
         end;
@@ -281,7 +281,7 @@ begin
           Item.ImageIndex := Ord(ikFolderUp);
           Item.Data := Pointer(PtrInt(-1));
           Item.SubItems.Add('');
-          Item.SubItems.Add('Parent folder');
+          Item.SubItems.Add(_('Parent folder'));
         end;
         for I := 0 to High(FEntries) do
         begin
@@ -296,7 +296,7 @@ begin
           if IsDirectory(E) then
           begin
             Item.SubItems.Add('');
-            TypeText := 'Folder';
+            TypeText := _('Folder');
           end
           else
           begin
@@ -338,10 +338,10 @@ begin
         Path := '';
         for P := 1 to High(FPath) do Path := Path + '/' + FPath[P].Name;
         FPathLabel.Caption := ExtractFileName(FCardFile) + ':  ' + Path + '/';
-        FStatus.SimpleText := Format('FAT%d   %d items   %s free of %s', [Vol.FatType,
+        FStatus.SimpleText := Format(_('FAT%d   %d items   %s free of %s'), [Vol.FatType,
           Length(FEntries), FormatFloat('#,##0', Vol.FreeBytes div 1024) + 'K',
           FormatFloat('#,##0', Vol.TotalBytes div 1024) + 'K']);
-        FTitle.SetTitle('SD card browser - ', ExpandFileName(FCardFile), '');
+        FTitle.SetTitle(_('SD card browser - '), ExpandFileName(FCardFile), '');
       finally
         Vol.Free;
       end;
@@ -394,7 +394,7 @@ var
   Vol: TFatVolume;
 begin
   AName := '';
-  if not InputQuery('New folder', 'Name (up to 8 characters, optional extension of 3):', AName) then Exit;
+  if not InputQuery(_('New folder'), _('Name (up to 8 characters, optional extension of 3):'), AName) then Exit;
   Error := '';
   FEmu.Lock;
   try
@@ -411,7 +411,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Error <> '' then ShowError('Could not create the folder: ' + Error);
+  if Error <> '' then ShowError(_('Could not create the folder: ') + Error);
   Refresh;
 end;
 
@@ -474,7 +474,7 @@ function TSDBrowserWindow.ImportMakeDir(const Path: string): string;
 var
   Vol: TFatVolume;
 begin
-  Result := 'there is no SD card';
+  Result := _('there is no SD card');
   FEmu.Lock;
   try
     if OpenVolume(Vol) then
@@ -536,7 +536,7 @@ var
   Base: string;
   Dir: LongWord;
 begin
-  Result := 'there is no SD card';
+  Result := _('there is no SD card');
   FEmu.Lock;
   try
     if OpenVolume(Vol) then
@@ -622,13 +622,13 @@ begin
         Vol.Free;
       end
     else
-      Error := 'there is no SD card';
+      Error := _('there is no SD card');
   finally
     FEmu.Unlock;
   end;
   if Error <> '' then
   begin
-    ShowError('Could not read the file: ' + Error);
+    ShowError(_('Could not read the file: ') + Error);
     Exit;
   end;
   AmsdosHeaders := False;
@@ -645,7 +645,7 @@ begin
   I := SelectedIndex;
   if I < 0 then Exit;
   NewName := FEntries[I].ShortName;
-  if not InputQuery('Rename', 'New name (8.3; a long name is dropped):', NewName) then Exit;
+  if not InputQuery(_('Rename'), _('New name (8.3; a long name is dropped):'), NewName) then Exit;
   Error := '';
   FEmu.Lock;
   try
@@ -662,7 +662,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Error <> '' then ShowError('Could not rename: ' + Error);
+  if Error <> '' then ShowError(_('Could not rename: ') + Error);
   Refresh;
 end;
 
@@ -678,10 +678,10 @@ begin
   if Length(Sel) = 0 then Exit;
   Folders := False;
   for I := 0 to High(Sel) do Folders := Folders or IsDirectory(FEntries[Sel[I]]);
-  if Length(Sel) = 1 then Question := Format('Delete %s from the card?', [DisplayName(FEntries[Sel[0]])])
-  else Question := Format('Delete the %d selected entries from the card?', [Length(Sel)]);
+  if Length(Sel) = 1 then Question := Format(_('Delete %s from the card?'), [DisplayName(FEntries[Sel[0]])])
+  else Question := Format(_('Delete the %d selected entries from the card?'), [Length(Sel)]);
   if Folders then Question := Question + LineEnding + LineEnding +
-    'Folders are deleted with all the files and folders in them.';
+    _('Folders are deleted with all the files and folders in them.');
   if MessageDlg(Question, mtConfirmation, [mbYes, mbNo], 0) <> mrYes then Exit;
   Error := '';
   FEmu.Lock;
@@ -703,7 +703,7 @@ begin
   finally
     FEmu.Unlock;
   end;
-  if Error <> '' then ShowError('Could not delete:' + LineEnding + Error);
+  if Error <> '' then ShowError(_('Could not delete:') + LineEnding + Error);
   Refresh;
 end;
 

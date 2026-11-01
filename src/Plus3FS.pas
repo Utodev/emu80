@@ -100,6 +100,10 @@ function FileTypeName(const F: TPlus3File): string;
 
 implementation
 
+uses
+  Lang;
+
+
 const
   SIGNATURE = 'PLUS3DOS';
   FILLER = $E5;
@@ -197,14 +201,14 @@ end;
 
 function FileTypeName(const F: TPlus3File): string;
 begin
-  if not F.HasHeader then Exit('(no header)');
+  if not F.HasHeader then Exit(_('(no header)'));
   case F.FileType of
-    FT_PROGRAM: Result := 'Program';
-    FT_NUMBERS: Result := 'Number array';
-    FT_CHARS: Result := 'Character array';
-    FT_BYTES: Result := 'Bytes';
+    FT_PROGRAM: Result := _('Program');
+    FT_NUMBERS: Result := _('Number array');
+    FT_CHARS: Result := _('Character array');
+    FT_BYTES: Result := _('Bytes');
   else
-    Result := Format('Type %d', [F.FileType]);
+    Result := Format(_('Type %d'), [F.FileType]);
   end;
 end;
 
@@ -231,13 +235,13 @@ begin
   end;
   if (Base = '') or (Length(Base) > 8) or (Length(Ext) > 3) then
   begin
-    Error := 'the name must be 1 to 8 characters, with an optional extension of up to 3';
+    Error := _('the name must be 1 to 8 characters, with an optional extension of up to 3');
     Exit;
   end;
   for I := 1 to Length(Base + Ext) do
     if ((Base + Ext)[I] in BAD) or ((Base + Ext)[I] < '!') or ((Base + Ext)[I] > '~') then
     begin
-      Error := Format('"%s" can''t be used in a name', [(Base + Ext)[I]]);
+      Error := Format(_('"%s" can''t be used in a name'), [(Base + Ext)[I]]);
       Exit;
     end;
   for I := 0 to 7 do
@@ -266,7 +270,7 @@ var
 begin
   Trk := FDisk.Track(0, 0);
   if (Trk = nil) or not Trk^.Formatted or (Length(Trk^.Sectors) = 0) then
-    raise EPlus3Error.Create('the disk is not formatted');
+    raise EPlus3Error.Create(_('the disk is not formatted'));
   FFirstID := 255;
   for I := 0 to High(Trk^.Sectors) do FFirstID := Min(FFirstID, Trk^.Sectors[I].R);
   // Defaults: the standard +3 format, or the CPC formats by their sector IDs
@@ -302,7 +306,7 @@ begin
   if FSides > FDisk.Sides then FSides := FDisk.Sides;
   FTracks := Min(FTracks, FDisk.Cylinders);
   FBlocks := ((FTracks * FSides - FReserved) * FSPT * FSecSize) div FBlockSize;
-  if FBlocks <= FDirBlocks then raise EPlus3Error.Create('the disk is too small');
+  if FBlocks <= FDirBlocks then raise EPlus3Error.Create(_('the disk is too small'));
   FWide := FBlocks > 255;
   FExtentMask := (PointersPerEntry * FBlockSize) div 16384 - 1;
   if FExtentMask < 0 then FExtentMask := 0;
@@ -336,7 +340,7 @@ begin
     for I := 0 to High(Trk^.Sectors) do
       if (Trk^.Sectors[I].R = ID) and (Length(Trk^.Sectors[I].Data) >= FSecSize) then
         Exit(@Trk^.Sectors[I].Data[0]);
-  raise EPlus3Error.CreateFmt('sector %d of track %d is missing', [ID, Cyl]);
+  raise EPlus3Error.CreateFmt(_('sector %d of track %d is missing'), [ID, Cyl]);
 end;
 
 procedure TPlus3Disk.ReadBlock(Block: Integer; var Buf: array of Byte);
@@ -569,7 +573,7 @@ var
   E: PByte;
 begin
   if not MakeRawName(AName, Raw, Error) then raise EPlus3Error.Create(Error);
-  if FindFile(AName) >= 0 then raise EPlus3Error.CreateFmt('there is already a file called %s', [AName]);
+  if FindFile(AName) >= 0 then raise EPlus3Error.CreateFmt(_('there is already a file called %s'), [AName]);
   Records := (Length(Data) + 127) div 128;
   Blocks := (Length(Data) + FBlockSize - 1) div FBlockSize;
   Entries := Max(1, (Blocks + PointersPerEntry - 1) div PointersPerEntry);
@@ -588,7 +592,7 @@ begin
     Used.Free;
   end;
   if K < Blocks then
-    raise EPlus3Error.CreateFmt('not enough space: %d bytes needed, %d free',
+    raise EPlus3Error.CreateFmt(_('not enough space: %d bytes needed, %d free'),
       [Blocks * FBlockSize, FreeBytes]);
   SetLength(EntryList, Entries);
   K := 0;
@@ -598,7 +602,7 @@ begin
       EntryList[K] := I;
       Inc(K);
     end;
-  if K < Entries then raise EPlus3Error.Create('the directory is full');
+  if K < Entries then raise EPlus3Error.Create(_('the directory is full'));
   // Data, padded with ^Z as CP/M does
   SetLength(Buf, FBlockSize);
   for K := 0 to Blocks - 1 do
@@ -651,7 +655,7 @@ begin
   if not MakeRawName(NewName, Raw, Error) then raise EPlus3Error.Create(Error);
   Other := FindFile(NewName);
   if (Other >= 0) and (Other <> Index) then
-    raise EPlus3Error.CreateFmt('there is already a file called %s', [NewName]);
+    raise EPlus3Error.CreateFmt(_('there is already a file called %s'), [NewName]);
   F := FFiles[Index];
   for I := 0 to EntryCount - 1 do
   begin

@@ -19,6 +19,10 @@ function ParseValues(const Text: string; out Values: TBytes; out Error: string):
 
 implementation
 
+uses
+  Lang;
+
+
 function FormatValues(const Data: array of Byte): string;
 var
   I: Integer;
@@ -55,7 +59,7 @@ begin
   SetLength(S, N);
   if S = '' then
   begin
-    Error := 'the file has no values';
+    Error := _('the file has no values');
     Exit;
   end;
   if S[Length(S)] = ',' then Delete(S, Length(S), 1);
@@ -78,8 +82,8 @@ begin
     end;
     if (V < 0) or (V > 255) then
     begin
-      Error := Format('value %d is "%s": expected decimal 0-255, or $ and one or two hex ' +
-        'digits', [N + 1, Tok]);
+      Error := Format(_('value %d is "%s": expected decimal 0-255, or $ and one or two hex ' +
+        'digits'), [N + 1, Tok]);
       Values := nil;
       Exit;
     end;

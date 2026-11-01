@@ -80,6 +80,10 @@ function LooksLikeSamdos(Disk: TDiskImage): Boolean;
 
 implementation
 
+uses
+  Lang;
+
+
 const
   BITMAP_OFFSET = 15;
   BITMAP_BYTES = 195;
@@ -129,7 +133,7 @@ constructor TSamdosDisk.Create(ADisk: TDiskImage);
 begin
   inherited Create;
   FDisk := ADisk;
-  if not LooksLikeSamdos(FDisk) then raise ESamdosError.Create('not a SAM Coupe disk');
+  if not LooksLikeSamdos(FDisk) then raise ESamdosError.Create(_('not a SAM Coupe disk'));
   LoadDirectory;
 end;
 
@@ -153,7 +157,7 @@ begin
   for S := 1 to 10 do
   begin
     P := Sector(0, 0, S);
-    if P = nil then raise ESamdosError.Create('the directory can''t be read');
+    if P = nil then raise ESamdosError.Create(_('the directory can''t be read'));
     for H := 0 to 1 do
       Move((P + H * 256)^, FDir[(S - 1) * 2 + H, 0], 256);
   end;
@@ -214,12 +218,12 @@ function TSamdosDisk.TypeName(Index: Integer): string;
 begin
   case FFiles[Index].FileType of
     SAMDOS_TYPE_BASIC: Result := 'BASIC';
-    SAMDOS_TYPE_NUMS: Result := 'Number array';
-    SAMDOS_TYPE_STRS: Result := 'String array';
+    SAMDOS_TYPE_NUMS: Result := _('Number array');
+    SAMDOS_TYPE_STRS: Result := _('String array');
     SAMDOS_TYPE_CODE: Result := 'CODE';
     SAMDOS_TYPE_SCREEN: Result := 'SCREEN$';
   else
-    Result := 'Type ' + IntToStr(FFiles[Index].FileType);
+    Result := _('Type ') + IntToStr(FFiles[Index].FileType);
   end;
 end;
 
@@ -252,7 +256,7 @@ begin
   for I := 1 to Length(AName) do
     if Ord(AName[I]) in [32..126] then Result := Result + AName[I];
   Result := TrimRight(Copy(Result, 1, 10));
-  if Result = '' then raise ESamdosError.Create('a SAMDOS file needs a name');
+  if Result = '' then raise ESamdosError.Create(_('a SAMDOS file needs a name'));
 end;
 
 function TSamdosDisk.FindFile(const AName: string): Integer;
@@ -281,7 +285,7 @@ begin
     Inc(Guard);
     Side := (Track shr 7) and 1;
     P := Sector(Track and $7F, Side, ID);
-    if P = nil then raise ESamdosError.CreateFmt('sector %d of track %d can''t be read', [ID, Track and $7F]);
+    if P = nil then raise ESamdosError.CreateFmt(_('sector %d of track %d can''t be read'), [ID, Track and $7F]);
     SetLength(All, Got + SAMDOS_DATA);
     Move(P^, All[Got], SAMDOS_DATA);
     Inc(Got, SAMDOS_DATA);
@@ -339,9 +343,9 @@ begin
       E := I;
       Break;
     end;
-  if E < 0 then raise ESamdosError.Create('the directory is full (80 files)');
+  if E < 0 then raise ESamdosError.Create(_('the directory is full (80 files)'));
   Len := Length(Data);
-  if Len > 16 * 16384 + 16383 then raise ESamdosError.Create('the file is too long for SAMDOS');
+  if Len > 16 * 16384 + 16383 then raise ESamdosError.Create(_('the file is too long for SAMDOS'));
   // The file is the 9 byte header and the data
   Offset := $8000 or (Start and $3FFF);
   Hdr[0] := AType;
@@ -370,13 +374,13 @@ begin
     end;
     Inc(Bit);
   end;
-  if Length(Bits) < Need then raise ESamdosError.Create('the disk is full');
+  if Length(Bits) < Need then raise ESamdosError.Create(_('the disk is full'));
   // Write the chain
   for I := 0 to Need - 1 do
   begin
     Where(Bits[I], Track, Side, ID);
     P := Sector(Track, Side, ID);
-    if P = nil then raise ESamdosError.Create('the disk can''t be written');
+    if P = nil then raise ESamdosError.Create(_('the disk can''t be written'));
     FillChar(P^, 512, 0);
     Pos := I * SAMDOS_DATA;
     Len := Length(Body) - Pos;

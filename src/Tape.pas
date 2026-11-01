@@ -305,7 +305,7 @@ type
 implementation
 
 uses
-  TZX;
+  TZX, Lang;
 
 { TTapeBlock }
 
@@ -395,47 +395,47 @@ begin
           for I := 2 to 11 do
             if (Data[I] >= 32) and (Data[I] < 127) then Name := Name + Chr(Data[I]) else Name := Name + '?';
           case Data[1] of
-            0: Result := 'Program: ' + Name;
-            1: Result := 'Number array: ' + Name;
-            2: Result := 'Character array: ' + Name;
-            3: Result := 'Bytes: ' + Name;
+            0: Result := _('Program: ') + Name;
+            1: Result := _('Number array: ') + Name;
+            2: Result := _('Character array: ') + Name;
+            3: Result := _('Bytes: ') + Name;
           else
-            Result := 'Header: ' + Name;
+            Result := _('Header: ') + Name;
           end;
         end
         else if Flag = $FF then
-          Result := Format('Data (%d bytes)', [Length(Data) - 2])
+          Result := Format(_('Data (%d bytes)'), [Length(Data) - 2])
         else
-          Result := Format('Block, flag %d (%d bytes)', [Flag, Length(Data)]);
-        if Kind = TZX_TURBO then Result := 'Turbo: ' + Result
-        else if Kind = TZX_PURE_DATA then Result := 'Pure data: ' + Result;
+          Result := Format(_('Block, flag %d (%d bytes)'), [Flag, Length(Data)]);
+        if Kind = TZX_TURBO then Result := _('Turbo: ') + Result
+        else if Kind = TZX_PURE_DATA then Result := _('Pure data: ') + Result;
       end;
-    TZX_TONE: Result := Format('Tone: %d pulses of %d T', [PilotCount, PilotLen]);
+    TZX_TONE: Result := Format(_('Tone: %d pulses of %d T'), [PilotCount, PilotLen]);
     TZX_PULSES:
-      if Text <> '' then Result := Text else Result := Format('Pulses: %d', [Length(Pulses)]);
-    TZX_DIRECT: Result := Format('Direct recording (%d samples)', [DataBits]);
-    TZX_CSW: Result := Format('CSW recording (%d pulses)', [Length(Pulses)]);
-    TZX_GENERALIZED: Result := Format('Generalized data (%d symbols)', [GenCount]);
+      if Text <> '' then Result := Text else Result := Format(_('Pulses: %d'), [Length(Pulses)]);
+    TZX_DIRECT: Result := Format(_('Direct recording (%d samples)'), [DataBits]);
+    TZX_CSW: Result := Format(_('CSW recording (%d pulses)'), [Length(Pulses)]);
+    TZX_GENERALIZED: Result := Format(_('Generalized data (%d symbols)'), [GenCount]);
     TZX_PAUSE:
-      if PauseMs = 0 then Result := 'Stop the tape' else Result := Format('Pause: %d ms', [PauseMs]);
-    TZX_GROUP_START: Result := 'Group: ' + Text;
-    TZX_GROUP_END: Result := 'Group end';
-    TZX_JUMP: Result := Format('Jump to block %+d', [Value]);
-    TZX_LOOP_START: Result := Format('Loop: %d times', [Value]);
-    TZX_LOOP_END: Result := 'Loop end';
-    TZX_CALL: Result := Format('Call sequence (%d)', [Length(Calls)]);
-    TZX_RETURN: Result := 'Return from the sequence';
-    TZX_SELECT: Result := 'Select: ' + Text;
-    TZX_STOP_48K: Result := 'Stop the tape on a 48K';
-    TZX_LEVEL: if Value <> 0 then Result := 'Signal level: high' else Result := 'Signal level: low';
-    TZX_TEXT: Result := 'Text: ' + Text;
-    TZX_MESSAGE: Result := 'Message: ' + Text;
-    TZX_ARCHIVE: Result := 'Archive info: ' + Text;
-    TZX_HARDWARE: Result := 'Hardware type';
-    TZX_CUSTOM: Result := 'Custom info: ' + Text;
-    TZX_GLUE: Result := 'Glue';
+      if PauseMs = 0 then Result := _('Stop the tape') else Result := Format(_('Pause: %d ms'), [PauseMs]);
+    TZX_GROUP_START: Result := _('Group: ') + Text;
+    TZX_GROUP_END: Result := _('Group end');
+    TZX_JUMP: Result := Format(_('Jump to block %+d'), [Value]);
+    TZX_LOOP_START: Result := Format(_('Loop: %d times'), [Value]);
+    TZX_LOOP_END: Result := _('Loop end');
+    TZX_CALL: Result := Format(_('Call sequence (%d)'), [Length(Calls)]);
+    TZX_RETURN: Result := _('Return from the sequence');
+    TZX_SELECT: Result := _('Select: ') + Text;
+    TZX_STOP_48K: Result := _('Stop the tape on a 48K');
+    TZX_LEVEL: if Value <> 0 then Result := _('Signal level: high') else Result := _('Signal level: low');
+    TZX_TEXT: Result := _('Text: ') + Text;
+    TZX_MESSAGE: Result := _('Message: ') + Text;
+    TZX_ARCHIVE: Result := _('Archive info: ') + Text;
+    TZX_HARDWARE: Result := _('Hardware type');
+    TZX_CUSTOM: Result := _('Custom info: ') + Text;
+    TZX_GLUE: Result := _('Glue');
   else
-    Result := Format('Block %.2Xh', [Kind]);
+    Result := Format(_('Block %.2Xh'), [Kind]);
   end;
 end;
 
@@ -623,7 +623,7 @@ var
 begin
   SetLength(Data, S.Size);
   if S.Size > 0 then S.ReadBuffer(Data[0], S.Size);
-  if Length(Data) = 0 then raise Exception.Create('The .cas file is empty');
+  if Length(Data) = 0 then raise Exception.Create(_('The .cas file is empty'));
   // Where the blocks start (headers on an 8-byte boundary); a file without any is one block
   SetLength(Starts, 0);
   I := 0;
@@ -685,14 +685,14 @@ begin
       for K := 10 to 15 do
         if (Bytes[K] >= 32) and (Bytes[K] < 127) then Name := Name + Chr(Bytes[K]) else Name := Name + ' ';
       case Bytes[0] of
-        $D0: Kind := 'Binary (BLOAD): ';
-        $D3: Kind := 'BASIC program: ';
-        $EA: Kind := 'ASCII file: ';
+        $D0: Kind := _('Binary (BLOAD): ');
+        $D3: Kind := _('BASIC program: ');
+        $EA: Kind := _('ASCII file: ');
       end;
       Blk.Text := Kind + Trim(Name);
     end
-    else if IsHeader then Blk.Text := 'File header'
-    else Blk.Text := Format('Data (%d bytes)', [N]);
+    else if IsHeader then Blk.Text := _('File header')
+    else Blk.Text := Format(_('Data (%d bytes)'), [N]);
     FBlocks.Add(Blk);
   end;
   Loaded;
@@ -1211,7 +1211,7 @@ begin
         TZX_GROUP_START, TZX_TEXT: WStr(Copy(B.Text, 1, 255));
         TZX_GROUP_END: ;
       else
-        raise Exception.CreateFmt('The tape has a block (type %.2X) that can''t be saved as a TZX or CDT', [B.Kind]);
+        raise Exception.CreateFmt(_('The tape has a block (type %.2X) that can''t be saved as a TZX or CDT'), [B.Kind]);
       end;
     end;
     F := TFileStream.Create(FileName, fmCreate);
