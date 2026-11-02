@@ -28,6 +28,7 @@ up, down, left, right, fire 1, fire 2, 79 = DEL); `emu80_load_file` takes `.cdt`
 `src/Sam.pas`: 0 = SHIFT, 48 = RETURN, 56 = SPACE, 57 = SYMBOL, 64 = CTRL, 65-68 = cursor up, down, left, right),
 `emu80_set_kempston` is its joystick (port 31), and `emu80_ram_bank_count` is 32 (16K pages of its 512K). Its 32K ROM is
 the `roms` folder's `samcoupe.rom`: `emu80_create(11, folder)` needs it in the folder (it fails, with `emu80_last_error`, if it is not there).
+On a Commodore 64 (13) the key is column * 8 + row of its keyboard matrix (0 to 63, as the `C64K_*` constants of `src/C64.pas`: 1 = RETURN, 60 = SPACE, 63 = RUN/STOP), 64 to 68 are the joystick in control port 2 (up, down, left, right, fire) and 69 is RESTORE; `emu80_load_file` takes a `.d64` (put in drive 8 and loaded), a `.prg`, `.p00` or `.t64` (loaded and run) and a `.tap` (played); the ROMs are `Kernal.rom`, `Basic.rom`, `Char.rom` and `VC1541.rom` in the `roms/c64` folder of the folder given to `emu80_create`.
 
 **The API** is plain C (cdecl) with opaque handles, `int32` and pointers (see `src/lib/Emu80Api.pas`; the C# wrapper is
 `tests/csharp/Emu80HostDemo/Emu80.cs`). Calls return 0 (or a count) on success and a negative number on failure, with
@@ -35,7 +36,7 @@ the `roms` folder's `samcoupe.rom`: `emu80_create(11, folder)` needs it in the f
 
 | Group | Calls |
 |---|---|
-| Instance | `emu80_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next, 8 = CPC 464, 9 = CPC 664, 10 = CPC 6128, 11 = SAM Coupé), `emu80_destroy`, `emu80_set_model`, `emu80_get_model`, `emu80_set_next_dir`, `emu80_version`, `emu80_last_error` |
+| Instance | `emu80_create(model, romFolder)` (model as in the machine list: 0 = 16K, 1 = 48K, 2 = 128K, 3 = +2, 4 = +2B, 5 = +3, 6 = ZX-Uno, 7 = Next, 8 = CPC 464, 9 = CPC 664, 10 = CPC 6128, 11 = SAM Coupé, 12 = MSX2, 13 = Commodore 64), `emu80_destroy`, `emu80_set_model`, `emu80_get_model`, `emu80_set_next_dir`, `emu80_version`, `emu80_last_error` |
 | Running | `emu80_start`, `emu80_stop` (the thread; `emu80_start` runs it again), `emu80_pause`, `emu80_resume`, `emu80_reset`, `emu80_set_sound`, `emu80_set_turbo` |
 | Screen | `emu80_attach_window`, `emu80_detach_window`, `emu80_set_display` (deinterlace 0-2, black and white, scanlines), `emu80_get_frame`, `emu80_set_frame_callback` |
 | CPU | `emu80_get_reg`, `emu80_set_reg` (AF, BC, DE, HL, their alternates, IX, IY, SP, PC, I, R, IM, IFF1, IFF2) |

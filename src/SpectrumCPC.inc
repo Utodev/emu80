@@ -290,11 +290,17 @@ end;
 
 function TSpectrum.PeekRam(Addr: Word): Byte;
 begin
+  if FIsC64 then Exit(FC64.PeekRam(Addr));
   if FIsCPC then Result := FCPC.ReadRam(Addr) else Result := Peek(Addr);   // (Peek covers the MSX)
 end;
 
 procedure TSpectrum.PokeRam(Addr: Word; Value: Byte);
 begin
+  if FIsC64 then
+  begin
+    FC64.PokeRam(Addr, Value);
+    Exit;
+  end;
   if FIsCPC then FCPC.Write(Addr, Value)
   else if FIsMSX then FMsxHw.Write(Addr, Value)
   else Poke(Addr, Value);

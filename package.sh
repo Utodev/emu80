@@ -13,7 +13,8 @@
 # isn't there, with src/lib/build-lib.sh.
 # The MSX2's ROMs (roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM and QUANTIKA_DISK.ROM) are built first from their own project,
 # ../quantika (its build.sh and install.sh); without it, the ones already in roms/msx go. The original MSX
-# ROMs that may be in roms/msx (MSX2.rom, MSX2EXT.rom, PHILIPSDISK.rom) are never packaged.
+# ROMs that may be in roms/msx (MSX2.rom, MSX2EXT.rom, PHILIPSDISK.rom) are never packaged, nor are the Commodore 64's (roms/c64:
+# Kernal.rom, Basic.rom, Char.rom, VC1541.rom): the folder goes empty.
 # The .AppImage needs appimagetool (see the end of this file).
 # The .deb needs dpkg-deb (Debian, Ubuntu); the .rpm needs rpmbuild
 # (Debian/Ubuntu: sudo apt install rpm; Fedora: sudo dnf install rpm-build).
@@ -47,7 +48,7 @@ fi
 [ -f roms/msx/QUANTIKA.ROM ] && [ -f roms/msx/QUANTIKA_SUB.ROM ] && [ -f roms/msx/QUANTIKA_DISK.ROM ] || {
   echo "roms/msx/QUANTIKA.ROM, QUANTIKA_SUB.ROM or QUANTIKA_DISK.ROM is missing" >&2; exit 1; }
 # Files of roms that are never distributed (the original MSX ROMs, supplied by the user)
-NOT_PACKAGED="msx/MSX2.rom msx/MSX2EXT.rom msx/PHILIPSDISK.rom"
+NOT_PACKAGED="msx/MSX2.rom msx/MSX2EXT.rom msx/PHILIPSDISK.rom c64/Kernal.rom c64/Basic.rom c64/Char.rom c64/VC1541.rom"
 
 # The native library, for the packages' lib folder (built here if needed)
 if [ ! -f build/lib/e80lib.dll ]; then
@@ -95,6 +96,8 @@ with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
         z.write('build/lib/e80lib.dll', top + '/tests/Emu80HostDemo/e80lib.dll')
     # The empty folder for the ZX Spectrum Next distribution (never its contents)
     z.writestr(top + '/specnext/', '')
+    # ... and for the Commodore 64's ROMs, which are the user's
+    z.writestr(top + '/roms/c64/', '')
 EOF
   echo "Built build/packages/$ZIP.zip"
 else
@@ -113,6 +116,7 @@ mkdir -p "$LIB" "$STAGE/usr/bin" "$STAGE/usr/share/applications" \
 cp build/linux/emu80 "$LIB/emu80"
 cp -R roms esxdos zxuno "$LIB/"
 for F in $NOT_PACKAGED; do rm -f "$LIB/roms/$F"; done
+mkdir -p "$LIB/roms/c64"
 # The ZX Spectrum Next distribution goes in ~/.config/emu80/specnext (never packaged)
 mkdir -p "$LIB/specnext"
 cp README.md LICENSE "$LIB/"

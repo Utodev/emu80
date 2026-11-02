@@ -76,3 +76,7 @@ Put there, as the machine says when one is missing:
 
 C-BIOS (a free MSX BIOS) could replace it; its licence and limits have not been checked yet. Another file can be named in
 Settings > Common > ROMs or with `--rom "msx2,0,FILE"`.
+
+`msx/` has the MSX2's QUANTIKA ROMs (free, made by their own project) and, if you have them, the original ones (`MSX2.rom`,
+`MSX2EXT.rom`, `PHILIPSDISK.rom`), which are not distributed. `c64/` is for the Commodore 64's ROMs, which are not distributed either:
+`Kernal.rom` (8K), `Basic.rom` (8K), `Char.rom` (4K) and, for the disk drives, `VC1541.rom` (16K). Git ignores that folder.

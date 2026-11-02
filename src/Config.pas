@@ -65,6 +65,12 @@ type
     MsxCompat: Boolean;           // MSX2: the slots of an MSX1 (none expanded, no disk interface): from the next reset
     MsxCartMapper: string;        // MSX: the mapper of the cartridges inserted: auto, plain, konami, konamiscc, ascii8 or ascii16
     MsxMapper: string;            // MSX2: the memory mapper's ports: auto (off when a tape starts the machine), on or off
+    C64CursorJoy: Boolean;        // Commodore 64: the cursor keys and Ctrl are also a joystick
+    C64Joystick: Boolean;         // Commodore 64: the numeric keypad and the right Ctrl (or Alt) are a joystick
+    C64JoyPort: Integer;          // 1, 2 or 3 (both): the control port that joystick is in
+    C64Drive9: Boolean;           // Commodore 64: a second 1541 (device 9) is connected
+    C64TapeNoDrive: Boolean;      // Commodore 64: the disk drives are disconnected while a tape is in
+    C64SaveDisk: Boolean;         // Commodore 64: what the drives write goes into the .d64 files
     SamClock: Boolean;            // SAM Coupe: the SAMBUS clock interface is connected
     SamAutoDos: Boolean;          // SAM Coupe: SAMDOS2.dsk is inserted and booted on start, reset and model change
     SamMemory: Integer;           // SAM Coupe: the RAM in K, 256 or 512
@@ -176,8 +182,9 @@ const
   SEC_CPC = 'AmstradCPC';
   SEC_SAM = 'SAMCoupe';
   SEC_MSX = 'MSX';
+  SEC_C64 = 'Commodore64';
 
-  BOOL_OPTIONS: array[0..33] of TBoolOption = (
+  BOOL_OPTIONS: array[0..38] of TBoolOption = (
     (Name: 'saveonexit'; Section: 'General'),
     (Name: 'zx_contention'; Section: SEC_ZX),
     (Name: 'zx_snow'; Section: SEC_ZX),
@@ -200,6 +207,11 @@ const
     (Name: 'msx_joystick'; Section: SEC_MSX),
     (Name: 'msx_compat'; Section: SEC_MSX),
     (Name: 'msx_notice'; Section: SEC_MSX),
+    (Name: 'c64_joystick'; Section: SEC_C64),
+    (Name: 'c64_cursorjoy'; Section: SEC_C64),
+    (Name: 'c64_drive9'; Section: SEC_C64),
+    (Name: 'c64_savedisk'; Section: SEC_C64),
+    (Name: 'c64_tapenodrive'; Section: SEC_C64),
     (Name: 'sam_saa'; Section: SEC_SAM),
     (Name: 'sam_joystick'; Section: SEC_SAM),
     (Name: 'sam_autodos'; Section: SEC_SAM),
@@ -424,6 +436,12 @@ begin
   MsxNotice := True;
   MsxCartMapper := 'auto';
   MsxMapper := 'auto';
+  C64Joystick := True;
+  C64CursorJoy := True;
+  C64JoyPort := 3;
+  C64Drive9 := False;
+  C64SaveDisk := True;
+  C64TapeNoDrive := True;
   SamSaa := True;
   SamJoystick := True;
   SamAutoDos := True;
@@ -532,6 +550,11 @@ begin
     'msx_joystick': Result := @MsxJoystick;
     'msx_compat': Result := @MsxCompat;
     'msx_notice': Result := @MsxNotice;
+    'c64_joystick': Result := @C64Joystick;
+    'c64_cursorjoy': Result := @C64CursorJoy;
+    'c64_drive9': Result := @C64Drive9;
+    'c64_savedisk': Result := @C64SaveDisk;
+    'c64_tapenodrive': Result := @C64TapeNoDrive;
     'sam_saa': Result := @SamSaa;
     'sam_joystick': Result := @SamJoystick;
     'sam_autodos': Result := @SamAutoDos;
@@ -611,6 +634,7 @@ begin
   else if Copy(NewName, 1, 4) = 'cpc_' then Result := SEC_CPC
   else if Copy(NewName, 1, 4) = 'sam_' then Result := SEC_SAM
   else if Copy(NewName, 1, 4) = 'msx_' then Result := SEC_MSX
+  else if Copy(NewName, 1, 4) = 'c64_' then Result := SEC_C64
   else Result := Default;
 end;
 
@@ -688,6 +712,8 @@ begin
   if (S = 'auto') or MapperFromName(S, MapperTmp) then MsxCartMapper := S;
   S := LowerCase(Ini.ReadString(SEC_MSX, 'msx_mapper', MsxMapper));
   if (S = 'auto') or (S = 'on') or (S = 'off') then MsxMapper := S;
+  I := Ini.ReadInteger(SEC_C64, 'c64_joyport', C64JoyPort);
+  if (I >= 1) and (I <= 3) then C64JoyPort := I;
   I := Ini.ReadInteger(SEC_SAM, 'sam_memory', SamMemory);
   if (I = 256) or (I = 512) then SamMemory := I;
   // The monitor; older files had "bw", an on/off for the black and white display
@@ -745,6 +771,7 @@ begin
   if Issue2 then Put(SEC_ZX, 'zx_issue', '2') else Put(SEC_ZX, 'zx_issue', '3');
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
   Put(SEC_SAM, 'sam_memory', IntToStr(SamMemory));
+  Put(SEC_C64, 'c64_joyport', IntToStr(C64JoyPort));
   Put(SEC_MSX, 'msx_cartmapper', MsxCartMapper);
   Put(SEC_MSX, 'msx_mapper', MsxMapper);
   Put('General', 'monitor', MONITOR_KEYS[Monitor]);

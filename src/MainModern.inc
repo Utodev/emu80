@@ -467,7 +467,11 @@ end;
 procedure TMainWindow.PaintModernMedia(Sender: TObject);
 const
   NAMES: array[0..2] of string = ('A:', 'B:', 'SD');
+  C64_NAMES: array[0..2] of string = ('8:', '9:', 'SD');
+type
+  TNames = array[0..2] of string;
 var
+  DriveNames: TNames;
   C: TCanvas;
   I, Y, RowH, Led, LedH, X0, DW, TX, TW: Integer;
   Has: Boolean;
@@ -599,6 +603,7 @@ var
   end;
 
 begin
+  if IsC64Model(FEmu.Spec.Model) then DriveNames := C64_NAMES else DriveNames := NAMES;
   C := FMMediaBox.Canvas;
   C.Brush.Color := MUI_PANEL;
   C.FillRect(0, 0, FMMediaBox.Width, FMMediaBox.Height);
@@ -626,7 +631,7 @@ begin
     if (I = 2) and IsMSXModel(FEmu.Spec.Model) then
       C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, 'CR')
     else
-      C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, NAMES[I]);
+      C.TextOut(Led + MUIScale(6), I * RowH + (RowH - C.TextHeight('A')) div 2, DriveNames[I]);
     C.Font.Style := [];
     C.Brush.Style := bsSolid;
     Has := FMediaNames[I] <> '';
@@ -693,6 +698,10 @@ begin
   FEmu.Lock;
   try
     Spec := FEmu.Spec;
+    if IsC64Model(Spec.Model) then
+      C64TapeInfo(TapeText, TapeName, Progress, Playing, HaveTape)
+    else
+    begin
     HaveTape := Spec.Tape.Count > 0;
     if Spec.Tape.Count = 0 then
     begin
@@ -713,6 +722,7 @@ begin
     end;
     Playing := Spec.Tape.Playing;
     TapeName := ChangeFileExt(ExtractFileName(Spec.Tape.FileName), '');
+    end;
     HaveDisk := DefaultDrive(Spec) >= 0;
     if IsMSXModel(Spec.Model) then HaveCard := Spec.MSXHw.CartridgeName(1) <> ''
     else HaveCard := Spec.DivMMCOn and (Spec.DivMMC.Card <> nil);

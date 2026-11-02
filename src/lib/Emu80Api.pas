@@ -23,7 +23,7 @@ interface
 
 uses
   {$IFDEF WINDOWS}Windows,{$ENDIF}
-  Classes, SysUtils, SyncObjs, Models, Z80Core, Spectrum, Sam, Emulator, FramePresenter, Snapshot, Tape, Disasm;
+  Classes, SysUtils, SyncObjs, Models, Z80Core, Spectrum, Sam, C64, C64Disk, Emulator, FramePresenter, Snapshot, Tape, Disasm;
 
 type
   TEmu80FrameCallback = procedure(User: Pointer); cdecl;
@@ -141,6 +141,7 @@ type
     Callback: TEmu80FrameCallback;
     CallbackUser: Pointer;
     Err: string;
+    C64Joy: Byte;
     constructor Create(AModel: TSpectrumModel; const RomDir: string);
     destructor Destroy; override;
     procedure HostFrame(Sender: TObject);
@@ -1005,6 +1006,7 @@ function emu80_load_file(H: Pointer; FileName: PAnsiChar): Int32; cdecl;
 var
   Inst: TEmu80Instance;
   Ext, Name: string;
+  Disk: TD64Image;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -1014,7 +1016,33 @@ begin
   Inst.Emu.Lock;
   try
     try
-      if (Ext = '.tap') or (Ext = '.tzx') or (Ext = '.cdt') then
+      // A Commodore 64: a disk goes in drive 8, a program is put in and run, a tape (.tap) is played
+      if IsC64Model(Inst.Emu.Spec.Model) and ((Ext = '.d64') or (Ext = '.prg') or (Ext = '.p00') or (Ext = '.t64') or (Ext = '.tap')) then
+      begin
+        if Ext = '.d64' then
+        begin
+          Disk := TD64Image.Create;
+          try
+            Disk.LoadFromFile(Name);
+          except
+            Disk.Free;
+            raise;
+          end;
+          Inst.Emu.Spec.C64Hw.InsertDisk(0, Disk);
+          Inst.Emu.Spec.AutoLoad(True);
+        end
+        else if Ext = '.tap' then
+        begin
+          Inst.Emu.Spec.C64Hw.InsertTape(Name);
+          Inst.Emu.Spec.AutoLoad(False);
+        end
+        else
+        begin
+          Inst.Emu.Spec.Reset(True);
+          Inst.Emu.Spec.C64Hw.LoadPrg(Name, True);
+        end;
+      end
+      else if (Ext = '.tap') or (Ext = '.tzx') or (Ext = '.cdt') then
       begin
         Inst.Emu.Spec.Tape.LoadFile(Name);
         Inst.Emu.Spec.AutoLoad;
@@ -1056,6 +1084,26 @@ begin
       with Inst.Emu.Spec.SAM do
         if Down <> 0 then Keys[Key div 8] := Keys[Key div 8] or (1 shl (Key mod 8))
         else Keys[Key div 8] := Keys[Key div 8] and not (1 shl (Key mod 8));
+    finally
+      Inst.Emu.Unlock;
+    end;
+    Exit(0);
+  end;
+  // A Commodore 64: column * 8 + row of its keyboard matrix (0-63, the C64K_* of C64.pas), 64-68 the joystick in port 2
+  // (up, down, left, right, fire) and 69 RESTORE
+  if IsC64Model(Inst.Emu.Spec.Model) then
+  begin
+    if (Key < 0) or (Key > 69) then Exit(-2);
+    Inst.Emu.Lock;
+    try
+      with Inst.Emu.Spec.C64Hw do
+        if Key < 64 then SetKey(Key div 8, Key mod 8, Down <> 0)
+        else if Key = 69 then SetRestore(Down <> 0)
+        else
+        begin
+          if Down <> 0 then Inst.C64Joy := Inst.C64Joy or (1 shl (Key - 64)) else Inst.C64Joy := Inst.C64Joy and not (1 shl (Key - 64));
+          SetJoystick(2, Inst.C64Joy);
+        end;
     finally
       Inst.Emu.Unlock;
     end;

@@ -43,6 +43,8 @@ type
     FCrtc, FMonitor: TComboBox;
     FSamMemory, FMsxMapper, FMsxRamMapper: TComboBox;
     FMsxJoystick, FMsxCompat: TCheckBox;
+    FC64Joystick, FC64CursorJoy, FC64Drive9, FC64SaveDisk, FC64TapeNoDrive: TCheckBox;
+    FC64JoyPort: TComboBox;
     FSamSaa, FSamJoystick, FSamAutoDos, FSamMouse, FSamClock: TCheckBox;
     FCPCWait: TCheckBox;
     FModel: TComboBox;
@@ -654,6 +656,39 @@ begin
   FMsxJoystick := AddCheck(Group, _('Cursor keys and right Ctrl as joystick 1'), Y);
   FMsxJoystick.Hint := _('On the MSX the cursor keys are always the cursor keys; with this on they ' +
     'also move joystick 1, and the right Ctrl is its first button');
+  // Commodore 64
+  Page := AddPage(FPages, _('Commodore 64'));
+  AddBand(Page, 5);
+  Group := AddGroup(Page, _('Controls'), 60, 124);
+  Y := 8;
+  FC64Joystick := AddCheck(Group, _('Numeric keypad and right Ctrl as a joystick'), Y);
+  FC64Joystick.Hint := _('The keypad''s 8, 2, 4 and 6 (and the diagonals 7, 9, 1 and 3) are the joystick''s directions, ' +
+    '0, 5 and the right Ctrl its fire button');
+  FC64CursorJoy := AddCheck(Group, _('Cursor keys and Ctrl as a joystick'), Y + 26);
+  FC64CursorJoy.Hint := _('The cursor keys are the joystick''s directions and Ctrl (either) its fire button, and are not the C64''s ' +
+    'own cursor keys and CTRL (a key of the keyboard also reads as a joystick direction on the real machine). ' +
+    'Scroll Lock switches it while running');
+  AddLabel(Group, _('Control port:'), Y + 64);
+  FC64JoyPort := AddCombo(Group, Y + 60, 120);
+  FC64JoyPort.Left := 170;
+  FC64JoyPort.Items.Add(_('Port 1'));
+  FC64JoyPort.Items.Add(_('Port 2'));
+  FC64JoyPort.Items.Add(_('Both'));
+  FC64JoyPort.Hint := _('Some games read the joystick in port 1 (Mikie) and most in port 2; Both works for either. Port 1 shares its lines with the keyboard: a joystick there can type by itself');
+  FC64JoyPort.ShowHint := True;
+  Group := AddGroup(Page, _('Disk drives'), 190, 128);
+  Y := 8;
+  FC64Drive9 := AddCheck(Group, _('Second disk drive (device 9)'), Y);
+  FC64Drive9.Hint := _('A second 1541, as device 9 on the serial bus. The Floppy menu then has its drive B: entries (the ' +
+    'C64''s drives are 8 and 9)');
+  FC64SaveDisk := AddCheck(Group, _('What the drives write goes into the .d64 files'), Y + 30);
+  FC64SaveDisk.Hint := _('Once a drive has been quiet for a moment (and when a disk is taken out), the changes are saved ' +
+    'in the file the disk came from. Off: they are kept only until the disk is ejected, unless it is saved with Floppy > Save disk');
+  FC64TapeNoDrive := AddCheck(Group, _('Disconnect the drives while a tape is loaded'), Y + 60);
+  FC64TapeNoDrive.Hint := _('Some tape games (Ghostbusters, Green Beret...) refuse to load with a disk drive on the serial bus. ' +
+    'Opening a tape disconnects the drives; inserting a disk connects drive 8 again');
+  AddNote(Page, _('The C64 uses the original ROMs (Kernal.rom, Basic.rom, Char.rom and, for the disk drives, VC1541.rom), ' +
+    'which are not distributed: put them in the roms/c64 folder. Their names can be changed in Common > ROMs.'), 326);
   FShownRomModel := -1;
 end;
 
@@ -751,6 +786,21 @@ begin
     C.Brush.Color := $F08828;
     C.FillRect(X + 4, Y + 10, X + 52, Y + 14);
     Title := 'MSX';
+  end
+  else if Box.Tag = 5 then
+  begin
+    // The Commodore 64: a beige case with a brown keyboard and a grey bar
+    if Dark then Body := $A0B8C8 else Body := $88A8C0;
+    C.Brush.Color := Body;
+    C.Pen.Color := Edge;
+    C.Pen.Width := 2;
+    C.RoundRect(X, Y + 6, X + 56, Y + 32, 4, 4);
+    C.Pen.Width := 1;
+    C.Brush.Color := $404858;
+    C.FillRect(X + 4, Y + 10, X + 52, Y + 14);
+    C.Brush.Color := $706050;
+    for I := 0 to 5 do C.FillRect(X + 4 + I * 8, Y + 21, X + 10 + I * 8, Y + 27);
+    Title := 'Commodore 64';
   end
   else if Box.Tag = 3 then
   begin
@@ -1116,6 +1166,12 @@ begin
   FSamMouse.Checked := S.SamMouse;
   FSamClock.Checked := S.SamClock;
   FMsxJoystick.Checked := S.MsxJoystick;
+  FC64Joystick.Checked := S.C64Joystick;
+  FC64CursorJoy.Checked := S.C64CursorJoy;
+  FC64JoyPort.ItemIndex := S.C64JoyPort - 1;
+  FC64Drive9.Checked := S.C64Drive9;
+  FC64SaveDisk.Checked := S.C64SaveDisk;
+  FC64TapeNoDrive.Checked := S.C64TapeNoDrive;
   FMsxCompat.Checked := S.MsxCompat;
   FMsxMapper.ItemIndex := MapperIndex(S.MsxCartMapper);
   FMsxRamMapper.ItemIndex := 0;
@@ -1211,6 +1267,12 @@ begin
   S.SamMouse := FSamMouse.Checked;
   S.SamClock := FSamClock.Checked;
   S.MsxJoystick := FMsxJoystick.Checked;
+  S.C64Joystick := FC64Joystick.Checked;
+  S.C64CursorJoy := FC64CursorJoy.Checked;
+  S.C64JoyPort := FC64JoyPort.ItemIndex + 1;
+  S.C64Drive9 := FC64Drive9.Checked;
+  S.C64SaveDisk := FC64SaveDisk.Checked;
+  S.C64TapeNoDrive := FC64TapeNoDrive.Checked;
   S.MsxCompat := FMsxCompat.Checked;
   S.MsxCartMapper := MAPPER_KEYS[FMsxMapper.ItemIndex];
   S.MsxMapper := MSX_MAPPER_KEYS[FMsxRamMapper.ItemIndex];

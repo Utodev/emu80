@@ -1482,7 +1482,8 @@ begin
   end;
   // The CPC's and the SAM Coupe's databases have their own machine codes, and are where their
   // interpreters put them
-  if FEmu.Spec.CPC <> nil then Result := FGame.Load(FMem, MACHINE_CPC)
+  if IsC64Model(FEmu.Spec.Model) then Result := FGame.Load(FMem, MACHINE_C64)
+  else if FEmu.Spec.CPC <> nil then Result := FGame.Load(FMem, MACHINE_CPC)
   else if IsSAMModel(FEmu.Spec.Model) then Result := FGame.Load(FMem, MACHINE_SAM)
   else Result := FGame.Load(FMem);
   if Result then FEngineLabel.Caption := EngineName(FGame.Engine) else FEngineLabel.Caption := '';
@@ -1578,7 +1579,7 @@ begin
   FEmu.Lock;
   try
     Fetch := FEmu.Spec.DaadFetch;
-    IX := FEmu.Spec.Cpu.IX.W;
+    IX := FEmu.Spec.DaadFlagsBase;
     for I := 0 to High(Recent) do Recent[I] := FEmu.Spec.DaadEntry(I);
     FAtBreak := FEmu.Spec.DaadBreakHit and (FEmu.Spec.BreakKind = bkDaad);
   finally
@@ -1894,7 +1895,7 @@ begin
     if (FCurrent >= 0) and (FGame.Condacts[FCurrent].Opcode = OP_PROCESS) and
        (FEmu.Spec.DaadFetch = FGame.Condacts[FCurrent].Addr) then
     begin
-      FEmu.Spec.DaadSP := FEmu.Spec.Cpu.SP.W;
+      FEmu.Spec.DaadSP := FEmu.Spec.DaadStackPointer;
       FEmu.Spec.DaadStop := dsOver;
     end
     else

@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine;
+  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine, C64;
 
 const
   SCREEN_WIDTH = 352;
@@ -386,6 +386,10 @@ type
     FSamSwapDisk: TDiskImage;               // the disk that goes in drive 1 once SAMDOS has booted
     FSamTrapHits: Integer;                  // files loaded by the SAMDOS trap
     FSamSwapFrame: Int64;                   // the frame to put it in at
+    { Commodore 64 }
+    FIsC64: Boolean;                        // a C64: FC64 is the machine
+    FC64: TC64;
+    FC64Shadow: array[0..1] of TDiskImage;  // stand-ins for the .d64 disks in the drives (the media panel asks DiskAt for the name)
     { MSX }
     FIsMSX: Boolean;                        // an MSX: FMsxHw is the machine's hardware
     FMsxHw: TMsxMachine;
@@ -427,6 +431,12 @@ type
     procedure ExecuteOneCPC;
     function CPCInstrNops(out IoNops: Integer; out IntShort: Boolean): Integer;
     procedure FinishFrameCPC;
+    procedure SetupC64;
+    procedure C64Reset(Hard: Boolean);
+    function RunFrameC64: Boolean;
+    procedure StepInstructionC64;
+    procedure FinishFrameC64;
+    function C64TapeText: string;
     procedure SetupMSX;
     function MSXNow: Int64;
     function MSXTapeT(ChipT: Integer): Integer;
@@ -716,6 +726,9 @@ type
       followed. Off with nil. }
     procedure SetDaadMap(Map: PByte);
     property DaadOn: Boolean read FDaadOn;
+    { Where the flags are while a condact runs (IX on the Z80 machines, a fixed address on the C64), and the stack pointer }
+    function DaadFlagsBase: Word;
+    function DaadStackPointer: Word;
     property DaadStop: TDaadStop read FDaadStop write FDaadStop;
     property DaadSP: Word read FDaadSP write FDaadSP;
     { Stop at the condact after each PARSE (once the player's order is read) }
@@ -827,6 +840,8 @@ type
     property CPC: TAmstrad read FCPC;
     { The SAM Coupe's ASIC (nil on the other models) }
     property SAM: TSam read FSam;
+    { The Commodore 64's hardware (nil on the other models) }
+    property C64Hw: TC64 read FC64;
     { The MSX's hardware (nil on the other models) }
     property MSXHw: TMsxMachine read FMsxHw;
     { The MSX2's memory mapper (MSX_MAPPER_*): from the next reset }
@@ -1115,6 +1130,9 @@ begin
   FCurrah.Free;
   FProbeCpu.Free;
   FProbeBus.Free;
+  FC64Shadow[0].Free;
+  FC64Shadow[1].Free;
+  FC64.Free;
   FMsxHw.Free;
   FSam.Free;
   FSaa.Free;
@@ -1135,7 +1153,7 @@ var
   S: TFileStream;
   FileName: string;
 begin
-  if FInfo.Memory in [mkCPC, mkSAM, mkMSX] then Exit;   // SetupCPC, SetupSAM, SetupMSX
+  if FInfo.Memory in [mkCPC, mkSAM, mkMSX, mkC64] then Exit;   // SetupCPC, SetupSAM, SetupMSX, SetupC64
   if FInfo.Memory = mkZXUno then
   begin
     LoadZXUnoFlash;
@@ -1174,13 +1192,14 @@ end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);
 var
-  WasUno, WasNext, WasCPC, WasSAM, WasMSX: Boolean;
+  WasUno, WasNext, WasCPC, WasSAM, WasMSX, WasC64: Boolean;
   OldModel: TSpectrumModel;
 begin
   OldModel := FModel;
   WasCPC := FIsCPC;
   WasSAM := FIsSAM;
   WasMSX := FIsMSX;
+  WasC64 := FIsC64;
   WasUno := IsZXUno;
   WasNext := IsNext;
   FModel := AModel;
@@ -1188,6 +1207,7 @@ begin
   FIsCPC := FInfo.Memory = mkCPC;
   FIsSAM := FInfo.Memory = mkSAM;
   FIsMSX := FInfo.Memory = mkMSX;
+  FIsC64 := FInfo.Memory = mkC64;
   if FIsCPC then FAYStep := 32 else FAYStep := 16;
   FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
   LoadRoms;
@@ -1234,6 +1254,7 @@ begin
       FIsCPC := WasCPC;
       FIsSAM := WasSAM;
       FIsMSX := WasMSX;
+      FIsC64 := WasC64;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
       FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
       BuildContention;
@@ -1258,6 +1279,7 @@ begin
       FIsCPC := WasCPC;
       FIsSAM := WasSAM;
       FIsMSX := WasMSX;
+      FIsC64 := WasC64;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
       FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
       if not WasCPC then FreeAndNil(FCPC);
@@ -1283,9 +1305,36 @@ begin
       FIsCPC := WasCPC;
       FIsSAM := WasSAM;
       FIsMSX := WasMSX;
+      FIsC64 := WasC64;
       if FIsCPC then FAYStep := 32 else FAYStep := 16;
       FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
       if not WasMSX then FreeAndNil(FMsxHw);
+      BuildContention;
+      FTape.ClockHz := FInfo.ClockHz;
+      if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
+      FTape.FinalEdge := WasSAM or WasCPC;
+      if WasCPC then FTape.ShortPauseExtraMs := 0.5 else FTape.ShortPauseExtraMs := 0;
+      FFDC.ClockHz := FInfo.ClockHz;
+      if WasSAM or WasMSX then FWD.ClockHz := FInfo.ClockHz;
+      if WasCPC then FTape.ClockHz := 3500000;
+      raise;
+    end;
+  end;
+  if FIsC64 then
+  begin
+    try
+      SetupC64;
+    except
+      // No ROMs: stay as we were
+      FModel := OldModel;
+      FInfo := ModelInfo[OldModel];
+      FIsCPC := WasCPC;
+      FIsSAM := WasSAM;
+      FIsMSX := WasMSX;
+      FIsC64 := WasC64;
+      if FIsCPC then FAYStep := 32 else FAYStep := 16;
+      FRecorder.Raw := FIsCPC or FIsSAM or FIsMSX;
+      if not WasC64 then FreeAndNil(FC64);
       BuildContention;
       FTape.ClockHz := FInfo.ClockHz;
       if WasSAM then FTape.SetPulseScale(12, 7) else FTape.SetPulseScale(1, 1);
@@ -1302,6 +1351,7 @@ begin
   if not FIsSAM then FreeAndNil(FSam);
   if not FIsCPC then FreeAndNil(FCPC);
   if not FIsMSX then FreeAndNil(FMsxHw);
+  if not FIsC64 then FreeAndNil(FC64);
   Reset(True);
 end;
 
@@ -1336,6 +1386,11 @@ begin
   if FIsMSX then
   begin
     MSXReset(Hard);
+    Exit;
+  end;
+  if FIsC64 then
+  begin
+    C64Reset(Hard);
     Exit;
   end;
   if Hard then
@@ -1392,6 +1447,11 @@ end;
 
 procedure TSpectrum.RequestNMI;
 begin
+  if FIsC64 then
+  begin
+    FC64.Cpu.NMIEdge := True;      // (the RESTORE key does it too)
+    Exit;
+  end;
   if FIsCPC or FIsMSX then Exit;   // the CPC and the MSX have no NMI button
   // The Next's buttons work as NR 06 lets them (NextZXOS sets it)
   if IsNext then
@@ -1419,6 +1479,11 @@ begin
     MSXTapeUpdate(U(FCpu.T));
     Exit;
   end;
+  if FIsC64 then
+  begin
+    FC64.PlayTape;
+    Exit;
+  end;
   FTapeHeld := False;
   FLoadedSincePlay := FLoadDemand;
   // With fast loading, a moment of silence first: the ROM's loader, if it
@@ -1429,6 +1494,7 @@ end;
 
 function TSpectrum.TapeStateText: string;
 begin
+  if FIsC64 then Exit(C64TapeText);
   if (FIsMSX and FMsxArmed and not FMsxHw.Motor and not FTape.Playing) or
      (FIsCPC and FCPCArmed and not FCPC.Motor and not FTape.Playing) then
     Result := _('play pressed, waiting for the motor')
@@ -1450,6 +1516,11 @@ begin
   begin
     FMsxArmed := False;
     MSXTapeUpdate(U(FCpu.T));
+    Exit;
+  end;
+  if FIsC64 then
+  begin
+    FC64.StopTape;
     Exit;
   end;
   FTape.Stop;
@@ -1913,11 +1984,21 @@ end;
 
 function TSpectrum.DiskAt(Drive: Integer): TDiskImage;
 begin
+  if FIsC64 then
+  begin
+    Drive := Drive and 1;
+    Result := nil;
+    if FC64.DiskAt(Drive) = nil then Exit;
+    if FC64Shadow[Drive] = nil then FC64Shadow[Drive] := TDiskImage.Create;
+    FC64Shadow[Drive].FileName := FC64.DiskAt(Drive).FileName;
+    Exit(FC64Shadow[Drive]);
+  end;
   if FIsSAM or FIsMSX then Result := FWD.Disk(Drive) else Result := FFDC.Disk(Drive);
 end;
 
 procedure TSpectrum.InsertDiskAt(Drive: Integer; Disk: TDiskImage);
 begin
+  if FIsC64 then Exit;       // (the C64's disks are .d64 images: TC64.InsertDisk)
   if FIsSAM or FIsMSX then FWD.InsertDisk(Drive, Disk) else FFDC.InsertDisk(Drive, Disk);
 end;
 
@@ -1928,16 +2009,23 @@ end;
 
 function TSpectrum.DiskLastAccess(Drive: Integer): QWord;
 begin
+  if FIsC64 then Exit(FC64.Drive[Drive].LastAccess);
   if FIsSAM or FIsMSX then Result := FWD.LastAccess(Drive) else Result := FFDC.LastAccess(Drive);
 end;
 
 function TSpectrum.GetDriveB: Boolean;
 begin
+  if FIsC64 then Exit(FC64.DriveOn[1]);
   if FIsSAM or FIsMSX then Result := FWD.DriveB else Result := FFDC.DriveB;
 end;
 
 procedure TSpectrum.SetDriveB(Value: Boolean);
 begin
+  if FIsC64 then
+  begin
+    FC64.SetDriveEnabled(1, Value);
+    Exit;
+  end;
   FFDC.DriveB := Value;
   FWD.DriveB := Value;
 end;
@@ -1984,6 +2072,15 @@ function TSpectrum.MemoryAt(Addr: Word): TMemoryAt;
 var
   Bank: Integer;
 begin
+  if FIsC64 then
+  begin
+    case FC64.MemoryAt(Addr) of
+      1, 2, 3: Result := maRom;
+    else
+      Result := maRam;
+    end;
+    Exit;
+  end;
   // The DivMMC paged in at 0000-3FFF: its EEPROM (or write-protected bank)
   // is like ROM, its RAM at 2000-3FFF is RAM
   if FDivOn and (Addr < $4000) and FDiv.Active then
@@ -2007,6 +2104,11 @@ end;
 
 procedure TSpectrum.Poke(Addr: Word; Value: Byte);
 begin
+  if FIsC64 then
+  begin
+    FC64.Poke(Addr, Value);
+    Exit;
+  end;
   case MemoryAt(Addr) of
     maNone: Exit;
     maRom: if not RomWritable then Exit;
@@ -2167,6 +2269,9 @@ end;
 procedure TSpectrum.DaadRead(Addr: Word);
 var
   I: Integer;
+  IPC: Word;
+  SP: Word;
+  Z80Block: Boolean;
 
   procedure AddEntry(Header: Word);
   begin
@@ -2176,16 +2281,28 @@ var
   end;
 
 begin
+  if FIsC64 then
+  begin
+    IPC := FC64.Cpu.InstrPC;
+    SP := $0100 or FC64.Cpu.SP;
+    Z80Block := False;
+  end
+  else
+  begin
+    IPC := FInstrPC;
+    SP := FCpu.SP.W;
+    Z80Block := Peek(IPC) = $ED;      // (LDIR and the like copy data: never the interpreter's fetch)
+  end;
   if (FDaadMap[Addr] and DAAD_ENTRY) <> 0 then
   begin
     if FDaadEntryPC >= 0 then
     begin
       // The interpreter takes the address of an entry's condacts: it runs it
-      if FInstrPC = FDaadEntryPC then AddEntry(Word(Addr - 2));
+      if IPC = FDaadEntryPC then AddEntry(Word(Addr - 2));
     end
-    else if Peek(FInstrPC) <> $ED then
+    else if not Z80Block then
     begin
-      FDaadCandEntryPC := FInstrPC;
+      FDaadCandEntryPC := IPC;
       FDaadCandHeader := Word(Addr - 2);
       FDaadExpect := Peek(Addr) or (Peek(Word(Addr + 1)) shl 8);
     end;
@@ -2200,16 +2317,16 @@ begin
   if (FDaadMap[Addr] and DAAD_CONDACT) = 0 then Exit;
   if FDaadFetchPC < 0 then
   begin
-    if (Addr <> FDaadExpect) or (Peek(FInstrPC) = $ED) then Exit;
+    if (Addr <> FDaadExpect) or Z80Block then Exit;
     FDaadExpect := -1;
-    if (FDaadSeen > 0) and (FInstrPC = FDaadCandFetchPC) then Inc(FDaadSeen) else FDaadSeen := 1;
-    FDaadCandFetchPC := FInstrPC;
+    if (FDaadSeen > 0) and (IPC = FDaadCandFetchPC) then Inc(FDaadSeen) else FDaadSeen := 1;
+    FDaadCandFetchPC := IPC;
     if FDaadSeen < 2 then Exit;
-    FDaadFetchPC := FInstrPC;
+    FDaadFetchPC := IPC;
     FDaadEntryPC := FDaadCandEntryPC;
     AddEntry(FDaadCandHeader);
   end
-  else if FInstrPC <> FDaadFetchPC then
+  else if IPC <> FDaadFetchPC then
     Exit;
   FDaadFetch := Addr;
   if FDaadParsed then
@@ -2229,13 +2346,18 @@ begin
         FDaadStop := dsNext;
         Break;
       end;
-  if (FDaadStop = dsNext) or ((FDaadStop = dsOver) and (FCpu.SP.W >= FDaadSP)) then
+  if (FDaadStop = dsNext) or ((FDaadStop = dsOver) and (SP >= FDaadSP)) then
   begin
     // Stops after the instruction that read it
     FDaadStop := dsNone;
+    if FIsC64 then
+    begin
+      FC64.BreakHit := True;
+      FC64.BreakKind := cbkDaad;
+    end;
     FBreakHit := True;
     FBreakKind := bkDaad;
-    FBreakInstr := FInstrPC;
+    FBreakInstr := IPC;
     FBreakReason := '';
   end;
 end;
@@ -2243,7 +2365,18 @@ end;
 { Flag N of the game: IX points at the flags while a condact runs }
 function TSpectrum.DaadFlag(N: Byte): Byte;
 begin
-  Result := PeekRam(Word(FCpu.IX.W + N));
+  Result := PeekRam(Word(DaadFlagsBase + N));
+end;
+
+{ Where the interpreter keeps the flags: IX points at them on the Z80 machines, and they are at a fixed place on the C64 }
+function TSpectrum.DaadFlagsBase: Word;
+begin
+  if FIsC64 then Result := C64_DAAD_FLAGS else Result := FCpu.IX.W;
+end;
+
+function TSpectrum.DaadStackPointer: Word;
+begin
+  if FIsC64 then Result := $0100 or FC64.Cpu.SP else Result := FCpu.SP.W;
 end;
 
 procedure TSpectrum.MarkDaadBreaks;
@@ -2266,6 +2399,7 @@ end;
 
 procedure TSpectrum.SetDaadMap(Map: PByte);
 begin
+  if FIsC64 then FC64.SetDaadMap(Map);
   FDaadOn := Map <> nil;
   if FDaadOn then
   begin
@@ -2347,6 +2481,7 @@ end;
 
 function TSpectrum.Peek(Addr: Word): Byte;
 begin
+  if FIsC64 then Exit(FC64.Peek(Addr));
   if FIsMSX then Exit(FMsxHw.Peek(Addr));
   if FDivOn and (Addr < $4000) and FDiv.Active then
     Result := FDiv.Read(Addr)
@@ -3446,6 +3581,7 @@ procedure TSpectrum.RenderUpTo(T: Integer);
 var
   CellT: Integer;
 begin
+  if FIsC64 then Exit;      // the VIC-II draws as it goes
   if FIsCPC then
   begin
     if T > FInfo.FrameT then T := FInfo.FrameT;
@@ -3496,6 +3632,11 @@ end;
 
 procedure TSpectrum.CopyFrameBuffer(Dest: PLongWord);
 begin
+  if FIsC64 then
+  begin
+    FC64.CopyFrame(Dest);
+    Exit;
+  end;
   if FIsCPC then
   begin
     FCPC.CopyFrame(Dest);
@@ -3838,11 +3979,13 @@ function TSpectrum.TapeAccelerating: Boolean;
 begin
   // (not the CPC's: it has no ROM trap, so its tapes would all run mute and fast; loaders that play music
   // while they load, and the tones, are heard at the real speed: Turbo is there for the impatient)
+  if FIsC64 then Exit(FastLoad and FC64.TapePressed and FC64.TapeMotor);
   Result := FastLoad and FTape.Playing and not FIsCPC;
 end;
 
 function TSpectrum.DiskAccelerating: Boolean;
 begin
+  if FIsC64 then Exit(not FFDC.Timed and FC64.DriveBusy and (GetTickCount64 - FC64.DiskActivity < 300));
   // The drive was used in the last tenth of a second
   Result := (FIsSAM or FIsMSX) and not FWD.Timed and
     ((GetTickCount64 - FWD.LastAccess(0) < 100) or (GetTickCount64 - FWD.LastAccess(1) < 100)) and
@@ -4098,6 +4241,7 @@ procedure TSpectrum.AutoType(Frames: Integer; const Keys: array of Integer);
 var
   N, I: Integer;
 begin
+  if FIsC64 then Exit;      // (the C64 types through its keyboard buffer: TypeText)
   N := Length(FAutoKeys);
   SetLength(FAutoKeys, N + 1);
   FAutoKeys[N].Frames := Frames;
@@ -4115,6 +4259,7 @@ end;
 
 function TSpectrum.AutoTyping: Boolean;
 begin
+  if FIsC64 then Exit(FC64.Typing);
   Result := FAutoKeyPos < Length(FAutoKeys);
 end;
 
@@ -4143,6 +4288,12 @@ var
   end;
 
 begin
+  if FIsC64 then
+  begin
+    Error := '';
+    FC64.TypeText(StringReplace(Text, '\n', #13, [rfReplaceAll]));
+    Exit(True);
+  end;
   if FIsCPC then Exit(CPCTypeText(Text, Error));
   if FIsMSX then Exit(MSXTypeText(Text, Error));
   if FIsSAM then Exit(SAMTypeText(Text, Error));
@@ -4225,7 +4376,13 @@ begin
       end;
   if Length(Sym) <> 1 then Exit(False);
   Ch := Sym[1];
-  if FIsSAM then
+  if FIsC64 then
+  begin
+    // The signs the C64's keyboard makes (letters and digits the virtual keyboard sends as they are)
+    Result := C64KeysForChar(Ch, Key, Modifier);
+    if Result and not DryRun then FC64.TypeText(Ch);
+  end
+  else if FIsSAM then
   begin
     Result := SamKeysForChar(Ch, Key, Modifier);
     if Result and not DryRun then
@@ -4287,6 +4444,11 @@ begin
   Reset(True);
   FTape.Rewind;
   CancelAutoType;
+  if FIsC64 then
+  begin
+    FC64.AutoLoad(FromDisk);
+    Exit;
+  end;
   if FIsCPC then
   begin
     CPCAutoLoad(FromDisk);
@@ -4331,6 +4493,7 @@ end;
 
 function TSpectrum.GetBreakpoint(Addr: Word): Byte;
 begin
+  if FIsC64 then Exit(FC64.GetBreakpoint(Addr));
   Result := FBreakFlags[Addr];
 end;
 
@@ -4378,6 +4541,11 @@ procedure TSpectrum.SetBreakpoint(Addr: Word; Flags: Byte);
 var
   R, A: Integer;
 begin
+  if FIsC64 then
+  begin
+    FC64.SetBreakpoint(Addr, Flags);
+    Exit;
+  end;
   R := BreakRangeIndex(Addr, False);
   if R < 0 then
   begin
@@ -4400,6 +4568,7 @@ procedure TSpectrum.ClearBreakpoints;
 var
   I: Integer;
 begin
+  if FIsC64 then FC64.ClearBreakpoints;
   FillChar(FBreakFlags, SizeOf(FBreakFlags), 0);
   FMemBreakpoints := 0;
   for I := 0 to High(FBreakConds) do FreeAndNil(FBreakConds[I]);
@@ -4476,6 +4645,7 @@ end;
 
 function TSpectrum.BreakHits(Addr: Word): Integer;
 begin
+  if FIsC64 then Exit(FC64.BreakHits(Addr));
   Result := -1;
   if (Length(FBreakConds) > 0) and (FBreakConds[Addr] <> nil) and FBreakConds[Addr].UsesHits then
     Result := FBreakConds[Addr].Hits;
@@ -4613,6 +4783,7 @@ var
   Cond: TBreakCondition;
   R, A, First, Last: Integer;
 begin
+  if FIsC64 then Exit(FC64.SetCondition(Addr, Text, Error));
   Error := '';
   R := BreakRangeIndex(Addr, False);
   if R >= 0 then
@@ -4643,6 +4814,7 @@ end;
 
 function TSpectrum.BreakCondition(Addr: Word): string;
 begin
+  if FIsC64 then Exit(FC64.ConditionOf(Addr));
   if (Length(FBreakConds) > 0) and (FBreakConds[Addr] <> nil) then
     Result := FBreakConds[Addr].Text
   else
@@ -4672,6 +4844,11 @@ end;
 
 procedure TSpectrum.SkipBreakpointOnce;
 begin
+  if FIsC64 then
+  begin
+    FC64.SkipBreakpointOnce;
+    Exit;
+  end;
   FSkipBreakOnce := True;
   FSkipProbeOnce := FBreakKind in [bkMemory, bkPort];
 end;
@@ -4820,6 +4997,7 @@ function TSpectrum.RunFrame: Boolean;
 var
   PC: Word;
 begin
+  if FIsC64 then Exit(RunFrameC64);
   FBreakHit := False;
   FBreakKind := bkNone;
   while FCpu.T < FrameLength do
@@ -4875,6 +5053,11 @@ end;
 
 procedure TSpectrum.StepInstruction;
 begin
+  if FIsC64 then
+  begin
+    StepInstructionC64;
+    Exit;
+  end;
   FBreakHit := False;
   FBreakKind := bkNone;
   FSkipBreakOnce := False;
@@ -4886,6 +5069,7 @@ end;
 
 {$I SpectrumCPC.inc}
 {$I SpectrumSAM.inc}
+{$I SpectrumC64.inc}
 {$I SpectrumMSX.inc}
 {$I NextVideo.inc}
 {$I NextDma.inc}

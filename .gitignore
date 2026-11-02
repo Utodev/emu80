@@ -125,3 +125,6 @@ TO-DO.TXT
 roms/msx/MSX2.rom
 roms/msx/MSX2EXT.rom
 roms/msx/PHILIPSDISK.rom
+
+# The C64 system ROMs: supplied by the user, never distributed
+roms/c64/

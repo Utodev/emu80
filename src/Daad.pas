@@ -33,10 +33,13 @@ const
   DDB_BASE = $8400;
   { The machine code in the database's header (its second byte's high nibble) }
   MACHINE_ZX = 1;
+  MACHINE_C64 = 2;
   MACHINE_CPC = 3;
   MACHINE_SAM = 9;
   { The Amstrad CPC's interpreter loads the database here }
   DDB_BASE_CPC = $2880;
+  { The Commodore 64's interpreter loads it here (and keeps the flags at 02A7) }
+  DDB_BASE_C64 = $3880;
   { The SAM Coupe's: at the start of the page the interpreter has in section A (0100) }
   DDB_BASE_SAM = $0100;
   { Object locations with a meaning }
@@ -117,7 +120,7 @@ type
     Compressed: Boolean;      // PAW, The Quill: texts use the abbreviations
     PosAbbreviations: Word;   // PAW: compressed text
     Base: Word;               // address of the header
-    Machine: Integer;         // the machine in its header: MACHINE_ZX, MACHINE_CPC or MACHINE_SAM
+    Machine: Integer;         // the machine in its header: MACHINE_ZX, MACHINE_C64, MACHINE_CPC or MACHINE_SAM
     Version: Integer;
     Language: Integer;        // 0 English, 1 Spanish
     NumObjects, NumLocations, NumMessages, NumSysMessages, NumProcesses: Integer;
@@ -593,6 +596,11 @@ begin
   begin
     Home := DDB_BASE_CPC;
     First := $0200;
+  end
+  else if Machine = MACHINE_C64 then
+  begin
+    Home := DDB_BASE_C64;
+    First := $0800;
   end
   else if Machine = MACHINE_SAM then
   begin

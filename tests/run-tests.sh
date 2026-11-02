@@ -247,3 +247,36 @@ if [ -f "$ROOT/roms/msx/MSX2.rom" ] && [ -f "$ROOT/roms/msx/MSX2EXT.rom" ]; then
     echo "SKIP  sjasmplus.exe is not in the PATH: the QUANTIKA ROMs are not compared with the original ones"
   fi
 fi
+
+# Commodore 64: the 6510 core, the GCR coding of the .d64 images and the debugger's expressions (no ROMs needed)
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64cputest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/c64cputest"
+# ... and the whole machine on the real ROMs, which are the user's (roms/c64: Kernal.rom, Basic.rom, Char.rom, VC1541.rom)
+if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ -f "$ROOT/roms/c64/Char.rom" ] &&
+   [ -f "$ROOT/roms/c64/VC1541.rom" ]; then
+  for T in c64spec c64sound c64tape c64save; do
+    fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/$T.lpr" > "$BUILD/fpc.log" || {
+      cat "$BUILD/fpc.log"; exit 1; }
+  done
+  "$BUILD/c64spec" "$ROOT/roms" | grep -q "ok: READY" || { echo "FAIL  the C64 does not boot to READY"; exit 1; }
+  echo "ok    the C64 boots to BASIC's READY. on the original ROMs"
+  "$BUILD/c64sound" "$ROOT/roms" | grep -q "^ok" || { echo "FAIL  the SID does not play the note"; exit 1; }
+  echo "ok    the SID plays a triangle wave at the right pitch"
+  python3 "$ROOT/tests/mkc64tap.py" --demo "$BUILD/demo.tap"
+  "$BUILD/c64tape" "$ROOT/roms" "$BUILD/demo.tap" "TAPE OK" | grep -q "^ok" || { echo "FAIL  the C64 does not load from tape"; exit 1; }
+  echo "ok    a program loads from a .tap on the datasette and runs"
+  "$BUILD/c64save" "$ROOT/roms" | grep -q "FAIL" && { echo "FAIL  the 1541 drives (SAVE, LOAD, drive 9)"; exit 1; }
+  echo "ok    the 1541 saves a program to a .d64, loads it back, and a second drive answers"
+  # The Adventure Debugger on a DAAD game for the C64 (a .d64 of the user's, named in C64_DAAD_D64)
+  if [ -n "$C64_DAAD_D64" ] && [ -f "$C64_DAAD_D64" ]; then
+    fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64daad.lpr" > "$BUILD/fpc.log" || {
+      cat "$BUILD/fpc.log"; exit 1; }
+    "$BUILD/c64daad" "$ROOT/roms" "$C64_DAAD_D64" > "$BUILD/c64daad.out" || { cat "$BUILD/c64daad.out"; exit 1; }
+    echo "ok    the Adventure Debugger follows a DAAD game on the C64 (database at 3880, flags 514 bytes before it)"
+  else
+    echo "SKIP  C64_DAAD_D64 is not set: the Adventure Debugger is not tried on a C64 DAAD game"
+  fi
+else
+  echo "SKIP  roms/c64 has no Kernal.rom, Basic.rom, Char.rom and VC1541.rom: the Commodore 64 is not run"
+fi

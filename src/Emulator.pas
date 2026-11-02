@@ -363,6 +363,7 @@ procedure TEmulator.SaveBackPoint;
 var
   I: Integer;
 begin
+  if FSpec.Info.Memory = mkC64 then Exit;     // (the C64's debugger has no step back)
   FLock.Enter;
   try
     if Length(FBack) >= MAX_BACK then

@@ -25,6 +25,7 @@ also shown by Help > Documentation, F1).
   - [Amstrad CPC](#amstrad-cpc)
   - [SAM Coupé](#sam-coupé)
   - [MSX](#msx)
+  - [Commodore 64](#commodore-64)
   - [emu80 snapshots (.e80)](#emu80-snapshots-e80)
 - [5. Tape browser](#5-tape-browser)
   - [TZX tapes](#tzx-tapes)
@@ -80,6 +81,12 @@ also shown by Help > Documentation, F1).
   512-colour palette, screens 0 to 8, 80-column text, sprites of mode 2, the line interrupt and the VDP commands), the PSG,
   the keyboard matrix and joystick, cartridges (`.rom`) with the Konami, Konami SCC, ASCII8 and ASCII16 mappers,
   tapes (`.cas`) and a disk drive (`.dsk`). The BIOS is not distributed.
+- Commodore 64 (PAL; see [Commodore 64](#commodore-64)): the 6510 cycle by cycle (undocumented opcodes included), the VIC-II
+  drawn as the beam goes (every mode, bad lines, sprites and their DMA, collisions, the raster interrupt, the 38-column and
+  24-row tricks and opened borders), two CIAs, the SID (three voices, envelopes, ring modulation, sync and the filter), the
+  keyboard and joysticks, `.tap` tapes in real time, `.prg` programs `.t64` tape containers and `.d64` disks on a real 1541 (its own 6502 running its DOS,
+  the serial bus, GCR on the disk, writing included) with a second drive, a 6510 debugger and the Adventure Debugger for the
+  DAAD interpreter. The ROMs are not distributed.
 - SAM Coupé (see [SAM Coupé](#sam-coupé)): Z80B at 6 MHz, 256K or 512K of RAM paged in 16K pages (LMPR and HMPR), the ASIC's
   four screen modes with its 128-colour palette, line and frame interrupts, the 72-key matrix, the WD1772 disk
   controller on MGT, SAD and DSK images, the SAA1099 sound chip in stereo, tapes in real time (and recording)
@@ -143,6 +150,8 @@ Supported files:
 | `.dsk` | disk images (standard and extended), for the +3, for the CPC 664 and 6128 and for the SAM Coupé; a 720K or 360K raw one also for the MSX (see [MSX](#msx)). What a `.dsk` is, is told by what is in it, not by its name: a SAM Coupe disk (80 cylinders of 10 sectors of 512 bytes) can only be used on the SAM Coupe (any other machine says so), and the SAM Coupe takes the +3 and CPC ones too (see [SAM Coupé](#sam-coupé)). Opening one switches to the +3 if needed (to the CPC 6128 if the machine is a CPC 464) and boots it (on a CPC, `RUN"` of the program it chooses, or `|CPM` for a boot disk; see [Amstrad CPC](#amstrad-cpc); on a SAM Coupe, F9 from BASIC: `BOOT`). |
 | `.mgt`, `.sad` | SAM Coupe disk images: MGT (raw sectors, 819200 bytes) and SAD (SAm Disk). They only open on the SAM Coupe. |
 | `.rom` | MSX cartridges (see [MSX](#msx)). Opening one switches to the MSX if needed and starts it. |
+
+**No autoload with Ctrl or Shift.** Holding Ctrl or Shift while a disk, tape, program or cartridge is opened (File > Open, the Insert options, the recent lists, drag and drop) inserts it without starting anything, on every machine, even from an option that would normally autoload (an MSX cartridge goes in without restarting the machine).
 | `.cas` | MSX tapes (see [MSX](#msx)): they open on the MSX, which Auto load starts with `RUN"CAS:"`. |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | `.e80` | emu80's own snapshots, of any model (see [emu80 snapshots](#emu80-snapshots-e80)). Opening one switches to its machine. |
@@ -218,6 +227,25 @@ choice below does not apply to the CPC.
 | keypad 0-9 | the SAM's F0-F9 |
 | Alt+F1 ... Alt+F10 | the SAM's F1 ... F9 and F0 (the PC's function keys alone are emu80's; Alt+F4 is the system's) |
 | keypad `+` `-` | `+` `-` |
+
+**Commodore 64 keyboard.** On the C64 the letters and the digits are the keys of the same name, the other characters go by the
+character the PC's layout gives (as on the SAM Coupé: `"`, `@`, `+`, `*`, `:` ... are typed with the C64's own keys, SHIFT pressed
+when it needs it, whatever the PC layout), and the rest:
+
+| PC key | Commodore 64 |
+|---|---|
+| Enter | RETURN |
+| Left Shift, Right Shift | SHIFT (left and right) |
+| Left Ctrl | CTRL |
+| Tab | the Commodore key (C=) |
+| Esc, Pause | RUN/STOP |
+| Page Up | RESTORE (an NMI; with RUN/STOP it goes back to the BASIC prompt) |
+| Backspace, Delete | INST/DEL (Insert is SHIFT + INST/DEL) |
+| Home | HOME (with Shift, CLR) |
+| Cursor keys | the cursor keys (the C64 has two: right and down; left and up are SHIFT + them) |
+| keypad `+` `-` `*` `/` `.` | the same keys |
+| Shift+F1 ... Shift+F8 | the C64's F1 ... F8 (F2, F4, F6 and F8 are the C64's SHIFT + F1, F3, F5 and F7; the PC's function keys alone are emu80's) |
+| keypad 8, 2, 4, 6, 7, 9, 1, 3 and 0, 5; right Ctrl | the joystick (directions, diagonals and fire; see [Commodore 64](#commodore-64)) |
 
 **Punctuation on any keyboard.** Letters, digits and signs are taken by the character the PC keyboard layout gives (not by the key's
 place), and the SAM keys that make that character are pressed for it, with the SAM's own SHIFT or SYMBOL as needed: with a Spanish,
@@ -340,7 +368,7 @@ both drives share the list), Save disk (into the file it was loaded from, in its
 floppy disk access (off: the drive works at real speed, with seek and rotation times) and "Drive
 B: connected". Drive B: is not connected by default, and while it isn't, the menu entries for it
 are hidden. It is connected from this menu, from Options > Settings > Common > Storage, with `--driveb` or
-by giving it a disk (`--diskb`).
+by giving it a disk (`--diskb`). On the Commodore 64 the two drives are drive 8 (A:) and drive 9 (B:, a second 1541).
 
 Menu entries with a description show it in the status bar while the pointer is over them (the
 debugger's menus show it in its own status bar).
@@ -1075,6 +1103,99 @@ carry it into R#14.
 
 The RAM of the machine is visible in subslots 3-0 and 3-2 (the same bytes), because game loaders look for it both ways: through
 the primary slot alone and by writing a subslot register value that selects 3-2.
+
+### Commodore 64
+
+Choose **Commodore 64** in the machine menu (or `--model c64`, or just `emu80 c64`, `emu80 c64 game.d64`). It is a PAL machine: the 6510 at
+985248 Hz, the VIC-II (the 6569: 312 lines of 63 cycles, 50.12 frames a second), two CIAs (6526), the SID (6581) and, on the serial bus, 1541 disk drives.
+Everything runs one cycle at a time: every access of the CPU advances the chips, the VIC-II stops it on the bad lines and for its sprites' DMA as
+the real chip does, and the 1541's own 6502 runs in step with it.
+
+**ROMs.** They are the originals, which are not distributed: put `Kernal.rom` (8K), `Basic.rom` (8K), `Char.rom` (4K, the character generator) and, for the disk drives,
+`VC1541.rom` (16K, the 1541's DOS) in the `roms/c64` folder. Their names can be changed in Settings > Common > ROMs (choose the Commodore 64 there). Without the
+first three the machine does not start (emu80 says which are missing and stays as it was); without `VC1541.rom` it starts with no disk drive.
+
+**The picture** is the 320x200 screen with a border of 16 pixels at each side and 44 lines above and below (352x288; the real border is wider), every pixel
+twice as wide as in the VIC-II's own resolution. The VIC-II is drawn as the beam goes, cycle by cycle (eight pixels each), from the registers as they are at that cycle: the
+raster bars and splits, the scroll registers, FLD and FLI (bad lines made or avoided by writing `$D011`), the 38-column and 24-row modes and
+the tricks that open the side and top borders work. Standard and multicolour text, extended colour text and the standard and multicolour bitmaps are
+there (the invalid combinations show black), the eight sprites with their expansion, priority, multicolour and DMA (they steal cycles from the CPU), the sprite-sprite and
+sprite-background collisions, the raster interrupt, the 16K bank chosen by CIA 2 with the character ROM in banks 0 and 2, and the idle state that shows the
+last byte of the bank (opened borders show it). Not emulated: the light pen and the exact timing of the VIC-II's unstable effects.
+
+**Sound.** The SID is clocked cycle by cycle: three voices with triangle, saw, pulse and noise waveforms (combined waveforms are approximated), the ADSR envelopes
+(with their exponential decay and rate counters), ring modulation, hard sync, the test bit, and the multimode filter (low, band and high pass, cutoff and
+resonance, voices routed to it, voice 3 off). The volume register is heard by itself, so the digitised sound programs play. `$D41B` and `$D41C` read the third voice's
+oscillator and envelope. The paddles read as released.
+
+**Keyboard and joysticks.** See [Keyboard](#2-keyboard). The keypad is a joystick (8, 2, 4, 6, the diagonals 7, 9, 1, 3 and the fire on 0, 5 or the right Ctrl) in the
+control port Settings > Commodore 64 chooses (both ports by default, since some games, like Mikie, read port 1 and most read port 2; port 1 shares its lines with the keyboard, and a joystick there can type by
+itself, as on the real machine). With Settings > Commodore 64 > *Cursor keys and Ctrl as a joystick* (on by default) the cursor keys and either Ctrl are the joystick (the fire button is Ctrl) and are not the C64's own cursor keys and CTRL; **Scroll Lock** switches between the two while running (to type with the cursor keys or CTRL, or to play). As on the real machine, a key of the keyboard in the same lines as the joystick (the space bar, CTRL...) also reads as a joystick direction or fire button in a game that reads port 2. The C= key is the PC's Tab.
+
+**Tapes (`.tap`).** File > Open, Tape > Insert tape & load, drag and drop or `--tape`. A `.tap` is the C64's own format (`C64-TAPE-RAW`, versions 0 and 1; a Spectrum `.tap` has
+no such header and is not one of these): its pulses are played into the CIA 1's FLAG line while the motor is on (bit 5 of the 6510's port) and PLAY is down, at the real speed, so
+the KERNAL's loader and the turbo loaders alike work. *Insert tape & load* resets the machine, presses PLAY and types `LOAD"",1,1` and, when it has finished, `RUN`.
+With Tape > Auto play/stop (on by default) PLAY is down whenever there is a tape that has not reached its end, so "PRESS PLAY ON TAPE" does not wait for the button; with it off, the
+Play/pause button (F8) is the PLAY key of the datasette (the machine says PRESS PLAY ON TAPE and waits for it). Stop, Rewind and Eject are as on the other machines.
+Fast loading (Tape > Fast loading) runs the emulation flat out, muted, while a tape plays and the motor is on. SAVE to tape is not available on the C64. With **Settings > Commodore 64 > Disconnect the drives while a tape is loaded** (`--c64_tapenodrive`, on by default) opening a tape disconnects the disk drives (inserting a disk connects drive 8 again, and drive 9 comes back with its setting): some tape games, like Ghostbusters and Green Beret, refuse to load with a drive on the serial bus.
+
+**Tape browser and Disk browser.** On the C64 they are simpler than the Spectrum's. The *Disk browser* (Floppy menu) lists the directory of the disk in drive 8 or 9 (name, type, blocks, size; a `*` before the type marks a file that was not closed); *Load* (or a double click) types `LOAD"name",8` and *Export...* saves the file as a `.prg`. The *Tape browser* (F7) lists the files the KERNAL saved on the tape (name, type, start and end addresses, size) and *Go to* puts the tape at the start of the one chosen; a tape that has a fast loader of its own has no KERNAL files to list. A `.t64` is not a tape the machine plays: its first program is loaded as a `.prg`.
+
+**Programs (`.prg`, `.p00`, `.t64`).** Opening one (File > Open, drag and drop, the command line) resets the machine, waits for the BASIC prompt, puts the program in memory and
+types `RUN` (if it starts at `$0801`, with its BASIC line) or `SYS` and its start address. A `.t64` (a tape container) loads its first program the same way.
+
+**Disks (`.d64`).** Opening a `.d64` (35, 40 or 42 tracks, with or without the error bytes) puts it in drive 8 and, with File > Open, resets the machine and types `LOAD"*",8,1` and `RUN`. The Floppy
+menu (drive A: is drive 8, B: is drive 9) and `--disk`, `--diskb` do the same for the drives: *Insert disk*, *New disk* (a formatted empty `.d64`), *Save disk* (as
+`.d64`; also the disk the drives have written, see below) and *Eject*. The drive is a real 1541: its 6502 runs `VC1541.rom`, with its two 6522 VIAs, 2K of RAM, the stepper motor moving
+the head half a track at a time, the motor and the LED, the disk turning at 300 rpm with the four speed zones (the bytes of every track come under the head one by one, 26 to
+32 cycles each, as GCR with its sync marks, headers, data blocks and gaps), the write protect sensor and the byte-ready signal that sets the overflow flag; and the
+serial bus (ATN, CLK and DATA, open collector, with the drive answering ATN by itself) joins its VIA to CIA 2. Everything the DOS does is the DOS's own: LOAD, SAVE, `OPEN` and the
+command channel (`NEW`, `SCRATCH`, `VALIDATE`...), the fast loaders that run code in the drive, the formats. What a program writes is decoded from the GCR the head wrote back
+into the image, so a disk formatted or saved to in the emulator is a real `.d64`. With **Settings > Commodore 64 > What the drives write goes into the .d64 files** (`--c64_savedisk`, on by
+default) the file is written once the drive has been quiet for a moment and when the disk is taken out; with it off the changes are kept in memory until the disk is ejected unless Floppy > Save disk
+is used. A `.d64` that is read-only on the PC is a write-protected disk. The error bytes of the `.d64` (header or data not found, checksum and ID errors) are reproduced, for copy protections that read them.
+**Fast floppy disk access** (Floppy menu) runs the emulation flat out, muted, while a drive works: without it a disk loads at the real speed (a 1541's: about 400 bytes a second).
+The second drive (device 9) is connected with Settings > Commodore 64 > Second disk drive, with the Floppy menu's "Drive 9: connected" (the "Drive B:" entry), with `--c64_drive9`, or by giving it a disk. `G64` images, the 1571 and the 1581 are not emulated.
+
+**Not emulated**: cartridges (`.crt`) and the expansion port, the user port and RS-232, the REU, `.t64` and `.g64` files, tape recording (SAVE to tape), snapshots, the datasette's
+sound, the 8580 SID and the filter's exact curve. The sound is mixed in mono.
+
+**Debugger.** Machine > Debug > Debugger (F12) opens the 6510's own debugger (the Z80 one is the other machines'), laid out like the Z80 debugger and with the same colours: the
+disassembly in the middle, the registers on the right, and under them the memory, the breakpoints and the watches. The toolbar runs (F5) and breaks, steps into (F7) and over (F10: a JSR runs
+as a whole), steps out (F11: to the address the stack returns to), runs to the selected line (F9), goes to an address (Ctrl+G), puts or takes away a breakpoint on the selected line (F8, or a
+click on the gutter or a double-click on the line), removes all the breakpoints, adds a watch, loads symbols and opens the *System* window. The disassembly marks the program counter in green and
+the breakpoints in red (`E`, `R`, `W` or `A` in the gutter, `?` if conditional), the mnemonics are blue (dark red for the undocumented opcodes), A, X and Y are bold, a name stands for the address it
+has with its value in grey brackets (the KERNAL's entry points, the VIC-II, SID and CIA registers, and the symbols of a file loaded with the Symbols button: lines `NAME = $ADDRESS`, as the assemblers
+write them, the DAAD interpreter's `.sym` files for one), and at the program counter a conditional branch shows a tick or a cross: taken or not. Over a mnemonic, after a second, a hint says what
+the instruction does, the flags it changes, its addressing mode, its bytes and its cycles; over a hex number its decimal value shows. It follows the program counter while the machine is stopped;
+scroll with the wheel or the cursor keys to look elsewhere. *Registers*: A, X, Y, SP, PC and P (click one to change it; dark red if the last instruction changed it), the flags (click to toggle,
+hint over each name), the interrupt lines, the 6510's port and what it maps at `$A000`, `$D000` and `$E000`, and the stack as 16-bit words with the JSR that pushed each return address. *Zero page*
+(under the registers): its 256 bytes (double-click to change one). *Memory*: a hex dump with its characters (a *RAM only* switch shows and changes the RAM under the ROMs and the I/O; right-click a
+byte to stop when it is read or written). *Breakpoints*: execution, read and write, on an address or a range, each with an optional condition, switched on and off with its box (Insert adds,
+Delete removes, Enter edits); a breakpoint stops the machine at the instruction that did the access. *Watches*: expressions shown in hex and decimal. The *System* window shows the 6510's port and the
+memory configuration, the VIC-II's registers decoded, the CIAs, the SID, the drives with their program counter, track, motor and LED, the serial bus and the tape.
+Conditions and watches use the debugger's expressions: hex numbers (`$C000`, or just `C000`), decimal ones after a dot (`.10`), the registers `A X Y SP PC P`, the flags `#N #V #B #D #I #Z #C`, `@x` (the byte at
+an address), `T` (how many times the breakpoint has been reached), `+ - * / MOD & |`, `= <> < > <= >=`, `AND OR XOR NOT` and parentheses: `A=3 AND X>.10`, `@D020=0`, `#Z=1 OR PC>=E000`. The command line's `--bp`, `--bpr`,
+`--bpw` and `--bprw` (with a condition: `--bp 'C000 if A=3'`) and `--breakpoints` work on the C64's addresses. There is no step back.
+
+**Adventure Debugger.** Debug > Adventure Debugger (F11) works on the DAAD interpreter for the Commodore 64 (the database's header says machine 2): the database is where the interpreter puts it, `$3880`, and the 256 flags
+(then the objects' locations) are 514 bytes before it, at `$367E`. The condacts are followed as on the other machines (the interpreter's fetch is learnt as the game runs); see
+[Adventure Debugger](#11-adventure-debugger).
+
+**Settings** (Settings > Commodore 64; in `emu80.ini` the section `[Commodore64]`):
+
+| Setting | Command line | emu80.ini |
+|---|---|---|
+| Numeric keypad and right Ctrl as a joystick | `--c64_joystick` / `--no-c64_joystick` | `c64_joystick` (default on) |
+| Cursor keys and Ctrl as a joystick | `--c64_cursorjoy` / `--no-c64_cursorjoy` | `c64_cursorjoy` (default on) |
+| Control port of that joystick | `--c64_joyport 1\|2\|3` (3: both) | `c64_joyport` (default `3`, both) |
+| Second disk drive (device 9) | `--c64_drive9` / `--no-c64_drive9` | `c64_drive9` (default off) |
+| What the drives write goes into the .d64 files | `--c64_savedisk` / `--no-c64_savedisk` | `c64_savedisk` (default on) |
+| Disconnect the drives while a tape is loaded | `--c64_tapenodrive` / `--no-c64_tapenodrive` | `c64_tapenodrive` (default on) |
+
+**Tests**: `tests/c64cputest.lpr` (needs no ROMs: the 6510's flags, decimal mode, addressing modes and cycle counts, interrupts, undocumented opcodes, the `.d64` GCR coding and the debugger's expressions) and, when the four ROMs are in `roms/c64`,
+`c64spec`, `c64sound` (the SID plays a note at its pitch), `c64tape` (a program made by `tests/mkc64tap.py` loads from a `.tap`), `c64save` (SAVE and LOAD on a new `.d64`, and a second drive) and, with `C64_DAAD_D64` set to a `.d64` of a DAAD game,
+`c64daad` (the Adventure Debugger follows its condacts), all run by `run-tests.sh`. `tests/c64run.lpr <roms/c64> [frames] [d64 or tap] [commands]` boots the machine and prints its screen as text (`C64PPM=file.ppm` saves the picture).
 
 ### emu80 snapshots (.e80)
 
@@ -1825,18 +1946,18 @@ can be carried.
 emu80 [options] [file]
 ```
 
-A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .mgt, .sad, .nex or .e80) is opened as with File > Open, so a tape or disk is loaded
+A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .mgt, .sad, .nex, .e80, or the Commodore 64's .d64, .prg, .p00 and .t64) is opened as with File > Open, so a tape or disk is loaded
 automatically. Options start with `-` or `--` and take their value as the next argument or after
 "=" (`--model=128k`). Options are applied in this order whatever their position: machine, files,
 symbols, breakpoints, typed keys.
 
 | Option | Description |
 |---|---|
-| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128`, `sam` (also `+2`, `+2b`, `+3`). A CPC or the SAM Coupé can also be named alone: `emu80 cpc6128`, `emu80 cpc464 game.cdt`, `emu80 sam game.mgt` |
+| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128`, `sam`, `msx2`, `c64` (also `+2`, `+2b`, `+3`). A CPC, the SAM Coupé, the MSX2 or the Commodore 64 can also be named alone: `emu80 cpc6128`, `emu80 cpc464 game.cdt`, `emu80 sam game.mgt`, `emu80 c64 game.d64` |
 | `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > Common > General) |
 | `--scale N` | window zoom 1 to 4 |
-| `--tape FILE` | insert a .tap, .tzx or .cdt without starting it (combine with `--keyin`) |
-| `--disk FILE` | insert a .dsk, .mgt or .sad in drive A: (switches to the +3 unless `--model` says otherwise; a CPC 464 becomes a 6128; a SAM Coupe disk needs `--model sam`, and says so if it isn't); `--diska` is the same |
+| `--tape FILE` | insert a .tap, .tzx or .cdt without starting it (combine with `--keyin`; a Commodore 64 tape is a .tap) |
+| `--disk FILE` | insert a .dsk, .mgt or .sad (a .d64 on the Commodore 64: drive 8) in drive A: (switches to the +3 unless `--model` says otherwise; a CPC 464 becomes a 6128; a SAM Coupe disk needs `--model sam`, and says so if it isn't); `--diska` is the same |
 | `--diskb FILE` | insert a disk image in drive B: (connects drive B:) |
 | `--sym FILE` | load a symbol file (also `-s`); the breakpoints given on the command line can then use its symbols, both as addresses (`--bp MAIN`) and in conditions |
 | `--bp ADDR` | execution breakpoint at ADDR: hex or a symbol (`#NAME` forces the symbol) |
@@ -1896,6 +2017,12 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--sam_memory K` | SAM Coupé: the RAM in K, `256` or `512` (the default); resets the machine (see [SAM Coupé](#sam-coupé)) | SAM Coupé |
 | `--sam_saa` | SAM Coupé: the SAA1099 is heard (on by default) | SAM Coupé |
 | `--sam_joystick` | SAM Coupé: cursor keys and right Ctrl as a Kempston joystick (on by default) | SAM Coupé |
+| `--c64_joystick` | Commodore 64: the keypad and the right Ctrl are a joystick (on by default) | Commodore 64 |
+| `--c64_cursorjoy` | Commodore 64: the cursor keys and Ctrl (either) are a joystick, not the C64's own keys; Scroll Lock switches (on by default) | Commodore 64 |
+| `--c64_joyport N` | Commodore 64: the control port of that joystick, `1`, `2` or `3` for both (the default) | Commodore 64 |
+| `--c64_drive9` | Commodore 64: a second 1541, drive 9 (off by default; `--diskb` connects it too) | Commodore 64 |
+| `--c64_tapenodrive` | Commodore 64: opening a tape disconnects the disk drives, as some tape games need (on by default) | Commodore 64 |
+| `--c64_savedisk` | Commodore 64: what the drives write goes into the `.d64` files (on by default) | Commodore 64 |
 | `--msx_joystick` | MSX: cursor keys and right Ctrl as joystick 1 (on by default) | MSX |
 | `--msx_cartmapper M` | MSX: mapper of the cartridges: `auto` (the default), `plain`, `konami`, `konamiscc`, `ascii8` or `ascii16` | MSX |
 | `--msx_mapper M` | MSX2: the RAM mapper's ports: `auto` (the default: off when Auto load starts a tape), `on` or `off`; from the next reset | MSX |
@@ -2046,7 +2173,7 @@ screen text. See the comment at the top of the file for its arguments.
 
 ## ROMs
 
-The MSX BIOS is not distributed: it goes in `roms/msx/` (see [MSX](#msx)), which git ignores.
+The MSX BIOS is not distributed: it goes in `roms/msx/` (see [MSX](#msx)), which git ignores. Nor are the Commodore 64's ROMs (`Kernal.rom`, `Basic.rom`, `Char.rom` and the 1541's `VC1541.rom`): they go in `roms/c64/` (see [Commodore 64](#commodore-64)), which git ignores too.
 
 The SAM Coupé's ROM (`samcoupe.rom`, version 3.0) and the SAMDOS 2 disk (`SAMDOS2.dsk`) are in `roms/`, (c) MGT (the games and disks used to try the machine are not distributed). Another ROM can be named
 in Settings > Common > ROMs. The SAM Coupé emulation was written from its Technical Manual and checked against its behaviour; no code of SimCoupe (GPL v2) or of any other emulator is used.

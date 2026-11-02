@@ -8,7 +8,7 @@ interface
 
 uses
   Classes, SysUtils, Math, Process, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
-  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, Msx, MsxMachine, DSK, Emulator, Config, Icons, PokeForm,
+  ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, Msx, MsxMachine, C64, C64Disk, DSK, Emulator, Config, Icons, PokeForm,
   Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide, VirtualKeyboard;
 
 type
@@ -81,6 +81,10 @@ type
     FCPCKeyCount: array[0..79] of Integer;   // the CPC's keys (CPCK_*) held
     FSamKeyCount: array[0..SAMK_COUNT - 1] of Integer;   // the SAM Coupe's keys (SAMK_*) held
     FMsxKeyCount: array[0..MSXK_COUNT - 1] of Integer;   // the MSX's keys (MSXK_*) held
+    FC64KeyCount: array[0..C64K_COUNT - 1] of Integer;    // the C64's keys (C64K_*) held
+    FC64ChordKeys: array[0..C64K_COUNT - 1] of Integer;   // the ones held by a character's chord
+    FC64Joy: array[0..4] of Integer;                      // the joystick's up, down, left, right and fire held
+    FC64Restore: Integer;                                 // RESTORE held
     FMsxShiftOff: Integer;                  // Shift+F1..F5 held (the MSX's F1..F5): its SHIFT is not down
     FMsxJoy: array[0..5] of Integer;         // the MSX joystick's directions and buttons held (MSXJ_ bit order)
     FCartTop: TMenuItem;                     // the Cartridge menu (MSX)
@@ -88,7 +92,7 @@ type
     FCartFile: string;                       // the file of the cartridge inserted
     FOldMapper: string;                      // the cartridge mapper when the settings window opened
     // The SAM's keys that make characters go by the character the PC keyboard gives (any layout), not
-    // by the key: FSamRoute 1 = by character, 2 = Alt+F key (the MSX: Shift+F key); the chord of each PC key held
+    // by the key: FSamRoute 1 = by character, 2 = F key (the SAM's: Alt+F; the MSX's and the C64's: Shift+F); the chord of each PC key held
     FSamRoute: array[0..255] of Byte;
     FSamChordKey, FSamChordMod: array[0..255] of SmallInt;
     FSamChordKeys: array[0..SAMK_COUNT - 1] of Integer;   // the SAM keys held by those chords
@@ -159,6 +163,19 @@ type
     procedure MapKeyCPC(Key: Word; Down: Boolean);
     procedure MapKeySAM(Key: Word; Down: Boolean);
     procedure MapKeyMSX(Key: Word; Down: Boolean);
+    procedure MapKeyC64(Key: Word; Down: Boolean);
+    procedure UpdateKeyboardC64;
+    function C64KeyHeld(K: Integer): Boolean;
+    procedure ChordC64(VK: Word; const UTF8Key: TUTF8Char);
+    function OpenC64File(const FileName: string; Kind: Integer; AutoStart: Boolean): Boolean;
+    procedure InsertC64Disk(Drive: Integer; const FileName: string);
+    procedure InsertC64DiskDialog(Drive: Integer);
+    procedure EjectC64Disk(Drive: Integer);
+    procedure SaveC64Disk(Drive: Integer; AskName: Boolean);
+    procedure NewC64Disk(Drive: Integer);
+    procedure C64TapeAction(What: Integer);
+    procedure C64TapeInfo(out Line, TapeFile: string; out Progress: Double; out Playing, Have: Boolean);
+    procedure ApplyC64Settings;
     procedure InsertCartridgeFile(const FileName: string);
     procedure DoCartInsert(Sender: TObject);
     procedure DoCartEject(Sender: TObject);
@@ -356,8 +373,8 @@ var
 implementation
 
 uses
-  Snapshot, Tape, TapeBrowser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
-  SDBrowser, CartBrowser, FatFS, DebugFiles, NextCard, DiskFormat, Lang;
+  Snapshot, Tape, TapeBrowser, C64Browser, SettingsForm, DebuggerForm, DaadForm, Symbols, BreakExpr, DiskBrowser,
+  SDBrowser, CartBrowser, FatFS, DebugFiles, NextCard, DiskFormat, Lang, C64Debugger;
 
 {$IFDEF WINDOWS}
 { (The Windows unit would hide SysUtils' DeleteFile and others) }
@@ -368,6 +385,12 @@ function WinGetAsyncKeyState(vKey: LongInt): SmallInt; stdcall; external 'user32
 const
   // The Shifts and Ctrls, whose left and right keys Windows reports unreliably (see SyncModifiers)
   MODIFIER_KEYS = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL];
+
+{ Ctrl or Shift held while a disk, tape, program or cartridge goes in: it is inserted but nothing starts }
+function NoAutoStartKey: Boolean;
+begin
+  Result := (GetKeyState(VK_CONTROL) < 0) or (GetKeyState(VK_SHIFT) < 0);
+end;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
 function LookupConditionSymbol(const Name: string; out Value: Word): Boolean;
@@ -383,6 +406,9 @@ const
   CART_MAPPER_NAMES: array[0..5] of string = ('Auto-detect', 'Plain ROM (no mapper)', 'Konami', 'Konami SCC', 'ASCII8', 'ASCII16');
   // TR-END
 
+function C64FileKind(const FileName: string): Integer; forward;
+function C64CharKey(Key: Word): Boolean; forward;
+
 { The file dialogs' filters (their descriptions in the language in use) }
 function DiskFilter: string;
 begin
@@ -396,7 +422,8 @@ end;
 
 function OpenFilter: string;
 begin
-  Result := _F('All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80;*.rom;*.cas;*.tsx|' +
+  Result := _F('All supported files|*.tap;*.tzx;*.cdt;*.sna;*.z80;*.dsk;*.mgt;*.sad;*.nex;*.e80;*.rom;*.cas;*.tsx;*.d64;*.prg;*.p00;*.t64|' +
+    'Commodore 64 files (*.d64;*.prg;*.p00;*.t64;*.tap)|*.d64;*.prg;*.p00;*.t64;*.tap|' +
     'MSX cartridges (*.rom)|*.rom|' +
     'Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)|*.tap;*.tzx;*.cdt;*.cas;*.tsx|' +
     'Snapshots (*.sna;*.z80;*.e80)|*.sna;*.z80;*.e80|' +
@@ -551,9 +578,9 @@ begin
       // Fall back to the ROMs next to the executable (a ZX-Uno without its
       // BIOS: the 48K)
       Err := E.Message;
-      // (an MSX2 without its ROMs: the 48K, and the ROM folder stays)
-      if Settings.Model <> smMSX2 then Settings.RomDir := DefaultRomDir;
-      if Settings.Model in [smZXUno, smMSX2] then Settings.Model := sm48K;
+      // (an MSX2 or a C64 without its ROMs: the 48K, and the ROM folder stays)
+      if not (Settings.Model in [smMSX2, smC64]) then Settings.RomDir := DefaultRomDir;
+      if Settings.Model in [smZXUno, smMSX2, smC64] then Settings.Model := sm48K;
       FEmu := TEmulator.Create(Settings.Model, Settings.RomDir);
     end;
   end;
@@ -718,21 +745,25 @@ begin
   FRecentTapesMenuJ := AddItem(TopItem, _('Just insert recent &tape'), nil);
   AddItem(TopItem, '-', nil);
   FModernHide := TList.Create;
-  FModernHide.Add(AddItem(TopItem, _('Tape &browser...'), @DoTapeBrowser, ShortCut(VK_F7, [])));
+  Item := AddItem(TopItem, _('Tape &browser...'), @DoTapeBrowser, ShortCut(VK_F7, []));
+  Item.Tag := 99;
+  FModernHide.Add(Item);
   FModernHide.Add(AddItem(TopItem, _('&Play/pause'), @DoTapePlay, ShortCut(VK_F8, [])));
   FModernHide.Add(AddItem(TopItem, _('&Stop'), @DoTapeStop, ShortCut(VK_F8, [ssCtrl])));
   FRecItem := AddItem(TopItem, _('Re&cord (REC)'), @DoTapeRecord);
+  FRecItem.Tag := 99;
   FModernHide.Add(FRecItem);
   FModernHide.Add(AddItem(TopItem, _('&Rewind'), @DoTapeRewind));
   AddItem(TopItem, _('&Eject'), @DoTapeEject);
-  AddItem(TopItem, _('Save tape &as...'), @DoTapeSave);
+  AddItem(TopItem, _('Save tape &as...'), @DoTapeSave).Tag := 99;
   AddItem(TopItem, '-', nil);
-  AddItem(TopItem, _('&New blank tape'), @DoNewTape);
+  AddItem(TopItem, _('&New blank tape'), @DoNewTape).Tag := 99;
   AddItem(TopItem, '-', nil);
   FFastLoadItem := AddItem(TopItem, _('&Fast loading'), @DoFastLoad);
   FModernHide.Add(FFastLoadItem);
   FAutoPlayItem := AddItem(TopItem, _('&Auto play/stop'), @DoAutoPlay);
   FSaveToTapeItem := AddItem(TopItem, _('SA&VE writes to the tape'), @DoSaveToTape);
+  FSaveToTapeItem.Tag := 99;
 
   TopItem := AddItem(FMenu.Items, _('F&loppy'), nil);
   FFloppyTop := TopItem;
@@ -945,8 +976,8 @@ begin
     FModelPopupItems[M].RadioItem := True;
     FModelPopupItems[M].GroupIndex := 1;
     FModelPopupItems[M].OnClick := @DoModel;
-    // The MSX2 and the SAM Coupe are single machines: they sit at the first level, after the families (the SAM last)
-    if IsMSXModel(M) then
+    // The MSX2, the C64 and the SAM Coupe are single machines: they sit at the first level, after the families (the SAM last)
+    if IsMSXModel(M) or IsC64Model(M) then
       FModelMenu.Items.Add(FModelPopupItems[M])
     else if IsSAMModel(M) then
       SamItem := FModelPopupItems[M]
@@ -1025,7 +1056,8 @@ begin
     FEmu.Spec.SetSpeed(Settings.CpuSpeed);
     FEmu.Spec.SaveToTape := Settings.SaveToTape;
     FEmu.Spec.SetFastDisk(Settings.FastDisk);
-    FEmu.Spec.DriveBOn := Settings.DriveB;
+    if IsC64Model(FEmu.Spec.Model) then ApplyC64Settings
+    else FEmu.Spec.DriveBOn := Settings.DriveB;
     FEmu.Spec.FloppyNoise := Settings.FloppyNoise;
     FEmu.Spec.Volume := Settings.Volume / 100;
     FEmu.Spec.TurboSound := Settings.TurboSound and (FEmu.Spec.CPC = nil);
@@ -1244,8 +1276,20 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   FFastDiskItem.Checked := Settings.FastDisk;
-  FDriveBItem.Checked := Settings.DriveB;
-  for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := Settings.DriveB;
+  if IsC64Model(M) then FDriveBItem.Checked := Settings.C64Drive9 else FDriveBItem.Checked := Settings.DriveB;
+  for I := 0 to High(FDriveBItems) do FDriveBItems[I].Visible := (IsC64Model(M) and Settings.C64Drive9) or (not IsC64Model(M) and Settings.DriveB);
+  // The drives of the C64 are 8 and 9
+  if FFloppyTop <> nil then
+    for I := 0 to FFloppyTop.Count - 1 do
+    begin
+      if FFloppyTop.Items[I].Hint = '' then FFloppyTop.Items[I].Hint := FFloppyTop.Items[I].Caption;
+      if IsC64Model(M) then
+        FFloppyTop.Items[I].Caption := StringReplace(StringReplace(FFloppyTop.Items[I].Hint, 'A:', '8:', []), 'B:', '9:', [])
+      else FFloppyTop.Items[I].Caption := FFloppyTop.Items[I].Hint;
+    end;
+  if FTapeTop <> nil then
+    for I := 0 to FTapeTop.Count - 1 do
+      if FTapeTop.Items[I].Tag = 99 then FTapeTop.Items[I].Visible := not IsC64Model(M);
   FDriveNmiItem.Visible := M = smZXNext;
   // The menus of what the machine has: a drive built in, or the DivMMC (which brings an SD card and a disk
   // interface to any machine); the modern interface has them behind the Media palette's buttons instead
@@ -1269,7 +1313,7 @@ begin
   FDeinterlaceItems[Settings.Deinterlace].Checked := True;
   FCrtcItems[Settings.CPCCrtc + 1].Checked := True;
   // Deinterlacing is the Spectrum's, the CRTC chip the CPC's
-  FDeinterlaceTop.Visible := (FEmu.Spec.CPC = nil) and not IsSAMModel(M);
+  FDeinterlaceTop.Visible := (FEmu.Spec.CPC = nil) and not IsSAMModel(M) and not IsC64Model(M);
   FCrtcTop.Visible := FEmu.Spec.CPC <> nil;
   FKeyboardItem.Visible := M in [sm16K..smZXNext];
     // A zoom too big for the screen can't be chosen
@@ -1385,7 +1429,7 @@ var
 
   function DiskFits: Boolean;
   begin
-    Result := FloppyAvailable and ((Ext = '.dsk') or (IsSAMModel(M) and ((Ext = '.mgt') or (Ext = '.sad'))));
+    Result := FloppyAvailable and ((Ext = '.dsk') and (Memory <> mkC64) or (IsSAMModel(M) and ((Ext = '.mgt') or (Ext = '.sad'))));
   end;
 
 begin
@@ -1393,14 +1437,15 @@ begin
   M := FEmu.Spec.Model;
   Memory := FEmu.Spec.Info.Memory;
   case Kind of
-    1: Result := DiskFits;
+    1: Result := DiskFits or ((Memory = mkC64) and (Ext = '.d64'));
     2: Result := SDAvailable;
     // Tapes and cartridges have lists of their own (the tape and cartridge menus); the files opened
     // include them as well, judged by their type below
     3, 4: Result := RecentFits(FileName, 0);
   else
-    if Ext = '.tap' then Result := not (Memory in [mkCPC, mkMSX])      // the SAM Coupé's ROM loads the Spectrum's standard speed blocks
-    else if Ext = '.tzx' then Result := True
+    if (Ext = '.d64') or (Ext = '.prg') or (Ext = '.p00') or (Ext = '.t64') then Result := Memory = mkC64
+    else if Ext = '.tap' then Result := not (Memory in [mkCPC, mkMSX]) and ((Memory = mkC64) = (C64FileKind(FileName) = 3))      // the SAM Coupé's ROM loads the Spectrum's standard speed blocks
+    else if Ext = '.tzx' then Result := Memory <> mkC64
     else if (Ext = '.cas') or (Ext = '.tsx') then Result := Memory = mkMSX
     else if Ext = '.rom' then Result := Memory = mkMSX
     else if Ext = '.cdt' then Result := Memory = mkCPC
@@ -1581,14 +1626,19 @@ end;
 
 procedure TMainWindow.StatusTick(Sender: TObject);
 var
-  TapeText: string;
+  TapeText, C64Name: string;
+  C64Progress: Double;
   Spec: TSpectrum;
-  HaveDisk, HaveCard: Boolean;
+  HaveDisk, HaveCard, C64Playing, C64Have: Boolean;
 begin
   FEmu.Lock;
   try
     Spec := FEmu.Spec;
-    if Spec.Recording then
+    if IsC64Model(Spec.Model) then
+    begin
+      C64TapeInfo(TapeText, C64Name, C64Progress, C64Playing, C64Have);
+    end
+    else if Spec.Recording then
       TapeText := Format(_('Recording (%d blocks)'), [Spec.Tape.Count])
     else if Spec.Tape.Count = 0 then
       TapeText := _('No tape')
@@ -1600,7 +1650,7 @@ begin
         TapeText := TapeText + ': ' + Spec.Tape[Spec.Tape.Current].Description;
     end;
     // The Play button shows a pause while the tape plays
-    if Spec.Tape.Playing then
+    if (Spec.Tape.Playing and not IsC64Model(Spec.Model)) or (IsC64Model(Spec.Model) and C64Playing) then
       FTapePlayButton.ImageIndex := Ord(ikPause)
     else
       FTapePlayButton.ImageIndex := Ord(ikPlay);
@@ -1695,9 +1745,11 @@ procedure TMainWindow.DrawMediaPanel(StatusBar: TStatusBar; Panel: TStatusPanel;
   const Rect: TRect);
 const
   NAMES: array[0..2] of string = ('A', 'B', 'SD');
+  C64_NAMES: array[0..2] of string = ('8', '9', 'SD');
 var
   C: TCanvas;
   I, X, LedW, LedH, Y: Integer;
+  Nm: string;
 begin
   C := StatusBar.Canvas;
   C.Brush.Style := bsSolid;
@@ -1711,8 +1763,9 @@ begin
     if (FMediaState and (1 shl I)) = 0 then Continue;
     C.Brush.Style := bsClear;
     C.Font.Color := clWindowText;
-    C.TextOut(X, Rect.Top + (Rect.Bottom - Rect.Top - C.TextHeight(NAMES[I])) div 2, NAMES[I]);
-    Inc(X, C.TextWidth(NAMES[I]) + 4);
+    if IsC64Model(FEmu.Spec.Model) then Nm := C64_NAMES[I] else Nm := NAMES[I];
+    C.TextOut(X, Rect.Top + (Rect.Bottom - Rect.Top - C.TextHeight(Nm)) div 2, Nm);
+    Inc(X, C.TextWidth(Nm) + 4);
     // The LED: light red while reading, dark red when idle
     Y := Rect.Top + (Rect.Bottom - Rect.Top - LedH) div 2;
     C.Brush.Style := bsSolid;
@@ -1732,6 +1785,11 @@ var
   Value: Byte;
   Ext: Word;
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    UpdateKeyboardC64;
+    Exit;
+  end;
   if FEmu.Spec.Model in [smCPC464, smCPC664, smCPC6128] then
   begin
     // The CPC's matrix: 10 lines of 8 keys
@@ -1830,6 +1888,11 @@ begin
   if IsSAMModel(FEmu.Spec.Model) then
   begin
     MapKeySAM(Key, Down);
+    Exit;
+  end;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    MapKeyC64(Key, Down);
     Exit;
   end;
   if IsMSXModel(FEmu.Spec.Model) then
@@ -2067,7 +2130,7 @@ begin
     try
       Used := FEmu.Spec.MSXHw.InsertCartridge(1, ChangeFileExt(ExtractFileName(FileName), ''), Data[0],
         Length(Data), Auto, Kind);
-      FEmu.Spec.Reset(True);
+      if not NoAutoStartKey then FEmu.Spec.Reset(True);   // (Ctrl or Shift: it goes in, but the MSX is not restarted)
     finally
       FEmu.Unlock;
     end;
@@ -2240,7 +2303,7 @@ end;
 
 procedure TMainWindow.FormKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 var
-  IsSam, AltGr, SamF, MsxF, ByChar: Boolean;
+  IsSam, AltGr, SamF, MsxF, ByChar, IsC64, C64F: Boolean;
 begin
   // The modern interface has no menu bar to take its shortcuts
   if FModern and MenuShortcut(Key, Shift) then
@@ -2249,6 +2312,7 @@ begin
     Exit;
   end;
   IsSam := IsSAMModel(FEmu.Spec.Model);
+  IsC64 := IsC64Model(FEmu.Spec.Model);
   // AltGr is Ctrl+Alt: on a SAM it makes characters ([ ] { } @ # \ | on a Spanish keyboard)
   AltGr := (ssAltGr in Shift) or ((ssAlt in Shift) and (ssCtrl in Shift));
   // The SAM's F keys are Alt+F1..F10 (the others are the emulator's)
@@ -2256,8 +2320,11 @@ begin
   // The MSX's F keys are Shift+F1..F10
   MsxF := IsMSXModel(FEmu.Spec.Model) and (ssShift in Shift) and not (ssCtrl in Shift) and not (ssAlt in Shift) and
     (Key >= VK_F1) and (Key <= VK_F10);
-  if (Key >= VK_F1) and (Key <= VK_F24) and not SamF and not MsxF then Exit;    // leave function keys to the menu
-  if not SamF and ((Key = VK_MENU) or ((ssAlt in Shift) and not (IsSam and AltGr))) then Exit;
+  // The C64's F keys are Shift+F1..F8
+  C64F := IsC64 and (ssShift in Shift) and not (ssCtrl in Shift) and not (ssAlt in Shift) and (Key >= VK_F1) and
+    (Key <= VK_F8);
+  if (Key >= VK_F1) and (Key <= VK_F24) and not SamF and not MsxF and not C64F then Exit;    // leave function keys to the menu
+  if not SamF and not C64F and ((Key = VK_MENU) or ((ssAlt in Shift) and not (IsSam and AltGr))) then Exit;
   {$IFDEF WINDOWS}
   if Key in MODIFIER_KEYS then
   begin
@@ -2269,6 +2336,7 @@ begin
   Key := SidedKey(Key);
   // The SAM takes the characters from the keyboard layout, so any layout can type them all
   ByChar := IsSam and (Key <= High(FSamRoute)) and SamCharKey(Key) and (not (ssCtrl in Shift) or AltGr);
+  if IsC64 then ByChar := (Key <= High(FSamRoute)) and C64CharKey(Key) and (not (ssCtrl in Shift) or AltGr);
   if Key <= High(FPCKeyDown) then
   begin
     if FPendingUp[Key] <> 0 then ReleasePCKey(Key);   // finish a pending tap first
@@ -2276,7 +2344,7 @@ begin
     begin
       FPCKeyDown[Key] := True;
       FPCKeyTime[Key] := GetTickCount64;
-      if SamF or MsxF then FSamRoute[Key] := 2
+      if SamF or MsxF or C64F then FSamRoute[Key] := 2
       else if ByChar then
       begin
         FSamRoute[Key] := 1;
@@ -2309,6 +2377,12 @@ var
   K, M: Integer;
 begin
   VK := FSamLastCharVK;
+  if IsC64Model(FEmu.Spec.Model) and (VK <= High(FSamRoute)) and (FSamRoute[VK] = 1) and FPCKeyDown[VK] then
+  begin
+    ChordC64(VK, UTF8Key);
+    UTF8Key := '';
+    Exit;
+  end;
   if not IsSAMModel(FEmu.Spec.Model) or (VK > High(FSamRoute)) or (FSamRoute[VK] <> 1) or
      not FPCKeyDown[VK] then Exit;
   // An auto-repeat gives the same character again: the chord is down already
@@ -2447,6 +2521,10 @@ begin
   for I := 0 to High(FSamKeyCount) do FSamKeyCount[I] := 0;
   for I := 0 to High(FMsxKeyCount) do FMsxKeyCount[I] := 0;
   for I := 0 to High(FMsxJoy) do FMsxJoy[I] := 0;
+  for I := 0 to High(FC64KeyCount) do FC64KeyCount[I] := 0;
+  for I := 0 to High(FC64ChordKeys) do FC64ChordKeys[I] := 0;
+  for I := 0 to High(FC64Joy) do FC64Joy[I] := 0;
+  FC64Restore := 0;
   FMsxShiftOff := 0;
   for I := 0 to High(FSamChordKeys) do FSamChordKeys[I] := 0;
   for I := 0 to High(FSamRoute) do
@@ -2568,9 +2646,23 @@ var
   Ext: string;
   Disk, Dos: TDiskImage;
   CPCNote: string;
+  K64: Integer;
 begin
   CPCNote := '';
+  if NoAutoStartKey then AutoStart := False;
   Ext := LowerCase(ExtractFileExt(FileName));
+  K64 := C64FileKind(FileName);
+  if K64 > 0 then
+  begin
+    OpenC64File(FileName, K64, AutoStart);
+    Exit;
+  end;
+  // Spectrum, CPC and MSX files: not for the C64
+  if IsC64Model(FEmu.Spec.Model) and (Ext <> '.rom') and (Ext <> '.e80') then
+  begin
+    if (Ext = '.dsk') or (Ext = '.mgt') or (Ext = '.sad') then ChangeModel(smPlus3) else ChangeModel(sm48K);
+    if IsC64Model(FEmu.Spec.Model) then Exit;
+  end;
   if Ext = '.rom' then
   begin
     InsertCartridgeFile(FileName);
@@ -2725,6 +2817,8 @@ begin
     Result := _F('Tape images (*.cdt;*.tzx)|*.cdt;*.tzx')
   else if FEmu.Spec.Info.Memory = mkMSX then
     Result := _F('MSX tape images (*.cas;*.tsx;*.tzx)|*.cas;*.tsx;*.tzx')
+  else if FEmu.Spec.Info.Memory = mkC64 then
+    Result := _F('Commodore 64 tapes (*.tap;*.t64)|*.tap;*.t64')
   else
     Result := _F('Tape images (*.tap;*.tzx)|*.tap;*.tzx');
 end;
@@ -2782,6 +2876,11 @@ var
   Dlg: TSaveDialog;
   FileName, Ext: string;
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    MessageDlg(_('Save snapshot'), _('Snapshots are not available for the Commodore 64.'), mtInformation, [mbOK], 0);
+    Exit;
+  end;
   Dlg := TSaveDialog.Create(Self);
   try
     // .z80 and .sna can't hold the Next or the ZX-Uno: emu80's own format;
@@ -3414,12 +3513,18 @@ end;
 
 procedure TMainWindow.DoTapeBrowser(Sender: TObject);
 begin
-  ShowTapeBrowser(FEmu);
+  if IsC64Model(FEmu.Spec.Model) then ShowC64Browser(FEmu, cbTape)
+  else ShowTapeBrowser(FEmu);
 end;
 
 { Play/pause: plays the tape from where it is; while it plays, stops it there }
 procedure TMainWindow.DoTapePlay(Sender: TObject);
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    C64TapeAction(0);
+    Exit;
+  end;
   FEmu.Lock;
   try
     if FEmu.Spec.Tape.Playing or FEmu.Spec.CPCTapeArmed then FEmu.Spec.StopTape
@@ -3431,6 +3536,11 @@ end;
 
 procedure TMainWindow.DoTapeStop(Sender: TObject);
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    C64TapeAction(1);
+    Exit;
+  end;
   FEmu.Lock;
   try
     FEmu.Spec.StopTape;
@@ -3441,6 +3551,11 @@ end;
 
 procedure TMainWindow.DoTapeRewind(Sender: TObject);
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    C64TapeAction(2);
+    Exit;
+  end;
   FEmu.Lock;
   try
     FEmu.Spec.Tape.Rewind;
@@ -3451,6 +3566,11 @@ end;
 
 procedure TMainWindow.DoTapeEject(Sender: TObject);
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    C64TapeAction(3);
+    Exit;
+  end;
   FEmu.Lock;
   try
     FEmu.Spec.Tape.Clear;
@@ -3461,6 +3581,7 @@ end;
 
 procedure TMainWindow.DoTapeRecord(Sender: TObject);
 begin
+  if IsC64Model(FEmu.Spec.Model) then Exit;
   FEmu.Lock;
   try
     FEmu.Spec.Recording := not FEmu.Spec.Recording;
@@ -3581,6 +3702,11 @@ procedure TMainWindow.InsertDiskDialog(Drive: Integer);
 var
   Dlg: TOpenDialog;
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    InsertC64DiskDialog(Drive);
+    Exit;
+  end;
   if not ConfirmDiskChanges(Drive) then Exit;
   Dlg := TOpenDialog.Create(Self);
   try
@@ -3620,6 +3746,11 @@ var
   Msg: string;
 begin
   Result := False;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    InsertC64Disk(Drive, FileName);
+    Exit(True);
+  end;
   if not LoadDiskChecked(FileName, Disk, Msg) then
   begin
     MessageDlg(Msg, mtError, [mbOK], 0);
@@ -3786,7 +3917,8 @@ end;
 procedure TMainWindow.DoDiskBrowser(Sender: TObject);
 begin
   // A: if it has a disk, otherwise B:
-  ShowDiskBrowser(FEmu);
+  if IsC64Model(FEmu.Spec.Model) then ShowC64Browser(FEmu, cbDisk)
+  else ShowDiskBrowser(FEmu);
 end;
 
 procedure TMainWindow.DoSDBrowser(Sender: TObject);
@@ -4094,6 +4226,11 @@ var
   Err: string;
 begin
   Drive := (Sender as TComponent).Tag;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    SaveC64Disk(Drive, False);
+    Exit;
+  end;
   Disk := FEmu.Spec.DiskAt(Drive);
   if Disk = nil then
   begin
@@ -4260,6 +4397,11 @@ var
   Disk: TDiskImage;
 begin
   Drive := (Sender as TComponent).Tag;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    NewC64Disk(Drive);
+    Exit;
+  end;
   if not ConfirmDiskChanges(Drive) then Exit;
   // Already formatted (+3 standard format, or AMSDOS's data format on a CPC), ready
   // for SAVE without FORMAT
@@ -4291,6 +4433,11 @@ var
   Drive: Integer;
 begin
   Drive := (Sender as TComponent).Tag;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    EjectC64Disk(Drive);
+    Exit;
+  end;
   if not ConfirmDiskChanges(Drive) then Exit;
   FEmu.Lock;
   try
@@ -4307,6 +4454,11 @@ var
   Msg: string;
 begin
   Drive := (Sender as TComponent).Tag;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    SaveC64Disk(Drive, True);
+    Exit;
+  end;
   if FEmu.Spec.DiskAt(Drive) = nil then
   begin
     MessageDlg(_('There is no disk in that drive.'), mtInformation, [mbOK], 0);
@@ -4637,7 +4789,8 @@ end;
 
 procedure TMainWindow.DoDriveB(Sender: TObject);
 begin
-  Settings.DriveB := not Settings.DriveB;
+  if IsC64Model(FEmu.Spec.Model) then Settings.C64Drive9 := not Settings.C64Drive9
+  else Settings.DriveB := not Settings.DriveB;
   ApplySettings;
   UpdateChecks;
 end;
@@ -4652,6 +4805,11 @@ procedure TMainWindow.DoScreenshotSCR(Sender: TObject);
 var
   Dlg: TSaveDialog;
 begin
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    MessageDlg(_('Screenshot'), _('Screens can be saved as PNG on the Commodore 64.'), mtInformation, [mbOK], 0);
+    Exit;
+  end;
   Dlg := TSaveDialog.Create(Self);
   try
     if FEmu.Spec.CPC <> nil then Dlg.Filter := _F('CPC screen (*.scr)|*.scr')
@@ -4872,7 +5030,8 @@ end;
 
 procedure TMainWindow.DoDebugger(Sender: TObject);
 begin
-  ShowDebugger(FEmu);
+  if IsC64Model(FEmu.Spec.Model) then ShowC64Debugger(FEmu)
+  else ShowDebugger(FEmu);
   UpdateChecks;
 end;
 
@@ -4925,7 +5084,7 @@ var
       (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
-      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'monitor') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'c64_joyport') or (Name = 'monitor') or
       (Name = 'ui') or (Name = 'lang') or (Name = 'restart-snapshot') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -5009,7 +5168,7 @@ begin
       begin
         // The CPC machines and the SAM Coupe by name: emu80 cpc464, cpc664, cpc6128 or sam (as --model)
         M := ModelFromName(LowerCase(Arg), smPlus3);
-        if (IsCPCModel(M) or IsSAMModel(M) or IsMSXModel(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
+        if (IsCPCModel(M) or IsSAMModel(M) or IsMSXModel(M) or IsC64Model(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
         begin
           NewModel := M;
           HaveModel := True;
@@ -5258,6 +5417,11 @@ begin
         if (Value = 'auto') or (Value = 'on') or (Value = 'off') then Settings.MsxMapper := Value
         else Errors := Errors + 'Unknown --msx_mapper (auto, on or off): ' + Value + LineEnding;
       end
+      else if Arg = 'c64_joyport' then
+      begin
+        if (Value = '1') or (Value = '2') or (Value = '3') then Settings.C64JoyPort := StrToInt(Value)
+        else Errors := Errors + 'Unknown --c64_joyport (1, 2 or 3 for both): ' + Value + LineEnding;
+      end
       else if Arg = 'sam_memory' then
       begin
         if (Value = '256') or (Value = '512') then Settings.SamMemory := StrToInt(Value)
@@ -5347,6 +5511,12 @@ begin
       end;
       // --model msx2 without its ROMs: nothing else to do either
       if (NewModel = smMSX2) and (FEmu.Spec.Model <> smMSX2) then
+      begin
+        Close;
+        Exit;
+      end;
+      // ... nor --model c64 without its ROMs
+      if (NewModel = smC64) and (FEmu.Spec.Model <> smC64) then
       begin
         Close;
         Exit;
@@ -5680,6 +5850,18 @@ begin
   finally
     FEmu.Unlock;
   end;
+  if IsC64Model(FEmu.Spec.Model) then
+  begin
+    if (Kind = bkDaad) and (DaadWindow <> nil) then
+    begin
+      if (C64DebuggerWindow <> nil) and C64DebuggerWindow.Visible then C64DebuggerWindow.BreakHit;
+      DaadWindow.BreakHit;
+    end
+    else if C64DebuggerWindow = nil then ShowC64Debugger(FEmu)
+    else C64DebuggerWindow.BreakHit;
+    UpdateChecks;
+    Exit;
+  end;
   if (Kind = bkDaad) and (DaadWindow <> nil) then
   begin
     // The Adventure Debugger stopped at a condact: the Z80 one only follows,
@@ -5703,7 +5885,7 @@ procedure TMainWindow.DoAbout(Sender: TObject);
 begin
   MessageDlg(_('About emu80'),
     'emu80 - 8 bit machines emulator' + LineEnding +
-    'ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coup' + #$C3#$A9 + ' and MSX2.' + LineEnding +
+    'ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coup' + #$C3#$A9 + ', MSX2 and Commodore 64.' + LineEnding +
     _('Release ') + EMU80_RELEASE + LineEnding +
     '(C) Vivecoded by Uto - 2028' + LineEnding + LineEnding +
     _('Written in Free Pascal with Lazarus.') + LineEnding + LineEnding +
@@ -5728,6 +5910,7 @@ begin
   ShowLicense;
 end;
 
+{$I MainC64.inc}
 {$I MainModern.inc}
 
 end.

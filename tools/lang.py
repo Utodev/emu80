@@ -21,7 +21,7 @@ LANGS = ['es', 'fr', 'pt', 'de']
 # Not translated: the debuggers and their help, and generated files
 EXCLUDE = {'DebuggerForm', 'DaadForm', 'DaadExport', 'DaadHelp', 'DaadTemplate', 'Z80Help', 'Z80Opcodes',
            'Disasm', 'BreakExpr', 'AsmExport', 'DebugFiles', 'ZXUnoRegsForm', 'Daad', 'Symbols',
-           'LangData', 'Release', 'Lang', 'PawHelp', 'QuillHelp'}
+           'LangData', 'Release', 'Lang', 'PawHelp', 'QuillHelp', 'C64Debugger', 'C64Disasm', 'C64Expr', 'C64Help'}
 # Words that are never translated (CLAUDE.md): a translation that has lost one is reported
 KEEP = ['Debug', 'NMI', 'SD', 'CR', 'Zoom', 'Turbosound', 'DivMMC', 'Currah', 'ULAPlus', 'Timex',
         'Radastan', 'Joystick', 'Scanlines', 'Breakpoints', 'Watches', 'Process', 'Flags',
