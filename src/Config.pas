@@ -1,4 +1,4 @@
-{ Config: user settings, stored in emu80.ini next to the executable (or in the
+{ Config: user settings, stored in ochenta.ini next to the executable (or in the
   file given with --config). A second file given with --config-add is
   applied on top for the session without being merged into the main file. }
 unit Config;
@@ -44,7 +44,7 @@ type
     FastDisk: Boolean;            // disk without real drive timing
     DriveB: Boolean;              // second drive connected to the +3
     FloppyNoise: Boolean;         // the drive's sound at real speed
-    SaveOnExit: Boolean;          // write the settings when emu80 closes
+    SaveOnExit: Boolean;          // write the settings when ochenta closes
     ModernUI: Boolean;            // the modern interface (--ui modern), else the classic one
     Language: string;             // the interface's language: auto, en, es, fr, pt or de (--lang)
     SaveToTape: Boolean;          // SAVE adds blocks to the tape
@@ -77,7 +77,7 @@ type
     DivMMCFirmware: string;       // its EEPROM image ('' = the bundled ESXDOS)
     ZXUnoFirmware: string;        // the ZX-Uno's BIOS ('' = zxuno/FIRMWARE.ZX1)
     NextDir: string;              // the ZX Spectrum Next's distribution ('' = the specnext folder)
-    NextCard: string;             // its SD card image ('' = zxnext.img next to emu80.ini)
+    NextCard: string;             // its SD card image ('' = zxnext.img next to ochenta.ini)
     NextDistroId: string;         // the distribution the card was made from
     NextFirmware: Boolean;        // the Next starts through its firmware (else NextZXOS directly)
     { A hidden option, not documented (see CLAUDE.md): the Next says it is a
@@ -284,9 +284,9 @@ function OptionSection(const NewName: string; const Default: string): string;
 { The standard ROM folder: "roms" next to the executable, or in the folder
   above it (when the executable is built inside src) }
 function DefaultRomDir: string;
-{ A file or folder that comes with emu80 (such as 'esxdos'): next to the
+{ A file or folder that comes with ochenta (such as 'esxdos'): next to the
   executable or in the folder above it; '' if neither }
-function Emu80Path(const Name: string): string;
+function OchentaPath(const Name: string): string;
 { The DivMMC firmware to use: the setting, or the bundled ESXDOS }
 function DivMMCFirmwareFile: string;
 { The ZX Spectrum Next's distribution folder and its SD card image, as set
@@ -312,7 +312,7 @@ begin
     Result := ExpandFileName(Dir + '..' + PathDelim + 'roms');
 end;
 
-function Emu80Path(const Name: string): string;
+function OchentaPath(const Name: string): string;
 var
   Dir: string;
 begin
@@ -329,19 +329,19 @@ end;
 function ZXUnoFirmwareFile: string;
 begin
   Result := Settings.ZXUnoFirmware;
-  if Result = '' then Result := Emu80Path('zxuno' + PathDelim + 'FIRMWARE.ZX1');
+  if Result = '' then Result := OchentaPath('zxuno' + PathDelim + 'FIRMWARE.ZX1');
 end;
 
 function ZXUnoRomsFile: string;
 begin
   Result := Settings.ZXUnoRoms;
-  if Result = '' then Result := Emu80Path('zxuno' + PathDelim + 'ROMS.ZX1');
+  if Result = '' then Result := OchentaPath('zxuno' + PathDelim + 'ROMS.ZX1');
 end;
 
 function DivMMCFirmwareFile: string;
 begin
   Result := Settings.DivMMCFirmware;
-  if Result = '' then Result := Emu80Path('esxdos' + PathDelim + 'ESXMMC.BIN');
+  if Result = '' then Result := OchentaPath('esxdos' + PathDelim + 'ESXMMC.BIN');
 end;
 
 { Whether a file can be made in Dir (which is created if missing) }
@@ -352,7 +352,7 @@ var
 begin
   Result := False;
   if not DirectoryExists(Dir) and not ForceDirectories(Dir) then Exit;
-  F := IncludeTrailingPathDelimiter(Dir) + '.emu80write';
+  F := IncludeTrailingPathDelimiter(Dir) + '.ochentawrite';
   H := FileCreate(F);
   if H = THandle(-1) then Exit;
   FileClose(H);
@@ -369,7 +369,7 @@ begin
   // The specnext folder next to the program; when that can't be written
   // (installed from a package) the one next to the settings file
   Own := ExtractFilePath(Settings.FileName) + 'specnext';
-  Result := Emu80Path('specnext');
+  Result := OchentaPath('specnext');
   if (Result <> '') and NextDistroReady(Result) then Exit;
   if NextDistroReady(Own) then Exit(Own);
   if (Result = '') or not CanWriteIn(Result) then Result := Own;
@@ -392,18 +392,18 @@ begin
   RecentCarts := TStringList.Create;
   PokeHistory := TStringList.Create;
   FMainText := TStringList.Create;
-  FFileName := ExtractFilePath(ParamStr(0)) + 'emu80.ini';
+  FFileName := ExtractFilePath(ParamStr(0)) + 'ochenta.ini';
   {$IFDEF DARWIN}
-  // Inside an app bundle: keep it next to emu80.app
+  // Inside an app bundle: keep it next to ochenta.app
   if Pos('.app/Contents/MacOS/', FFileName) > 0 then
     FFileName := ExtractFilePath(Copy(FFileName, 1, Pos('.app/Contents/MacOS/', FFileName) + 3)) +
-      'emu80.ini';
+      'ochenta.ini';
   {$ENDIF}
   {$IFDEF UNIX}
-  // Installed where users can't write (a .deb or .rpm: /usr/lib/emu80): the
-  // settings go to the user's own folder (~/.config/emu80/emu80.ini)
+  // Installed where users can't write (a .deb or .rpm: /usr/lib/ochenta): the
+  // settings go to the user's own folder (~/.config/ochenta/ochenta.ini)
   if FpAccess(ExtractFilePath(FFileName), W_OK) <> 0 then
-    FFileName := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'emu80.ini';
+    FFileName := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'ochenta.ini';
   {$ENDIF}
   Model := sm48K;
   RomDir := DefaultRomDir;
@@ -885,14 +885,14 @@ var
   Old: string;
 begin
   FMainText.Clear;
-  Old := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'emu80.ini';
+  Old := IncludeTrailingPathDelimiter(GetAppConfigDir(False)) + 'ochenta.ini';
   if FileExists(FFileName) then
     FMainText.LoadFromFile(FFileName)
 {$IFDEF WINDOWS};  // On Windows only the ini next to the executable is read
 {$ELSE}
-  else if not FCustomFile and FileExists(ExtractFilePath(FFileName) + '..' + PathDelim + 'emu80.ini') then
+  else if not FCustomFile and FileExists(ExtractFilePath(FFileName) + '..' + PathDelim + 'ochenta.ini') then
     // Settings next to an executable that used to live one folder up
-    FMainText.LoadFromFile(ExtractFilePath(FFileName) + '..' + PathDelim + 'emu80.ini')
+    FMainText.LoadFromFile(ExtractFilePath(FFileName) + '..' + PathDelim + 'ochenta.ini')
   else if not FCustomFile and FileExists(Old) then
     FMainText.LoadFromFile(Old);    // settings of older versions, kept per user
 {$ENDIF}

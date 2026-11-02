@@ -1,5 +1,5 @@
-# Draws the emu80 icon (a rubber-keyed computer's keyboard) and writes emu80.ico.
-#   python3 tools/make-icon.py src/emu80.ico preview.png
+# Draws the ochenta icon (a rubber-keyed computer's keyboard) and writes ochenta.ico.
+#   python3 tools/make-icon.py src/ochenta.ico preview.png
 import struct, zlib, sys
 N = 1024                      # supersampled canvas (4x the 256 icon)
 S = N / 256.0

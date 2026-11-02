@@ -647,11 +647,11 @@ type
     { Play the tape from now (the tape runs in CPU T-states: see TapeEdge) }
     procedure PlayTape;
     { The Next's firmware started another machine's core (its slot, 8-31):
-      emu80 emulates the Next's only, so the Next starts again; -1 if not }
+      ochenta emulates the Next's only, so the Next starts again; -1 if not }
     property ForeignCore: Integer read FForeignCore write FForeignCore;
     { The Next's Multiface is paged in (its NMI menu is running) }
     property MultifaceOn: Boolean read FMfOn;
-    { emu80's own snapshots (.e80: see Emu80Snap.inc), for any model: whether
+    { ochenta's own snapshots (.e80: see OchentaSnap.inc), for any model: whether
       it is the only kind this machine can have (the ZX Spectrum Next and
       the ZX-Uno), the machine a file is of (raises if it isn't one), save
       and load (the machine must be that model) }
@@ -680,7 +680,7 @@ type
     { Full path of ROM Index for the current model }
     function RomPath(Index: Integer): string;
     { Reset and load from tape the way a user would (LOAD "" or Loader menu). }
-    procedure AutoLoad(FromDisk: Boolean = False);
+    procedure AutoLoad(FromDisk: Boolean = False; C64Drive: Integer = 0);
     { Run until the end of the frame (video, audio and interrupt). Returns
       False if a breakpoint stopped it first; calling it again continues the
       same frame. }
@@ -784,7 +784,7 @@ type
     property PrevPaging: TPagingState read FPrevPaging write FPrevPaging;
   public
     { Name (no folder) of the last game file loaded: a tape, disk or
-      snapshot opened in emu80, or a .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened
+      snapshot opened in ochenta, or a .TAP/.TZX/.Z80/.SNA/.DSK that esxDOS opened
       from the SD card. A short string: the emulation thread writes it. }
     LastMediaFile: ShortString;
     property StepCount: LongWord read FStepCount;
@@ -858,7 +858,7 @@ type
     function SamRegister(Reg: Integer): Byte;
     procedure SetSamRegister(Reg: Integer; Value: Byte);
     { A SAM Coupe's machine state into S (Save) or from it: the RAM, the CPU, the ASIC and
-      the sound generator (the body of an emu80 snapshot) }
+      the sound generator (the body of an ochenta snapshot) }
     procedure SAMSnapIO(S: TStream; Save: Boolean);
     { The SAM Coupe's RAM in K (256 or 512): changing it on a SAM resets it }
     property SamMemoryKB: Integer read FSamKB write SetSamMemory;
@@ -3333,7 +3333,7 @@ end;
 
 function TSpectrum.ZXUnoReadReg(Reg: Byte): Byte;
 const
-  CORE_ID = 'emu80-ZXUno';
+  CORE_ID = 'ochenta-ZXUno';
 begin
   case Reg of
     2: if (FZXReg[0] and $80) <> 0 then Result := $FF else Result := SpiRead;
@@ -4438,7 +4438,7 @@ begin
   end;
 end;
 
-procedure TSpectrum.AutoLoad(FromDisk: Boolean);
+procedure TSpectrum.AutoLoad(FromDisk: Boolean; C64Drive: Integer);
 begin
   FMsxTapeStart := FIsMSX and not FromDisk;
   Reset(True);
@@ -4446,7 +4446,7 @@ begin
   CancelAutoType;
   if FIsC64 then
   begin
-    FC64.AutoLoad(FromDisk);
+    FC64.AutoLoad(FromDisk, C64Drive);
     Exit;
   end;
   if FIsCPC then
@@ -5074,6 +5074,6 @@ end;
 {$I NextVideo.inc}
 {$I NextDma.inc}
 {$I SpectrumNext.inc}
-{$I Emu80Snap.inc}
+{$I OchentaSnap.inc}
 
 end.

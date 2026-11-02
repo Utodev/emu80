@@ -2,7 +2,7 @@
   image seen as the bytes of a FAT12 file system.
 
   The interface is the one of the Philips machines (NMS 8245, 8250 ...) as
-  the PHILIPSDISK.rom of an MSX with a disk drive drives it (and emu80's own
+  the PHILIPSDISK.rom of an MSX with a disk drive drives it (and ochenta's own
   QUANTIKA_DISK.ROM, written for the same hardware): a 16K ROM that
   starts at 4000h (the page 1 only), with the controller's registers
   in its last bytes, 3FF8h-3FFFh of the ROM, so at 7FF8h (and again at BFF8h):

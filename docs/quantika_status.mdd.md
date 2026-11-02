@@ -1,14 +1,14 @@
 # QUANTIKA: estado y cómo continuar
 
 ## Dónde está todo
-- **Fuentes de las ROM:** `../quantika` (junto a emu80; repo propio, de momento con un solo commit y muchos cambios sin commitear).
+- **Fuentes de las ROM:** `../quantika` (junto a ochenta; repo propio, de momento con un solo commit y muchos cambios sin commitear).
   - Docs propias: README.md, NOTES.md, CLAUDE.md.
   - Regla absoluta: la palabra "M-S-X" no puede aparecer allí ni en las ROM, y `build.sh` falla si aparece.
   - Sin logo y sin pausa al arrancar.
 - **Compilar:** `cd ../quantika && ./build.sh 2>&1 | python3 tools/fixjr.py` (sjasmplus.exe).
   - Genera `out/main_free.rom`, `out/sub_free.rom` y los .sym.
-- **Instalar en emu80:** `../quantika/install.sh roms/msx` → `QUANTIKA.ROM` y `QUANTIKA_SUB.ROM`, que son las ROM por defecto (Models.pas).
-  - `package.sh` de emu80 compila e instala quantika él solo.
+- **Instalar en ochenta:** `../quantika/install.sh roms/msx` → `QUANTIKA.ROM` y `QUANTIKA_SUB.ROM`, que son las ROM por defecto (Models.pas).
+  - `package.sh` de ochenta compila e instala quantika él solo.
 - **Estructura:**
   - ROM principal: BIOS en la página 0 y FBASIC en la página 1. Los módulos se colocan con `tools/pack.py` según `layout_main.txt`.
   - Sub-ROM en el slot 3-1.
@@ -18,7 +18,7 @@
     - wrappers generados por `tools/mksubwrappers.py`. Cuidado con los choques de etiquetas entre la ROM principal y la sub-ROM (ya pasó con DeleteLine, SetText y SetPage).
 - **ROM originales (solo como caja negra, nunca desensamblar):** `roms/msx/MSX2.rom`, `MSX2EXT.rom` y `PHILIPSDISK.rom`. Están en .gitignore y nunca se empaquetan.
 
-## Herramientas de prueba (emu80)
+## Herramientas de prueba (ochenta)
 - **`tests/msxfree.lpr`** → `tests/build/msxfree`. Se compila con:
   `fpc -O2 -Fusrc -FUtests/build -FEtests/build tests/msxfree.lpr`
   - Comandos: exec, basic, screen, pic, picdiff, tapeout, calls, trace.
@@ -44,7 +44,7 @@
   - instalar las ROM en `roms/msx`;
   - pasar difftests y `run-tests.sh`;
   - volver a probar el lote de cintas;
-  - si cambia `src/`: escribir `src/Release.inc`, compilar con `/mnt/c/lazarus/lazbuild.exe src/emu80.lpi` y hacer `mv -f src/emu80.exe emu80.exe`.
+  - si cambia `src/`: escribir `src/Release.inc`, compilar con `/mnt/c/lazarus/lazbuild.exe src/ochenta.lpi` y hacer `mv -f src/ochenta.exe ochenta.exe`.
 - `tests/msxfree.lpr` tiene la opción nueva MSXFREE_BREAKSTACK.
 
 ## Estado de las cintas

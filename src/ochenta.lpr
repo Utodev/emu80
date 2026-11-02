@@ -1,4 +1,4 @@
-program emu80;
+program ochenta;
 
 {$mode objfpc}{$H+}
 
@@ -12,7 +12,7 @@ uses
 
 begin
   RequireDerivedFormResource := False;
-  Application.Title := 'emu80';
+  Application.Title := 'ochenta';
   Application.Scaled := True;
   Application.Initialize;
   Application.CreateForm(TMainWindow, MainWindow);

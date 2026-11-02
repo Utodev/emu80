@@ -10,7 +10,7 @@
         <MainUnitHasScaledStatement Value="False"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <Title Value="emu80"/>
+      <Title Value="ochenta"/>
       <Scaled Value="True"/>
       <ResourceType Value="res"/>
       <UseXPManifest Value="True"/>
@@ -36,7 +36,7 @@
     </RequiredPackages>
     <Units>
       <Unit>
-        <Filename Value="emu80.lpr"/>
+        <Filename Value="ochenta.lpr"/>
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
@@ -177,7 +177,7 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="emu80"/>
+      <Filename Value="ochenta"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>

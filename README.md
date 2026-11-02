@@ -1,4 +1,4 @@
-# emu80
+# ochenta
 
 An emulator of machines with a Z80 CPU or one derived from it, written in Free Pascal with Lazarus (LCL).
 
@@ -26,7 +26,7 @@ also shown by Help > Documentation, F1).
   - [SAM Coupé](#sam-coupé)
   - [MSX](#msx)
   - [Commodore 64](#commodore-64)
-  - [emu80 snapshots (.e80)](#emu80-snapshots-e80)
+  - [ochenta snapshots (.e80)](#ochenta-snapshots-e80)
 - [5. Tape browser](#5-tape-browser)
   - [TZX tapes](#tzx-tapes)
 - [6. Disk browser](#6-disk-browser)
@@ -94,7 +94,7 @@ also shown by Help > Documentation, F1).
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
-- SNA and Z80 (v1/v2/v3) snapshots, load and save; emu80's own .e80 snapshots of every model (the
+- SNA and Z80 (v1/v2/v3) snapshots, load and save; ochenta's own .e80 snapshots of every model (the
   only kind for the ZX Spectrum Next and the ZX-Uno).
 - +3 disk drive (uPD765) with standard and extended DSK images, writable.
 - Disk browser: list the +3DOS files on a disk (or the SAMDOS ones on a SAM Coupé disk: type, start or autostart line,
@@ -119,17 +119,17 @@ also shown by Help > Documentation, F1).
 - Monitor: colour, black and white, or green or orange phosphor; contention and ULA snow can be switched off.
 - A ROM file of your choice for each ROM of each model; the ROM can only be
   changed from the debugger or with POKE if the settings allow it.
-- Settings in `emu80.ini` next to the program; `--config FILE` uses another
+- Settings in `ochenta.ini` next to the program; `--config FILE` uses another
   file, which must exist, and `--config-add FILE` applies extra settings for
   one session (a missing extra file is ignored).
 - Command line: model, speed, zoom, tapes, disks, symbols, breakpoints and
-  typed keys, e.g. `emu80 --model 48k --tape game.tap --keyin 'J""\n'`.
+  typed keys, e.g. `ochenta --model 48k --tape game.tap --keyin 'J""\n'`.
 
 ---
 
-# emu80 - emulator of Z80 machines
+# ochenta - emulator of Z80 machines
 
-emu80 emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
+ochenta emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3, the ZX-Uno (with its own BIOS
 and ROMs), the ZX Spectrum Next (with its official distribution) the Amstrad CPC 464, 664 and 6128 and the SAM Coupé, with T-state accurate Z80 timing, contended memory and I/O, floating bus, ULA snow and
 per-T-state video, so games and demos run at their real speed. The screen and the border are
 drawn as the beam reaches them, each 8-pixel cell taking its bytes and border colour at the end
@@ -154,7 +154,7 @@ Supported files:
 **No autoload with Alt or AltGr.** Holding Alt or AltGr while a disk, tape, program or cartridge is opened (File > Open, the Insert options, the recent lists, drag and drop) inserts it without starting anything, on every machine, even from an option that would normally autoload (an MSX cartridge goes in without restarting the machine).
 | `.cas` | MSX tapes (see [MSX](#msx)): they open on the MSX, which Auto load starts with `RUN"CAS:"`. |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
-| `.e80` | emu80's own snapshots, of any model (see [emu80 snapshots](#emu80-snapshots-e80)). Opening one switches to its machine. |
+| `.e80` | ochenta's own snapshots, of any model (see [ochenta snapshots](#ochenta-snapshots-e80)). Opening one switches to its machine. |
 
 The machine model is chosen with the chip button on the toolbar (click it: ZX Spectrum above and Amstrad CPC
 below open the list of their machines, and the MSX 2 and then the SAM Coupé, at the end, are chosen directly) or in Options > Settings.
@@ -206,7 +206,7 @@ combinations of the firmware (CTRL+SHIFT+ESC resets, CTRL+ESC...) work:
 | keypad 0-9 and `.` | the CPC's numeric keypad: F0-F9 and F. |
 | keypad `+` `*` `/` | SHIFT+`;` (+), SHIFT+`:` (*), `/` |
 
-The PC's function keys keep their emu80 meaning. With "Amstrad CPC: cursor keys and right Ctrl as joystick 1"
+The PC's function keys keep their ochenta meaning. With "Amstrad CPC: cursor keys and right Ctrl as joystick 1"
 (Settings > Amstrad CPC, `--cpc_joystick`, on by default) the cursor keys also move joystick 1 (the CPC's keyboard
 matrix line 9) and the right Ctrl is its fire button; off, the right Ctrl is CONTROL too. The Spectrum joystick
 choice below does not apply to the CPC.
@@ -225,7 +225,7 @@ choice below does not apply to the CPC.
 | Insert, End | EDIT, INV |
 | Cursor keys | the cursor keys (and a Kempston joystick, see below) |
 | keypad 0-9 | the SAM's F0-F9 |
-| Alt+F1 ... Alt+F10 | the SAM's F1 ... F9 and F0 (the PC's function keys alone are emu80's; Alt+F4 is the system's) |
+| Alt+F1 ... Alt+F10 | the SAM's F1 ... F9 and F0 (the PC's function keys alone are ochenta's; Alt+F4 is the system's) |
 | keypad `+` `-` | `+` `-` |
 
 **Commodore 64 keyboard.** On the C64 the letters and the digits are the keys of the same name, the other characters go by the
@@ -244,7 +244,7 @@ when it needs it, whatever the PC layout), and the rest:
 | Home | HOME (with Shift, CLR) |
 | Cursor keys | the cursor keys (the C64 has two: right and down; left and up are SHIFT + them) |
 | keypad `+` `-` `*` `/` `.` | the same keys |
-| Shift+F1 ... Shift+F8 | the C64's F1 ... F8 (F2, F4, F6 and F8 are the C64's SHIFT + F1, F3, F5 and F7; the PC's function keys alone are emu80's) |
+| Shift+F1 ... Shift+F8 | the C64's F1 ... F8 (F2, F4, F6 and F8 are the C64's SHIFT + F1, F3, F5 and F7; the PC's function keys alone are ochenta's) |
 | keypad 8, 2, 4, 6, 7, 9, 1, 3 and 0, 5; right Ctrl | the joystick (directions, diagonals and fire; see [Commodore 64](#commodore-64)) |
 
 **Punctuation on any keyboard.** Letters, digits and signs are taken by the character the PC keyboard layout gives (not by the key's
@@ -389,7 +389,7 @@ Spectrum models; the SAM Coupe and the CPC are progressive) or, on the Amstrad C
 Settings (everything else is in Settings).
 
 **Help**: Documentation (F1, this text from README.md), License (the GNU GPL v3, from the
-`LICENSE` file) and About (emu80 stands for Pascal ZX; it shows the release number, the build date
+`LICENSE` file) and About (ochenta stands for Pascal ZX; it shows the release number, the build date
 and time as YYYYMMDDHHMM, and the credits: the Spectrum ROMs (Amstrad), the authors of the ROM
 labels in the .sym files, the ZX-Uno (ZX-Uno Team), the Next's boot ROM (Victor Trucco and
 Fabio Belavenuto), esxDOS (Miguel Guerreiro) and the Currah
@@ -420,7 +420,7 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 
 | Tab | Contents |
 |---|---|
-| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when emu80 closes (on by default; when off, changes last only until emu80 is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)) and the interface's language, a list to the right of "Allow writing to ROM" (see [Language](#language)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
+| Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when ochenta closes (on by default; when off, changes last only until ochenta is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)) and the interface's language, a list to the right of "Allow writing to ROM" (see [Language](#language)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
 | Common > Storage | Tape: fast loading, Smart Tape Player (starts and stops the tape by itself when the machine loads: Auto play/stop in the Tape menu) and continuous tape playback (from the start again at the end). Floppy: fast floppy disk access (no real drive timing), drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access). |
 | Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
@@ -429,10 +429,10 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 | Amstrad CPC | Video: the CRTC chip (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
 | SAM Coupé | Memory: 256K or 512K of RAM (changing it resets the machine). Sound: the SAA1099 heard or not. Controls: the cursor keys and right Ctrl as a Kempston joystick (see [SAM Coupé](#sam-coupé)). Peripherals: the SAM's mouse (the PC's over the picture) and the SAMBUS clock, a check for each. DOS: Boot SAMDOS automatically (`SAMDOS2.dsk` inserted and booted on start and reset). The Common tabs apply to it too: Storage (disk drive noise, fast disk access, drive 2, tape auto play and loop), General, ROMs (the SAM Coupé's ROM file) and the monitor. |
 
-Settings are kept in `emu80.ini` in the same folder as the program (next to emu80.app on macOS); on
-Linux, if that folder can't be written (emu80 installed from a .deb or .rpm package, or run as an AppImage), in
-`~/.config/emu80/emu80.ini`. On Windows no other ini is ever read (not even an older one from another
-folder or from the user's profile). See `--config` and `--config-add` below to use other files. `emu80.ini` is
+Settings are kept in `ochenta.ini` in the same folder as the program (next to ochenta.app on macOS); on
+Linux, if that folder can't be written (ochenta installed from a .deb or .rpm package, or run as an AppImage), in
+`~/.config/ochenta/ochenta.ini`. On Windows no other ini is ever read (not even an older one from another
+folder or from the user's profile). See `--config` and `--config-add` below to use other files. `ochenta.ini` is
 an ini file whose keys are named exactly as the command line options (see
 [Command line](#12-command-line)), with 1/0 for on/off options and the option's value for the
 others. The options of the ZX Spectrum models start with `zx_` and those of the Amstrad CPC with
@@ -448,7 +448,7 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 | `[ZXSpectrum]` | `zx_contention`, `zx_snow`, `zx_ulaplus`, `zx_timex`, `zx_radastan`, `zx_deinterlace`, `zx_joystick`, `zx_issue`, `zx_turbosound`, `zx_ay48`, `zx_kmouse`, `zx_divmmc`, `zx_currah`, `zx_leftctrl`, `zx_savetotape`, `zx_divmmcrom`, `zx_unofirmware`, `zx_unoroms`, `zx_unocustomrom`, `zx_unocard`, `zx_sdcard`, `zx_nextdir`, `zx_nextcard`, `zx_nextfirmware` (and `zx_distroid`, the distribution the Next's card was made from, and `zx_unobios`, the ZX-Uno BIOS's own settings) |
 | `[AmstradCPC]` | `cpc_crtc`, `cpc_waitstates`, `cpc_joystick` |
 
-The recent files, pokes and last folder are kept in sections of their own. An emu80.ini from an
+The recent files, pokes and last folder are kept in sections of their own. An ochenta.ini from an
 older version is read and rewritten with these keys; the names the options had before they took
 `zx_` and `cpc_` (`turbosound`, `joystick`, `issue`, `nextdir`, `sdcard`, `cpcjoystick`...) are still understood, in the file and on the
 command line, and the file is written with the new ones.
@@ -462,23 +462,23 @@ the names of the machines and of some terms (Debug, NMI, SD, Zoom, Turbosound, D
 Timex, Radastan, Joystick, Scanlines, Breakpoints, Watches...). The language is chosen like this, in
 this order:
 
-1. If the **left Ctrl** key is held down while emu80 starts, English, whatever the rest says (a way out
+1. If the **left Ctrl** key is held down while ochenta starts, English, whatever the rest says (a way out
    if a language is set that can't be read).
 2. `--lang auto|en|es|fr|pt|de` on the command line, for that run.
-3. `lang` in emu80.ini (`[General] lang`), set in Settings > Common > General > Language. **Automatic**
+3. `lang` in ochenta.ini (`[General] lang`), set in Settings > Common > General > Language. **Automatic**
    (the default) uses the language of the system (Windows' display language; on Linux and macOS
    `LC_ALL`, `LC_MESSAGES`, `LANGUAGE` or `LANG`) if it is one of the four, and English otherwise.
 
-The language is used when emu80 starts: after changing it in Settings (OK), emu80 offers to restart
+The language is used when ochenta starts: after changing it in Settings (OK), ochenta offers to restart
 at once, and comes back with the machine that was running (in a snapshot for every machine but the
 MSX2, which starts again with its model). If the answer is No, it is used the next time.
 
 ### Interface
 
-emu80 has two interfaces with the same commands: **classic** (the menu bar, the toolbar and the
-status bar described above) and **modern** (dark, with palettes of big buttons). emu80 starts in the
+ochenta has two interfaces with the same commands: **classic** (the menu bar, the toolbar and the
+status bar described above) and **modern** (dark, with palettes of big buttons). ochenta starts in the
 modern one; the first time (no settings file yet) a warning says so for 5 seconds, with the button
-that changes to the classic one. The one in use is kept in emu80.ini (`[General] ui`) and can be
+that changes to the classic one. The one in use is kept in ochenta.ini (`[General] ui`) and can be
 changed at once, without restarting: with the half dark
 circle button (at the right end of the classic toolbar, left of the model in the modern header),
 Options > Modern interface, or Settings > Common > General > Layout > Theme; or for a session with
@@ -522,7 +522,7 @@ documentation's links and headings light blue.
 
 ### ZX-Uno
 
-The ZX-Uno is an FPGA board with many cores; emu80 emulates its Spectrum core the way the real one
+The ZX-Uno is an FPGA board with many cores; ochenta emulates its Spectrum core the way the real one
 starts: the boot loader copies its BIOS from the SPI flash and runs it, and the BIOS shows its
 boot screen, reads the ROMs from the flash, copies the chosen one into its 512K of SRAM (pages
 8-11), sets the machine up through its registers (ports `FC3B` and `FD3B`) and starts it. The
@@ -534,7 +534,7 @@ ROMs (`--zx_unofirmware`, `--zx_unoroms`; changing them switches the ZX-Uno off 
 While the boot screen shows, Edit (Shift+1) enters the BIOS setup and Break (Esc) its boot menu,
 to start any of its ROMs. Its keys are the Spectrum's: cursors (CAPS + 5/6/7/8), ENTER, Break.
 The settings the BIOS saves (active ROM, boot timer, quiet boot, keyboard issue, timing,
-contention, DivMMC...) are kept in emu80.ini (`[ZXUno] BiosSettings`) and used from then on;
+contention, DivMMC...) are kept in ochenta.ini (`[ZXUno] BiosSettings`) and used from then on;
 changes to the ROM list are not kept. Until something is saved, the BIOS shows its boot screen
 and starts the first ROM, the 48K. The boot screen lasts about a second and the ROM starts after
 about two, as on the real board: the SCANCODE register returns the PS/2 keyboard's power-on
@@ -573,7 +573,7 @@ as the Radastan video player `.playrmov`) need a 128K ROM: choose one in the boo
 make it the default in the BIOS setup (Edit).
 
 Hard reset (F6) switches the ZX-Uno off and on (BIOS again); Reset (Ctrl+F6) restarts the ROM
-the BIOS chose. File > Save snapshot saves a .e80 (see [emu80 snapshots](#emu80-snapshots-e80)): .sna
+the BIOS chose. File > Save snapshot saves a .e80 (see [ochenta snapshots](#ochenta-snapshots-e80)): .sna
 and .z80 can't hold its SRAM and registers.
 
 ### Video modes
@@ -620,48 +620,48 @@ firmware and NextZXOS with its ROMs, BASIC and programs, comes from its official
 which is not included (it has its own licence): download the latest one from
 [https://www.specnext.com/latestdistro/](https://www.specnext.com/latestdistro/) and unpack it
 into the `specnext` folder next to the program (it must have `machines/next` in it), or choose
-another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When emu80 is installed from a .deb or .rpm, or run as an AppImage, the
-folder is `~/.config/emu80/specnext` (the one next to the program can't be written).
+another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When ochenta is installed from a .deb or .rpm, or run as an AppImage, the
+folder is `~/.config/ochenta/specnext` (the one next to the program can't be written).
 
 Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
 says so in a window ("La distribución de Spectrum Next no está instalada...") with the download
-page as a link that opens in the browser, and the machine stays as it was (with `--model zxnext`, emu80 closes). Download the .zip and
+page as a link that opens in the browser, and the machine stays as it was (with `--model zxnext`, ochenta closes). Download the .zip and
 choose Options > Install Spectrum Next Distribution (this entry is only there while the distribution
-isn't installed): pick the .zip file and emu80 unpacks it into the folder (a distribution inside one
+isn't installed): pick the .zip file and ochenta unpacks it into the folder (a distribution inside one
 folder of the zip goes straight into it, with no extra level) and checks it, and only then moves it
 into place, so a broken file leaves nothing half installed. A path in the zip that would write
-outside the folder (`..`, an absolute path or another drive) makes emu80 refuse the whole file, and
-links are not made. If it is a distribution, emu80 says so and asks whether to start the Next now
+outside the folder (`..`, an absolute path or another drive) makes ochenta refuse the whole file, and
+links are not made. If it is a distribution, ochenta says so and asks whether to start the Next now
 (Yes: the machine changes to the Next, its SD card made at the usual size without asking; No: nothing
 else). If it isn't ("Distribución no valida", or a file that isn't a zip), pressing OK **deletes
 everything in the distribution's folder**, which is what that message means: don't point
 `--zx_nextdir` at a folder with other things in it. A file that can't be read or written, or a damaged
 zip, is reported as an error and installs nothing.
 
-**SD card.** The first time the Next is used, emu80 makes its SD card, `zxnext.img` next to emu80.ini
+**SD card.** The first time the Next is used, ochenta makes its SD card, `zxnext.img` next to ochenta.ini
 (Settings > ZX Spectrum > Firmware, `--zx_nextcard`), asking its size first (FAT16: the sizes the distribution fits in
 with room to spare, up to 2 GB; 512 MB proposed; Cancel leaves the machine as it was), with the
 whole distribution (long file names included) and a `config.ini` for it (a few seconds). The card is the Next's own: the other models
-keep theirs, and what NextZXOS saves on it is kept (emu80 saves it when leaving the Next and when it
-closes, without asking). When a newer distribution is unpacked, emu80 asks whether to make a new
+keep theirs, and what NextZXOS saves on it is kept (ochenta saves it when leaving the Next and when it
+closes, without asking). When a newer distribution is unpacked, ochenta asks whether to make a new
 card from it; the old one is kept, renamed as `zxnext-YYYYMMDD-HHMM.img`. SD > New SD card with
 the Next distribution makes another one.
 
-Cards used with older versions of emu80 may have files that NextZXOS or the firmware rewrote left
-empty (emu80 didn't answer the card's status request, CMD13, so every write after the first block
+Cards used with older versions of ochenta may have files that NextZXOS or the firmware rewrote left
+empty (ochenta didn't answer the card's status request, CMD13, so every write after the first block
 failed): an empty `machines/next/config.ini` makes the firmware show its video test card at every
-start. When the Next's card is put in, emu80 mends them: each empty file that isn't empty in the
+start. When the Next's card is put in, ochenta mends them: each empty file that isn't empty in the
 distribution is copied from it again, and an empty `config.ini` gets the default one; a message
 lists what was mended.
 
 **Extra cores.** The firmware's extra cores menu (C while it starts) works with an emulated 16 MB
-flash (in memory only, empty at every start of emu80): cores can be installed into slots 8-31, but
-emu80 emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
+flash (in memory only, empty at every start of ochenta): cores can be installed into slots 8-31, but
+ochenta emulates only the Next's own core, so starting another machine's (the Sinclair QL...) says so
 and starts the Next again.
 
 **Starting.** By default (Settings > ZX Spectrum > Firmware > "Start through its firmware", `--zx_nextfirmware`) the
 Next starts as the real one: its boot ROM (`roms/tbblue_loader.rom`) loads the firmware
-(`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (emu80 says it is an
+(`TBBLUE.FW`) from the card, which shows its boot screen with the TBBlue logo (ochenta says it is an
 emulator, machine ID `08`) and starts NextZXOS. Unchecked (`--no-zx_nextfirmware`), NextZXOS starts
 directly from the distribution's ROMs, as if the firmware had chosen it. Hard reset (F6) starts
 it all again; Reset (Ctrl+F6) is the Next's soft reset.
@@ -673,9 +673,9 @@ asks). A program that asks for its own file (to read more data from it: through 
 header asks for, or opening it again by name with F_OPEN) gets a handle that the esxDOS calls
 F_READ, F_SEEK, F_FGETPOS, F_FSTAT and F_CLOSE read from the .nex; for
 DISK_FILEMAP, which programs use to stream data straight from the card, the file is also copied
-onto the Next's SD card as `/TMP/EMU80NEX.NEX` (replaced each time). Tapes are only inserted (load
+onto the Next's SD card as `/TMP/OCHENTANEX.NEX` (replaced each time). Tapes are only inserted (load
 them from NextZXOS's browser or with `LOAD ""`), and .sna, .z80 and .dsk files switch to their
-own model. File > Save snapshot saves a .e80 (see [emu80 snapshots](#emu80-snapshots-e80)).
+own model. File > Save snapshot saves a .e80 (see [ochenta snapshots](#ochenta-snapshots-e80)).
 
 **Sound.** Three AY chips (TurboSound Next: port `FFFD` chooses one with `FF`, `FE` or `FD`, its
 bits 6 and 5 switching that chip's left and right outputs), each ABC or ACB stereo (NR `08` bit
@@ -714,7 +714,7 @@ shows and edits its registers.
 
 The CPC 464 (tape, 64K), CPC 664 (3" disc drive, 64K) and CPC 6128 (disc drive, 128K in eight 16K banks) are
 chosen like any other machine: the chip button, Options > Settings, `--model cpc464`, `--model cpc664`,
-`--model cpc6128` (or just `emu80 cpc464`). Their firmware is in `roms/` (`cpc464.rom`, `cpc664.rom`,
+`--model cpc6128` (or just `ochenta cpc464`). Their firmware is in `roms/` (`cpc464.rom`, `cpc664.rom`,
 `cpc6128.rom`: the 16K operating system followed by the 16K BASIC; `amsdos.rom`, the disc ROM of the 664
 and 6128), and each model's file can be replaced in Settings > Common > ROMs as for the Spectrum.
 
@@ -793,7 +793,7 @@ a CPC (it is a Spectrum tape). A CDT keeps its pauses in whole milliseconds, so 
 tape's time unless the emulator runs fast; the 3.5 MHz scaling uses the exact 7/8.
 **Recording (REC)**: the tape output (PPI C bit 5, while the motor is on) is kept as it is, edge by edge, as
 pulse blocks and the pauses between them, so what the CPC `SAVE`s (also with its own save routines) is stored
-without being decoded: Tape > Save tape as writes it as a `.cdt` (or `.tzx`), which loads back in emu80 and in other
+without being decoded: Tape > Save tape as writes it as a `.cdt` (or `.tzx`), which loads back in ochenta and in other
 emulators. Limitations of that: the file is larger than a decoded CDT (two bytes a pulse), a pulse longer than
 18 ms or a silence longer than 5 s is cut (as a pause), and the blocks aren't named until the tape is loaded again.
 Tape > Save tape as can't write CSW recordings, generalized data blocks or flow control blocks (it says so).
@@ -808,7 +808,7 @@ ones: the directory isn't where AMSDOS looks) is started with `|CPM`. It is a gu
 isn't the right one, type the command yourself. The Disk browser reads the CPC's CP/M directories (on a CPC the headers are AMSDOS ones: Import offers a binary with an AMSDOS header, loaded and run at the address you give, and Export asks whether to keep a file's header; a file that already has one is copied as it is. A `.SCR` is offered at `&C000`).
 
 **Snapshots**: File > Save snapshot writes a CPC `.sna` (the format of CPCEmu and Winape: the Z80, the Gate Array, CRTC,
-PPI and PSG registers and 64K or 128K of RAM, version 1; it records the model, which loading it switches to) or emu80's own `.e80`
+PPI and PSG registers and 64K or 128K of RAM, version 1; it records the model, which loading it switches to) or ochenta's own `.e80`
 (the same and more: the model, the whole CPU, the 64K or 128K RAM, the Gate Array, CRTC, PPI and PSG state with the CRTC
 chip, the PSG chip, the interrupt counter and where the beam is; the version-1 `.e80`, with the model's name, as for the
 other models). A `.sna` doesn't say where the beam is or the CRTC's chip: the machine goes on from the start of a frame.
@@ -841,7 +841,7 @@ tables and were not measured on a real machine.
 
 The SAM Coupé (MGT, 1989: a Z80B at 6 MHz, 256K or 512K of RAM, the ASIC, a WD1772 disk controller and the SAA1099 sound chip) is
 the last machine of the list: the chip button's menu has it after the two families, as an entry of its own (no sub-menu), or
-`--model sam` (or just `emu80 sam`, `emu80 sam game.mgt`). Its 32K ROM (version 3.0, `samcoupe.rom`) and the SAMDOS 2 disk
+`--model sam` (or just `ochenta sam`, `ochenta sam game.mgt`). Its 32K ROM (version 3.0, `samcoupe.rom`) and the SAMDOS 2 disk
 (`SAMDOS2.dsk`) are in `roms/` with the others; another ROM file can be chosen in Settings > Common > ROMs (SAM Coupé, ROM 0).
 Without the ROM, choosing the SAM Coupé says so and the machine stays as it was. With "Boot SAMDOS automatically" (Settings >
 SAM Coupé > DOS, `--sam_autodos`, on by default) the SAM starts, resets and is chosen with `SAMDOS2.dsk` in drive 1, booted as a user would
@@ -912,7 +912,7 @@ the sound, the tape and the disk controller, which the other machines share; `sr
 A SAM Coupé disk is accepted on the SAM Coupé only: on the +3 or the CPC the error says it is a SAM Coupé disk and that the machine is chosen in the
 machine menu. The SAM Coupé accepts the +3's and the CPC's disks too (its controller reads them; CP/M and other DOSes know the formats). A file that
 isn't a disk is told apart: a zip or gzip ("unzip it first"; compressed images aren't read), an empty file, a SAD or DSK with the data cut short or damaged
-("corrupt"), and a size no disk has ("not a disk image emu80 knows"; SBT, SDF and DS2 are not supported). Nothing is written into the file until Save disk.
+("corrupt"), and a size no disk has ("not a disk image ochenta knows"; SBT, SDF and DS2 are not supported). Nothing is written into the file until Save disk.
 The disk browser (Floppy menu, [section 6](#6-disk-browser)) reads SAMDOS directories too: the files with their type (BASIC, number or string array, CODE, SCREEN$), the
 page and address a CODE file starts at, their length, the space they take and whether they are hidden or protected; it exports a file to the PC (its data, without
 SAMDOS's 9 byte header), imports one (a plain file becomes CODE at 32768; one with a +3DOS header, as the +3 browser exports them, keeps its type and start), renames and deletes,
@@ -920,7 +920,7 @@ and tells the free space. Opening a disk boots it as a user would: the ROM's fir
 waits for a key, which takes it to BASIC, and F9 (`BOOT`) loads the disk's DOS; a disk without DOS (a data disk, or a game that wants SAMDOS loaded first: boot a
 SAMDOS disk, change the disk in drive 1 and `LOAD "AUTO"`) says `No DOS`, as on the real machine.
 
-**Snapshots**: File > Save snapshot writes emu80's `.e80` (the RAM, the CPU, the ASIC's registers, the CLUT and the SAA1099's registers); disks and tapes stay as they are.
+**Snapshots**: File > Save snapshot writes ochenta's `.e80` (the RAM, the CPU, the ASIC's registers, the CLUT and the SAA1099's registers); disks and tapes stay as they are.
 
 **Debugger**: the same one. The slot list shows `ROM0` at `0000`, `ROM1` at `C000` and `RAM0`-`RAM31`; click a slot to choose what it holds (the ROM0 at `0000`, the
 ROM1 at `C000`, or a page of RAM: it writes LMPR or HMPR as a program would; the pages go in pairs, so choosing the page of `4000` also moves `0000`'s). SAM Regs (the chip
@@ -939,7 +939,7 @@ machines, contention, the beam's ports, the mouse, the clock, the characters of 
 saves a program to the tape and loads it back, boots SAMDOS from the disk, loads a screen with the DOS and with the trap and compares them, and reads a DAAD game's database. `tests/samrun.lpr` runs a SAM Coupé for N frames with a disk or tape, typed
 keys and screenshots, and `tests/sambatch.lpr` tries every image of a folder (`tests/SAM-MANUAL-TESTS.md` lists what was tried).
 
-**Settings** (Settings > SAM Coupé; in emu80.ini the section `[SAMCoupe]`):
+**Settings** (Settings > SAM Coupé; in ochenta.ini the section `[SAMCoupe]`):
 
 | Option | Setting |
 |---|---|
@@ -952,7 +952,7 @@ keys and screenshots, and `tests/sambatch.lpr` tries every image of a folder (`t
 
 ### MSX
 
-Choose **MSX 2** in the machine menu (or `--model msx2`, or just `emu80 msx2`). It is a PAL machine: a Z80 at 3.579545 MHz, the PSG (an AY-3-8910) and the PPI, in slots built as on the real
+Choose **MSX 2** in the machine menu (or `--model msx2`, or just `ochenta msx2`). It is a PAL machine: a Z80 at 3.579545 MHz, the PSG (an AY-3-8910) and the PPI, in slots built as on the real
 machine: four primary slots, secondary slots under the expanded one (register at `FFFFh`) and the slot register at port
 `A8h`. The first cartridge slot is slot 1.
 
@@ -969,12 +969,12 @@ programs that page the memory themselves (the DAAD engines for MSX) expect while
 setting off, the disk ROM sees a single drive (it waits a second and a half for drive B at power-on, as on a one-drive
 machine), and the programs that size themselves by the memory left by DOS get more of it.
 
-**ROMs.** The MSX2 runs on emu80's own ROMs, QUANTIKA: `roms/msx/QUANTIKA.ROM` (the 32K BIOS with FBASIC, a BASIC
+**ROMs.** The MSX2 runs on ochenta's own ROMs, QUANTIKA: `roms/msx/QUANTIKA.ROM` (the 32K BIOS with FBASIC, a BASIC
 compatible with MSX-BASIC 2.1; the machine starts with "QUANTIKA ROM with FBASIC 1.0", the date and time of the build and
 its RAM and VRAM, white on dark blue, and its bottom row shows the date and time instead of the function keys, which
 type nothing until `KEY n,"..."` gives them a string) and
 `roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM), with `roms/msx/QUANTIKA_DISK.ROM` for the disk interface (see Disks below). They
-come with emu80 and are still being completed. To use the original ROMs
+come with ochenta and are still being completed. To use the original ROMs
 instead, look for `MSX2.rom` (the 32K BIOS and MSX-BASIC 2 of an MSX2) and `MSX2EXT.rom` (its 16K sub-ROM), and for a
 disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` and choose them with
 `--rom "msx2,0,FILE"`, `--rom "msx2,1,FILE"` and `--rom "msx2,2,FILE"` (the disk interface) or in Settings > Common > ROMs, where
@@ -1051,14 +1051,14 @@ tape is not emulated.
 
 **Disks.** The machine has a disk drive: the Philips WD2793 interface (its registers at 7FF8h-7FFFh), with drive A:
 (and B: if "Drive B connected" is on), driven by the interface's ROM (Settings > Common > ROMs > FLOPPY DISK). By default
-it is emu80's own, `roms/msx/QUANTIKA_DISK.ROM`: it reads and writes disks, boots MSX-DOS 1 disks and game disks (with a
+it is ochenta's own, `roms/msx/QUANTIKA_DISK.ROM`: it reads and writes disks, boots MSX-DOS 1 disks and game disks (with a
 DOS kernel compatible with MSX-DOS 1), and has Disk BASIC (LOAD, SAVE, MERGE, RUN, BLOAD, BSAVE, FILES, LFILES, KILL, NAME,
 COPY, DSKF, CALL FORMAT, CALL SYSTEM, AUTOEXEC.BAS, and the files: OPEN for input, output, append and random access,
 INPUT #, LINE INPUT #, PRINT #, INPUT$, EOF, LOC, LOF, FIELD, GET, PUT, LSET, RSET, MKI$, MKS$, MKD$, CVI, CVS, CVD, DSKI$,
 DSKO$, MAXFILES); BASIC's banner then says "QUANTIKA Disk BASIC extension 1.0" and it asks no date at power-on. The
 original one is the disk ROM of a Philips MSX (the `PHILIPSDISK.rom` of its disk interface or the machine's own): copy it to
 `roms/msx/PHILIPSDISK.rom` and choose it there. The disk ROM must suit the main ROM: `PHILIPSDISK.rom` calls into the
-original BASIC and cannot run on emu80's own main ROM (`QUANTIKA.ROM`, the default), and `QUANTIKA_DISK.ROM` runs only on
+original BASIC and cannot run on ochenta's own main ROM (`QUANTIKA.ROM`, the default), and `QUANTIKA_DISK.ROM` runs only on
 it; a disk ROM that does not suit the main ROM is left out, and so is a missing file: then the machine has no disk drive
 (the Floppy menu says so; also with the MSX1 slot layout, above). The disk images are raw sectors (`.dsk`): 720K
 (80 cylinders, 2 sides, 9 sectors of 512 bytes), 360K (40 cylinders, 2 sides, or 80 cylinders and 1 side; told apart by the
@@ -1106,14 +1106,14 @@ the primary slot alone and by writing a subslot register value that selects 3-2.
 
 ### Commodore 64
 
-Choose **Commodore 64** in the machine menu (or `--model c64`, or just `emu80 c64`, `emu80 c64 game.d64`). It is a PAL machine: the 6510 at
+Choose **Commodore 64** in the machine menu (or `--model c64`, or just `ochenta c64`, `ochenta c64 game.d64`). It is a PAL machine: the 6510 at
 985248 Hz, the VIC-II (the 6569: 312 lines of 63 cycles, 50.12 frames a second), two CIAs (6526), the SID (6581) and, on the serial bus, 1541 disk drives.
 Everything runs one cycle at a time: every access of the CPU advances the chips, the VIC-II stops it on the bad lines and for its sprites' DMA as
 the real chip does, and the 1541's own 6502 runs in step with it.
 
 **ROMs.** They are the originals, which are not distributed: put `Kernal.rom` (8K), `Basic.rom` (8K), `Char.rom` (4K, the character generator) and, for the disk drives,
 `VC1541.rom` (16K, the 1541's DOS) in the `roms/c64` folder. Their names can be changed in Settings > Common > ROMs (choose the Commodore 64 there). Without the
-first three the machine does not start (emu80 says which are missing and stays as it was); without `VC1541.rom` it starts with no disk drive.
+first three the machine does not start (ochenta says which are missing and stays as it was); without `VC1541.rom` it starts with no disk drive.
 
 **The picture** is the 320x200 screen with a border of 16 pixels at each side and 44 lines above and below (352x288; the real border is wider), every pixel
 twice as wide as in the VIC-II's own resolution. The VIC-II is drawn as the beam goes, cycle by cycle (eight pixels each), from the registers as they are at that cycle: the
@@ -1145,7 +1145,7 @@ Fast loading (Tape > Fast loading) runs the emulation flat out, muted, while a t
 types `RUN` (if it starts at `$0801`, with its BASIC line) or `SYS` and its start address. A `.t64` (a tape container) loads its first program the same way.
 
 **Disks (`.d64`).** Opening a `.d64` (35, 40 or 42 tracks, with or without the error bytes) puts it in drive 8 and, with File > Open, resets the machine and types `LOAD"*",8,1` and `RUN`. The Floppy
-menu (drive A: is drive 8, B: is drive 9) and `--disk`, `--diskb` do the same for the drives: *Insert disk*, *New disk* (a formatted empty `.d64`), *Save disk* (as
+menu (drive A: is drive 8, B: is drive 9) and `--disk`, `--diskb` do the same for the drives, so inserting a disk in either drive also resets the machine and types `LOAD"*",8,1` (or `,9,1` for drive 9) and `RUN`, unless Alt or AltGr is held (as for every machine; the hint of the Media drives says so too): *Insert disk*, *New disk* (a formatted empty `.d64`), *Save disk* (as
 `.d64`; also the disk the drives have written, see below) and *Eject*. The drive is a real 1541: its 6502 runs `VC1541.rom`, with its two 6522 VIAs, 2K of RAM, the stepper motor moving
 the head half a track at a time, the motor and the LED, the disk turning at 300 rpm with the four speed zones (the bytes of every track come under the head one by one, 26 to
 32 cycles each, as GCR with its sync marks, headers, data blocks and gaps), the write protect sensor and the byte-ready signal that sets the overflow flag; and the
@@ -1182,9 +1182,9 @@ an address), `T` (how many times the breakpoint has been reached), `+ - * / MOD 
 (then the objects' locations) are 514 bytes before it, at `$367E`. The condacts are followed as on the other machines (the interpreter's fetch is learnt as the game runs); see
 [Adventure Debugger](#11-adventure-debugger).
 
-**Settings** (Settings > Commodore 64; in `emu80.ini` the section `[Commodore64]`):
+**Settings** (Settings > Commodore 64; in `ochenta.ini` the section `[Commodore64]`):
 
-| Setting | Command line | emu80.ini |
+| Setting | Command line | ochenta.ini |
 |---|---|---|
 | Numeric keypad and right Ctrl as a joystick | `--c64_joystick` / `--no-c64_joystick` | `c64_joystick` (default on) |
 | Cursor keys and Ctrl as a joystick | `--c64_cursorjoy` / `--no-c64_cursorjoy` | `c64_cursorjoy` (default on) |
@@ -1197,9 +1197,9 @@ an address), `T` (how many times the breakpoint has been reached), `+ - * / MOD 
 `c64spec`, `c64sound` (the SID plays a note at its pitch), `c64tape` (a program made by `tests/mkc64tap.py` loads from a `.tap`), `c64save` (SAVE and LOAD on a new `.d64`, and a second drive) and, with `C64_DAAD_D64` set to a `.d64` of a DAAD game,
 `c64daad` (the Adventure Debugger follows its condacts), all run by `run-tests.sh`. `tests/c64run.lpr <roms/c64> [frames] [d64 or tap] [commands]` boots the machine and prints its screen as text (`C64PPM=file.ppm` saves the picture).
 
-### emu80 snapshots (.e80)
+### ochenta snapshots (.e80)
 
-.z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so emu80 has its own
+.z80 and .sna snapshots can't hold the ZX Spectrum Next or the ZX-Uno, so ochenta has its own
 format: File > Save snapshot (F3) saves a `.e80` on those two machines, and on the others it is
 a choice in the dialog's file types (.z80 stays the default, then .sna and .e80; the name's
 extension, or else the type chosen, decides). Opening one (File > Open, the command line or
@@ -1211,7 +1211,7 @@ the AY chips, the DivMMC's paging and RAM and the Currah µSpeech's ROM paging (
 the SD card (the Next keeps its own card; on the others the card in use stays), +3 disks, tapes
 or the ZX-Uno's flash (made again from its BIOS and ROMs files). The file is `EMU80SNAP`, a
 version byte (1), the machine's `--model` name (a length byte and the name: `48k`, `zxnext`...),
-then the machine compressed with zlib in the order of `SnapIO` in `src/Emu80Snap.inc`.
+then the machine compressed with zlib in the order of `SnapIO` in `src/OchentaSnap.inc`.
 
 ## 5. Tape browser
 
@@ -1254,8 +1254,8 @@ own T-state clock, pauses, loops and the rest of the flow included. With fast lo
 tape plays at the CPU's pace as always.
 
 Tapes are saved as .tap (Save tape as, and in the tape browser), which keeps only the data
-blocks: with blocks from a .tzx that a .tap can't keep, emu80 asks first. Or as .tzx (on the Amstrad CPC,
-.cdt: the same format), which keeps every block emu80 can play except CSW recordings, generalized data and the
+blocks: with blocks from a .tzx that a .tap can't keep, ochenta asks first. Or as .tzx (on the Amstrad CPC,
+.cdt: the same format), which keeps every block ochenta can play except CSW recordings, generalized data and the
 flow control blocks (jumps, loops, calls and selections): it says so if the tape has any.
 
 ## 6. Disk browser
@@ -1281,7 +1281,7 @@ The toolbar buttons (hover for a hint):
 | Button | Action |
 |---|---|
 | Refresh | read the directory again (it also refreshes by itself when the emulated +3 writes to the disk or the disk changes). |
-| Import | copies files from the PC onto the disk (several can be chosen at once). A file that already has a +3DOS header is copied as it is; for any other file you choose its name and either a Bytes (CODE) header with its load address (16384 is suggested for screens, 32768 otherwise) or no header at all (the header is ticked by default here). With several files, "The same for the other files" applies those choices to the rest, with their own names. If a file with that name is already on the disk, emu80 asks whether to overwrite it (Yes to all with several files). |
+| Import | copies files from the PC onto the disk (several can be chosen at once). A file that already has a +3DOS header is copied as it is; for any other file you choose its name and either a Bytes (CODE) header with its load address (16384 is suggested for screens, 32768 otherwise) or no header at all (the header is ticked by default here). With several files, "The same for the other files" applies those choices to the rest, with their own names. If a file with that name is already on the disk, ochenta asks whether to overwrite it (Yes to all with several files). |
 | Import a folder | (a folder with a blue arrow) copies a folder of the PC with its contents onto the disk. A +3 disk has no folders, so all the files inside the folder and its subfolders are imported side by side. The usual questions (name, +3DOS header, overwrite) are asked, with "for all" to apply the choice to the rest; a progress bar shows meanwhile. |
 | Export | saves the selected files to the PC (also with a double-click): one with a save dialog, several into a folder you choose, asking before overwriting a file there. If they have a +3DOS header you can keep it or save only the data (a .bin, a screen...). |
 | Rename | (F2) gives the selected file a new name (8 characters and an optional extension of 3). |
@@ -1293,10 +1293,10 @@ side by side).
 
 Select several files with Ctrl or Shift + click. The import and export dialogs open in the
 folder the disk browser used last (the SD card browser remembers its own); it is kept in
-emu80.ini.
+ochenta.ini.
 
 Changes are made on the disk image in memory and mark it as modified; save it with Floppy > Save
-disk (into its file) or Save disk as, or answer yes when emu80 asks on exit or before the disk is
+disk (into its file) or Save disk as, or answer yes when ochenta asks on exit or before the disk is
 ejected or replaced. The disk browser understands the standard +3 format and the formats
 described by a disk specification (and the CPC system and data formats). A program running on
 the +3 that is using the disk at that moment may not notice changes until it reads the directory
@@ -1304,7 +1304,7 @@ again.
 
 ## 7. DivMMC and SD cards
 
-emu80 emulates the DivMMC interface: 8K of EEPROM with its firmware, 128K of RAM and an SD card,
+ochenta emulates the DivMMC interface: 8K of EEPROM with its firmware, 128K of RAM and an SD card,
 with automatic paging (at `0000`, `0008`, `0038`, `0066`, `04C6`, `0562` and `3Dxx`, and back at
 `1FF8`-`1FFF`) and ports `E3` (control), `E7` (card select) and `EB` (SPI data). It works on
 every model. The firmware is esxDOS 0.8.9 (`esxdos/ESXMMC.BIN`, from
@@ -1319,7 +1319,7 @@ remembers): the standard models share `zx_sdcard`, the ZX-Uno has `zx_unocard` a
 - Switching to the **ZX-Uno**: the DivMMC and the Kempston mouse are connected and the ZX-Uno's last card goes in, if it has one (if not,
   the card that was in stays).
 - Switching from the ZX-Uno or the Next to a **standard Spectrum**: the standard models' card comes back (the
-  ZX-Uno's or the Next's goes out, its changes first saved or asked about) and emu80 asks whether to switch the DivMMC
+  ZX-Uno's or the Next's goes out, its changes first saved or asked about) and ochenta asks whether to switch the DivMMC
   off; if not, it stays connected (the Kempston mouse is switched off).
 
 The SD menu:
@@ -1328,7 +1328,7 @@ The SD menu:
 |---|---|
 | SD card browser | see below (also the SD card toolbar button); only available with a card inserted. |
 | Insert recent SD card | one of the last 10 card images used. |
-| Use a PC folder as SD card | the card in the DivMMC is ejected (asking to save it if it was changed) and a temporary card is made with esxDOS (SYS, BIN, TMP) and the folder's files and subfolders in its root, their names turned into 8.3 names (two that would clash become `NAME~1`, `NAME~2`...). The machine then boots with it. The card lives in the temporary folder and is deleted when it is replaced, ejected or emu80 closes; if it was changed, emu80 offers to save it as an image file. The PC folder itself is never changed. |
+| Use a PC folder as SD card | the card in the DivMMC is ejected (asking to save it if it was changed) and a temporary card is made with esxDOS (SYS, BIN, TMP) and the folder's files and subfolders in its root, their names turned into 8.3 names (two that would clash become `NAME~1`, `NAME~2`...). The machine then boots with it. The card lives in the temporary folder and is deleted when it is replaced, ejected or ochenta closes; if it was changed, ochenta offers to save it as an image file. The PC folder itself is never changed. |
 | Insert SD card image | any raw card image (.img, .mmc, .hdf...). Inserting the one already in is refused. |
 | New SD card | an empty card of 16 MB to 2 GB, with one FAT16 partition. |
 | New SD card with ESXDOS | the same, with the esxDOS SYS, BIN and TMP folders already copied: ready to boot. |
@@ -1339,7 +1339,7 @@ The SD menu:
 
 What the Spectrum writes on the card, and what the SD card browser changes, is kept in memory
 (only the 512-byte blocks that changed) until the card is saved: the image file stays as it was.
-emu80 asks whether to save a modified card when it closes, and before the card is ejected or
+ochenta asks whether to save a modified card when it closes, and before the card is ejected or
 replaced. Inserting or creating a card connects the DivMMC if it isn't. The card in use is
 remembered for the next session. With the DivMMC on, the machine boots through esxDOS (about 5
 seconds), and tapes and disks opened with File > Open wait for it. On the 128K models esxDOS
@@ -1374,7 +1374,7 @@ names made from the PC names, or the PC names themselves on the Next's card), me
 folders already on the card, and the files in them are copied as they are, without asking (no
 +3DOS header). Files imported on their own ask the usual questions (name, +3DOS header), with
 "for all" to apply the choice to the rest; overwriting a file is always asked. While several
-files are imported a progress bar shows, and emu80 can't be used until it is over.
+files are imported a progress bar shows, and ochenta can't be used until it is over.
 
 ## 8. POKEs
 
@@ -1397,7 +1397,7 @@ SP0256-AL2 chip that speaks *allophones*, the sounds words are made of. It is co
 Settings > ZX Spectrum > Hardware (or `--zx_currah`, ini key `zx_currah` in `[ZXSpectrum]`), which switches the machine
 off and on; its ROM then shows "Speech System (c) CURRAH 1983" at the top of the screen. It needs
 `currah.rom` (its 2K ROM) and `sp0256-al2.rom` (the chip's 2K mask ROM) in the ROM folder; both
-come with emu80.
+come with ochenta.
 
 From BASIC (as its manual explains):
 
@@ -1637,7 +1637,7 @@ removes the selected one. Right-click also saves them to a JSON file or loads th
 JSON files, with addresses and ports in hex:
 
 ```
-{"emu80": "breakpoints", "version": 1,
+{"ochenta": "breakpoints", "version": 1,
  "memory": [{"address": "8000", "type": "exec", "enabled": true,
              "condition": "A = 3"}],
  "ports":  [{"port": "00FE", "type": "out", "enabled": true,
@@ -1648,11 +1648,11 @@ JSON files, with addresses and ports in hex:
 (memory types `exec`, `read`, `write`, `access`; port types `in`, `out`, `any`)
 
 ```
-{"emu80": "watches", "version": 1, "watches": ["5C3A", "8000"]}
+{"ochenta": "watches", "version": 1, "watches": ["5C3A", "8000"]}
 ```
 
 ```
-{"emu80": "daad-breakpoints", "version": 1,
+{"ochenta": "daad-breakpoints", "version": 1,
  "breakpoints": [{"address": "8A69", "enabled": true,
                   "condition": "f0 = 3", "condact": "P1 E5  NOUN2 251"}]}
 ```
@@ -1767,7 +1767,7 @@ while that ROM is paged in. Your own symbols, as exported by SjASM / SjASMPlus
 (`LABEL: EQU 0x8000`), are loaded with Debug > Load symbols or `--sym` and take precedence:
 
 ```
-emu80 --sym game.sym game.tap
+ochenta --sym game.sym game.tap
 ```
 
 ### ROM
@@ -1917,7 +1917,7 @@ and are left as markers; PAUSE and BEEP durations are the database's (DRC scales
 target); a v3 database needs DRF's `-v3` option (the DSF says so). The DSF file is ISO-8859-1 and
 the SCE code page 437.
 
-A PAW game is exported as it is to an SCE (PAW condacts, no object attributes). To a DSF, emu80 asks
+A PAW game is exported as it is to an SCE (PAW condacts, no object attributes). To a DSF, ochenta asks
 whether to export it as a PAW game (the same) or to convert it to DAAD, as PAWS2DAAD does: DESC
 becomes RESTART, INVEN the SYSMESS/LISTAT entry, SAVE, LOAD and PARSE get their 0, PROMPT becomes
 LET fPrompt, TIMEOUT HASAT TIMEOUT, and condacts DAAD lacks (TURNS, SCORE, CHARSET, MODE, GRAPHIC,
@@ -1927,7 +1927,7 @@ database, whose definitions and processes 0, 1, 2 and 6 are added: the response 
 process 5, PAW processes 1 and 2 become 3 and 4, processes 3 to 6 go after the last one and the
 rest keep their numbers (PROCESS calls are renumbered too). The system messages DAAD has and PAW
 lacks come from the empty database, and process 1 gets the entry for PAW's auto-decrement flags
-as a comment (remove its semicolons if the game needs them). After converting, emu80 reminds you
+as a comment (remove its semicolons if the game needs them). After converting, ochenta reminds you
 that the source needs checking by hand: PAW's flags and fonts are not DAAD's.
 
 A Quill game can only be exported as a DSF, converted to DAAD in the same way (there is no SCE
@@ -1943,7 +1943,7 @@ can be carried.
 ## 12. Command line
 
 ```
-emu80 [options] [file]
+ochenta [options] [file]
 ```
 
 A file (.tap, .tzx, .cdt, .sna, .z80, .dsk, .mgt, .sad, .nex, .e80, or the Commodore 64's .d64, .prg, .p00 and .t64) is opened as with File > Open, so a tape or disk is loaded
@@ -1953,7 +1953,7 @@ symbols, breakpoints, typed keys.
 
 | Option | Description |
 |---|---|
-| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128`, `sam`, `msx2`, `c64` (also `+2`, `+2b`, `+3`). A CPC, the SAM Coupé, the MSX2 or the Commodore 64 can also be named alone: `emu80 cpc6128`, `emu80 cpc464 game.cdt`, `emu80 sam game.mgt`, `emu80 c64 game.d64` |
+| `--model M` | machine: `16k`, `48k`, `128k`, `plus2`, `plus2b`, `plus3`, `zxuno`, `zxnext`, `cpc464`, `cpc664`, `cpc6128`, `sam`, `msx2`, `c64` (also `+2`, `+2b`, `+3`). A CPC, the SAM Coupé, the MSX2 or the Commodore 64 can also be named alone: `ochenta cpc6128`, `ochenta cpc464 game.cdt`, `ochenta sam game.mgt`, `ochenta c64 game.d64` |
 | `--speed N` | CPU speed 1, 2, 4, 8, 16 or 32 (as in Settings > Common > General) |
 | `--scale N` | window zoom 1 to 4 |
 | `--tape FILE` | insert a .tap, .tzx or .cdt without starting it (combine with `--keyin`; a Commodore 64 tape is a .tap) |
@@ -1982,7 +1982,7 @@ Every breakpoint option takes an optional condition, after "if" or a comma:
 
 **Settings and the Options menu.** Every setting has an option; what they set is kept in the
 settings file like a change made in Settings. On/off options turn the setting on as `--name` and
-off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the same name
+off as `--no-name` (`--no-fastload`...). In ochenta.ini each one is a key with the same name
 (see [Settings](#4-settings)):
 
 | Option | Setting | Where |
@@ -2038,7 +2038,7 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--fastdisk` | fast floppy disk access | Common > Storage |
 | `--driveb` | drive B: connected (default: no) | Common > Storage |
 | `--floppynoise` | emulate floppy drive noise | Common > Storage |
-| `--saveonexit` | save the settings when emu80 closes | Common > General |
+| `--saveonexit` | save the settings when ochenta closes | Common > General |
 | `--pngborder` | include the border in PNG screenshots | File menu |
 | `--romdir DIR` | the standard ROM folder | Common > ROMs |
 | `--rom "MODEL,N,FILE"` | ROM N of a model (0 to 3, as many as the model has), e.g. `--rom "48k,0,C:\roms\mine.rom"` or `--rom "sam,0,C:\roms\samco_v3.0.rom"`; an empty FILE goes back to the standard ROM | Common > ROMs |
@@ -2049,14 +2049,14 @@ off as `--no-name` (`--no-fastload`...). In emu80.ini each one is a key with the
 | `--watches FILE` | watches saved by the debugger (JSON) | |
 | `--daadbreakpoints FILE` | breakpoints saved by the Adventure Debugger (JSON); they act once that debugger is open (F11) | |
 | `--zx_unocustomrom FILE` | a 16K ROM the ZX-Uno runs (as a 48K) instead of the one its BIOS chooses; empty = none | ZX Spectrum > Firmware |
-| `--zx_nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to emu80.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ZX Spectrum > Firmware |
-| `--zx_nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to emu80.ini | ZX Spectrum > Firmware |
+| `--zx_nextdir DIR` | the ZX Spectrum Next's distribution folder; empty = `specnext` next to the program (or next to ochenta.ini, see [ZX Spectrum Next](#zx-spectrum-next)) | ZX Spectrum > Firmware |
+| `--zx_nextcard FILE` | the ZX Spectrum Next's SD card image, made from the distribution if it doesn't exist; empty = `zxnext.img` next to ochenta.ini | ZX Spectrum > Firmware |
 | `--zx_nextfirmware` | the ZX Spectrum Next starts through its firmware (boot screen; on by default); `--no-zx_nextfirmware` starts NextZXOS directly | ZX Spectrum > Firmware |
 
 | Option | Description |
 |---|---|
-| `--config FILE` | use FILE as the settings file instead of emu80.ini; FILE must exist (emu80 stops with an error if it doesn't) and changed settings are saved into it |
-| `--config-add FILE` | apply the settings in FILE on top of emu80.ini for this session; they are not written into emu80.ini. If FILE doesn't exist it is ignored, without an error |
+| `--config FILE` | use FILE as the settings file instead of ochenta.ini; FILE must exist (ochenta stops with an error if it doesn't) and changed settings are saved into it |
+| `--config-add FILE` | apply the settings in FILE on top of ochenta.ini for this session; they are not written into ochenta.ini. If FILE doesn't exist it is ignored, without an error |
 | `--help` | show this documentation |
 
 The breakpoint, keyin and file options can be repeated.
@@ -2064,12 +2064,12 @@ The breakpoint, keyin and file options can be repeated.
 Examples:
 
 ```
-emu80 game.tap
-emu80 --model 128k --tape game.tap --keyin "\n"
-emu80 --model 48k --tape game.tap --keyin 'J""\n'
-emu80 --sym game.sym --bp START --bpw "5C78 if A=0" game.z80
-emu80 --bpout "FE if A=2" --bpin 7FFE game.tap
-emu80 --config-add bw.ini --scale 3 demo.sna
+ochenta game.tap
+ochenta --model 128k --tape game.tap --keyin "\n"
+ochenta --model 48k --tape game.tap --keyin 'J""\n'
+ochenta --sym game.sym --bp START --bpw "5C78 if A=0" game.z80
+ochenta --bpout "FE if A=2" --bpin 7FFE game.tap
+ochenta --config-add bw.ini --scale 3 demo.sna
 ```
 
 A settings file for `--config-add` only needs the values to change, e.g.:
@@ -2083,32 +2083,32 @@ bw=1
 
 | File | What it is |
 |---|---|
-| `emu80` / `emu80.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
-| `emu80.ini` | settings, next to the program (created when emu80 closes; `~/.config/emu80/` when installed from a package) |
+| `ochenta` / `ochenta.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
+| `ochenta.ini` | settings, next to the program (created when ochenta closes; `~/.config/ochenta/` when installed from a package) |
 | `roms/` | Spectrum and Amstrad CPC ROMs (`cpc464.rom`, `cpc664.rom`, `cpc6128.rom`, `amsdos.rom`) and the Spectrum ROMs' .sym label files (the SAM Coupé's ROM, `samcoupe.rom`, and its SAMDOS disk, `SAMDOS2.dsk`), the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
 | `specnext/` | empty: unpack the ZX Spectrum Next distribution here (it isn't included, as it has its own licence) |
-| `zxnext.img` | the ZX Spectrum Next's SD card, next to emu80.ini, made from the distribution the first time the Next is used |
+| `zxnext.img` | the ZX Spectrum Next's SD card, next to ochenta.ini, made from the distribution the first time the Next is used |
 | `zxuno/` | the ZX-Uno's BIOS (`FIRMWARE.ZX1`) and ROMs (`ROMS.ZX1`) |
 | `esxdos/` | esxDOS 0.8.9: `ESXMMC.BIN` (the DivMMC firmware) and the SYS and BIN folders for new SD cards |
 | `README.md` | this file |
 | `LICENSE` | the license, GNU GPL v3 (Help > License) |
 
 `roms`, `README.md` and `LICENSE` are looked for next to the program and, if not there, in the
-folder above it (as when emu80 is built inside the src folder of the sources).
+folder above it (as when ochenta is built inside the src folder of the sources).
 
 Linux packages: after `build.sh`, `package.sh` makes a .deb (with dpkg-deb) and a .rpm (with
 rpmbuild: on Debian or Ubuntu, `sudo apt install rpm`) in `build/packages`. Both install the
-program and its folders in `/usr/lib/emu80`, a `emu80` command, a desktop entry and the icon; they
+program and its folders in `/usr/lib/ochenta`, a `ochenta` command, a desktop entry and the icon; they
 need GTK 2 and recommend SDL2 (for sound). The version is the release number. `package.sh` also
-makes `emu80-VERSION-x86_64.AppImage` (a single file that runs on most Linux distributions without installing:
+makes `ochenta-VERSION-x86_64.AppImage` (a single file that runs on most Linux distributions without installing:
 `chmod +x` it and run it; it needs `appimagetool` in the PATH, or `APPIMAGETOOL=path`, and GTK 2 and SDL2 installed on the machine that
 builds it: it carries them, with their libraries, so it needs nothing installed to run, only the C library and the
-graphics drivers of the system; like the packages it keeps its settings in `~/.config/emu80`) and
-`emu80-VERSION-windows.zip` with `emu80.exe` (built with lazbuild) and its folders, to unpack
-anywhere. The three packages have a `lib` folder (`/usr/lib/emu80/lib` in the Linux ones) with the native
-library for host applications (`e80lib.dll`, or `libe80.so`) and its documentation, `LIBRARY.md`; `package.sh`
+graphics drivers of the system; like the packages it keeps its settings in `~/.config/ochenta`) and
+`ochenta-VERSION-windows.zip` with `ochenta.exe` (built with lazbuild) and its folders, to unpack
+anywhere. The three packages have a `lib` folder (`/usr/lib/ochenta/lib` in the Linux ones) with the native
+library for host applications (`ochentalib.dll`, or `libochenta.so`) and its documentation, `LIBRARY.md`; `package.sh`
 builds the library with `src/lib/build-lib.sh` if it is not built yet. They also have a `tests` folder with the
-C# host demo (`Emu80HostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `Emu80HostDemo.exe --selftest`).
+C# host demo (`OchentaHostDemo`: its sources and `build.bat`; the Windows .zip has it built too, `OchentaHostDemo.exe --selftest`).
 
 The Spectrum and CPC ROMs are copyright Amstrad, who allow their distribution.
 
@@ -2135,7 +2135,7 @@ out of its use, even if advised of the possibility of such damage.
 
 ## Building
 
-**Windows:** open `src/emu80.lpi` in Lazarus and build, or run `lazbuild src/emu80.lpi`.
+**Windows:** open `src/ochenta.lpi` in Lazarus and build, or run `lazbuild src/ochenta.lpi`.
 The executable is written next to the project, in `src`, so it builds from any
 drive or folder; it finds `roms`, `README.md` and `LICENSE` in its own folder
 or in the one above. To distribute it, put them next to the executable.
@@ -2146,9 +2146,9 @@ changed in Options > Settings).
 installed (GTK2 on Linux, Cocoa on macOS); otherwise point it at a Lazarus
 source tree with `LAZARUS_DIR=/path/to/lazarus ./build.sh` and it compiles
 with `fpc` alone. The result, with its `roms` folder, goes to `build/linux/`
-or `build/macos/emu80.app`. Linux needs the GTK2 development package to build
+or `build/macos/ochenta.app`. Linux needs the GTK2 development package to build
 (`libgtk2.0-dev`). Sound uses SDL2 at run time (`libsdl2-2.0-0` on Linux,
-`brew install sdl2` on macOS); without it emu80 runs silently at the right speed.
+`brew install sdl2` on macOS); without it ochenta runs silently at the right speed.
 
 ## Tests
 

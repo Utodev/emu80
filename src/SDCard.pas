@@ -409,7 +409,7 @@ begin
           (CSize shr 8) and $FF, CSize and $FF, $7F, $80, $0A, $40, $00, $01, $FF, $FF]);
       end;
     10: Queue([R1, $FE, $03, $45, $38, $45, $4D, $55, $38, $30, $10, $00, $00, $00, $01,
-      $01, $50, $01, $FF, $FF]);   // CID: manufacturer 3, OEM "E8", product "EMU80"
+      $01, $50, $01, $FF, $FF]);   // CID: manufacturer 3, OEM "E8", product "OCHENTA"
     12:
       begin
         FMultiRead := False;

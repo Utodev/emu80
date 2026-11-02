@@ -1,7 +1,7 @@
 The MSX ROMs:
 
-- QUANTIKA.ROM and QUANTIKA_SUB.ROM: emu80's own 32K BIOS with FBASIC and 16K sub-ROM, the MSX 2's ROMs. They come with
-  emu80.
+- QUANTIKA.ROM and QUANTIKA_SUB.ROM: ochenta's own 32K BIOS with FBASIC and 16K sub-ROM, the MSX 2's ROMs. They come with
+  ochenta.
 - To use the original ROMs instead, look for MSX2.rom (the 32K BIOS + MSX-BASIC 2 of an MSX2 machine) and MSX2EXT.rom (its
   16K sub-ROM), put them here and choose them in Settings > Common > ROMs (or with `--rom "msx2,0,FILE"` and
   `--rom "msx2,1,FILE"`). They are not distributed, and git ignores them.

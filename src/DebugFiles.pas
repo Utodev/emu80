@@ -3,7 +3,7 @@
   are hex strings.
 
   Breakpoints (the Z80 debugger):
-    {"emu80": "breakpoints", "version": 1,
+    {"ochenta": "breakpoints", "version": 1,
      "memory": [{"address": "8000", "type": "exec", "enabled": true,
                  "condition": "A = 3"}, ...],
      "ports":  [{"port": "00FE", "type": "out", "enabled": true,
@@ -11,9 +11,9 @@
     memory types: exec, read, write, access; port types: in, out, any.
     A range has an "end" (address or port): one breakpoint over all of it.
   Watches:
-    {"emu80": "watches", "version": 1, "watches": ["5C3A", "8000"]}
+    {"ochenta": "watches", "version": 1, "watches": ["5C3A", "8000"]}
   DAAD breakpoints (on condacts; "condact" just tells which one it was):
-    {"emu80": "daad-breakpoints", "version": 1,
+    {"ochenta": "daad-breakpoints", "version": 1,
      "breakpoints": [{"address": "8A69", "enabled": true,
                       "condition": "f0 = 3", "condact": "P1 E5 NOUN2 251"}]}
   Loading replaces what there was. }
@@ -68,7 +68,7 @@ begin
   end;
 end;
 
-{ The file's JSON, if it is an emu80 file of that kind; nil (and Error) if not }
+{ The file's JSON, if it is an ochenta file of that kind; nil (and Error) if not }
 function LoadJSON(const FileName, Kind: string; out Error: string): TJSONObject;
 var
   L: TStringList;
@@ -91,10 +91,10 @@ begin
   finally
     L.Free;
   end;
-  if not (Data is TJSONObject) or (TJSONObject(Data).Get('emu80', '') <> Kind) then
+  if not (Data is TJSONObject) or (TJSONObject(Data).Get('ochenta', '') <> Kind) then
   begin
     Data.Free;
-    Error := Format('not an emu80 %s file', [Kind]);
+    Error := Format('not an ochenta %s file', [Kind]);
     Exit;
   end;
   Result := TJSONObject(Data);
@@ -118,7 +118,7 @@ end;
 function NewDoc(const Kind: string): TJSONObject;
 begin
   Result := TJSONObject.Create;
-  Result.Add('emu80', Kind);
+  Result.Add('ochenta', Kind);
   Result.Add('version', 1);
 end;
 

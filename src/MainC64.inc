@@ -273,7 +273,7 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   UpdateChecks;
-  Caption := 'emu80 - ' + ExtractFileName(FileName);
+  Caption := 'ochenta - ' + ExtractFileName(FileName);
   Result := True;
 end;
 
@@ -302,6 +302,8 @@ begin
       FEmu.Spec.DriveBOn := True;
     end;
     FEmu.Spec.C64Hw.InsertDisk(Drive, Disk);
+    // The disk's first program is loaded and run (LOAD"*",8,1 or ,9,1), unless Alt or AltGr is held
+    if not NoAutoStartKey and FEmu.Spec.C64Hw.DriveOn[Drive] then FEmu.Spec.AutoLoad(True, Drive);
   finally
     FEmu.Unlock;
   end;

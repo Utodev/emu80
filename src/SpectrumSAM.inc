@@ -13,7 +13,7 @@ begin
   FileName := RomPath(0);
   if not FileExists(FileName) then
     raise Exception.CreateFmt(_('ROM file not found: %s') + LineEnding + LineEnding +
-      _('The SAM Coup'#$C3#$A9'''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM ' +
+      _('The SAM Coup'#$C3#$A9'''s ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM ' +
       'folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.'), [FileName]);
   S := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try

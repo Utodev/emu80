@@ -71,7 +71,7 @@ begin
   end;
 end;
 
-{ An empty config.ini (as older versions of emu80 left it) is mended }
+{ An empty config.ini (as older versions of ochenta left it) is mended }
 procedure TestRepair(const Distro, Card: string);
 var
   F: TFileStream;

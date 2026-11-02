@@ -761,12 +761,12 @@ begin
     if H[$10] >= 3 then
     begin
       if KB = 0 then
-        raise Exception.Create(_('This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read'));
+        raise Exception.Create(_('This snapshot keeps its memory in compressed chunks, which ochenta doesn''t read'));
     end;
     if (KB <> 64) and (KB <> 128) then
       raise Exception.CreateFmt(_('A CPC snapshot with %d KB of memory isn''t supported (64 or 128)'), [KB]);
     if Kind in [4, 5, 6] then
-      raise Exception.Create(_('A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only'));
+      raise Exception.Create(_('A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only'));
     Size := KB * 1024;
     if F.Size - SNA_HEADER < Size then raise Exception.Create(_('The snapshot is cut short'));
     SetLength(Mem, Size);

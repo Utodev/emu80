@@ -28,8 +28,8 @@ const
 var
   I, X, Y, BW, BH, Gap, Pad, W, RowH: Integer;
   Btn: TFlatButton;
+  LH: Integer;
   Lbl: TLabel;
-  Box: TPaintBox;
   Handlers: array[0..11] of TNotifyEvent;
   Item: TMenuItem;
 
@@ -63,28 +63,19 @@ begin
   Gap := MUIScale(6);
   Pad := MUIScale(10);
 
-  // Header: the name, the Spectrum's stripes, the menus, the model
+  // Header: the logo, the menus, the model
   FMHeader := TDarkPanel.Create(Self);
   FMHeader.Parent := Self;
   FMHeader.Align := alTop;
   FMHeader.Height := MUIScale(40);
   FMHeader.Color := MUI_TITLE;
-  Lbl := TLabel.Create(Self);
-  Lbl.Parent := FMHeader;
-  Lbl.Caption := 'emu80';
-  Lbl.Font.Color := MUI_TEXT;
-  Lbl.Font.Style := [fsBold];
-  Lbl.Font.Height := -MUIScale(17);
-  Lbl.Left := MUIScale(14);
-  Lbl.Top := (FMHeader.Height - Lbl.Canvas.TextHeight('emu80')) div 2;
-  // The four colours as little squares, two above and two below, after the name
-  Lbl.Canvas.Font.Assign(Lbl.Font);
-  Box := TPaintBox.Create(Self);
-  Box.Parent := FMHeader;
-  Box.SetBounds(Lbl.Left + Lbl.Canvas.TextWidth(Lbl.Caption) + MUIScale(10), MUIScale(11), MUIScale(18),
-    MUIScale(18));
-  Box.OnPaint := @PaintStripes;
-  X := Box.Left + Box.Width + MUIScale(18);
+  // The logo, in place of the name and the colours
+  FMLogo := TPaintBox.Create(Self);
+  FMLogo.Parent := FMHeader;
+  LH := MUIScale(28);
+  FMLogo.SetBounds(MUIScale(10), (FMHeader.Height - LH) div 2, LogoWidth(LH), LH);
+  FMLogo.OnPaint := @PaintModernLogo;
+  X := FMLogo.Left + FMLogo.Width + MUIScale(18);
   for I := 0 to FMenu.Items.Count - 1 do
   begin
     Item := FMenu.Items[I];
@@ -226,7 +217,7 @@ begin
   FMMediaBox.OnMouseUp := @ModernMediaClick;
   FMMediaBox.Cursor := crHandPoint;
   FMMediaBox.ShowHint := True;
-  FMMediaBox.Hint := _('Click a drive or the card reader to insert a disk or an SD card image');
+  FMMediaBox.Hint := _('Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload');
   for I := 0 to 2 do
   begin
     if I < 2 then

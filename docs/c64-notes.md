@@ -1,6 +1,6 @@
 # Commodore 64: implementation notes
 
-How the C64 is built in emu80 (for whoever maintains it; the user's documentation is README.md > Commodore 64).
+How the C64 is built in ochenta (for whoever maintains it; the user's documentation is README.md > Commodore 64).
 
 ## Files
 

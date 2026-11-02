@@ -89,12 +89,12 @@ backup/
 *.ppu
 *.compiled
 *.o
-emu80
+ochenta
 tests/build/
 build/
 
 # Settings written next to the executable
-emu80.ini
+ochenta.ini
 # The ZX Spectrum Next's SD card (and old ones kept when a new distribution comes)
 zxnext*.img
 

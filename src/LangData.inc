@@ -62,12 +62,12 @@ const
     '%s no es una ROM de SAM Coupe (deber'#$C3#$AD'a ser de 32K)',
     '%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K raw image or a +3 disk), and this one has %d cylinders and is %s.',
     '%s no es un disco que lea el MSX: necesita 9 sectores de 512 bytes por pista (una imagen en bruto de 720K o 360K o un disco +3), y este tiene %d cilindros y es %s.',
-    '%s was not found next to the emu80 executable.',
-    '%s no se encontr'#$C3#$B3' junto al ejecutable de emu80.',
+    '%s was not found next to the ochenta executable.',
+    '%s no se encontr'#$C3#$B3' junto al ejecutable de ochenta.',
     '%s: the CPC firmware is a 32K file (system ROM and BASIC)',
     '%s: el firmware del CPC es un archivo de 32K (ROM del sistema y BASIC)',
-    '&About emu80...',
-    '&Acerca de emu80...',
+    '&About ochenta...',
+    '&Acerca de ochenta...',
     '&Auto play/stop',
     '&Reproducci'#$C3#$B3'n autom'#$C3#$A1'tica',
     '&Auto-detect',
@@ -183,14 +183,14 @@ const
     'A second 1541, as device 9 on the serial bus. The Floppy menu then has its drive B: entries (the C64''s drives are 8 and 9)',
     'Una segunda 1541, como dispositivo 9 del bus serie. El men'#$C3#$BA +
         ' Disquete tiene entonces las entradas de la unidad B: (las unidades del C64 son la 8 y la 9)',
-    'A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only',
-    'Un snapshot de un CPC+ o una GX4000: emu80 solo emula la gama original de CPC',
+    'A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only',
+    'Un snapshot de un CPC+ o una GX4000: ochenta solo emula la gama original de CPC',
     'ASCII file: ',
     'Archivo ASCII: ',
     'AY sound chip on the 16K and 48K',
     'Chip de sonido AY en el 16K y el 48K',
-    'About emu80',
-    'Acerca de emu80',
+    'About ochenta',
+    'Acerca de ochenta',
     'Address,value (decimal, or hex with $). Several POKEs separated by ":", e.g.  35899,0 : 36000,201',
     'Direcci'#$C3#$B3 +
         'n,valor (decimal, o hex con $). Varios POKE separados por ":", p. ej.  35899,0 : 36000,201',
@@ -305,8 +305,9 @@ const
     'Suma de comprobaci'#$C3#$B3'n',
     'Classic (menus and toolbar)',
     'Cl'#$C3#$A1'sico (men'#$C3#$BA's y barra de herramientas)',
-    'Click a drive or the card reader to insert a disk or an SD card image',
-    'Clic en una unidad o en el lector de tarjetas para insertar un disco o una imagen de tarjeta SD',
+    'Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload',
+    'Haz clic en una unidad o en el lector de tarjetas para insertar un disco o una imagen de tarjeta SD. Mant' +
+        #$C3#$A9'n pulsada Alt al insertar para evitar la carga autom'#$C3#$A1'tica',
     'Click to insert a tape',
     'Clic para insertar una cinta',
     'Clock (SAMBUS interface)',
@@ -977,8 +978,8 @@ const
     'Reiniciar',
     'Reset (Ctrl+F6)',
     'Reiniciar (Ctrl+F6)',
-    'Restart emu80 now to use the new language?',
-    #$C2#$BF'Reiniciar emu80 ahora para usar el nuevo idioma?',
+    'Restart ochenta now to use the new language?',
+    #$C2#$BF'Reiniciar ochenta ahora para usar el nuevo idioma?',
     'Return from the sequence',
     'Retorno de la secuencia',
     'Rewind',
@@ -1048,8 +1049,8 @@ const
     'Guardar el cartucho como otro archivo...',
     'Save the cartridge to its file (Ctrl+S)',
     'Guardar el cartucho en su archivo (Ctrl+S)',
-    'Save the settings when emu80 closes',
-    'Guardar la configuraci'#$C3#$B3'n al cerrar emu80',
+    'Save the settings when ochenta closes',
+    'Guardar la configuraci'#$C3#$B3'n al cerrar ochenta',
     'Save the tape as...',
     'Guardar la cinta como...',
     'Scanlines (zoom 2x or more)',
@@ -1189,9 +1190,9 @@ const
         #$C3#$BA'n > ROMs.',
     'The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.',
     'No se encontr'#$C3#$B3' el firmware del DivMMC (esxdos/ESXMMC.BIN).',
-    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead.',
+    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead.',
     'El firmware del Next intent'#$C3#$B3' arrancar el n'#$C3#$BA'cleo de otra m'#$C3#$A1'quina (un n' +
-        #$C3#$BA'cleo extra, ranuras 8-31). emu80 solo emula el n'#$C3#$BA'cleo del ZX Spectrum Next, as' +
+        #$C3#$BA'cleo extra, ranuras 8-31). ochenta solo emula el n'#$C3#$BA'cleo del ZX Spectrum Next, as' +
         #$C3#$AD' que el Next arranca de nuevo.',
     'The ROM tells the size by trying the pages: 512K is the usual machine.',
     'La ROM averigua el tama'#$C3#$B1'o probando las p'#$C3#$A1'ginas: 512K es la m'#$C3#$A1 +
@@ -1199,8 +1200,8 @@ const
     'The ROM''s SAVE adds its blocks to the inserted tape at once',
     'El SAVE de la ROM a'#$C3#$B1'ade sus bloques a la cinta insertada de inmediato',
     'The SAM Coup'#$C3#$A9 +
-        '''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
-    'La ROM del SAM Coup'#$C3#$A9' no se distribuye con emu80: ponga la ROM de 32K (versi'#$C3#$B3 +
+        '''s ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
+    'La ROM del SAM Coup'#$C3#$A9' no se distribuye con ochenta: ponga la ROM de 32K (versi'#$C3#$B3 +
         'n 3.0) en la carpeta de ROM como samcoupe.rom, o elija el archivo en Configuraci'#$C3#$B3'n > Com' +
         #$C3#$BA'n > ROMs.',
     'The SD card %s has been modified. Save the changes?',
@@ -1246,8 +1247,8 @@ const
     'El disco est'#$C3#$A1' insertado, pero este ordenador no tiene unidad de disco.',
     'The distribution could not be installed: ',
     'No se pudo instalar la distribuci'#$C3#$B3'n: ',
-    'The esxdos folder (with SYS and BIN) was not found next to emu80.',
-    'No se encontr'#$C3#$B3' la carpeta esxdos (con SYS y BIN) junto a emu80.',
+    'The esxdos folder (with SYS and BIN) was not found next to ochenta.',
+    'No se encontr'#$C3#$B3' la carpeta esxdos (con SYS y BIN) junto a ochenta.',
     'The file %s does not exist.',
     'El archivo %s no existe.',
     'The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): write the first %d?',
@@ -1269,9 +1270,9 @@ const
     'El 8, 2, 4 y 6 del teclado num'#$C3#$A9 +
         'rico (y las diagonales 7, 9, 1 y 3) son las direcciones del joystick, y el 0, el 5 y el Ctrl derecho su bot' +
         #$C3#$B3'n de disparo',
-    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while emu80 starts always gives English',
+    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while ochenta starts always gives English',
     'El idioma de la interfaz; Autom'#$C3#$A1 +
-        'tico sigue el del sistema. Mantener pulsada la tecla Ctrl izquierda al iniciar emu80 da siempre ingl' +
+        'tico sigue el del sistema. Mantener pulsada la tecla Ctrl izquierda al iniciar ochenta da siempre ingl' +
         #$C3#$A9's',
     'The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset',
     'El mapper de memoria responde en los puertos FCh-FFh. Algunos juegos de cinta (las conversiones del ZX Spectrum) escriben en el puerto FEh para sus propios fines y, con el mapper ah' +
@@ -1315,9 +1316,9 @@ const
     'No hay disco en la unidad %s:',
     'There is no disk in that drive.',
     'No hay disco en esa unidad.',
-    'These files on the Next''s SD card were empty (an older version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
+    'These files on the Next''s SD card were empty (an older version of ochenta didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
     'Estos archivos de la tarjeta SD del Next estaban vac'#$C3#$AD'os (una versi'#$C3#$B3 +
-        'n anterior de emu80 no guardaba lo que NextZXOS y el firmware escrib'#$C3#$AD +
+        'n anterior de ochenta no guardaba lo que NextZXOS y el firmware escrib'#$C3#$AD +
         'an) y se han reparado desde la distribuci'#$C3#$B3'n:',
     'This TZX version is not supported',
     'Esta versi'#$C3#$B3'n de TZX no est'#$C3#$A1' admitida',
@@ -1330,8 +1331,8 @@ const
     'No es un archivo TZX',
     'This is the modern interface.',
     'Esta es la interfaz moderna.',
-    'This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read',
-    'Este snapshot guarda su memoria en bloques comprimidos, que emu80 no lee',
+    'This snapshot keeps its memory in compressed chunks, which ochenta doesn''t read',
+    'Este snapshot guarda su memoria en bloques comprimidos, que ochenta no lee',
     'Timex screen modes (second screen, hi-colour, 512x192 hi-res)',
     'Modos de pantalla Timex (segunda pantalla, hi-colour, alta resoluci'#$C3#$B3'n 512x192)',
     'Timing',
@@ -1440,12 +1441,6 @@ const
     'directorio ra'#$C3#$AD'z FAT32 incorrecto',
     'btn:Settings',
     'Config',
-    'emu80 documentation',
-    'Documentaci'#$C3#$B3'n de emu80',
-    'emu80 license (GNU GPL v3)',
-    'Licencia de emu80 (GNU GPL v3)',
-    'emu80 snapshot (*.e80)',
-    'Snapshot de emu80 (*.e80)',
     'end of tape',
     'fin de la cinta',
     'hidden ',
@@ -1466,6 +1461,12 @@ const
     'no disponible',
     'not enough space: %d bytes needed, %d free',
     'no hay espacio suficiente: se necesitan %d bytes, hay %d libres',
+    'ochenta documentation',
+    'Documentaci'#$C3#$B3'n de ochenta',
+    'ochenta license (GNU GPL v3)',
+    'Licencia de ochenta (GNU GPL v3)',
+    'ochenta snapshot (*.e80)',
+    'Snapshot de ochenta (*.e80)',
     'page %d:%.4X',
     'p'#$C3#$A1'gina %d:%.4X',
     'play pressed, waiting for the motor',
@@ -1528,8 +1529,8 @@ const
     'usuario %d',
     'value %d is "%s": expected decimal 0-255, or $ and one or two hex digits',
     'el valor %d es "%s": se esperaba decimal 0-255, o $ y uno o dos d'#$C3#$AD'gitos hex',
-    'zxnext.img next to emu80.ini',
-    'zxnext.img junto a emu80.ini');
+    'zxnext.img next to ochenta.ini',
+    'zxnext.img junto a ochenta.ini');
   LCL_ES: array[0..601] of string = (
     '  modified ',
     '  modificado ',
@@ -2239,12 +2240,12 @@ const
     '%s n''est pas une ROM de SAM Coupe (elle devrait faire 32K)',
     '%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K raw image or a +3 disk), and this one has %d cylinders and is %s.',
     '%s n''est pas un disque lisible par le MSX : il lui faut 9 secteurs de 512 octets par piste (une image brute de 720K ou 360K ou un disque +3), et celui-ci a %d cylindres et est %s.',
-    '%s was not found next to the emu80 executable.',
-    '%s est introuvable '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' de l''ex'#$C3#$A9'cutable emu80.',
+    '%s was not found next to the ochenta executable.',
+    '%s est introuvable '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' de l''ex'#$C3#$A9'cutable ochenta.',
     '%s: the CPC firmware is a 32K file (system ROM and BASIC)',
     '%s : le firmware du CPC est un fichier de 32K (ROM syst'#$C3#$A8'me et BASIC)',
-    '&About emu80...',
-    #$C3#$80' &propos d''emu80...',
+    '&About ochenta...',
+    #$C3#$80' &propos d''ochenta...',
     '&Auto play/stop',
     'Lecture/arr'#$C3#$AA't &automatique',
     '&Auto-detect',
@@ -2354,14 +2355,14 @@ const
     'Un second 1541, comme p'#$C3#$A9'riph'#$C3#$A9'rique 9 du bus s'#$C3#$A9 +
         'rie. Le menu Disquette a alors les entr'#$C3#$A9 +
         'es du lecteur B: (les lecteurs du C64 sont 8 et 9)',
-    'A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only',
-    'Un snapshot de CPC+ ou de GX4000 : emu80 n'''#$C3#$A9'mule que la gamme CPC d''origine',
+    'A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only',
+    'Un snapshot de CPC+ ou de GX4000 : ochenta n'''#$C3#$A9'mule que la gamme CPC d''origine',
     'ASCII file: ',
     'Fichier ASCII : ',
     'AY sound chip on the 16K and 48K',
     'Puce sonore AY sur le 16K et le 48K',
-    'About emu80',
-    #$C3#$80' propos d''emu80',
+    'About ochenta',
+    #$C3#$80' propos d''ochenta',
     'Address,value (decimal, or hex with $). Several POKEs separated by ":", e.g.  35899,0 : 36000,201',
     'Adresse,valeur (d'#$C3#$A9'cimal, ou hex avec $). Plusieurs POKE s'#$C3#$A9'par'#$C3#$A9's par ' +
         #$C2#$AB' : '#$C2#$BB', p. ex.  35899,0 : 36000,201',
@@ -2483,9 +2484,10 @@ const
     'Somme de contr'#$C3#$B4'le',
     'Classic (menus and toolbar)',
     'Classique (menus et barre d''outils)',
-    'Click a drive or the card reader to insert a disk or an SD card image',
-    'Cliquez sur un lecteur ou le lecteur de cartes pour ins'#$C3#$A9 +
-        'rer un disque ou une image de carte SD',
+    'Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload',
+    'Cliquez sur un lecteur ou sur le lecteur de cartes pour ins'#$C3#$A9 +
+        'rer une disquette ou une image de carte SD. Maintenez Alt enfonc'#$C3#$A9 +
+        'e pendant l''insertion pour '#$C3#$A9'viter le chargement automatique',
     'Click to insert a tape',
     'Cliquez pour ins'#$C3#$A9'rer une cassette',
     'Clock (SAMBUS interface)',
@@ -3188,8 +3190,8 @@ const
     'R'#$C3#$A9'init.',
     'Reset (Ctrl+F6)',
     'R'#$C3#$A9'initialiser (Ctrl+F6)',
-    'Restart emu80 now to use the new language?',
-    'Red'#$C3#$A9'marrer emu80 maintenant pour utiliser la nouvelle langue ?',
+    'Restart ochenta now to use the new language?',
+    'Red'#$C3#$A9'marrer ochenta maintenant pour utiliser la nouvelle langue ?',
     'Return from the sequence',
     'Retour de la s'#$C3#$A9'quence',
     'Rewind',
@@ -3259,7 +3261,7 @@ const
     'Enregistrer la cartouche sous un autre fichier...',
     'Save the cartridge to its file (Ctrl+S)',
     'Enregistrer la cartouche dans son fichier (Ctrl+S)',
-    'Save the settings when emu80 closes',
+    'Save the settings when ochenta closes',
     'Enregistrer les param'#$C3#$A8'tres '#$C3#$A0' la fermeture',
     'Save the tape as...',
     'Enregistrer la cassette sous...',
@@ -3402,19 +3404,19 @@ const
         's dans Commun > ROM.',
     'The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.',
     'Le firmware du DivMMC (esxdos/ESXMMC.BIN) est introuvable.',
-    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead.',
+    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead.',
     'Le firmware du Next a tent'#$C3#$A9' de d'#$C3#$A9'marrer le c'#$C5#$93 +
-        'ur d''une autre machine (un c'#$C5#$93'ur suppl'#$C3#$A9'mentaire, slots 8-31). emu80 n'''#$C3#$A9 +
-        'mule que le c'#$C5#$93'ur du ZX Spectrum Next, le Next red'#$C3#$A9'marre donc.',
+        'ur d''une autre machine (un c'#$C5#$93'ur suppl'#$C3#$A9'mentaire, slots 8-31). ochenta n'''#$C3 +
+        #$A9'mule que le c'#$C5#$93'ur du ZX Spectrum Next, le Next red'#$C3#$A9'marre donc.',
     'The ROM tells the size by trying the pages: 512K is the usual machine.',
     'La ROM d'#$C3#$A9'termine la taille en essayant les pages : 512K est la machine habituelle.',
     'The ROM''s SAVE adds its blocks to the inserted tape at once',
     'Le SAVE de la ROM ajoute ses blocs '#$C3#$A0' la cassette ins'#$C3#$A9'r'#$C3#$A9'e imm'#$C3#$A9 +
         'diatement',
     'The SAM Coup'#$C3#$A9 +
-        '''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
+        '''s ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
     'La ROM du SAM Coup'#$C3#$A9' n''est pas distribu'#$C3#$A9 +
-        'e avec emu80 : placez la ROM de 32K (version 3.0) dans le dossier des ROM sous le nom samcoupe.rom, ou choisissez le fichier dans Param' +
+        'e avec ochenta : placez la ROM de 32K (version 3.0) dans le dossier des ROM sous le nom samcoupe.rom, ou choisissez le fichier dans Param' +
         #$C3#$A8'tres > Commun > ROM.',
     'The SD card %s has been modified. Save the changes?',
     'La carte SD %s a '#$C3#$A9't'#$C3#$A9' modifi'#$C3#$A9'e. Enregistrer les modifications ?',
@@ -3457,8 +3459,8 @@ const
     'Le disque est ins'#$C3#$A9'r'#$C3#$A9', mais cet ordinateur n''a pas de lecteur de disquette.',
     'The distribution could not be installed: ',
     'La distribution n''a pas pu '#$C3#$AA'tre install'#$C3#$A9'e : ',
-    'The esxdos folder (with SYS and BIN) was not found next to emu80.',
-    'Le dossier esxdos (avec SYS et BIN) est introuvable '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' d''emu80.',
+    'The esxdos folder (with SYS and BIN) was not found next to ochenta.',
+    'Le dossier esxdos (avec SYS et BIN) est introuvable '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' d''ochenta.',
     'The file %s does not exist.',
     'Le fichier %s n''existe pas.',
     'The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): write the first %d?',
@@ -3479,10 +3481,10 @@ const
     'The keypad''s 8, 2, 4 and 6 (and the diagonals 7, 9, 1 and 3) are the joystick''s directions, 0, 5 and the right Ctrl its fire button',
     'Les 8, 2, 4 et 6 du pav'#$C3#$A9' num'#$C3#$A9 +
         'rique (et les diagonales 7, 9, 1 et 3) sont les directions du joystick, et le 0, le 5 et le Ctrl droit son bouton de tir',
-    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while emu80 starts always gives English',
+    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while ochenta starts always gives English',
     'La langue de l''interface ; Automatique suit celle du syst'#$C3#$A8 +
         'me. Maintenir la touche Ctrl gauche enfonc'#$C3#$A9'e au d'#$C3#$A9 +
-        'marrage d''emu80 donne toujours l''anglais',
+        'marrage d''ochenta donne toujours l''anglais',
     'The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset',
     'Le mapper m'#$C3#$A9'moire r'#$C3#$A9 +
         'pond sur les ports FCh-FFh. Certains jeux sur cassette (les conversions du ZX Spectrum) '#$C3#$A9 +
@@ -3528,9 +3530,9 @@ const
     'Il n''y a pas de disque dans le lecteur %s :',
     'There is no disk in that drive.',
     'Il n''y a pas de disque dans ce lecteur.',
-    'These files on the Next''s SD card were empty (an older version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
+    'These files on the Next''s SD card were empty (an older version of ochenta didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
     'Ces fichiers de la carte SD du Next '#$C3#$A9 +
-        'taient vides (une ancienne version d''emu80 n''enregistrait pas ce que NextZXOS et le firmware ' +
+        'taient vides (une ancienne version d''ochenta n''enregistrait pas ce que NextZXOS et le firmware ' +
         #$C3#$A9'crivaient) et ont '#$C3#$A9't'#$C3#$A9' r'#$C3#$A9'par'#$C3#$A9's '#$C3#$A0 +
         ' partir de la distribution :',
     'This TZX version is not supported',
@@ -3545,8 +3547,8 @@ const
     'Ce n''est pas un fichier TZX',
     'This is the modern interface.',
     'Ceci est l''interface moderne.',
-    'This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read',
-    'Ce snapshot garde sa m'#$C3#$A9'moire en blocs compress'#$C3#$A9's, qu''emu80 ne lit pas',
+    'This snapshot keeps its memory in compressed chunks, which ochenta doesn''t read',
+    'Ce snapshot garde sa m'#$C3#$A9'moire en blocs compress'#$C3#$A9's, qu''ochenta ne lit pas',
     'Timex screen modes (second screen, hi-colour, 512x192 hi-res)',
     'Modes d'''#$C3#$A9'cran Timex (deuxi'#$C3#$A8'me '#$C3#$A9'cran, hi-colour, haute r'#$C3#$A9 +
         'solution 512x192)',
@@ -3657,12 +3659,6 @@ const
     'r'#$C3#$A9'pertoire racine FAT32 incorrect',
     'btn:Settings',
     'R'#$C3#$A9'glages',
-    'emu80 documentation',
-    'Documentation d''emu80',
-    'emu80 license (GNU GPL v3)',
-    'Licence d''emu80 (GNU GPL v3)',
-    'emu80 snapshot (*.e80)',
-    'Snapshot emu80 (*.e80)',
     'end of tape',
     'fin de la cassette',
     'hidden ',
@@ -3683,6 +3679,12 @@ const
     'non disponible',
     'not enough space: %d bytes needed, %d free',
     'espace insuffisant : %d octets n'#$C3#$A9'cessaires, %d libres',
+    'ochenta documentation',
+    'Documentation d''ochenta',
+    'ochenta license (GNU GPL v3)',
+    'Licence d''ochenta (GNU GPL v3)',
+    'ochenta snapshot (*.e80)',
+    'Snapshot ochenta (*.e80)',
     'play pressed, waiting for the motor',
     'lecture enfonc'#$C3#$A9'e, en attente du moteur',
     'read-only ',
@@ -3745,8 +3747,8 @@ const
     'value %d is "%s": expected decimal 0-255, or $ and one or two hex digits',
     'la valeur %d est '#$C2#$AB' %s '#$C2#$BB' : d'#$C3#$A9 +
         'cimal 0-255 attendu, ou $ et un ou deux chiffres hex',
-    'zxnext.img next to emu80.ini',
-    'zxnext.img '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' d''emu80.ini');
+    'zxnext.img next to ochenta.ini',
+    'zxnext.img '#$C3#$A0' c'#$C3#$B4't'#$C3#$A9' d''ochenta.ini');
   LCL_FR: array[0..611] of string = (
     '  modified ',
     '  modifi'#$C3#$A9' ',
@@ -4485,12 +4487,12 @@ const
     '%s n'#$C3#$A3'o '#$C3#$A9 +
         ' um disco que o MSX leia: precisa de 9 setores de 512 bytes por trilha (uma imagem bruta de 720K ou 360K ou um disco +3), e este tem %d cilindros e ' +
         #$C3#$A9' %s.',
-    '%s was not found next to the emu80 executable.',
-    '%s n'#$C3#$A3'o foi encontrado junto ao execut'#$C3#$A1'vel do emu80.',
+    '%s was not found next to the ochenta executable.',
+    '%s n'#$C3#$A3'o foi encontrado junto ao execut'#$C3#$A1'vel do ochenta.',
     '%s: the CPC firmware is a 32K file (system ROM and BASIC)',
     '%s: o firmware do CPC '#$C3#$A9' um arquivo de 32K (ROM do sistema e BASIC)',
-    '&About emu80...',
-    '&Sobre o emu80...',
+    '&About ochenta...',
+    '&Sobre o ochenta...',
     '&Auto play/stop',
     'Tocar/parar &automaticamente',
     '&Auto-detect',
@@ -4606,14 +4608,14 @@ const
     'A second 1541, as device 9 on the serial bus. The Floppy menu then has its drive B: entries (the C64''s drives are 8 and 9)',
     'Um segundo 1541, como dispositivo 9 do barramento serial. O menu Disquete passa a ter as entradas da unidade B: (as unidades do C64 s' +
         #$C3#$A3'o a 8 e a 9)',
-    'A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only',
-    'Um snapshot de um CPC+ ou de um GX4000: o emu80 emula apenas a linha CPC original',
+    'A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only',
+    'Um snapshot de um CPC+ ou de um GX4000: o ochenta emula apenas a linha CPC original',
     'ASCII file: ',
     'Arquivo ASCII: ',
     'AY sound chip on the 16K and 48K',
     'Chip de som AY no 16K e no 48K',
-    'About emu80',
-    'Sobre o emu80',
+    'About ochenta',
+    'Sobre o ochenta',
     'Address,value (decimal, or hex with $). Several POKEs separated by ":", e.g.  35899,0 : 36000,201',
     'Endere'#$C3#$A7'o,valor (decimal, ou hex com $). V'#$C3#$A1 +
         'rios POKEs separados por ":", p. ex.  35899,0 : 36000,201',
@@ -4728,9 +4730,9 @@ const
     'Soma de verifica'#$C3#$A7#$C3#$A3'o',
     'Classic (menus and toolbar)',
     'Cl'#$C3#$A1'ssico (menus e barra de ferramentas)',
-    'Click a drive or the card reader to insert a disk or an SD card image',
+    'Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload',
     'Clique em uma unidade ou no leitor de cart'#$C3#$B5'es para inserir um disco ou uma imagem de cart' +
-        #$C3#$A3'o SD',
+        #$C3#$A3'o SD. Mantenha Alt pressionada ao inserir para evitar o carregamento autom'#$C3#$A1'tico',
     'Click to insert a tape',
     'Clique para inserir uma fita',
     'Clock (SAMBUS interface)',
@@ -5405,8 +5407,8 @@ const
     'Reiniciar',
     'Reset (Ctrl+F6)',
     'Reiniciar (Ctrl+F6)',
-    'Restart emu80 now to use the new language?',
-    'Reiniciar o emu80 agora para usar o novo idioma?',
+    'Restart ochenta now to use the new language?',
+    'Reiniciar o ochenta agora para usar o novo idioma?',
     'Return from the sequence',
     'Retorno da sequ'#$C3#$AA'ncia',
     'Rewind',
@@ -5476,8 +5478,8 @@ const
     'Salvar o cartucho como outro arquivo...',
     'Save the cartridge to its file (Ctrl+S)',
     'Salvar o cartucho em seu arquivo (Ctrl+S)',
-    'Save the settings when emu80 closes',
-    'Salvar as configura'#$C3#$A7#$C3#$B5'es ao fechar o emu80',
+    'Save the settings when ochenta closes',
+    'Salvar as configura'#$C3#$A7#$C3#$B5'es ao fechar o ochenta',
     'Save the tape as...',
     'Salvar a fita como...',
     'Scanlines (zoom 2x or more)',
@@ -5619,18 +5621,18 @@ const
         'das: coloque-as na pasta roms/c64. Os nomes podem ser mudados em Comum > ROMs.',
     'The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.',
     'O firmware do DivMMC (esxdos/ESXMMC.BIN) n'#$C3#$A3'o foi encontrado.',
-    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead.',
+    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead.',
     'O firmware do Next tentou iniciar o n'#$C3#$BA'cleo de outra m'#$C3#$A1'quina (um n'#$C3#$BA +
-        'cleo extra, slots 8-31). O emu80 emula apenas o n'#$C3#$BA'cleo do ZX Spectrum Next, ent'#$C3#$A3 +
+        'cleo extra, slots 8-31). O ochenta emula apenas o n'#$C3#$BA'cleo do ZX Spectrum Next, ent'#$C3#$A3 +
         'o o Next reinicia.',
     'The ROM tells the size by trying the pages: 512K is the usual machine.',
     'A ROM descobre o tamanho testando as p'#$C3#$A1'ginas: 512K '#$C3#$A9' a m'#$C3#$A1'quina usual.',
     'The ROM''s SAVE adds its blocks to the inserted tape at once',
     'O SAVE da ROM adiciona seus blocos '#$C3#$A0' fita inserida imediatamente',
     'The SAM Coup'#$C3#$A9 +
-        '''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
+        '''s ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
     'A ROM do SAM Coup'#$C3#$A9' n'#$C3#$A3'o '#$C3#$A9' distribu'#$C3#$AD +
-        'da com o emu80: coloque a ROM de 32K (vers'#$C3#$A3 +
+        'da com o ochenta: coloque a ROM de 32K (vers'#$C3#$A3 +
         'o 3.0) na pasta de ROMs como samcoupe.rom, ou escolha o arquivo em Configura'#$C3#$A7#$C3#$B5 +
         'es > Comum > ROMs.',
     'The SD card %s has been modified. Save the changes?',
@@ -5677,8 +5679,8 @@ const
     'O disco foi inserido, mas este computador n'#$C3#$A3'o tem unidade de disco.',
     'The distribution could not be installed: ',
     'N'#$C3#$A3'o foi poss'#$C3#$AD'vel instalar a distribui'#$C3#$A7#$C3#$A3'o: ',
-    'The esxdos folder (with SYS and BIN) was not found next to emu80.',
-    'A pasta esxdos (com SYS e BIN) n'#$C3#$A3'o foi encontrada junto ao emu80.',
+    'The esxdos folder (with SYS and BIN) was not found next to ochenta.',
+    'A pasta esxdos (com SYS e BIN) n'#$C3#$A3'o foi encontrada junto ao ochenta.',
     'The file %s does not exist.',
     'O arquivo %s n'#$C3#$A3'o existe.',
     'The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): write the first %d?',
@@ -5699,9 +5701,9 @@ const
     'The keypad''s 8, 2, 4 and 6 (and the diagonals 7, 9, 1 and 3) are the joystick''s directions, 0, 5 and the right Ctrl its fire button',
     'O 8, 2, 4 e 6 do teclado num'#$C3#$A9'rico (e as diagonais 7, 9, 1 e 3) s'#$C3#$A3'o as dire'#$C3 +
         #$A7#$C3#$B5'es do joystick, e o 0, o 5 e o Ctrl direito o seu bot'#$C3#$A3'o de tiro',
-    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while emu80 starts always gives English',
+    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while ochenta starts always gives English',
     'O idioma da interface; Autom'#$C3#$A1 +
-        'tico segue o do sistema. Segurar a tecla Ctrl esquerda ao iniciar o emu80 resulta sempre em ingl' +
+        'tico segue o do sistema. Segurar a tecla Ctrl esquerda ao iniciar o ochenta resulta sempre em ingl' +
         #$C3#$AA's',
     'The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset',
     'O mapper de mem'#$C3#$B3'ria responde nas portas FCh-FFh. Alguns jogos de fita (as convers'#$C3#$B5 +
@@ -5745,9 +5747,9 @@ const
     'N'#$C3#$A3'o h'#$C3#$A1' disco na unidade %s:',
     'There is no disk in that drive.',
     'N'#$C3#$A3'o h'#$C3#$A1' disco nessa unidade.',
-    'These files on the Next''s SD card were empty (an older version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
+    'These files on the Next''s SD card were empty (an older version of ochenta didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
     'Estes arquivos do cart'#$C3#$A3'o SD do Next estavam vazios (uma vers'#$C3#$A3 +
-        'o anterior do emu80 n'#$C3#$A3 +
+        'o anterior do ochenta n'#$C3#$A3 +
         'o salvava o que o NextZXOS e o firmware gravavam) e foram reparados a partir da distribui'#$C3#$A7 +
         #$C3#$A3'o:',
     'This TZX version is not supported',
@@ -5763,8 +5765,8 @@ const
     'N'#$C3#$A3'o '#$C3#$A9' um arquivo TZX',
     'This is the modern interface.',
     'Esta '#$C3#$A9' a interface moderna.',
-    'This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read',
-    'Este snapshot guarda sua mem'#$C3#$B3'ria em blocos compactados, que o emu80 n'#$C3#$A3'o l'#$C3 +
+    'This snapshot keeps its memory in compressed chunks, which ochenta doesn''t read',
+    'Este snapshot guarda sua mem'#$C3#$B3'ria em blocos compactados, que o ochenta n'#$C3#$A3'o l'#$C3 +
         #$AA,
     'Timex screen modes (second screen, hi-colour, 512x192 hi-res)',
     'Modos de tela Timex (segunda tela, hi-colour, alta resolu'#$C3#$A7#$C3#$A3'o 512x192)',
@@ -5873,12 +5875,6 @@ const
     'diret'#$C3#$B3'rio raiz FAT32 incorreto',
     'btn:Settings',
     'Config',
-    'emu80 documentation',
-    'Documenta'#$C3#$A7#$C3#$A3'o do emu80',
-    'emu80 license (GNU GPL v3)',
-    'Licen'#$C3#$A7'a do emu80 (GNU GPL v3)',
-    'emu80 snapshot (*.e80)',
-    'Snapshot do emu80 (*.e80)',
     'end of tape',
     'fim da fita',
     'hidden ',
@@ -5899,6 +5895,12 @@ const
     'n'#$C3#$A3'o dispon'#$C3#$AD'vel',
     'not enough space: %d bytes needed, %d free',
     'espa'#$C3#$A7'o insuficiente: s'#$C3#$A3'o necess'#$C3#$A1'rios %d bytes, h'#$C3#$A1' %d livres',
+    'ochenta documentation',
+    'Documenta'#$C3#$A7#$C3#$A3'o do ochenta',
+    'ochenta license (GNU GPL v3)',
+    'Licen'#$C3#$A7'a do ochenta (GNU GPL v3)',
+    'ochenta snapshot (*.e80)',
+    'Snapshot do ochenta (*.e80)',
     'page %d:%.4X',
     'p'#$C3#$A1'gina %d:%.4X',
     'play pressed, waiting for the motor',
@@ -5961,8 +5963,8 @@ const
     'usu'#$C3#$A1'rio %d',
     'value %d is "%s": expected decimal 0-255, or $ and one or two hex digits',
     'o valor %d '#$C3#$A9' "%s": esperava-se decimal 0-255, ou $ e um ou dois d'#$C3#$AD'gitos hex',
-    'zxnext.img next to emu80.ini',
-    'zxnext.img junto ao emu80.ini');
+    'zxnext.img next to ochenta.ini',
+    'zxnext.img junto ao ochenta.ini');
   LCL_PT: array[0..609] of string = (
     '  modified ',
     '  modificado  ',
@@ -6694,12 +6696,12 @@ const
     '%s ist kein SAM-Coupe-ROM (es sollte 32K gro'#$C3#$9F' sein)',
     '%s is not a disk the MSX reads: it needs 9 sectors of 512 bytes a track (a 720K or 360K raw image or a +3 disk), and this one has %d cylinders and is %s.',
     '%s ist keine Diskette, die der MSX lesen kann: Sie braucht 9 Sektoren zu 512 Bytes je Spur (ein Rohimage mit 720K oder 360K oder eine +3-Diskette), und diese hat %d Zylinder und ist %s.',
-    '%s was not found next to the emu80 executable.',
-    '%s wurde nicht neben der emu80-Programmdatei gefunden.',
+    '%s was not found next to the ochenta executable.',
+    '%s wurde nicht neben der ochenta-Programmdatei gefunden.',
     '%s: the CPC firmware is a 32K file (system ROM and BASIC)',
     '%s: Die CPC-Firmware ist eine 32K-Datei (System-ROM und BASIC)',
-    '&About emu80...',
-    '&'#$C3#$9C'ber emu80...',
+    '&About ochenta...',
+    '&'#$C3#$9C'ber ochenta...',
     '&Auto play/stop',
     '&Automatisch starten/stoppen',
     '&Auto-detect',
@@ -6811,14 +6813,14 @@ const
     'Eine zweite 1541 als Ger'#$C3#$A4't 9 am seriellen Bus. Das Men'#$C3#$BC +
         ' Diskette hat dann die Eintr'#$C3#$A4'ge f'#$C3#$BC +
         'r Laufwerk B: (die Laufwerke des C64 sind 8 und 9)',
-    'A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only',
-    'Ein Snapshot eines CPC+ oder GX4000: emu80 emuliert nur die urspr'#$C3#$BC'ngliche CPC-Reihe',
+    'A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only',
+    'Ein Snapshot eines CPC+ oder GX4000: ochenta emuliert nur die urspr'#$C3#$BC'ngliche CPC-Reihe',
     'ASCII file: ',
     'ASCII-Datei: ',
     'AY sound chip on the 16K and 48K',
     'AY-Soundchip beim 16K und 48K',
-    'About emu80',
-    #$C3#$9C'ber emu80',
+    'About ochenta',
+    #$C3#$9C'ber ochenta',
     'Address,value (decimal, or hex with $). Several POKEs separated by ":", e.g.  35899,0 : 36000,201',
     'Adresse,Wert (dezimal oder hex mit $). Mehrere POKEs durch '#$E2#$80#$9E':'#$E2#$80#$9C +
         ' getrennt, z. B.  35899,0 : 36000,201',
@@ -6924,8 +6926,9 @@ const
     'Pr'#$C3#$BC'fsumme',
     'Classic (menus and toolbar)',
     'Klassisch (Men'#$C3#$BC's und Symbolleiste)',
-    'Click a drive or the card reader to insert a disk or an SD card image',
-    'Auf ein Laufwerk oder den Kartenleser klicken, um eine Diskette oder ein SD-Karten-Image einzulegen',
+    'Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload',
+    'Klicke auf ein Laufwerk oder den Kartenleser, um eine Diskette oder ein SD-Kartenabbild einzulegen. Halte beim Einlegen Alt gedr' +
+        #$C3#$BC'ckt, um das automatische Laden zu vermeiden',
     'Click to insert a tape',
     'Zum Einlegen eines Bandes klicken',
     'Clock (SAMBUS interface)',
@@ -7574,8 +7577,8 @@ const
     'Markierte Datei umbenennen... (F2)',
     'Reset (Ctrl+F6)',
     'Reset (Strg+F6)',
-    'Restart emu80 now to use the new language?',
-    'emu80 jetzt neu starten, um die neue Sprache zu verwenden?',
+    'Restart ochenta now to use the new language?',
+    'ochenta jetzt neu starten, um die neue Sprache zu verwenden?',
     'Return from the sequence',
     'R'#$C3#$BC'ckkehr aus der Sequenz',
     'Rewind',
@@ -7645,7 +7648,7 @@ const
     'Cartridge als andere Datei speichern...',
     'Save the cartridge to its file (Ctrl+S)',
     'Cartridge in seiner Datei speichern (Strg+S)',
-    'Save the settings when emu80 closes',
+    'Save the settings when ochenta closes',
     'Einstellungen beim Beenden speichern',
     'Save the tape as...',
     'Band speichern unter...',
@@ -7783,18 +7786,18 @@ const
         #$C3#$A4'ndern.',
     'The DivMMC firmware (esxdos/ESXMMC.BIN) was not found.',
     'Die DivMMC-Firmware (esxdos/ESXMMC.BIN) wurde nicht gefunden.',
-    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead.',
+    'The Next''s firmware tried to start another machine''s core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead.',
     'Die Firmware des Next versuchte, den Core einer anderen Maschine zu starten (ein zus'#$C3#$A4 +
-        'tzlicher Core, Slots 8-31). emu80 emuliert nur den ZX-Spectrum-Next-Core, daher startet der Next neu.',
+        'tzlicher Core, Slots 8-31). ochenta emuliert nur den ZX-Spectrum-Next-Core, daher startet der Next neu.',
     'The ROM tells the size by trying the pages: 512K is the usual machine.',
     'Das ROM ermittelt die Gr'#$C3#$B6#$C3#$9F'e durch Ausprobieren der Seiten: 512K ist die '#$C3#$BC +
         'bliche Maschine.',
     'The ROM''s SAVE adds its blocks to the inserted tape at once',
     'Das SAVE des ROMs f'#$C3#$BC'gt seine Bl'#$C3#$B6'cke sofort dem eingelegten Band hinzu',
     'The SAM Coup'#$C3#$A9 +
-        '''s ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
+        '''s ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs.',
     'Das ROM des SAM Coup'#$C3#$A9 +
-        ' wird nicht mit emu80 mitgeliefert: Legen Sie das 32K-ROM (Version 3.0) als samcoupe.rom im ROM-Ordner ab oder w' +
+        ' wird nicht mit ochenta mitgeliefert: Legen Sie das 32K-ROM (Version 3.0) als samcoupe.rom im ROM-Ordner ab oder w' +
         #$C3#$A4'hlen Sie die Datei unter Einstellungen > Allgemein > ROMs.',
     'The SD card %s has been modified. Save the changes?',
     'Die SD-Karte %s wurde ge'#$C3#$A4'ndert. '#$C3#$84'nderungen speichern?',
@@ -7834,8 +7837,8 @@ const
     'Die Diskette ist eingelegt, aber dieser Computer hat kein Diskettenlaufwerk.',
     'The distribution could not be installed: ',
     'Die Distribution konnte nicht installiert werden: ',
-    'The esxdos folder (with SYS and BIN) was not found next to emu80.',
-    'Der Ordner esxdos (mit SYS und BIN) wurde nicht neben emu80 gefunden.',
+    'The esxdos folder (with SYS and BIN) was not found next to ochenta.',
+    'Der Ordner esxdos (mit SYS und BIN) wurde nicht neben ochenta gefunden.',
     'The file %s does not exist.',
     'Die Datei %s existiert nicht.',
     'The file has %d bytes and only %d fit from that offset (a cartridge keeps its size): write the first %d?',
@@ -7854,9 +7857,9 @@ const
         'r Demos, die zwei Bilder abwechseln (Mescaline, Paralactika, Ultraviolet)',
     'The keypad''s 8, 2, 4 and 6 (and the diagonals 7, 9, 1 and 3) are the joystick''s directions, 0, 5 and the right Ctrl its fire button',
     'Die 8, 2, 4 und 6 des Ziffernblocks (und die Diagonalen 7, 9, 1 und 3) sind die Richtungen des Joysticks, die 0, die 5 und die rechte Strg-Taste sein Feuerknopf',
-    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while emu80 starts always gives English',
+    'The language of the interface; Automatic follows the system''s. Holding the left Ctrl key while ochenta starts always gives English',
     'Die Sprache der Oberfl'#$C3#$A4'che; Automatisch folgt der des Systems. H'#$C3#$A4 +
-        'lt man beim Start von emu80 die linke Strg-Taste gedr'#$C3#$BC'ckt, erscheint immer Englisch',
+        'lt man beim Start von ochenta die linke Strg-Taste gedr'#$C3#$BC'ckt, erscheint immer Englisch',
     'The memory mapper answers at ports FCh-FFh. Some tape games (the ZX Spectrum conversions) write to port FEh for their own purposes and, with the mapper there, move the RAM under themselves; Auto leaves the mapper off when Auto load starts a tape. Takes effect with the next reset',
     'Der Speicher-Mapper antwortet an den Ports FCh-FFh. Manche Bandspiele (die ZX-Spectrum-Umsetzungen) schreiben aus eigenen Gr' +
         #$C3#$BC'nden auf Port FEh und verschieben dabei mit dem Mapper das RAM unter sich; Auto l'#$C3#$A4 +
@@ -7899,9 +7902,9 @@ const
     'Im Laufwerk %s: ist keine Diskette',
     'There is no disk in that drive.',
     'In diesem Laufwerk ist keine Diskette.',
-    'These files on the Next''s SD card were empty (an older version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
+    'These files on the Next''s SD card were empty (an older version of ochenta didn''t save what NextZXOS and the firmware wrote) and have been mended from the distribution:',
     'Diese Dateien auf der SD-Karte des Next waren leer (eine '#$C3#$A4 +
-        'ltere emu80-Version speicherte nicht, was NextZXOS und die Firmware schrieben) und wurden aus der Distribution repariert:',
+        'ltere ochenta-Version speicherte nicht, was NextZXOS und die Firmware schrieben) und wurden aus der Distribution repariert:',
     'This TZX version is not supported',
     'Diese TZX-Version wird nicht unterst'#$C3#$BC'tzt',
     'This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) may help, especially with games from the early days of the MSX.',
@@ -7914,8 +7917,9 @@ const
     'Keine TZX-Datei',
     'This is the modern interface.',
     'Dies ist die moderne Oberfl'#$C3#$A4'che.',
-    'This snapshot keeps its memory in compressed chunks, which emu80 doesn''t read',
-    'Dieser Snapshot speichert seinen Speicher in komprimierten Bl'#$C3#$B6'cken, die emu80 nicht liest',
+    'This snapshot keeps its memory in compressed chunks, which ochenta doesn''t read',
+    'Dieser Snapshot speichert seinen Speicher in komprimierten Bl'#$C3#$B6 +
+        'cken, die ochenta nicht liest',
     'Timex screen modes (second screen, hi-colour, 512x192 hi-res)',
     'Timex-Bildschirmmodi (zweiter Bildschirm, Hi-Colour, Hi-Res 512x192)',
     'Timing',
@@ -8021,12 +8025,6 @@ const
     'fehlerhaftes FAT32-Stammverzeichnis',
     'btn:Settings',
     'Einst.',
-    'emu80 documentation',
-    'emu80-Dokumentation',
-    'emu80 license (GNU GPL v3)',
-    'emu80-Lizenz (GNU GPL v3)',
-    'emu80 snapshot (*.e80)',
-    'emu80-Snapshot (*.e80)',
     'end of tape',
     'Bandende',
     'hidden ',
@@ -8047,6 +8045,12 @@ const
     'nicht verf'#$C3#$BC'gbar',
     'not enough space: %d bytes needed, %d free',
     'nicht genug Platz: %d Bytes n'#$C3#$B6'tig, %d frei',
+    'ochenta documentation',
+    'ochenta-Dokumentation',
+    'ochenta license (GNU GPL v3)',
+    'ochenta-Lizenz (GNU GPL v3)',
+    'ochenta snapshot (*.e80)',
+    'ochenta-Snapshot (*.e80)',
     'page %d:%.4X',
     'Seite %d:%.4X',
     'play pressed, waiting for the motor',
@@ -8110,8 +8114,8 @@ const
     'value %d is "%s": expected decimal 0-255, or $ and one or two hex digits',
     'Wert %d ist '#$E2#$80#$9E'%s'#$E2#$80#$9C +
         ': erwartet wird dezimal 0-255 oder $ und eine oder zwei Hex-Ziffern',
-    'zxnext.img next to emu80.ini',
-    'zxnext.img neben emu80.ini');
+    'zxnext.img next to ochenta.ini',
+    'zxnext.img neben ochenta.ini');
   LCL_DE: array[0..543] of string = (
     '  modified ',
     ' ge'#$C3#$A4'ndert ',

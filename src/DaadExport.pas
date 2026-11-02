@@ -325,11 +325,11 @@ function ExportDaadProcess(Game: TDaadGame; Proc: Integer; Sce: Boolean; ToDaad:
 begin
   Result := TStringList.Create;
   if Game.IsQuill then
-    Result.Add(Format('; Process %d, exported by emu80 from the Quill game in memory', [Proc]))
+    Result.Add(Format('; Process %d, exported by ochenta from the Quill game in memory', [Proc]))
   else if Game.IsPAW then
-    Result.Add(Format('; Process %d, exported by emu80 from the PAW game in memory', [Proc]))
+    Result.Add(Format('; Process %d, exported by ochenta from the PAW game in memory', [Proc]))
   else
-    Result.Add(Format('; Process %d, exported by emu80 from the DAAD game in memory', [Proc]));
+    Result.Add(Format('; Process %d, exported by ochenta from the DAAD game in memory', [Proc]));
   if ToDaad then
     Result.Add(Format('; Converted from %s to DAAD: check it before using it',
       [EngineName(Game.Engine)]));
@@ -516,12 +516,12 @@ begin
   Result := L;
   L.Add(Separator);
   if Game.IsQuill then
-    L.Add(Format('; Exported by emu80 from the Quill game in memory (database version %s)',
+    L.Add(Format('; Exported by ochenta from the Quill game in memory (database version %s)',
       [Copy('A?C', Game.QuillVersion, 1)]))
-  else if Game.IsPAW then L.Add('; Exported by emu80 from the PAW game in memory')
+  else if Game.IsPAW then L.Add('; Exported by ochenta from the PAW game in memory')
   else
   begin
-    L.Add('; Exported by emu80 from the DAAD game in memory');
+    L.Add('; Exported by ochenta from the DAAD game in memory');
     L.Add(Format('; DAAD version %d, %s, DDB at %.4Xh', [Game.Version,
       Copy('English Spanish', Game.Language * 8 + 1, 7), Game.Base]));
   end;

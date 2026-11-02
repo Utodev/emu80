@@ -9,7 +9,7 @@ interface
 uses
   Classes, SysUtils, Math, Process, Forms, Controls, Graphics, Dialogs, Menus, ComCtrls, StdCtrls,
   ExtCtrls, LCLType, LCLIntf, GraphType, NextNotice, FramePresenter, Models, Spectrum, Amstrad, Sam, Msx, MsxMachine, C64, C64Disk, DSK, Emulator, Config, Icons, PokeForm,
-  Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide, VirtualKeyboard;
+  Pokes, ScreenCapture, DocForm, ModernUI, KeyboardGuide, VirtualKeyboard, Logo;
 
 type
   { A text longer than its room that scrolls now and then: from where it starts, a character at a time
@@ -64,14 +64,14 @@ type
     FInCommandLine: Boolean;    // the command line is being processed: it says what to load
     FShowNotice: Boolean;            // first start: the modern interface's note
     FNotice: TModernNotice;
-    FNoticeTimer: TTimer;   // --model zxnext: emu80 closes if it can't start
+    FNoticeTimer: TTimer;   // --model zxnext: ochenta closes if it can't start
     FFullerBits: Byte;
     FScaleItems: array[1..4] of TMenuItem;
     FDeinterlaceItems: array[TDeinterlace] of TMenuItem;
     FPrevPixels: array of LongWord;   // the frame before (the other field)
     FPixelsOdd: Boolean;              // FPixels is the odd field
     FOldLang: string;                        // the settings' language when the window was opened
-    FRestarting: Boolean;                    // emu80 closes to start again (a new language)
+    FRestarting: Boolean;                    // ochenta closes to start again (a new language)
     FRestartSnap, FRestartModel: string;
     FOldRomDir, FOldUno: string;             // what was set before the settings window's last Apply
     FDeinterlaceTop, FCrtcTop: TMenuItem;   // Options entries of the Spectrum and of the CPC
@@ -108,6 +108,8 @@ type
     FMirror: TPopupMenu;
     FMHeader, FMLeft, FMRight, FMBottom: TDarkPanel;
     FMMachine, FMTape, FMMedia: TPaletteBox;
+    FMLogo: TPaintBox;                       // the logo, in the header
+
     FMModelBtn, FMKeyboard, FMPause, FMTurbo, FMRec, FMFast, FMFastDisk, FMDiskBtn, FMSDBtn, FMTapePlay: TFlatButton;
     FMZoom: array[1..4] of TFlatButton;
     FMCassette: TCassette;
@@ -312,6 +314,7 @@ type
     procedure PaintModernStatus(Sender: TObject);
     procedure ModernTick;
     procedure DoAbout(Sender: TObject);
+    procedure PaintModernLogo(Sender: TObject);
     procedure DoLicense(Sender: TObject);
     procedure DoDebugger(Sender: TObject);
     procedure DoDaadDebugger(Sender: TObject);
@@ -483,7 +486,7 @@ begin
           // A settings file asked for by name must exist (an extra one may not)
           if not FileExists(Value) then
           begin
-            MessageDlg('emu80', _('The settings file given with --config does not exist.') +
+            MessageDlg('ochenta', _('The settings file given with --config does not exist.') +
               LineEnding + LineEnding + _('File: ') + ExtractFileName(Value) + LineEnding +
               _('Folder: ') + ExtractFilePath(ExpandFileName(Value)), mtError, [mbOK], 0);
             Halt(1);
@@ -516,15 +519,15 @@ begin
   SetLanguage(L);
 end;
 
-{ Cards made from folders that an emu80 closed abruptly left behind (one still
-  in use by another emu80 can't be deleted, and stays) }
+{ Cards made from folders that an ochenta closed abruptly left behind (one still
+  in use by another ochenta can't be deleted, and stays) }
 procedure RemoveStaleTempCards;
 var
   Info: TSearchRec;
   Dir: string;
 begin
   Dir := IncludeTrailingPathDelimiter(GetTempDir);
-  if FindFirst(Dir + 'emu80-sd-*.img', faAnyFile, Info) = 0 then
+  if FindFirst(Dir + 'ochenta-sd-*.img', faAnyFile, Info) = 0 then
   try
     repeat
       DeleteFile(Dir + Info.Name);
@@ -540,7 +543,7 @@ var
   FirstRun: Boolean;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := 'emu80 - 8 bit machines emulator';
+  Caption := 'ochenta - 8 bit machines emulator';
   Position := poScreenCenter;
   // Sizes here are real screen pixels (whole zoom factors); don't let LCL
   // multiply them by the desktop DPI scale
@@ -913,7 +916,7 @@ begin
   AddItem(TopItem, _('&Documentation'), @DoDocumentation, ShortCut(VK_F1, []));
   AddItem(TopItem, '-', nil);
   AddItem(TopItem, _('&License (GPL v3)'), @DoLicense);
-  AddItem(TopItem, _('&About emu80...'), @DoAbout);
+  AddItem(TopItem, _('&About ochenta...'), @DoAbout);
 end;
 
 function TMainWindow.AddButton(AIcon: TIconKind; const AHint: string; AHandler: TNotifyEvent): TToolButton;
@@ -1687,7 +1690,7 @@ begin
   begin
     FEmu.Spec.ForeignCore := -1;
     MessageDlg(_('ZX Spectrum Next'), _('The Next''s firmware tried to start another machine''s core ' +
-      '(an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next ' +
+      '(an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next ' +
       'starts again instead.'), mtInformation, [mbOK], 0);
   end;
   if FEmu.Paused then
@@ -2790,7 +2793,7 @@ begin
   UpdateRecentMenu;
   UpdateRecentDisksMenu;
   UpdateChecks;
-  Caption := 'emu80 - ' + ExtractFileName(FileName);
+  Caption := 'ochenta - ' + ExtractFileName(FileName);
   if TapeBrowserWindow <> nil then TapeBrowserWindow.Refresh(True);
   if CPCNote <> '' then MessageDlg(_('Amstrad CPC tape'), CPCNote, mtWarning, [mbOK], 0);
 end;
@@ -2883,22 +2886,22 @@ begin
   end;
   Dlg := TSaveDialog.Create(Self);
   try
-    // .z80 and .sna can't hold the Next or the ZX-Uno: emu80's own format;
+    // .z80 and .sna can't hold the Next or the ZX-Uno: ochenta's own format;
     // the others have it as a choice, .z80 first
     if FEmu.Spec.CPC <> nil then
     begin
-      // The CPC's own .SNA (CPCEmu, Winape), or emu80's
-      Dlg.Filter := _F('CPC snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80');
+      // The CPC's own .SNA (CPCEmu, Winape), or ochenta's
+      Dlg.Filter := _F('CPC snapshot (*.sna)|*.sna|ochenta snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'sna';
     end
     else if FEmu.Spec.NeedsOwnSnapshot then
     begin
-      Dlg.Filter := _F('emu80 snapshot (*.e80)|*.e80');
+      Dlg.Filter := _F('ochenta snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'e80';
     end
     else
     begin
-      Dlg.Filter := _F('Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|emu80 snapshot (*.e80)|*.e80');
+      Dlg.Filter := _F('Z80 snapshot (*.z80)|*.z80|SNA snapshot (*.sna)|*.sna|ochenta snapshot (*.e80)|*.e80');
       Dlg.DefaultExt := 'z80';
       Dlg.FilterIndex := 1;
     end;
@@ -3009,8 +3012,8 @@ begin
   // First of all: what the Next says it is (and the warning, if it asks to be a real one)
   ConfirmRealSpecNext;
   Dir := NextDistroDir;
-  // Not there (it can't come with emu80): where to get it and how to install
-  // it; the machine stays as it was (or emu80 closes, started on it)
+  // Not there (it can't come with ochenta): where to get it and how to install
+  // it; the machine stays as it was (or ochenta closes, started on it)
   if not NextDistroReady(Dir) then
   begin
     NoNextDistro;
@@ -3058,7 +3061,7 @@ begin
       on E: Exception do
         MessageDlg(_('Could not use the SD card ') + Card + ': ' + E.Message, mtError, [mbOK], 0);
     end;
-    // Files that older versions of emu80 left empty, mended from the distribution
+    // Files that older versions of ochenta left empty, mended from the distribution
     if Result then
       try
         Vol := TFatVolume.Create(FEmu.Spec.DivMMC.Card.Stream);
@@ -3077,7 +3080,7 @@ begin
   try
     if Repaired.Count > 0 then
       MessageDlg(_('ZX Spectrum Next'), _('These files on the Next''s SD card were empty (an older ' +
-        'version of emu80 didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
+        'version of ochenta didn''t save what NextZXOS and the firmware wrote) and have been mended ' +
         'from the distribution:') + LineEnding + LineEnding + Repaired.Text, mtInformation, [mbOK], 0);
   finally
     Repaired.Free;
@@ -3176,7 +3179,7 @@ procedure TMainWindow.ApplyNextId;
 begin
   FEmu.Lock;
   try
-    // $0A: a ZX Spectrum Next; $08: an emulator, as emu80 says it is
+    // $0A: a ZX Spectrum Next; $08: an emulator, as ochenta says it is
     if Settings.RealSpecNext and Settings.RealSpecNextOk then FEmu.Spec.NextMachineId := $0A
     else FEmu.Spec.NextMachineId := $08;
   finally
@@ -4045,10 +4048,10 @@ var
   Entries: TFatEntries;
 begin
   WithEsxdos := (Sender as TComponent).Tag = 1;
-  Esx := Emu80Path('esxdos');
+  Esx := OchentaPath('esxdos');
   if WithEsxdos and (Esx = '') then
   begin
-    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to emu80.'), mtError, [mbOK], 0);
+    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to ochenta.'), mtError, [mbOK], 0);
     Exit;
   end;
   if not AskCardSize(WithEsxdos, SizeMB) then Exit;
@@ -4074,7 +4077,7 @@ begin
       try
         S := TFileStream.Create(Dlg.FileName, fmCreate);
         try
-          FormatCard(S, SizeMB, 'EMU80 SD');
+          FormatCard(S, SizeMB, 'OCHENTA SD');
           if WithEsxdos then
           begin
             Vol := TFatVolume.Create(S);
@@ -4280,10 +4283,10 @@ var
   Dirs: TFatEntries;
 begin
   Result := False;
-  Esx := Emu80Path('esxdos');
+  Esx := OchentaPath('esxdos');
   if Esx = '' then
   begin
-    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to emu80.'), mtError, [mbOK], 0);
+    MessageDlg(_('The esxdos folder (with SYS and BIN) was not found next to ochenta.'), mtError, [mbOK], 0);
     Exit;
   end;
   if not ConfirmCardChanges then Exit;
@@ -4299,14 +4302,14 @@ begin
     Exit;
   end;
   TempFile := IncludeTrailingPathDelimiter(GetTempDir) +
-    Format('emu80-sd-%s.img', [FormatDateTime('yyyymmddhhnnsszzz', Now)]);
+    Format('ochenta-sd-%s.img', [FormatDateTime('yyyymmddhhnnsszzz', Now)]);
   Err := '';
   Screen.Cursor := crHourGlass;
   try
     try
       S := TFileStream.Create(TempFile, fmCreate);
       try
-        FormatCard(S, SizeMB, 'EMU80 FOLDER');
+        FormatCard(S, SizeMB, 'OCHENTA FOLDER');
         Vol := TFatVolume.Create(S);
         try
           Vol.MakeDir(0, 'SYS');
@@ -4888,11 +4891,11 @@ begin
   ShowSettings(@SettingsApplied);
 end;
 
-{ Another language: the interface is made at start, so emu80 offers to start again. The machine
+{ Another language: the interface is made at start, so ochenta offers to start again. The machine
   goes with it in a snapshot (the MSX, which has none, as its model only) }
 procedure TMainWindow.OfferRestart;
 begin
-  if MessageDlg('emu80', _('Restart emu80 now to use the new language?'), mtConfirmation,
+  if MessageDlg('ochenta', _('Restart ochenta now to use the new language?'), mtConfirmation,
      [mbYes, mbNo], 0) <> mrYes then Exit;
   FRestartSnap := '';
   FRestartModel := '';
@@ -4900,7 +4903,7 @@ begin
     FRestartModel := ModelKey(FEmu.Spec.Model)
   else
   begin
-    FRestartSnap := IncludeTrailingPathDelimiter(GetTempDir) + 'emu80-restart-' +
+    FRestartSnap := IncludeTrailingPathDelimiter(GetTempDir) + 'ochenta-restart-' +
       IntToStr(GetProcessID) + '.e80';
     FEmu.Lock;
     try
@@ -4918,7 +4921,7 @@ begin
   Close;
 end;
 
-{ Starts emu80 again (once this one has closed), with the same settings files and the
+{ Starts ochenta again (once this one has closed), with the same settings files and the
   machine that was running }
 procedure TMainWindow.Relaunch;
 var
@@ -4954,7 +4957,7 @@ begin
       P.Execute;
     except
       on E: Exception do
-        MessageDlg('emu80', E.Message, mtError, [mbOK], 0);
+        MessageDlg('ochenta', E.Message, mtError, [mbOK], 0);
     end;
   finally
     P.Free;
@@ -5166,7 +5169,7 @@ begin
       Inc(I);
       if (Arg = '') or (Arg[1] <> '-') then
       begin
-        // The CPC machines and the SAM Coupe by name: emu80 cpc464, cpc664, cpc6128 or sam (as --model)
+        // The CPC machines and the SAM Coupe by name: ochenta cpc464, cpc664, cpc6128 or sam (as --model)
         M := ModelFromName(LowerCase(Arg), smPlus3);
         if (IsCPCModel(M) or IsSAMModel(M) or IsMSXModel(M) or IsC64Model(M)) and (LowerCase(Arg) = ModelKey(M)) and not FileExists(Arg) then
         begin
@@ -5323,7 +5326,7 @@ begin
             'N one of the model''s ROMs)' + LineEnding;
       end
       else if Arg = 'restart-snapshot' then
-        RestartSnap := Value        // internal: how emu80 starts again after a change of language
+        RestartSnap := Value        // internal: how ochenta starts again after a change of language
       else if Arg = 'lang' then
       begin
         // Applied before the window was made (ApplyLanguage)
@@ -5555,7 +5558,7 @@ begin
       I := Settings.RecentFiles.IndexOf(RestartSnap);
       if I >= 0 then Settings.RecentFiles.Delete(I);
       FLastFile := '';
-      Caption := 'emu80 - 8 bit machines emulator';
+      Caption := 'ochenta - 8 bit machines emulator';
       UpdateRecentMenu;
       DeleteFile(RestartSnap);
     end;
@@ -5883,10 +5886,10 @@ end;
 procedure TMainWindow.DoAbout(Sender: TObject);
 {$I Release.inc}
 begin
-  MessageDlg(_('About emu80'),
-    'emu80 - 8 bit machines emulator' + LineEnding +
+  ShowAbout(_('About ochenta'),
+    'ochenta - 8 bit machines emulator' + LineEnding +
     'ZX Spectrum, ZX-Uno, ZX Spectrum Next, Amstrad CPC, SAM Coup' + #$C3#$A9 + ', MSX2 and Commodore 64.' + LineEnding +
-    _('Release ') + EMU80_RELEASE + LineEnding +
+    _('Release ') + OCHENTA_RELEASE + LineEnding +
     '(C) Vivecoded by Uto - 2028' + LineEnding + LineEnding +
     _('Written in Free Pascal with Lazarus.') + LineEnding + LineEnding +
     _('Spectrum ROMs are copyright Amstrad, who allow their distribution.') + LineEnding +
@@ -5901,8 +5904,12 @@ begin
     'esxDOS: (C) Miguel Guerreiro (Papaya Dezign).' + LineEnding +
     'Currah ' + #$C2#$B5 + 'Speech ROM: (C) Currah 1983. SP0256-AL2 mask ROM: Microchip ' +
     'Technology holds its copyright and the rights to its algorithms and data. SP0256 ' +
-    'emulation ported from MAME (BSD-3-Clause, Joseph Zbiciak and Tim Lindner).',
-    mtInformation, [mbOK], 0);
+    'emulation ported from MAME (BSD-3-Clause, Joseph Zbiciak and Tim Lindner).');
+end;
+
+procedure TMainWindow.PaintModernLogo(Sender: TObject);
+begin
+  DrawLogo(FMLogo.Canvas, FMLogo.ClientRect);
 end;
 
 procedure TMainWindow.DoLicense(Sender: TObject);

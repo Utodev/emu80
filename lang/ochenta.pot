@@ -19,23 +19,23 @@ msgstr ""
 msgid "Not a snapshot of this CPC model"
 msgstr ""
 
-#: C64.pas:332
+#: C64.pas:333
 msgid "Not a C64 tape image (.tap)"
 msgstr ""
 
-#: C64.pas:542
+#: C64.pas:543
 msgid "The C64 ROMs are missing from %s:%s"
 msgstr ""
 
-#: C64.pas:1054
+#: C64.pas:1055
 msgid "Not a C64 tape container (.t64)"
 msgstr ""
 
-#: C64.pas:1076
+#: C64.pas:1077
 msgid "The .t64 file has no programs"
 msgstr ""
 
-#: C64Browser.pas:315 DiskBrowser.pas:592 MainForm.pas:998
+#: C64Browser.pas:315 DiskBrowser.pas:592 MainForm.pas:1007
 msgid "Disk browser"
 msgstr ""
 
@@ -99,7 +99,7 @@ msgstr ""
 msgid "%s - %d files"
 msgstr ""
 
-#: C64Browser.pas:425 MainC64.inc:440 MainForm.pas:1638
+#: C64Browser.pas:425 MainC64.inc:442 MainForm.pas:1647
 msgid "No tape"
 msgstr ""
 
@@ -147,7 +147,7 @@ msgstr ""
 msgid "Not a .d64 disk image (its size is not one of a 35, 40 or 42 track disk)"
 msgstr ""
 
-#: CartBrowser.pas:542 CartBrowser.pas:634 MainModern.inc:759
+#: CartBrowser.pas:542 CartBrowser.pas:634 MainModern.inc:750
 msgid "Cartridge browser"
 msgstr ""
 
@@ -211,11 +211,11 @@ msgstr ""
 msgid "The cartridge has been modified and not saved."
 msgstr ""
 
-#: CartBrowser.pas:784 DiskBrowser.pas:536 MainC64.inc:378
+#: CartBrowser.pas:784 DiskBrowser.pas:536 MainC64.inc:380
 msgid "Could not save "
 msgstr ""
 
-#: CartBrowser.pas:810 MainForm.pas:419 MainForm.pas:2152
+#: CartBrowser.pas:810 MainForm.pas:428 MainForm.pas:2161
 msgid "MSX cartridges (*.rom)"
 msgstr ""
 
@@ -575,7 +575,7 @@ msgstr ""
 msgid "Import"
 msgstr ""
 
-#: DiskBrowser.pas:1188 MainForm.pas:4008 SettingsForm.pas:284
+#: DiskBrowser.pas:1188 MainForm.pas:4018 SettingsForm.pas:284
 msgid "Cancel"
 msgstr ""
 
@@ -644,11 +644,11 @@ msgid "Could not save %s: %s"
 msgstr ""
 
 #: DocForm.pas:80 DocForm.pas:154
-msgid "%s was not found next to the emu80 executable."
+msgid "%s was not found next to the ochenta executable."
 msgstr ""
 
 #: DocForm.pas:109
-msgid "emu80 documentation"
+msgid "ochenta documentation"
 msgstr ""
 
 #: DocForm.pas:123
@@ -664,7 +664,7 @@ msgid "Not found (Next starts again at the top)"
 msgstr ""
 
 #: DocForm.pas:209
-msgid "emu80 license (GNU GPL v3)"
+msgid "ochenta license (GNU GPL v3)"
 msgstr ""
 
 #: FatFS.pas:203 Plus3FS.pas:238
@@ -727,947 +727,947 @@ msgstr ""
 msgid "ZX Spectrum keyboard"
 msgstr ""
 
+#: Logo.pas:126 MainForm.pas:4012 NextNotice.pas:78
+msgid "OK"
+msgstr ""
+
 #: MainC64.inc:234
 msgid "The disk drive needs the 1541 ROM (VC1541.rom, in the roms/c64 folder)."
 msgstr ""
 
-#: MainC64.inc:260 MainC64.inc:292 MainForm.pas:2688
+#: MainC64.inc:260 MainC64.inc:292 MainForm.pas:2698
 msgid "Could not open "
 msgstr ""
 
-#: MainC64.inc:322 MainC64.inc:359
+#: MainC64.inc:324 MainC64.inc:361
 msgid "Commodore 64 disk images (*.d64)"
 msgstr ""
 
-#: MainForm.pas:409 MainForm.pas:419 MainForm.pas:3706
+#: MainForm.pas:418 MainForm.pas:428 MainForm.pas:3716
 msgid "Disk images (*.dsk;*.mgt;*.sad)"
 msgstr ""
 
-#: MainForm.pas:414
+#: MainForm.pas:423
 msgid "Disk images (*.dsk)"
 msgstr ""
 
-#: MainForm.pas:414
+#: MainForm.pas:423
 msgid "SAM Coupe MGT images (*.mgt)"
 msgstr ""
 
-#: MainForm.pas:414
+#: MainForm.pas:423
 msgid "SAM Coupe SAD images (*.sad)"
 msgstr ""
 
-#: MainForm.pas:419
+#: MainForm.pas:428
 msgid "All supported files"
 msgstr ""
 
-#: MainForm.pas:419
+#: MainForm.pas:428
 msgid "Commodore 64 files (*.d64;*.prg;*.p00;*.t64;*.tap)"
 msgstr ""
 
-#: MainForm.pas:419
+#: MainForm.pas:428
 msgid "Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)"
 msgstr ""
 
-#: MainForm.pas:419
+#: MainForm.pas:428
 msgid "Snapshots (*.sna;*.z80;*.e80)"
 msgstr ""
 
-#: MainForm.pas:419
+#: MainForm.pas:428
 msgid "ZX Spectrum Next programs (*.nex)"
 msgstr ""
 
-#: MainForm.pas:480
+#: MainForm.pas:489
 msgid "The settings file given with --config does not exist."
 msgstr ""
 
-#: MainForm.pas:481
+#: MainForm.pas:490
 msgid "File: "
 msgstr ""
 
-#: MainForm.pas:482
+#: MainForm.pas:491
 msgid "Folder: "
 msgstr ""
 
-#: MainForm.pas:671
+#: MainForm.pas:680
 msgid "ROM folder not usable, using the default one instead."
 msgstr ""
 
-#: MainForm.pas:706
+#: MainForm.pas:715
 msgid "&File"
 msgstr ""
 
-#: MainForm.pas:707
+#: MainForm.pas:716
 msgid "&Open..."
 msgstr ""
 
-#: MainForm.pas:708
+#: MainForm.pas:717
 msgid "Open &recent"
 msgstr ""
 
-#: MainForm.pas:709
+#: MainForm.pas:718
 msgid "&Save snapshot..."
 msgstr ""
 
-#: MainForm.pas:711
+#: MainForm.pas:720
 msgid "Screens&hot"
 msgstr ""
 
-#: MainForm.pas:712
+#: MainForm.pas:721
 msgid "Save as &SCR..."
 msgstr ""
 
-#: MainForm.pas:713
+#: MainForm.pas:722
 msgid "Save as PNG &1x..."
 msgstr ""
 
-#: MainForm.pas:714
+#: MainForm.pas:723
 msgid "Save as PNG &2x..."
 msgstr ""
 
-#: MainForm.pas:716
+#: MainForm.pas:725
 msgid "Include &border in PNG"
 msgstr ""
 
-#: MainForm.pas:718
+#: MainForm.pas:727
 msgid "E&xit"
 msgstr ""
 
-#: MainForm.pas:721 MainModern.inc:92
+#: MainForm.pas:730 MainModern.inc:83
 msgid "&Machine"
 msgstr ""
 
-#: MainForm.pas:722
+#: MainForm.pas:731
 msgid "&NMI"
 msgstr ""
 
-#: MainForm.pas:724
+#: MainForm.pas:733
 msgid "&DRIVE button (DivMMC NMI)"
 msgstr ""
 
-#: MainForm.pas:725
+#: MainForm.pas:734
 msgid "&Hard reset"
 msgstr ""
 
-#: MainForm.pas:726
+#: MainForm.pas:735
 msgid "&Reset"
 msgstr ""
 
-#: MainForm.pas:728
+#: MainForm.pas:737
 msgid "&Pause"
 msgstr ""
 
-#: MainForm.pas:730
+#: MainForm.pas:739
 msgid "&POKE..."
 msgstr ""
 
-#: MainForm.pas:734
+#: MainForm.pas:743
 msgid "&Tape"
 msgstr ""
 
-#: MainForm.pas:736
+#: MainForm.pas:745
 msgid "&Insert tape && load..."
 msgstr ""
 
-#: MainForm.pas:737
+#: MainForm.pas:746
 msgid "&Just insert tape..."
 msgstr ""
 
-#: MainForm.pas:738
+#: MainForm.pas:747
 msgid "Insert &recent tape && load"
 msgstr ""
 
-#: MainForm.pas:739
+#: MainForm.pas:748
 msgid "Just insert recent &tape"
 msgstr ""
 
-#: MainForm.pas:742
+#: MainForm.pas:751
 msgid "Tape &browser..."
 msgstr ""
 
-#: MainForm.pas:745
+#: MainForm.pas:754
 msgid "&Play/pause"
 msgstr ""
 
-#: MainForm.pas:746
+#: MainForm.pas:755
 msgid "&Stop"
 msgstr ""
 
-#: MainForm.pas:747
+#: MainForm.pas:756
 msgid "Re&cord (REC)"
 msgstr ""
 
-#: MainForm.pas:750
+#: MainForm.pas:759
 msgid "&Rewind"
 msgstr ""
 
-#: MainForm.pas:751
+#: MainForm.pas:760
 msgid "&Eject"
 msgstr ""
 
-#: MainForm.pas:752
+#: MainForm.pas:761
 msgid "Save tape &as..."
 msgstr ""
 
-#: MainForm.pas:754
+#: MainForm.pas:763
 msgid "&New blank tape"
 msgstr ""
 
-#: MainForm.pas:756
+#: MainForm.pas:765
 msgid "&Fast loading"
 msgstr ""
 
-#: MainForm.pas:758
+#: MainForm.pas:767
 msgid "&Auto play/stop"
 msgstr ""
 
-#: MainForm.pas:759
+#: MainForm.pas:768
 msgid "SA&VE writes to the tape"
 msgstr ""
 
-#: MainForm.pas:762
+#: MainForm.pas:771
 msgid "F&loppy"
 msgstr ""
 
-#: MainForm.pas:764
+#: MainForm.pas:773
 msgid "Disk &browser..."
 msgstr ""
 
-#: MainForm.pas:767
+#: MainForm.pas:776
 msgid "Insert disk in drive &A:..."
 msgstr ""
 
-#: MainForm.pas:769
+#: MainForm.pas:778
 msgid "Insert &recent disk (A:)"
 msgstr ""
 
-#: MainForm.pas:771
+#: MainForm.pas:780
 msgid "Insert disk in drive &B:..."
 msgstr ""
 
-#: MainForm.pas:774
+#: MainForm.pas:783
 msgid "Insert recent disk (B:)"
 msgstr ""
 
-#: MainForm.pas:776
+#: MainForm.pas:785
 msgid "&New disk in A: (formatted)"
 msgstr ""
 
-#: MainForm.pas:778
+#: MainForm.pas:787
 msgid "New disk in B: (formatted)"
 msgstr ""
 
-#: MainForm.pas:782
+#: MainForm.pas:791
 msgid "&Save disk A:"
 msgstr ""
 
-#: MainForm.pas:784
+#: MainForm.pas:793
 msgid "Save disk A: &as..."
 msgstr ""
 
-#: MainForm.pas:786
+#: MainForm.pas:795
 msgid "Save disk B:"
 msgstr ""
 
-#: MainForm.pas:789
+#: MainForm.pas:798
 msgid "Save disk B: as..."
 msgstr ""
 
-#: MainForm.pas:793
+#: MainForm.pas:802
 msgid "&Eject disk A:"
 msgstr ""
 
-#: MainForm.pas:795
+#: MainForm.pas:804
 msgid "Eject disk B:"
 msgstr ""
 
-#: MainForm.pas:799
+#: MainForm.pas:808
 msgid "&Fast floppy disk access"
 msgstr ""
 
-#: MainForm.pas:801
+#: MainForm.pas:810
 msgid "Drive &B: connected"
 msgstr ""
 
-#: MainForm.pas:804
+#: MainForm.pas:813
 msgid "&Cartridge"
 msgstr ""
 
-#: MainForm.pas:806 MainForm.pas:1664
+#: MainForm.pas:815 MainForm.pas:1673
 msgid "Cartridge &browser..."
 msgstr ""
 
-#: MainForm.pas:808
+#: MainForm.pas:817
 msgid "&Insert cartridge..."
 msgstr ""
 
-#: MainForm.pas:809
+#: MainForm.pas:818
 msgid "Insert &recent cartridge"
 msgstr ""
 
-#: MainForm.pas:810
+#: MainForm.pas:819
 msgid "&Eject cartridge"
 msgstr ""
 
-#: MainForm.pas:812
+#: MainForm.pas:821
 msgid "&Mapper"
 msgstr ""
 
-#: MainForm.pas:815
+#: MainForm.pas:824
 msgid "&Auto-detect"
 msgstr ""
 
-#: MainForm.pas:823
+#: MainForm.pas:832
 msgid "&SD"
 msgstr ""
 
-#: MainForm.pas:825 MainForm.pas:1670
+#: MainForm.pas:834 MainForm.pas:1679
 msgid "SD card &browser..."
 msgstr ""
 
-#: MainForm.pas:828
+#: MainForm.pas:837
 msgid "&Insert SD card image..."
 msgstr ""
 
-#: MainForm.pas:829
+#: MainForm.pas:838
 msgid "Insert &recent SD card"
 msgstr ""
 
-#: MainForm.pas:830
+#: MainForm.pas:839
 msgid "Use a PC &folder as SD card..."
 msgstr ""
 
-#: MainForm.pas:831
+#: MainForm.pas:840
 msgid "&New SD card..."
 msgstr ""
 
-#: MainForm.pas:832
+#: MainForm.pas:841
 msgid "New SD card with &ESXDOS..."
 msgstr ""
 
-#: MainForm.pas:833
+#: MainForm.pas:842
 msgid "New SD card with the &Next distribution..."
 msgstr ""
 
-#: MainForm.pas:835
+#: MainForm.pas:844
 msgid "&Save SD card"
 msgstr ""
 
-#: MainForm.pas:836
+#: MainForm.pas:845
 msgid "Save SD card &as..."
 msgstr ""
 
-#: MainForm.pas:838
+#: MainForm.pas:847
 msgid "E&ject SD card"
 msgstr ""
 
-#: MainForm.pas:841
+#: MainForm.pas:850
 msgid "&Debug"
 msgstr ""
 
-#: MainForm.pas:842
+#: MainForm.pas:851
 msgid "&Debugger..."
 msgstr ""
 
-#: MainForm.pas:843
+#: MainForm.pas:852
 msgid "&Clear all breakpoints"
 msgstr ""
 
-#: MainForm.pas:845
+#: MainForm.pas:854
 msgid "&Load symbols..."
 msgstr ""
 
-#: MainForm.pas:846
+#: MainForm.pas:855
 msgid "Load &recent symbols"
 msgstr ""
 
-#: MainForm.pas:847
+#: MainForm.pas:856
 msgid "C&lear symbols"
 msgstr ""
 
-#: MainForm.pas:849
+#: MainForm.pas:858
 msgid "&Adventure Debugger..."
 msgstr ""
 
-#: MainForm.pas:851
+#: MainForm.pas:860
 msgid "&Options"
 msgstr ""
 
-#: MainForm.pas:854
+#: MainForm.pas:863
 msgid "&Monitor"
 msgstr ""
 
-#: MainForm.pas:862
+#: MainForm.pas:871
 msgid "&Scanlines (zoom 2x or more)"
 msgstr ""
 
-#: MainForm.pas:863
+#: MainForm.pas:872
 msgid "&Zoom"
 msgstr ""
 
-#: MainForm.pas:871
+#: MainForm.pas:880
 msgid "&Deinterlace"
 msgstr ""
 
-#: MainForm.pas:881
+#: MainForm.pas:890
 msgid "&CRTC chip"
 msgstr ""
 
-#: MainForm.pas:885 SettingsForm.pas:557
+#: MainForm.pas:894 SettingsForm.pas:557
 msgid "The model's own"
 msgstr ""
 
-#: MainForm.pas:886
+#: MainForm.pas:895
 msgid "Type %d: %s"
 msgstr ""
 
-#: MainForm.pas:892
+#: MainForm.pas:901
 msgid "&Mute sound"
 msgstr ""
 
-#: MainForm.pas:893
+#: MainForm.pas:902
 msgid "&Turbo speed"
 msgstr ""
 
-#: MainForm.pas:894
+#: MainForm.pas:903
 msgid "Mo&dern interface (dark)"
 msgstr ""
 
-#: MainForm.pas:896
+#: MainForm.pas:905
 msgid "MSX 1 &compatibility mode"
 msgstr ""
 
-#: MainForm.pas:898
+#: MainForm.pas:907
 msgid "&Virtual Keyboard"
 msgstr ""
 
-#: MainForm.pas:900
+#: MainForm.pas:909
 msgid "ZX &Keyboard Guide"
 msgstr ""
 
-#: MainForm.pas:902
+#: MainForm.pas:911
 msgid "Install Spectrum Next Distribution"
 msgstr ""
 
-#: MainForm.pas:904
+#: MainForm.pas:913
 msgid "S&ettings..."
 msgstr ""
 
-#: MainForm.pas:906
+#: MainForm.pas:915
 msgid "&Help"
 msgstr ""
 
-#: MainForm.pas:907
+#: MainForm.pas:916
 msgid "&Documentation"
 msgstr ""
 
-#: MainForm.pas:909
+#: MainForm.pas:918
 msgid "&License (GPL v3)"
 msgstr ""
 
-#: MainForm.pas:910
-msgid "&About emu80..."
+#: MainForm.pas:919
+msgid "&About ochenta..."
 msgstr ""
 
-#: MainForm.pas:951
+#: MainForm.pas:960
 msgid "Open a tape, snapshot or disk (F2)"
 msgstr ""
 
-#: MainForm.pas:952 MainModern.inc:16
+#: MainForm.pas:961 MainModern.inc:16
 msgid "Save snapshot (F3)"
 msgstr ""
 
-#: MainForm.pas:959 SettingsForm.pas:305
+#: MainForm.pas:968 SettingsForm.pas:305
 msgid "ZX Spectrum"
 msgstr ""
 
-#: MainForm.pas:962 SettingsForm.pas:550
+#: MainForm.pas:971 SettingsForm.pas:550
 msgid "Amstrad CPC"
 msgstr ""
 
-#: MainForm.pas:982
+#: MainForm.pas:991
 msgid "Machine model"
 msgstr ""
 
-#: MainForm.pas:985 MainModern.inc:17
+#: MainForm.pas:994 MainModern.inc:17
 msgid "Hard reset: switch the machine off and on (F6)"
 msgstr ""
 
-#: MainForm.pas:986 MainModern.inc:19
+#: MainForm.pas:995 MainModern.inc:19
 msgid "Non-maskable interrupt (F5)"
 msgstr ""
 
-#: MainForm.pas:987 MainModern.inc:20
+#: MainForm.pas:996 MainModern.inc:20
 msgid "Pause emulation (F4)"
 msgstr ""
 
-#: MainForm.pas:989 MainModern.inc:21
+#: MainForm.pas:998 MainModern.inc:21
 msgid "Run as fast as possible (Shift+F11)"
 msgstr ""
 
-#: MainForm.pas:992 MainModern.inc:201
+#: MainForm.pas:1001 MainModern.inc:192
 msgid "Tape browser (F7)"
 msgstr ""
 
-#: MainForm.pas:993 MainModern.inc:187
+#: MainForm.pas:1002 MainModern.inc:178
 msgid "Play/pause tape (F8)"
 msgstr ""
 
-#: MainForm.pas:994 MainModern.inc:189
+#: MainForm.pas:1003 MainModern.inc:180
 msgid "Stop tape (Ctrl+F8)"
 msgstr ""
 
-#: MainForm.pas:995 MainModern.inc:191
+#: MainForm.pas:1004 MainModern.inc:182
 msgid "Record onto the tape (REC)"
 msgstr ""
 
-#: MainForm.pas:999 MainForm.pas:1669
+#: MainForm.pas:1008 MainForm.pas:1678
 msgid "SD card browser (DivMMC)"
 msgstr ""
 
-#: MainForm.pas:1001 MainModern.inc:23
+#: MainForm.pas:1010 MainModern.inc:23
 msgid "Debugger (F12)"
 msgstr ""
 
-#: MainForm.pas:1002 MainModern.inc:24 MainModern.inc:24
+#: MainForm.pas:1011 MainModern.inc:24 MainModern.inc:24
 msgid "Settings"
 msgstr ""
 
-#: MainForm.pas:1003
+#: MainForm.pas:1012
 msgid "Switch to the modern interface (dark)"
 msgstr ""
 
-#: MainForm.pas:1082
+#: MainForm.pas:1091
 msgid "ZX Spectrum Next: "
 msgstr ""
 
-#: MainForm.pas:1118
+#: MainForm.pas:1127
 msgid "Currah µSpeech: "
 msgstr ""
 
-#: MainForm.pas:1119
+#: MainForm.pas:1128
 msgid "It needs currah.rom and sp0256-al2.rom in the ROM folder."
 msgstr ""
 
-#: MainForm.pas:1136
+#: MainForm.pas:1145
 msgid "The DivMMC firmware (esxdos/ESXMMC.BIN) was not found."
 msgstr ""
 
-#: MainForm.pas:1156
+#: MainForm.pas:1165
 msgid "DivMMC: "
 msgstr ""
 
-#: MainForm.pas:1192
+#: MainForm.pas:1201
 msgid "Could not open the SD card image:"
 msgstr ""
 
-#: MainForm.pas:1251
+#: MainForm.pas:1260
 msgid "Using the standard ROMs for this model."
 msgstr ""
 
-#: MainForm.pas:1261
+#: MainForm.pas:1270
 msgid "Machine: %s (click to change)"
 msgstr ""
 
-#: MainForm.pas:1636
+#: MainForm.pas:1645
 msgid "Recording (%d blocks)"
 msgstr ""
 
-#: MainForm.pas:1641
+#: MainForm.pas:1650
 msgid "Tape %d/%d"
 msgstr ""
 
-#: MainForm.pas:1663
+#: MainForm.pas:1672
 msgid "Cartridge browser (CR)"
 msgstr ""
 
-#: MainForm.pas:1683 MainForm.pas:3026 MainForm.pas:3072
+#: MainForm.pas:1692 MainForm.pas:3036 MainForm.pas:3082
 msgid "ZX Spectrum Next"
 msgstr ""
 
-#: MainForm.pas:1683
-msgid "The Next's firmware tried to start another machine's core (an extra core, slots 8-31). emu80 emulates only the ZX Spectrum Next core, so the Next starts again instead."
+#: MainForm.pas:1692
+msgid "The Next's firmware tried to start another machine's core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead."
 msgstr ""
 
-#: MainForm.pas:1688
+#: MainForm.pas:1697
 msgid "Paused"
 msgstr ""
 
-#: MainForm.pas:1690
+#: MainForm.pas:1699
 msgid "%d fps"
 msgstr ""
 
-#: MainForm.pas:2116
+#: MainForm.pas:2125
 msgid "That does not look like an MSX cartridge: its size is %d bytes."
 msgstr ""
 
-#: MainForm.pas:2142
+#: MainForm.pas:2151
 msgid "Could not insert "
 msgstr ""
 
-#: MainForm.pas:2626
+#: MainForm.pas:2635
 msgid "ZX-Uno: "
 msgstr ""
 
-#: MainForm.pas:2689
+#: MainForm.pas:2699
 msgid "A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes."
 msgstr ""
 
-#: MainForm.pas:2695
+#: MainForm.pas:2705
 msgid "A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes."
 msgstr ""
 
-#: MainForm.pas:2727
+#: MainForm.pas:2737
 msgid "%s has %d block(s) of the ZX Spectrum's standard tape speed, which an Amstrad CPC can't load. The tape is inserted anyway; its other blocks play as they are."
 msgstr ""
 
-#: MainForm.pas:2763
+#: MainForm.pas:2773
 msgid "Unsupported file type: "
 msgstr ""
 
-#: MainForm.pas:2788
+#: MainForm.pas:2798
 msgid "Amstrad CPC tape"
 msgstr ""
 
-#: MainForm.pas:2810
+#: MainForm.pas:2820
 msgid "Tape images (*.cdt;*.tzx)"
 msgstr ""
 
-#: MainForm.pas:2812
+#: MainForm.pas:2822
 msgid "MSX tape images (*.cas;*.tsx;*.tzx)"
 msgstr ""
 
-#: MainForm.pas:2814
+#: MainForm.pas:2824
 msgid "Commodore 64 tapes (*.tap;*.t64)"
 msgstr ""
 
-#: MainForm.pas:2816
+#: MainForm.pas:2826
 msgid "Tape images (*.tap;*.tzx)"
 msgstr ""
 
-#: MainForm.pas:2838
+#: MainForm.pas:2848
 msgid "Insert a tape"
 msgstr ""
 
-#: MainForm.pas:2874
+#: MainForm.pas:2884
 msgid "Save snapshot"
 msgstr ""
 
-#: MainForm.pas:2874
+#: MainForm.pas:2884
 msgid "Snapshots are not available for the Commodore 64."
 msgstr ""
 
-#: MainForm.pas:2884
+#: MainForm.pas:2894
 msgid "CPC snapshot (*.sna)"
 msgstr ""
 
-#: MainForm.pas:2884 MainForm.pas:2889 MainForm.pas:2894
-msgid "emu80 snapshot (*.e80)"
+#: MainForm.pas:2894 MainForm.pas:2899 MainForm.pas:2904
+msgid "ochenta snapshot (*.e80)"
 msgstr ""
 
-#: MainForm.pas:2894
+#: MainForm.pas:2904
 msgid "Z80 snapshot (*.z80)"
 msgstr ""
 
-#: MainForm.pas:2894
+#: MainForm.pas:2904
 msgid "SNA snapshot (*.sna)"
 msgstr ""
 
-#: MainForm.pas:2959
+#: MainForm.pas:2969
 msgid "ZX Spectrum Next SD card"
 msgstr ""
 
-#: MainForm.pas:2959
+#: MainForm.pas:2969
 msgid "A new card for the ZX Spectrum Next, with its distribution (%d MB) and room for your files."
 msgstr ""
 
-#: MainForm.pas:2972
+#: MainForm.pas:2982
 msgid "Making the ZX Spectrum Next SD card..."
 msgstr ""
 
-#: MainForm.pas:2983
+#: MainForm.pas:2993
 msgid "Could not make the ZX Spectrum Next SD card: "
 msgstr ""
 
-#: MainForm.pas:3026
+#: MainForm.pas:3036
 msgid "There is a new ZX Spectrum Next distribution (%s). Make a new SD card from it?"
 msgstr ""
 
-#: MainForm.pas:3027
+#: MainForm.pas:3037
 msgid "The current card is kept as %s."
 msgstr ""
 
-#: MainForm.pas:3032
+#: MainForm.pas:3042
 msgid "Could not rename "
 msgstr ""
 
-#: MainForm.pas:3052
+#: MainForm.pas:3062
 msgid "Could not use the SD card "
 msgstr ""
 
-#: MainForm.pas:3072
-msgid "These files on the Next's SD card were empty (an older version of emu80 didn't save what NextZXOS and the firmware wrote) and have been mended from the distribution:"
+#: MainForm.pas:3082
+msgid "These files on the Next's SD card were empty (an older version of ochenta didn't save what NextZXOS and the firmware wrote) and have been mended from the distribution:"
 msgstr ""
 
-#: MainForm.pas:3087 MainForm.pas:4175
+#: MainForm.pas:3097 MainForm.pas:4185
 msgid "Could not save the Next's SD card: "
 msgstr ""
 
-#: MainForm.pas:3162 SettingsForm.pas:511
+#: MainForm.pas:3172 SettingsForm.pas:511
 msgid "DivMMC"
 msgstr ""
 
-#: MainForm.pas:3162
+#: MainForm.pas:3172
 msgid "This is a standard ZX Spectrum. Do you want to switch off the DivMMC interface?"
 msgstr ""
 
-#: MainForm.pas:3205
+#: MainForm.pas:3215
 msgid "Installing the ZX Spectrum Next distribution... %d%%"
 msgstr ""
 
-#: MainForm.pas:3226
+#: MainForm.pas:3236
 msgid "The ZX Spectrum Next distribution downloaded"
 msgstr ""
 
-#: MainForm.pas:3227
+#: MainForm.pas:3237
 msgid "Zip files (*.zip)"
 msgstr ""
 
-#: MainForm.pas:3248
+#: MainForm.pas:3258
 msgid "Distribution installed."
 msgstr ""
 
-#: MainForm.pas:3249
+#: MainForm.pas:3259
 msgid "Do you want to start the ZX Spectrum Next emulation?"
 msgstr ""
 
-#: MainForm.pas:3260
+#: MainForm.pas:3270
 msgid "Invalid distribution."
 msgstr ""
 
-#: MainForm.pas:3266
+#: MainForm.pas:3276
 msgid "The distribution could not be installed: "
 msgstr ""
 
-#: MainForm.pas:3267
+#: MainForm.pas:3277
 msgid "Nothing was installed."
 msgstr ""
 
-#: MainForm.pas:3287
+#: MainForm.pas:3297
 msgid "New SD card with the ZX Spectrum Next distribution"
 msgstr ""
 
-#: MainForm.pas:3290 MainForm.pas:4050 MainForm.pas:4114
+#: MainForm.pas:3300 MainForm.pas:4060 MainForm.pas:4124
 msgid "SD card images (*.img)"
 msgstr ""
 
-#: MainForm.pas:3635
+#: MainForm.pas:3645
 msgid "Disk %s: has been modified. Save changes?"
 msgstr ""
 
-#: MainForm.pas:3764 MainForm.pas:4421
+#: MainForm.pas:3774 MainForm.pas:4431
 msgid "The disk is inserted, but this computer has no disk drive."
 msgstr ""
 
-#: MainForm.pas:3943
+#: MainForm.pas:3953
 msgid "SD card images (*.img;*.mmc;*.hdf;*.bin)"
 msgstr ""
 
-#: MainForm.pas:3982
+#: MainForm.pas:3992
 msgid "Size (FAT16):"
 msgstr ""
 
-#: MainForm.pas:3991
+#: MainForm.pas:4001
 msgid "%d MB"
 msgstr ""
 
-#: MainForm.pas:4002 NextNotice.pas:78 SettingsForm.pas:290
-msgid "OK"
-msgstr ""
-
-#: MainForm.pas:4024
+#: MainForm.pas:4034
 msgid "New SD card with ESXDOS"
 msgstr ""
 
-#: MainForm.pas:4024
+#: MainForm.pas:4034
 msgid "The card gets the ESXDOS SYS, BIN and TMP folders."
 msgstr ""
 
-#: MainForm.pas:4027
+#: MainForm.pas:4037
 msgid "New SD card"
 msgstr ""
 
-#: MainForm.pas:4027
+#: MainForm.pas:4037
 msgid "An empty card with one FAT16 partition."
 msgstr ""
 
-#: MainForm.pas:4044 MainForm.pas:4279
-msgid "The esxdos folder (with SYS and BIN) was not found next to emu80."
+#: MainForm.pas:4054 MainForm.pas:4289
+msgid "The esxdos folder (with SYS and BIN) was not found next to ochenta."
 msgstr ""
 
-#: MainForm.pas:4096
+#: MainForm.pas:4106
 msgid "Could not create the SD card: "
 msgstr ""
 
-#: MainForm.pas:4134 MainForm.pas:4194 MainForm.pas:4211
+#: MainForm.pas:4144 MainForm.pas:4204 MainForm.pas:4221
 msgid "Could not save the SD card: "
 msgstr ""
 
-#: MainForm.pas:4181
+#: MainForm.pas:4191
 msgid "The SD card made from the folder %s has been modified. Save it as an SD card image?"
 msgstr ""
 
-#: MainForm.pas:4187
+#: MainForm.pas:4197
 msgid "The SD card %s has been modified. Save the changes?"
 msgstr ""
 
-#: MainForm.pas:4205
+#: MainForm.pas:4215
 msgid "There is no SD card inserted."
 msgstr ""
 
-#: MainForm.pas:4230 MainForm.pas:4457
+#: MainForm.pas:4240 MainForm.pas:4467
 msgid "There is no disk in that drive."
 msgstr ""
 
-#: MainForm.pas:4250
+#: MainForm.pas:4260
 msgid "Could not save the disk: "
 msgstr ""
 
-#: MainForm.pas:4291
+#: MainForm.pas:4301
 msgid "The folder is too big for an SD card of up to 2 GB."
 msgstr ""
 
-#: MainForm.pas:4328
+#: MainForm.pas:4338
 msgid "Could not make the SD card from the folder: "
 msgstr ""
 
-#: MainForm.pas:4364
+#: MainForm.pas:4374
 msgid "Folder to use as the SD card"
 msgstr ""
 
-#: MainForm.pas:4493
+#: MainForm.pas:4503
 msgid "This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) may help, especially with games from the early days of the MSX."
 msgstr ""
 
-#: MainForm.pas:4496
+#: MainForm.pas:4506
 msgid "If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them."
 msgstr ""
 
-#: MainForm.pas:4498
+#: MainForm.pas:4508
 msgid "Searching for PHILIPSDISK.rom will probably lead you to the other two files as well."
 msgstr ""
 
-#: MainForm.pas:4502
+#: MainForm.pas:4512
 msgid "MSX 2"
 msgstr ""
 
-#: MainForm.pas:4632 SettingsForm.pas:606
+#: MainForm.pas:4642 SettingsForm.pas:606
 msgid "Mouse"
 msgstr ""
 
-#: MainForm.pas:4632
+#: MainForm.pas:4642
 msgid "Do you want to attach the mouse to the window?"
 msgstr ""
 
-#: MainForm.pas:4730
+#: MainForm.pas:4740
 msgid "%d POKE(s) went to ROM (or to no memory) and had no effect."
 msgstr ""
 
-#: MainForm.pas:4731
+#: MainForm.pas:4741
 msgid "ROM changes can be allowed in Options > Settings."
 msgstr ""
 
-#: MainForm.pas:4747
+#: MainForm.pas:4757
 msgid "The tape has changed (blocks saved, moved or deleted). Save it?"
 msgstr ""
 
-#: MainForm.pas:4803
+#: MainForm.pas:4813
 msgid "Screenshot"
 msgstr ""
 
-#: MainForm.pas:4803
+#: MainForm.pas:4813
 msgid "Screens can be saved as PNG on the Commodore 64."
 msgstr ""
 
-#: MainForm.pas:4808
+#: MainForm.pas:4818
 msgid "CPC screen (*.scr)"
 msgstr ""
 
-#: MainForm.pas:4809
+#: MainForm.pas:4819
 msgid "Spectrum screen (*.scr)"
 msgstr ""
 
-#: MainForm.pas:4832
+#: MainForm.pas:4842
 msgid "PNG image (*.png)"
 msgstr ""
 
-#: MainForm.pas:4888
-msgid "Restart emu80 now to use the new language?"
+#: MainForm.pas:4898
+msgid "Restart ochenta now to use the new language?"
 msgstr ""
 
-#: MainForm.pas:4995
+#: MainForm.pas:5005
 msgid "Keeping the previous ROM folder."
 msgstr ""
 
-#: MainForm.pas:5657
+#: MainForm.pas:5667
 msgid "Command line:"
 msgstr ""
 
-#: MainForm.pas:5658
+#: MainForm.pas:5668
 msgid "See Help > Documentation for the options."
 msgstr ""
 
-#: MainForm.pas:5786
+#: MainForm.pas:5796
 msgid "Could not load symbols from "
 msgstr ""
 
-#: MainForm.pas:5792
+#: MainForm.pas:5802
 msgid "No symbols found in "
 msgstr ""
 
-#: MainForm.pas:5793
+#: MainForm.pas:5803
 msgid "Expected lines like \"LABEL: EQU 0x8000\" (as exported by SjASM / SjASMPlus)."
 msgstr ""
 
-#: MainForm.pas:5810
+#: MainForm.pas:5820
 msgid "Symbol files (*.sym;*.exp;*.lab;*.txt)"
 msgstr ""
 
-#: MainForm.pas:5879
-msgid "About emu80"
+#: MainForm.pas:5889
+msgid "About ochenta"
 msgstr ""
 
-#: MainForm.pas:5882
+#: MainForm.pas:5892
 msgid "Release "
 msgstr ""
 
-#: MainForm.pas:5884
+#: MainForm.pas:5894
 msgid "Written in Free Pascal with Lazarus."
 msgstr ""
 
-#: MainForm.pas:5885
+#: MainForm.pas:5895
 msgid "Spectrum ROMs are copyright Amstrad, who allow their distribution."
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:625
+#: MainForm.pas:409 SettingsForm.pas:625
 msgid "Auto-detect"
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:626
+#: MainForm.pas:409 SettingsForm.pas:626
 msgid "Plain ROM (no mapper)"
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:627
+#: MainForm.pas:409 SettingsForm.pas:627
 msgid "Konami"
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:628
+#: MainForm.pas:409 SettingsForm.pas:628
 msgid "Konami SCC"
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:629
+#: MainForm.pas:409 SettingsForm.pas:629
 msgid "ASCII8"
 msgstr ""
 
-#: MainForm.pas:400 SettingsForm.pas:630
+#: MainForm.pas:409 SettingsForm.pas:630
 msgid "ASCII16"
 msgstr ""
 
@@ -1675,95 +1675,95 @@ msgstr ""
 msgid "btn:Settings"
 msgstr ""
 
-#: MainModern.inc:108
+#: MainModern.inc:99
 msgid "Machine model (click to change)"
 msgstr ""
 
-#: MainModern.inc:117
+#: MainModern.inc:108
 msgid "Switch to the classic interface"
 msgstr ""
 
-#: MainModern.inc:133 SettingsForm.pas:472
+#: MainModern.inc:124 SettingsForm.pas:472
 msgid "Machine"
 msgstr ""
 
-#: MainModern.inc:166 SettingsForm.pas:387
+#: MainModern.inc:157 SettingsForm.pas:387
 msgid "Tape"
 msgstr ""
 
-#: MainModern.inc:172
+#: MainModern.inc:163
 msgid "Click to insert a tape"
 msgstr ""
 
-#: MainModern.inc:185
+#: MainModern.inc:176
 msgid "Rewind the tape"
 msgstr ""
 
-#: MainModern.inc:194
+#: MainModern.inc:185
 msgid "Tape menu"
 msgstr ""
 
-#: MainModern.inc:201
+#: MainModern.inc:192
 msgid "Browser"
 msgstr ""
 
-#: MainModern.inc:205 MainModern.inc:251
+#: MainModern.inc:196 MainModern.inc:242
 msgid "Fast"
 msgstr ""
 
-#: MainModern.inc:205
+#: MainModern.inc:196
 msgid "Fast loading: the ROM loader is skipped and blocks load at once"
 msgstr ""
 
-#: MainModern.inc:213
+#: MainModern.inc:204
 msgid "Media"
 msgstr ""
 
-#: MainModern.inc:229
-msgid "Click a drive or the card reader to insert a disk or an SD card image"
+#: MainModern.inc:220
+msgid "Click a drive or the card reader to insert a disk or an SD card image. Hold Alt while inserting to avoid the autoload"
 msgstr ""
 
-#: MainModern.inc:233
+#: MainModern.inc:224
 msgid "Floppy menu (drive %s:)"
 msgstr ""
 
-#: MainModern.inc:236
+#: MainModern.inc:227
 msgid "SD menu"
 msgstr ""
 
-#: MainModern.inc:244
+#: MainModern.inc:235
 msgid "Disks"
 msgstr ""
 
-#: MainModern.inc:247 MainModern.inc:765 SDBrowser.pas:102
+#: MainModern.inc:238 MainModern.inc:756 SDBrowser.pas:102
 msgid "SD card browser"
 msgstr ""
 
-#: MainModern.inc:251
+#: MainModern.inc:242
 msgid "Fast floppy disk access: no real drive timing"
 msgstr ""
 
-#: MainModern.inc:264 MainModern.inc:267
+#: MainModern.inc:255 MainModern.inc:258
 msgid "Zoom"
 msgstr ""
 
-#: MainModern.inc:270
+#: MainModern.inc:261
 msgid "Zoom %dx"
 msgstr ""
 
-#: MainModern.inc:647
+#: MainModern.inc:638
 msgid "not available"
 msgstr ""
 
-#: MainModern.inc:713
+#: MainModern.inc:704
 msgid "Block %d of %d - %s"
 msgstr ""
 
-#: MainModern.inc:718
+#: MainModern.inc:709
 msgid "End of the tape"
 msgstr ""
 
-#: MainModern.inc:736
+#: MainModern.inc:727
 msgid "(new disk)"
 msgstr ""
 
@@ -2164,11 +2164,11 @@ msgid "Automatic"
 msgstr ""
 
 #: SettingsForm.pas:345
-msgid "The language of the interface; Automatic follows the system's. Holding the left Ctrl key while emu80 starts always gives English"
+msgid "The language of the interface; Automatic follows the system's. Holding the left Ctrl key while ochenta starts always gives English"
 msgstr ""
 
 #: SettingsForm.pas:349
-msgid "Save the settings when emu80 closes"
+msgid "Save the settings when ochenta closes"
 msgstr ""
 
 #: SettingsForm.pas:350
@@ -2484,7 +2484,7 @@ msgid "SD card:"
 msgstr ""
 
 #: SettingsForm.pas:542
-msgid "zxnext.img next to emu80.ini"
+msgid "zxnext.img next to ochenta.ini"
 msgstr ""
 
 #: SettingsForm.pas:543
@@ -2820,7 +2820,7 @@ msgid "Not a CPC snapshot"
 msgstr ""
 
 #: SpectrumCPC.inc:764
-msgid "This snapshot keeps its memory in compressed chunks, which emu80 doesn't read"
+msgid "This snapshot keeps its memory in compressed chunks, which ochenta doesn't read"
 msgstr ""
 
 #: SpectrumCPC.inc:767
@@ -2828,7 +2828,7 @@ msgid "A CPC snapshot with %d KB of memory isn't supported (64 or 128)"
 msgstr ""
 
 #: SpectrumCPC.inc:769
-msgid "A snapshot of a CPC+ or a GX4000: emu80 emulates the original CPC range only"
+msgid "A snapshot of a CPC+ or a GX4000: ochenta emulates the original CPC range only"
 msgstr ""
 
 #: SpectrumCPC.inc:771
@@ -2844,7 +2844,7 @@ msgid "Not a .nex file"
 msgstr ""
 
 #: SpectrumSAM.inc:16
-msgid "The SAM Coupé's ROM is not distributed with emu80: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs."
+msgid "The SAM Coupé's ROM is not distributed with ochenta: put the 32K ROM (version 3.0) in the ROM folder as samcoupe.rom, or choose the file in Settings > Common > ROMs."
 msgstr ""
 
 #: SpectrumSAM.inc:21

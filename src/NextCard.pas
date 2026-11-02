@@ -43,8 +43,8 @@ function NextDistroId(const Dir: string): string;
 function NextDistroVersion(const Dir: string): string;
 { A new card image with the whole distribution; raises on errors }
 procedure MakeNextCard(const Dir, ImageFile: string; SizeMB: Integer = NEXT_CARD_MB);
-{ Mend a card that older versions of emu80 left damaged: NextZXOS and the
-  firmware rewrote files that ended empty (emu80 didn't answer the card's
+{ Mend a card that older versions of ochenta left damaged: NextZXOS and the
+  firmware rewrote files that ended empty (ochenta didn't answer the card's
   CMD13). Each empty file that isn't empty in the distribution is copied
   from it again, and an empty machines/next/config.ini (with which the
   firmware shows its test card at every start) gets the default one. The
@@ -215,7 +215,7 @@ end;
 function InstallNextDistroZip(const ZipFile, Dir: string; out Msg: string;
   OnProgress: TInstallProgress): TDistroInstall;
 const
-  WORK_DIR = '.emu80-install';
+  WORK_DIR = '.ochenta-install';
   MARK = 'machines/next/ennextzx.rom';
 var
   UnZip: TUnZipper;

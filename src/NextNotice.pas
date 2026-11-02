@@ -1,5 +1,5 @@
 { NextNotice: the note shown when the ZX Spectrum Next's distribution isn't
-  installed (emu80 can't include it): where to download it, as a link that
+  installed (ochenta can't include it): where to download it, as a link that
   opens in the browser, and where to install it from. One window, so it takes
   the theme in use. }
 unit NextNotice;

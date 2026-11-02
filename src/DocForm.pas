@@ -1,4 +1,4 @@
-{ DocForm: shows the files that come with emu80, README.md (how emu80 works and
+{ DocForm: shows the files that come with ochenta, README.md (how ochenta works and
   its command line options, in the Markdown viewer, with Find) and LICENSE
   (plain text), in non-modal windows. }
 unit DocForm;
@@ -14,8 +14,8 @@ const
   DOC_FILE = 'README.md';
   LICENSE_FILE = 'LICENSE';
 
-{ Full path of one of emu80's text files, or '' if it can't be found }
-function Emu80File(const Name: string): string;
+{ Full path of one of ochenta's text files, or '' if it can't be found }
+function OchentaFile(const Name: string): string;
 procedure ShowDocumentation;
 procedure ShowLicense;
 
@@ -28,7 +28,7 @@ uses
 var
   DocWindow, LicenseWindow: TForm;
 
-function Emu80File(const Name: string): string;
+function OchentaFile(const Name: string): string;
 var
   Dir: string;
 begin
@@ -73,11 +73,11 @@ begin
     {$ENDIF}
     {$ENDIF}
     Memo.Font.Size := 10;
-    FileName := Emu80File(Name);
+    FileName := OchentaFile(Name);
     if FileName <> '' then
       Memo.Lines.LoadFromFile(FileName)
     else
-      Memo.Lines.Text := Format(_('%s was not found next to the emu80 executable.'), [Name]);
+      Memo.Lines.Text := Format(_('%s was not found next to the ochenta executable.'), [Name]);
   end;
   Window.Show;
   Window.BringToFront;
@@ -106,7 +106,7 @@ var
   FileName: string;
 begin
   inherited CreateNew(AOwner, 0);
-  Caption := _('emu80 documentation');
+  Caption := _('ochenta documentation');
   Width := 860;
   Height := 720;
   Position := poMainFormCenter;
@@ -149,9 +149,9 @@ begin
   FView := TMdView.Create(Self);
   FView.Parent := Self;
   FView.Align := alClient;
-  FileName := Emu80File(DOC_FILE);
+  FileName := OchentaFile(DOC_FILE);
   if FileName <> '' then FView.LoadFromFile(FileName)
-  else FView.LoadFromText(Format(_('%s was not found next to the emu80 executable.'), [DOC_FILE]));
+  else FView.LoadFromText(Format(_('%s was not found next to the ochenta executable.'), [DOC_FILE]));
   ActiveControl := FView;
 end;
 
@@ -206,7 +206,7 @@ end;
 
 procedure ShowLicense;
 begin
-  ShowTextFile(LicenseWindow, LICENSE_FILE, _('emu80 license (GNU GPL v3)'));
+  ShowTextFile(LicenseWindow, LICENSE_FILE, _('ochenta license (GNU GPL v3)'));
 end;
 
 end.

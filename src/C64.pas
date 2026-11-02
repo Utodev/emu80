@@ -182,7 +182,8 @@ type
     { Programs: a .prg file put in memory (and run), disks and tapes }
     procedure LoadPrg(const FileName: string; Run: Boolean);
     procedure LoadPrgBytes(const Bytes: TBytes; Run: Boolean);
-    procedure AutoLoad(FromDisk: Boolean);
+    { FromDisk: LOAD"*",8,1 (Drive 0) or LOAD"*",9,1 (Drive 1); otherwise from the tape }
+    procedure AutoLoad(FromDisk: Boolean; Drive: Integer = 0);
     procedure InsertDisk(Drive: Integer; Disk: TD64Image);
     { The disk goes out (and is freed: the machine owns the images put in it) }
     procedure EjectDisk(Drive: Integer);
@@ -1096,12 +1097,12 @@ begin
   FLastMedia := ExtractFileName(FileName);
 end;
 
-procedure TC64.AutoLoad(FromDisk: Boolean);
+procedure TC64.AutoLoad(FromDisk: Boolean; Drive: Integer);
 begin
   Reset(True);
   FAutoPrg := nil;
   // (the tape's program goes where it was saved from: ,1,1)
-  if FromDisk then FAutoCmd := 'LOAD"*",8,1'#13 else FAutoCmd := 'LOAD"",1,1'#13;
+  if FromDisk then FAutoCmd := 'LOAD"*",' + IntToStr(8 + Drive) + ',1'#13 else FAutoCmd := 'LOAD"",1,1'#13;
   FAutoStage := 1;
   FAutoWait := 0;
   if not FromDisk and FTape.Present then

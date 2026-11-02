@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Translations of emu80 (see CLAUDE.md).
+"""Translations of ochenta (see CLAUDE.md).
 
   tools/lang.py extract   collects the texts of the sources (_('...'), _F('...'), and the
-                          constants between "// TR-BEGIN" and "// TR-END") into lang/emu80.pot
+                          constants between "// TR-BEGIN" and "// TR-END") into lang/ochenta.pot
                           and updates lang/{es,fr,pt,de}.po (new texts get an empty translation,
                           texts that are gone are dropped)
-  tools/lang.py inc       writes src/LangData.inc (the tables compiled into emu80) from the .po
+  tools/lang.py inc       writes src/LangData.inc (the tables compiled into ochenta) from the .po
                           files and the LCL's ones (lang/lcl/*.po)
   tools/lang.py check     reports missing translations and mistakes (placeholders, & accelerators,
                           terms that are never translated)
@@ -137,7 +137,7 @@ def cmd_extract():
     os.makedirs(LANG, exist_ok=True)
     found = collect()
     keys = list(found)
-    write_po(os.path.join(LANG, 'emu80.pot'), [(k, '') for k in keys], found, '')
+    write_po(os.path.join(LANG, 'ochenta.pot'), [(k, '') for k in keys], found, '')
     for l in LANGS:
         p = os.path.join(LANG, l + '.po')
         old = read_po(p)

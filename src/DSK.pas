@@ -287,7 +287,7 @@ procedure TDiskImage.SaveToFile(const FileName: string);
 const
   DiskInfo: string = 'EXTENDED CPC DSK File'#13#10'Disk-Info'#13#10;
   TrackInfo: string = 'Track-Info'#13#10;
-  Creator: string = 'emu80';
+  Creator: string = 'ochenta';
 var
   Header, TrackHeader: array[0..255] of Byte;
   S: TFileStream;

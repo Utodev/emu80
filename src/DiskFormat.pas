@@ -342,7 +342,7 @@ begin
     else
     begin
       Problem := dpUnknown;
-      Error := Format('%s (%d bytes) is not a disk image emu80 knows: DSK, MGT, SAD or raw 800K/720K.',
+      Error := Format('%s (%d bytes) is not a disk image ochenta knows: DSK, MGT, SAD or raw 800K/720K.',
         [ExtractFileName(FileName), Length(Data)]);
     end;
   except
@@ -494,7 +494,7 @@ begin
   FillChar(Raw[0], Length(Raw), 0);
   // The sector 0: JMP, OEM name, BPB
   Raw[0] := $EB; Raw[1] := $FE; Raw[2] := $90;
-  Move(PChar('emu80   ')^, Raw[3], 8);
+  Move(PChar('ochenta   ')^, Raw[3], 8);
   Raw[11] := 0; Raw[12] := 2;                 // 512 bytes a sector
   Raw[13] := 2;                               // 2 sectors a cluster
   Raw[14] := 1; Raw[15] := 0;                 // 1 reserved sector

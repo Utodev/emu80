@@ -1,20 +1,20 @@
-{ Emu80Api: the emulation engine as a native library for a host application (a
+{ OchentaApi: the emulation engine as a native library for a host application (a
   C# GUI, through P/Invoke). Everything here is plain C calls (cdecl) on
   opaque handles; the host application and the engine live in the same
-  process, and the engine is the same one the emu80 program runs (TEmulator and
+  process, and the engine is the same one the ochenta program runs (TEmulator and
   TSpectrum): this unit only wraps it.
 
-  The picture: the host gives a window to draw in (emu80_attach_window: on
+  The picture: the host gives a window to draw in (ochenta_attach_window: on
   Windows, the HWND of its control or panel); a presenter thread draws the
   frames there as they come, fitted to the window's size, and keeps up with
   the window being resized. The host may as well take the frames itself
-  (emu80_get_frame, with emu80_set_frame_callback to know when one is ready) and
+  (ochenta_get_frame, with ochenta_set_frame_callback to know when one is ready) and
   draw them with its own toolkit. The scaling, black and white and
   deinterlacing are those of the program's window (FramePresenter).
 
-  Input is the host's: it tells the keys (emu80_key) and the joystick; emu80
+  Input is the host's: it tells the keys (ochenta_key) and the joystick; ochenta
   has no window of its own here. }
-unit Emu80Api;
+unit OchentaApi;
 
 {$mode objfpc}{$H+}
 {$R-}{$Q-}
@@ -26,12 +26,12 @@ uses
   Classes, SysUtils, SyncObjs, Models, Z80Core, Spectrum, Sam, C64, C64Disk, Emulator, FramePresenter, Snapshot, Tape, Disasm;
 
 type
-  TEmu80FrameCallback = procedure(User: Pointer); cdecl;
+  TOchentaFrameCallback = procedure(User: Pointer); cdecl;
 
   { C-compatible records (4-byte fields) }
-  TEmu80State = record
-    Running: Int32;        // the emulation thread exists (emu80_start .. emu80_stop)
-    Paused: Int32;         // paused by emu80_pause, a breakpoint or stepping
+  TOchentaState = record
+    Running: Int32;        // the emulation thread exists (ochenta_start .. ochenta_stop)
+    Paused: Int32;         // paused by ochenta_pause, a breakpoint or stepping
     BreakKind: Int32;      // 0 none, 1 execution, 2 memory, 3 port, 4 run-to, 5 DAAD
     Model: Int32;
     PC: Int32;
@@ -42,7 +42,7 @@ type
     TapePlaying: Int32;
   end;
 
-  TEmu80Paging = record
+  TOchentaPaging = record
     Port7FFD: Int32;       // last value written to 7FFD (128K family, ZX-Uno, Next)
     Port1FFD: Int32;       // and to 1FFD (+2A/+3)
     Slot0, Slot1, Slot2, Slot3: Int32;   // what is paged in each 16K slot: a RAM bank
@@ -53,92 +53,92 @@ type
   end;
 
 { Every call returns 0 (or a count / a handle) on success and a negative
-  number on failure; emu80_last_error says why. }
+  number on failure; ochenta_last_error says why. }
 
-function emu80_version: Int32; cdecl;
-function emu80_create(Model: Int32; RomDir: PAnsiChar): Pointer; cdecl;
-procedure emu80_destroy(H: Pointer); cdecl;
-function emu80_last_error(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
-function emu80_set_model(H: Pointer; Model: Int32): Int32; cdecl;
-function emu80_get_model(H: Pointer): Int32; cdecl;
-function emu80_set_next_dir(H: Pointer; Dir: PAnsiChar): Int32; cdecl;
+function ochenta_version: Int32; cdecl;
+function ochenta_create(Model: Int32; RomDir: PAnsiChar): Pointer; cdecl;
+procedure ochenta_destroy(H: Pointer); cdecl;
+function ochenta_last_error(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
+function ochenta_set_model(H: Pointer; Model: Int32): Int32; cdecl;
+function ochenta_get_model(H: Pointer): Int32; cdecl;
+function ochenta_set_next_dir(H: Pointer; Dir: PAnsiChar): Int32; cdecl;
 
-function emu80_start(H: Pointer): Int32; cdecl;
-function emu80_stop(H: Pointer): Int32; cdecl;
-function emu80_pause(H: Pointer): Int32; cdecl;
-function emu80_resume(H: Pointer): Int32; cdecl;
-function emu80_reset(H: Pointer; Hard: Int32): Int32; cdecl;
-function emu80_set_sound(H: Pointer; Enabled: Int32): Int32; cdecl;
-function emu80_set_turbo(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_start(H: Pointer): Int32; cdecl;
+function ochenta_stop(H: Pointer): Int32; cdecl;
+function ochenta_pause(H: Pointer): Int32; cdecl;
+function ochenta_resume(H: Pointer): Int32; cdecl;
+function ochenta_reset(H: Pointer; Hard: Int32): Int32; cdecl;
+function ochenta_set_sound(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_set_turbo(H: Pointer; Enabled: Int32): Int32; cdecl;
 
-function emu80_attach_window(H: Pointer; Window: Pointer): Int32; cdecl;
-function emu80_detach_window(H: Pointer): Int32; cdecl;
-function emu80_set_display(H: Pointer; Deinterlace, Mono, Scanlines: Int32): Int32; cdecl;
-function emu80_set_frame_callback(H: Pointer; Callback: TEmu80FrameCallback; User: Pointer): Int32; cdecl;
-function emu80_get_frame(H: Pointer; Buf: Pointer; Size: Int32; Scale: Int32; Width, Height: PInt32): Int32; cdecl;
+function ochenta_attach_window(H: Pointer; Window: Pointer): Int32; cdecl;
+function ochenta_detach_window(H: Pointer): Int32; cdecl;
+function ochenta_set_display(H: Pointer; Deinterlace, Mono, Scanlines: Int32): Int32; cdecl;
+function ochenta_set_frame_callback(H: Pointer; Callback: TOchentaFrameCallback; User: Pointer): Int32; cdecl;
+function ochenta_get_frame(H: Pointer; Buf: Pointer; Size: Int32; Scale: Int32; Width, Height: PInt32): Int32; cdecl;
 
-function emu80_get_reg(H: Pointer; Reg: Int32; Value: PInt32): Int32; cdecl;
-function emu80_set_reg(H: Pointer; Reg: Int32; Value: Int32): Int32; cdecl;
+function ochenta_get_reg(H: Pointer; Reg: Int32; Value: PInt32): Int32; cdecl;
+function ochenta_set_reg(H: Pointer; Reg: Int32; Value: Int32): Int32; cdecl;
 
-function emu80_read_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
-function emu80_write_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
-function emu80_set_rom_writable(H: Pointer; Enabled: Int32): Int32; cdecl;
-function emu80_ram_bank_count(H: Pointer): Int32; cdecl;
-function emu80_read_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
-function emu80_write_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_read_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_write_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_set_rom_writable(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_ram_bank_count(H: Pointer): Int32; cdecl;
+function ochenta_read_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_write_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
 
-function emu80_get_paging(H: Pointer; Paging: Pointer): Int32; cdecl;
-function emu80_write_port(H: Pointer; Port, Value: Int32): Int32; cdecl;
-function emu80_set_slot3_bank(H: Pointer; Bank: Int32): Int32; cdecl;
-function emu80_next_reg_get(H: Pointer; Reg: Int32): Int32; cdecl;
-function emu80_next_reg_set(H: Pointer; Reg, Value: Int32): Int32; cdecl;
+function ochenta_get_paging(H: Pointer; Paging: Pointer): Int32; cdecl;
+function ochenta_write_port(H: Pointer; Port, Value: Int32): Int32; cdecl;
+function ochenta_set_slot3_bank(H: Pointer; Bank: Int32): Int32; cdecl;
+function ochenta_next_reg_get(H: Pointer; Reg: Int32): Int32; cdecl;
+function ochenta_next_reg_set(H: Pointer; Reg, Value: Int32): Int32; cdecl;
 
-function emu80_set_breakpoint(H: Pointer; Addr, Flags: Int32): Int32; cdecl;
-function emu80_get_breakpoint(H: Pointer; Addr: Int32): Int32; cdecl;
-function emu80_clear_breakpoints(H: Pointer): Int32; cdecl;
-function emu80_step_into(H: Pointer): Int32; cdecl;
-function emu80_step_over(H: Pointer): Int32; cdecl;
-function emu80_run_to(H: Pointer; Addr: Int32): Int32; cdecl;
+function ochenta_set_breakpoint(H: Pointer; Addr, Flags: Int32): Int32; cdecl;
+function ochenta_get_breakpoint(H: Pointer; Addr: Int32): Int32; cdecl;
+function ochenta_clear_breakpoints(H: Pointer): Int32; cdecl;
+function ochenta_step_into(H: Pointer): Int32; cdecl;
+function ochenta_step_over(H: Pointer): Int32; cdecl;
+function ochenta_run_to(H: Pointer; Addr: Int32): Int32; cdecl;
 
-function emu80_get_state(H: Pointer; State: Pointer): Int32; cdecl;
-function emu80_get_break_reason(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
+function ochenta_get_state(H: Pointer; State: Pointer): Int32; cdecl;
+function ochenta_get_break_reason(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
 
-function emu80_load_ram(H: Pointer; Addr: Int32; Data: PByte; Len: Int32): Int32; cdecl;
-function emu80_load_file(H: Pointer; FileName: PAnsiChar): Int32; cdecl;
+function ochenta_load_ram(H: Pointer; Addr: Int32; Data: PByte; Len: Int32): Int32; cdecl;
+function ochenta_load_file(H: Pointer; FileName: PAnsiChar): Int32; cdecl;
 
-function emu80_key(H: Pointer; Key: Int32; Down: Int32): Int32; cdecl;
-function emu80_set_kempston(H: Pointer; Bits: Int32): Int32; cdecl;
+function ochenta_key(H: Pointer; Key: Int32; Down: Int32): Int32; cdecl;
+function ochenta_set_kempston(H: Pointer; Bits: Int32): Int32; cdecl;
 
 implementation
 
 const
   API_VERSION = 1;
-  { emu80_get_reg / emu80_set_reg }
+  { ochenta_get_reg / ochenta_set_reg }
   REG_AF = 0; REG_BC = 1; REG_DE = 2; REG_HL = 3; REG_AF2 = 4; REG_BC2 = 5; REG_DE2 = 6; REG_HL2 = 7;
   REG_IX = 8; REG_IY = 9; REG_SP = 10; REG_PC = 11; REG_I = 12; REG_R = 13; REG_IM = 14;
   REG_IFF1 = 15; REG_IFF2 = 16;
 
 type
-  TEmu80Instance = class;
+  TOchentaInstance = class;
 
   { Draws the frames into the host's window }
   TPresenter = class(TThread)
   private
-    FOwner: TEmu80Instance;
+    FOwner: TOchentaInstance;
   protected
     procedure Execute; override;
   public
-    constructor Create(AOwner: TEmu80Instance);
+    constructor Create(AOwner: TOchentaInstance);
   end;
 
-  TEmu80Instance = class
+  TOchentaInstance = class
   public
     Emu: TEmulator;
     Window: PtrUInt;                 // the host's window (0: none)
     Options: TPresentOptions;
     Presenter: TPresenter;
     Dirty: Boolean;                  // draw again at once (the window or the options changed)
-    Callback: TEmu80FrameCallback;
+    Callback: TOchentaFrameCallback;
     CallbackUser: Pointer;
     Err: string;
     C64Joy: Byte;
@@ -151,20 +151,20 @@ var
   Registry: TList;
   RegistryLock: TCriticalSection;
 
-function Find(H: Pointer): TEmu80Instance;
+function Find(H: Pointer): TOchentaInstance;
 begin
   Result := nil;
   RegistryLock.Enter;
   try
-    if Registry.IndexOf(H) >= 0 then Result := TEmu80Instance(H);
+    if Registry.IndexOf(H) >= 0 then Result := TOchentaInstance(H);
   finally
     RegistryLock.Leave;
   end;
 end;
 
-{ TEmu80Instance }
+{ TOchentaInstance }
 
-constructor TEmu80Instance.Create(AModel: TSpectrumModel; const RomDir: string);
+constructor TOchentaInstance.Create(AModel: TSpectrumModel; const RomDir: string);
 begin
   inherited Create;
   Emu := TEmulator.Create(AModel, RomDir);
@@ -176,7 +176,7 @@ begin
   Options.Monitor := 0;
 end;
 
-destructor TEmu80Instance.Destroy;
+destructor TOchentaInstance.Destroy;
 begin
   Callback := nil;
   if Presenter <> nil then
@@ -189,9 +189,9 @@ begin
   inherited Destroy;
 end;
 
-procedure TEmu80Instance.HostFrame(Sender: TObject);
+procedure TOchentaInstance.HostFrame(Sender: TObject);
 var
-  Cb: TEmu80FrameCallback;
+  Cb: TOchentaFrameCallback;
 begin
   Cb := Callback;
   if Assigned(Cb) then Cb(CallbackUser);
@@ -199,7 +199,7 @@ end;
 
 { TPresenter }
 
-constructor TPresenter.Create(AOwner: TEmu80Instance);
+constructor TPresenter.Create(AOwner: TOchentaInstance);
 begin
   FOwner := AOwner;
   FreeOnTerminate := False;
@@ -307,14 +307,14 @@ end;
 procedure TPresenter.Execute;
 begin
   // Only Windows can draw into a host's window: elsewhere the host takes the
-  // frames itself (emu80_get_frame)
+  // frames itself (ochenta_get_frame)
   while not Terminated do Sleep(50);
 end;
 {$ENDIF}
 
 { Helpers }
 
-procedure SetError(H: TEmu80Instance; const Msg: string);
+procedure SetError(H: TOchentaInstance; const Msg: string);
 begin
   if H <> nil then H.Err := Msg;
 end;
@@ -333,19 +333,19 @@ end;
 
 { API }
 
-function emu80_version: Int32; cdecl;
+function ochenta_version: Int32; cdecl;
 begin
   Result := API_VERSION;
 end;
 
-function emu80_create(Model: Int32; RomDir: PAnsiChar): Pointer; cdecl;
+function ochenta_create(Model: Int32; RomDir: PAnsiChar): Pointer; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Result := nil;
   try
     if (Model < Ord(Low(TSpectrumModel))) or (Model > Ord(High(TSpectrumModel))) then Exit;
-    Inst := TEmu80Instance.Create(TSpectrumModel(Model), string(RomDir));
+    Inst := TOchentaInstance.Create(TSpectrumModel(Model), string(RomDir));
     RegistryLock.Enter;
     try
       Registry.Add(Inst);
@@ -358,9 +358,9 @@ begin
   end;
 end;
 
-procedure emu80_destroy(H: Pointer); cdecl;
+procedure ochenta_destroy(H: Pointer); cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit;
@@ -376,18 +376,18 @@ begin
   end;
 end;
 
-function emu80_last_error(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
+function ochenta_last_error(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(FillString('invalid handle', Buf, Size));
   Result := FillString(Inst.Err, Buf, Size);
 end;
 
-function emu80_set_model(H: Pointer; Model: Int32): Int32; cdecl;
+function ochenta_set_model(H: Pointer; Model: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Result := -1;
   Inst := Find(H);
@@ -410,18 +410,18 @@ begin
   end;
 end;
 
-function emu80_get_model(H: Pointer): Int32; cdecl;
+function ochenta_get_model(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
   Result := Ord(Inst.Emu.Spec.Model);
 end;
 
-function emu80_set_next_dir(H: Pointer; Dir: PAnsiChar): Int32; cdecl;
+function ochenta_set_next_dir(H: Pointer; Dir: PAnsiChar): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -434,9 +434,9 @@ begin
   Result := 0;
 end;
 
-function emu80_start(H: Pointer): Int32; cdecl;
+function ochenta_start(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -453,9 +453,9 @@ begin
   end;
 end;
 
-function emu80_stop(H: Pointer): Int32; cdecl;
+function ochenta_stop(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -463,9 +463,9 @@ begin
   Result := 0;
 end;
 
-function emu80_pause(H: Pointer): Int32; cdecl;
+function ochenta_pause(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -473,9 +473,9 @@ begin
   Result := 0;
 end;
 
-function emu80_resume(H: Pointer): Int32; cdecl;
+function ochenta_resume(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -483,9 +483,9 @@ begin
   Result := 0;
 end;
 
-function emu80_reset(H: Pointer; Hard: Int32): Int32; cdecl;
+function ochenta_reset(H: Pointer; Hard: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -498,9 +498,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_sound(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_set_sound(H: Pointer; Enabled: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -508,9 +508,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_turbo(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_set_turbo(H: Pointer; Enabled: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -518,9 +518,9 @@ begin
   Result := 0;
 end;
 
-function emu80_attach_window(H: Pointer; Window: Pointer): Int32; cdecl;
+function ochenta_attach_window(H: Pointer; Window: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -535,14 +535,14 @@ begin
   if Inst.Presenter = nil then Inst.Presenter := TPresenter.Create(Inst);
   Result := 0;
   {$ELSE}
-  SetError(Inst, 'drawing into a host window is only available on Windows: use emu80_get_frame');
+  SetError(Inst, 'drawing into a host window is only available on Windows: use ochenta_get_frame');
   Result := -3;
   {$ENDIF}
 end;
 
-function emu80_detach_window(H: Pointer): Int32; cdecl;
+function ochenta_detach_window(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -553,9 +553,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_display(H: Pointer; Deinterlace, Mono, Scanlines: Int32): Int32; cdecl;
+function ochenta_set_display(H: Pointer; Deinterlace, Mono, Scanlines: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -567,9 +567,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_frame_callback(H: Pointer; Callback: TEmu80FrameCallback; User: Pointer): Int32; cdecl;
+function ochenta_set_frame_callback(H: Pointer; Callback: TOchentaFrameCallback; User: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -579,9 +579,9 @@ begin
   Result := 0;
 end;
 
-function emu80_get_frame(H: Pointer; Buf: Pointer; Size: Int32; Scale: Int32; Width, Height: PInt32): Int32; cdecl;
+function ochenta_get_frame(H: Pointer; Buf: Pointer; Size: Int32; Scale: Int32; Width, Height: PInt32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   Cur, Prev: array of LongWord;
   Odd: Boolean;
   Need: Integer;
@@ -628,9 +628,9 @@ begin
   end;
 end;
 
-function emu80_get_reg(H: Pointer; Reg: Int32; Value: PInt32): Int32; cdecl;
+function ochenta_get_reg(H: Pointer; Reg: Int32; Value: PInt32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   V: Int32;
 begin
   Inst := Find(H);
@@ -645,9 +645,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_reg(H: Pointer; Reg: Int32; Value: Int32): Int32; cdecl;
+function ochenta_set_reg(H: Pointer; Reg: Int32; Value: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   C: TZ80;
 begin
   Inst := Find(H);
@@ -682,9 +682,9 @@ begin
   end;
 end;
 
-function emu80_read_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_read_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   I: Integer;
 begin
   Inst := Find(H);
@@ -699,9 +699,9 @@ begin
   Result := Len;
 end;
 
-function emu80_write_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_write_mem(H: Pointer; Addr: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   I: Integer;
 begin
   Inst := Find(H);
@@ -716,9 +716,9 @@ begin
   Result := Len;
 end;
 
-function emu80_set_rom_writable(H: Pointer; Enabled: Int32): Int32; cdecl;
+function ochenta_set_rom_writable(H: Pointer; Enabled: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -738,9 +738,9 @@ begin
   end;
 end;
 
-function emu80_ram_bank_count(H: Pointer): Int32; cdecl;
+function ochenta_ram_bank_count(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -749,7 +749,7 @@ end;
 
 function BankAccess(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32; Write: Boolean): Int32;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   P: PByte;
 begin
   Inst := Find(H);
@@ -766,20 +766,20 @@ begin
   Result := Len;
 end;
 
-function emu80_read_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_read_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
 begin
   Result := BankAccess(H, Bank, Offset, Buf, Len, False);
 end;
 
-function emu80_write_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
+function ochenta_write_ram_bank(H: Pointer; Bank, Offset: Int32; Buf: PByte; Len: Int32): Int32; cdecl;
 begin
   Result := BankAccess(H, Bank, Offset, Buf, Len, True);
 end;
 
-function emu80_get_paging(H: Pointer; Paging: Pointer): Int32; cdecl;
+function ochenta_get_paging(H: Pointer; Paging: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
-  P: ^TEmu80Paging;
+  Inst: TOchentaInstance;
+  P: ^TOchentaPaging;
   S: TPagingState;
 begin
   Inst := Find(H);
@@ -812,9 +812,9 @@ begin
   Result := 0;
 end;
 
-function emu80_write_port(H: Pointer; Port, Value: Int32): Int32; cdecl;
+function ochenta_write_port(H: Pointer; Port, Value: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -844,9 +844,9 @@ begin
   end;
 end;
 
-function emu80_set_slot3_bank(H: Pointer; Bank: Int32): Int32; cdecl;
+function ochenta_set_slot3_bank(H: Pointer; Bank: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -858,9 +858,9 @@ begin
   end;
 end;
 
-function emu80_next_reg_get(H: Pointer; Reg: Int32): Int32; cdecl;
+function ochenta_next_reg_get(H: Pointer; Reg: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -872,9 +872,9 @@ begin
   end;
 end;
 
-function emu80_next_reg_set(H: Pointer; Reg, Value: Int32): Int32; cdecl;
+function ochenta_next_reg_set(H: Pointer; Reg, Value: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -887,9 +887,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_breakpoint(H: Pointer; Addr, Flags: Int32): Int32; cdecl;
+function ochenta_set_breakpoint(H: Pointer; Addr, Flags: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -902,18 +902,18 @@ begin
   Result := 0;
 end;
 
-function emu80_get_breakpoint(H: Pointer; Addr: Int32): Int32; cdecl;
+function ochenta_get_breakpoint(H: Pointer; Addr: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
   Result := Inst.Emu.Spec.Breakpoint[Word(Addr)];
 end;
 
-function emu80_clear_breakpoints(H: Pointer): Int32; cdecl;
+function ochenta_clear_breakpoints(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -927,14 +927,14 @@ begin
 end;
 
 { Stepping needs the machine to be stopped: it is paused first (and stays so) }
-procedure PauseForStep(Inst: TEmu80Instance);
+procedure PauseForStep(Inst: TOchentaInstance);
 begin
   if Inst.Emu.Running then Inst.Emu.PauseAndWait else Inst.Emu.Paused := True;
 end;
 
-function emu80_step_into(H: Pointer): Int32; cdecl;
+function ochenta_step_into(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -943,9 +943,9 @@ begin
   Result := 0;
 end;
 
-function emu80_step_over(H: Pointer): Int32; cdecl;
+function ochenta_step_over(H: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -954,9 +954,9 @@ begin
   Result := 0;
 end;
 
-function emu80_run_to(H: Pointer; Addr: Int32): Int32; cdecl;
+function ochenta_run_to(H: Pointer; Addr: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
@@ -965,10 +965,10 @@ begin
   Result := 0;
 end;
 
-function emu80_get_state(H: Pointer; State: Pointer): Int32; cdecl;
+function ochenta_get_state(H: Pointer; State: Pointer): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
-  S: ^TEmu80State;
+  Inst: TOchentaInstance;
+  S: ^TOchentaState;
   F: Int64;
 begin
   Inst := Find(H);
@@ -988,23 +988,23 @@ begin
   Result := 0;
 end;
 
-function emu80_get_break_reason(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
+function ochenta_get_break_reason(H: Pointer; Buf: PAnsiChar; Size: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);
   Result := FillString(Inst.Emu.Spec.BreakReason, Buf, Size);
 end;
 
-function emu80_load_ram(H: Pointer; Addr: Int32; Data: PByte; Len: Int32): Int32; cdecl;
+function ochenta_load_ram(H: Pointer; Addr: Int32; Data: PByte; Len: Int32): Int32; cdecl;
 begin
-  Result := emu80_write_mem(H, Addr, Data, Len);
+  Result := ochenta_write_mem(H, Addr, Data, Len);
 end;
 
-function emu80_load_file(H: Pointer; FileName: PAnsiChar): Int32; cdecl;
+function ochenta_load_file(H: Pointer; FileName: PAnsiChar): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   Ext, Name: string;
   Disk: TD64Image;
 begin
@@ -1068,9 +1068,9 @@ begin
   end;
 end;
 
-function emu80_key(H: Pointer; Key: Int32; Down: Int32): Int32; cdecl;
+function ochenta_key(H: Pointer; Key: Int32; Down: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
   Row, Bit: Integer;
 begin
   Inst := Find(H);
@@ -1136,9 +1136,9 @@ begin
   Result := 0;
 end;
 
-function emu80_set_kempston(H: Pointer; Bits: Int32): Int32; cdecl;
+function ochenta_set_kempston(H: Pointer; Bits: Int32): Int32; cdecl;
 var
-  Inst: TEmu80Instance;
+  Inst: TOchentaInstance;
 begin
   Inst := Find(H);
   if Inst = nil then Exit(-1);

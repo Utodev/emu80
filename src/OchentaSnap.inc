@@ -1,4 +1,4 @@
-{ Emu80Snap.inc: emu80's own snapshots, .e80 (included by Spectrum.pas): the
+{ OchentaSnap.inc: ochenta's own snapshots, .e80 (included by Spectrum.pas): the
   only ones for the machines that .z80 and .sna can't hold, the ZX Spectrum
   Next (2 MB, its registers, display, copper, DMA) and the ZX-Uno (its 512K
   of SRAM and registers), and a choice for the others (all their state,
@@ -10,7 +10,7 @@
 
 const
   E80_MAGIC = 'EMU80SNAP';
-  EMU80_VERSION = 1;
+  OCHENTA_VERSION = 1;
 
 { The header of a snapshot file: its signature, its version and the
   model's key; the stream is left at the machine's data. False if it isn't one. }
@@ -24,7 +24,7 @@ begin
   if F.Read(Buf, 9) < 9 then Exit;
   if not CompareMem(@Buf, PChar(E80_MAGIC), 9) then Exit;
   if F.Read(V, 1) < 1 then Exit;
-  if V <> EMU80_VERSION then Exit;
+  if V <> OCHENTA_VERSION then Exit;
   if F.Read(Len, 1) < 1 then Exit;
   SetLength(Key, Len);
   if (Len > 0) and (F.Read(Key[1], Len) < Len) then Exit;
@@ -243,13 +243,13 @@ var
 begin
   F := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
   try
-    if not ReadSnapHeader(F, Key) then raise Exception.Create('Not an emu80 snapshot');
+    if not ReadSnapHeader(F, Key) then raise Exception.Create('Not an ochenta snapshot');
   finally
     F.Free;
   end;
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     if Key = ModelKey(M) then Exit(M);
-  raise Exception.CreateFmt('An emu80 snapshot of an unknown machine (%s)', [Key]);
+  raise Exception.CreateFmt('An ochenta snapshot of an unknown machine (%s)', [Key]);
 end;
 
 procedure TSpectrum.SaveOwnSnapshot(const FileName: string);
@@ -262,7 +262,7 @@ begin
   F := TFileStream.Create(FileName, fmCreate);
   try
     F.WriteBuffer(E80_MAGIC[1], Length(E80_MAGIC));
-    V := EMU80_VERSION;
+    V := OCHENTA_VERSION;
     F.WriteBuffer(V, 1);
     Key := ModelKey(FModel);
     V := Length(Key);

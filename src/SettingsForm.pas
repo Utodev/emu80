@@ -343,10 +343,10 @@ begin
   for L := Low(TLanguage) to High(TLanguage) do
     if L = lgAuto then FLang.Items.Add(_('Automatic')) else FLang.Items.Add(LANGUAGE_NAMES[L]);
   FLang.Hint := _('The language of the interface; Automatic follows the system''s. Holding the left Ctrl key ' +
-    'while emu80 starts always gives English');
+    'while ochenta starts always gives English');
   FLang.ShowHint := True;
   Inc(Y, 26);
-  FSaveOnExit := AddCheck(Group, _('Save the settings when emu80 closes'), Y);
+  FSaveOnExit := AddCheck(Group, _('Save the settings when ochenta closes'), Y);
   FSaveOnExit.Hint := _('Off: changes made while running (zoom, machine, recent files...) are forgotten; ' +
     'OK in this window still saves');
   Inc(Y, 26);
@@ -539,7 +539,7 @@ begin
     'specnext.com), with machines/next in it');
   FNextDir.ShowHint := True;
   Inc(Y, 32);
-  FNextCard := AddFileRow(Group, _('SD card:'), _('zxnext.img next to emu80.ini'), Y, 5);
+  FNextCard := AddFileRow(Group, _('SD card:'), _('zxnext.img next to ochenta.ini'), Y, 5);
   FNextCard.Hint := _('Its SD card image, made from the distribution if it doesn''t exist');
   FNextCard.ShowHint := True;
   Inc(Y, 32);

@@ -63,9 +63,9 @@ var
   I: Integer;
   Backup: string;
 begin
-  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'emu80-configtest-' + IntToStr(GetProcessID) + PathDelim;
+  Dir := IncludeTrailingPathDelimiter(GetTempDir) + 'ochenta-configtest-' + IntToStr(GetProcessID) + PathDelim;
   ForceDirectories(Dir);
-  IniFile := Dir + 'emu80.ini';
+  IniFile := Dir + 'ochenta.ini';
   try
     // Nothing set: it is off, and saving doesn't write it
     DeleteFile(IniFile);
