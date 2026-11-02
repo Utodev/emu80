@@ -4541,12 +4541,18 @@ procedure TSpectrum.SetBreakpoint(Addr: Word; Flags: Byte);
 var
   R, A: Integer;
 begin
+  R := BreakRangeIndex(Addr, False);
   if FIsC64 then
   begin
-    FC64.SetBreakpoint(Addr, Flags);
+    // The C64 keeps its breakpoints by address; a range is one breakpoint here, over all its addresses
+    if R < 0 then FC64.SetBreakpoint(Addr, Flags)
+    else
+    begin
+      for A := FBreakRanges[R].First to FBreakRanges[R].Last do FC64.SetBreakpoint(A, Flags);
+      if Flags = 0 then DeleteBreakRange(R);
+    end;
     Exit;
   end;
-  R := BreakRangeIndex(Addr, False);
   if R < 0 then
   begin
     SetOneBreakpoint(Addr, Flags);

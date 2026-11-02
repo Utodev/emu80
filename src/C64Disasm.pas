@@ -7,7 +7,7 @@ unit C64Disasm;
 interface
 
 uses
-  SysUtils, Cpu6510, Symbols;
+  Classes, SysUtils, Cpu6510, Symbols;
 
 type
   TPeekFunc = function(Addr: Word): Byte of object;
@@ -22,6 +22,17 @@ function C64AddressName(Addr: Word): string;
 function C64FindName(const Name: string; out Addr: Word): Boolean;
 { A table with the names above, for lookups with the user's symbols }
 function BuiltinSymbols: TSymbolTable;
+
+{ The labels of the ROMs and the system variables, from roms/c64.sym (loaded once; again if Force): the BASIC ROM's at
+  A000-BFFF, the KERNAL ROM's at E000-FFFF (BASIC's code there included: it is in that chip) and the RAM's anywhere else.
+  The text after ";" on a line is the label's description. False if the file is not there. }
+function LoadC64RomSymbols(const FileName: string; Force: Boolean = False): Boolean;
+{ The ROM or RAM label of Addr, '' if none; BasicIn / KernalIn: that ROM is paged in (else its labels don't apply) }
+function C64RomLabel(Addr: Word; BasicIn, KernalIn: Boolean): string;
+{ The description of the label at Addr in roms/c64.sym ('' if none) }
+function C64RomDescription(Addr: Word): string;
+{ The address of a label of roms/c64.sym (case-insensitive), wherever it is }
+function C64FindRomLabel(const Name: string; out Addr: Word): Boolean;
 
 implementation
 
@@ -48,6 +59,9 @@ const
 
 var
   Builtin: TSymbolTable;
+  RomLabels: TSymbolTable;
+  RomDescriptions: array of string;
+  RomFile: string;
 
 procedure BuildBuiltin;
 var
@@ -149,10 +163,68 @@ begin
   if Operand <> '' then Result := Result + ' ' + Operand;
 end;
 
+function LoadC64RomSymbols(const FileName: string; Force: Boolean): Boolean;
+var
+  Lines: TStringList;
+  I, V, P: Integer;
+  Name: string;
+begin
+  Result := RomFile <> '';
+  if Result and not Force then Exit;
+  if RomLabels = nil then RomLabels := TSymbolTable.Create;
+  RomLabels.Clear;
+  SetLength(RomDescriptions, 0);
+  SetLength(RomDescriptions, $10000);
+  RomFile := '';
+  Result := FileExists(FileName);
+  if not Result then Exit;
+  Lines := TStringList.Create;
+  try
+    try
+      Lines.LoadFromFile(FileName);
+    except
+      Exit(False);
+    end;
+    for I := 0 to Lines.Count - 1 do
+      if ParseSymbolLine(Lines[I], Name, V) then
+      begin
+        RomLabels.Add(V, Name);
+        P := Pos(';', Lines[I]);
+        if (P > 0) and (RomDescriptions[V] = '') then RomDescriptions[V] := Trim(Copy(Lines[I], P + 1, MaxInt));
+      end;
+  finally
+    Lines.Free;
+  end;
+  RomFile := FileName;
+end;
+
+function C64RomLabel(Addr: Word; BasicIn, KernalIn: Boolean): string;
+begin
+  Result := '';
+  if RomLabels = nil then Exit;
+  case Addr shr 12 of
+    $A, $B: if not BasicIn then Exit;
+    $E, $F: if not KernalIn then Exit;
+  end;
+  Result := RomLabels.Lookup(Addr);
+end;
+
+function C64RomDescription(Addr: Word): string;
+begin
+  if Length(RomDescriptions) > Addr then Result := RomDescriptions[Addr] else Result := '';
+end;
+
+function C64FindRomLabel(const Name: string; out Addr: Word): Boolean;
+begin
+  Result := (RomLabels <> nil) and RomLabels.Find(Name, Addr);
+end;
+
+
 initialization
   BuildBuiltin;
 
 finalization
   Builtin.Free;
+  RomLabels.Free;
 
 end.

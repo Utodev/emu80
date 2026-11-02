@@ -190,6 +190,11 @@ begin
     // The NOPs that are not $EA, and the second SBC
     if (P = K_NOP) and (I <> $EA) then OpIllegal[I] := True;
     if I = $EB then OpIllegal[I] := True;
+    // The names shown: those of "No More Secrets" (NMOS 6510 Unintended Opcodes, groepaz, 2015); the table keeps the
+    // older ones the dispatch is built on
+    if S = 'KIL' then OpName[I] := 'JAM'
+    else if S = 'AXS' then OpName[I] := 'SBX'
+    else if S = 'LXA' then OpName[I] := 'LAX';
   end;
 end;
 

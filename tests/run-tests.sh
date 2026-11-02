@@ -251,7 +251,7 @@ fi
 # Commodore 64: the 6510 core, the GCR coding of the .d64 images and the debugger's expressions (no ROMs needed)
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64cputest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
-"$BUILD/c64cputest"
+"$BUILD/c64cputest" "$ROOT/roms"
 # ... and the whole machine on the real ROMs, which are the user's (roms/c64: Kernal.rom, Basic.rom, Char.rom, VC1541.rom)
 if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ -f "$ROOT/roms/c64/Char.rom" ] &&
    [ -f "$ROOT/roms/c64/VC1541.rom" ]; then

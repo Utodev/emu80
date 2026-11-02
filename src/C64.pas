@@ -168,6 +168,8 @@ type
     function PeekRam(Addr: Word): Byte;
     procedure Poke(Addr: Word; Value: Byte);
     procedure PokeRam(Addr: Word; Value: Byte);
+    { A register of the VIC-II, the SID, the CIAs or the colour RAM ($D000-$DFFF), whatever the processor maps there }
+    procedure PokeIo(Addr: Word; Value: Byte);
     { What the 6510 sees at that address: 0 RAM, 1 BASIC ROM, 2 KERNAL ROM, 3 character ROM, 4 I/O }
     function MemoryAt(Addr: Word): Integer;
     { Keys: the matrix position and the joysticks (ports 1 and 2) }
@@ -814,6 +816,11 @@ begin
   else FRam[Addr] := Value;
 end;
 
+procedure TC64.PokeIo(Addr: Word; Value: Byte);
+begin
+  IoWrite($D000 or (Addr and $0FFF), Value);
+end;
+
 function TC64.Read(Addr: Word): Byte;
 begin
   Clock;
@@ -1249,13 +1256,11 @@ begin
 end;
 
 procedure TC64.SetBreakpoint(Addr: Word; Flags: Byte);
-var
-  I: Integer;
 begin
+  // How many addresses have a read or write breakpoint (none: the bus doesn't look)
+  if (FBreakFlags[Addr] and (C64_BP_READ or C64_BP_WRITE)) <> 0 then Dec(FMemBreaks);
   FBreakFlags[Addr] := Flags;
-  FMemBreaks := 0;
-  for I := 0 to 65535 do
-    if (FBreakFlags[I] and (C64_BP_READ or C64_BP_WRITE)) <> 0 then Inc(FMemBreaks);
+  if (Flags and (C64_BP_READ or C64_BP_WRITE)) <> 0 then Inc(FMemBreaks);
   if Flags = 0 then
   begin
     if Length(FCondition) > 0 then

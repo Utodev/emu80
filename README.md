@@ -1160,22 +1160,44 @@ The second drive (device 9) is connected with Settings > Commodore 64 > Second d
 **Not emulated**: cartridges (`.crt`) and the expansion port, the user port and RS-232, the REU, `.t64` and `.g64` files, tape recording (SAVE to tape), snapshots, the datasette's
 sound, the 8580 SID and the filter's exact curve. The sound is mixed in mono.
 
-**Debugger.** Machine > Debug > Debugger (F12) opens the 6510's own debugger (the Z80 one is the other machines'), laid out like the Z80 debugger and with the same colours: the
-disassembly in the middle, the registers on the right, and under them the memory, the breakpoints and the watches. The toolbar runs (F5) and breaks, steps into (F7) and over (F10: a JSR runs
-as a whole), steps out (F11: to the address the stack returns to), runs to the selected line (F9), goes to an address (Ctrl+G), puts or takes away a breakpoint on the selected line (F8, or a
-click on the gutter or a double-click on the line), removes all the breakpoints, adds a watch, loads symbols and opens the *System* window. The disassembly marks the program counter in green and
-the breakpoints in red (`E`, `R`, `W` or `A` in the gutter, `?` if conditional), the mnemonics are blue (dark red for the undocumented opcodes), A, X and Y are bold, a name stands for the address it
-has with its value in grey brackets (the KERNAL's entry points, the VIC-II, SID and CIA registers, and the symbols of a file loaded with the Symbols button: lines `NAME = $ADDRESS`, as the assemblers
-write them, the DAAD interpreter's `.sym` files for one), and at the program counter a conditional branch shows a tick or a cross: taken or not. Over a mnemonic, after a second, a hint says what
-the instruction does, the flags it changes, its addressing mode, its bytes and its cycles; over a hex number its decimal value shows. It follows the program counter while the machine is stopped;
-scroll with the wheel or the cursor keys to look elsewhere. *Registers*: A, X, Y, SP, PC and P (click one to change it; dark red if the last instruction changed it), the flags (click to toggle,
-hint over each name), the interrupt lines, the 6510's port and what it maps at `$A000`, `$D000` and `$E000`, and the stack as 16-bit words with the JSR that pushed each return address. *Zero page*
-(under the registers): its 256 bytes (double-click to change one). *Memory*: a hex dump with its characters (a *RAM only* switch shows and changes the RAM under the ROMs and the I/O; right-click a
-byte to stop when it is read or written). *Breakpoints*: execution, read and write, on an address or a range, each with an optional condition, switched on and off with its box (Insert adds,
-Delete removes, Enter edits); a breakpoint stops the machine at the instruction that did the access. *Watches*: expressions shown in hex and decimal. The *System* window shows the 6510's port and the
-memory configuration, the VIC-II's registers decoded, the CIAs, the SID, the drives with their program counter, track, motor and LED, the serial bus and the tape.
-Conditions and watches use the debugger's expressions: hex numbers (`$C000`, or just `C000`), decimal ones after a dot (`.10`), the registers `A X Y SP PC P`, the flags `#N #V #B #D #I #Z #C`, `@x` (the byte at
-an address), `T` (how many times the breakpoint has been reached), `+ - * / MOD & |`, `= <> < > <= >=`, `AND OR XOR NOT` and parentheses: `A=3 AND X>.10`, `@D020=0`, `#Z=1 OR PC>=E000`. The command line's `--bp`, `--bpr`,
+**Debugger.** Machine > Debug > Debugger (F12) opens the 6510's own debugger (the Z80 one is the other machines'), laid out and used like the Z80 debugger and with the same colours: the
+disassembly in the middle, on its right the registers and under them the stack and the zero page side by side, and at the bottom the memory, the breakpoints and the watches. Every value is changed
+where it is shown: a click opens a box over it (a hex number, or an expression; Enter applies, Escape cancels). A right-click on any address, 16-bit value or label offers *Go to* (in the
+disassembly) and *View data at* (in the memory), as in the Z80 debugger. The toolbar runs (F5) and breaks, steps into (F7) and over (F10: a JSR runs as a whole), steps out (F11: to the address
+the stack returns to), runs to the selected line (F9), goes to an address (Ctrl+G), puts or takes away a breakpoint on the selected line (F8, or a click on the gutter or a double-click on the line),
+removes all the breakpoints, adds a watch, loads symbols and opens the *chips* window.
+*Disassembly*: the program counter in green and the breakpoints in red (`E`, `R`, `W` or `A` in the gutter, `?` if conditional, pale if switched off), the mnemonics blue (bold dark red
+for the undocumented opcodes, as in the Z80 debugger), A, X and Y bold, and a name stands for the address it has with its value in grey brackets; at the program counter a conditional branch shows a tick or a cross: taken or not.
+Over a mnemonic, after a second, a hint says what the instruction does, the flags it changes, its addressing mode, its bytes and its cycles; over a hex number its decimal value (and its names) shows;
+all 105 undocumented opcodes are disassembled with the names of *No More Secrets* (NMOS 6510 Unintended Opcodes, groepaz, 2015: `SLO RLA SRE RRA SAX LAX DCP ISC ANC ALR ARR SBX LAS NOP JAM SHA
+SHX SHY TAS ANE`, `LAX #` for `$AB` and `SBC #` for `$EB`), and their hint adds whether they are stable, the instructions they combine, their other names (`KIL`, `AXS`, `LXA`, `ISB`...) and what to
+beware of (the "magic constant" of `ANE` and `LAX #`, the high byte of `SHA`, `SHX`, `SHY` and `TAS`);
+over a label, its description. Click an instruction's byte to change it. It follows the program counter while the machine is stopped; scroll with the wheel, the cursor keys or Page Up/Down (Shift: `1000` hex,
+4096 bytes; Ctrl: 1024), Home and End go to `0000` and `FFF0`, Backspace goes back to where the view was before the last jump, Ctrl+F searches the lines (an address, bytes, a mnemonic, a label) and F3
+searches again. Its right-click menu: go to an address, search, export as assembler (a range as 6502 source for 64tass and the like: `* = $C000`, labels for the jumps and branches, `NAME = $ADDRESS`
+for the names outside it, `.byte` for the undocumented opcodes), add or edit a label, run to here, set the PC here, and the breakpoint on the line: put or take away, its type (execution, read, write,
+read or write), with a condition, enabled, remove.
+*Names*: the labels of `roms/c64.sym`, loaded automatically, are the ROMs' own names (the BASIC's from Microsoft's source, the KERNAL's from Commodore's, the system variables' from the memory map,
+with the description of each routine as its hint, made from [pagetable.com/c64ref](https://pagetable.com/c64ref/)). The BASIC ROM's labels (`A000`-`BFFF`) apply only while the BASIC ROM is paged
+in, the KERNAL ROM's (`E000`-`FFFF`) only while the KERNAL is, and the chips' registers (the VIC-II, SID and CIA names) only while the I/O is: with RAM there, the code there is the program's. The
+symbols of a file loaded with the Symbols button (lines `NAME = $ADDRESS`, as the assemblers write them; the DAAD interpreter's `.sym` files for one) and the labels added from the menu come first.
+*Registers*: A, X, Y, SP, PC and P, all in hex (click one to change it; dark red if the last instruction changed it), the flags (click to toggle, hint over each name), the interrupt lines, the
+processor port's DDR and PORT bytes (click to change them) and the memory configuration: what is paged in at `$A000`, `$D000` and `$E000`. Click it (or the bank number) to choose one of the eight
+configurations of LORAM, HIRAM and CHAREN from a menu. *Stack*: from SP upwards as 16-bit words, `>` marking the top; click one to change it, the wheel scrolls. *Zero page*: its 256 bytes, 8 a row
+(click one to change it; right-click: a watch, read and write breakpoints).
+*Memory*: a hex dump with its characters, with the Z80 debugger's tools: an *XOR* box (every byte is shown and typed XORed with that hex value), a *RAM only* switch (show and change the RAM under the
+ROMs and the I/O instead of what the processor sees), click a byte to change it or the text column to type text there, drag over the text column to select, Space for the sprite mode (each 8 bytes as
+an 8x8 cell), and a right-click menu: go to, add a watch, read and write breakpoints (on the byte or the selection), copy as text, copy values (`$3E,$01,...`, Ctrl+C), paste (Ctrl+V), search text or
+hex bytes (Ctrl+F, F3), export and import as text, export and import as binary.
+*Breakpoints*: execution, read and write, on an address or a range, each with an optional condition, switched on and off with its box (Insert adds, Delete removes, Enter or a double-click edits,
+Space switches); the right-click menu also shows it in the disassembly, removes them all and saves and loads them as JSON (the files of `--breakpoints`). The dialog that adds or changes one has a
+type list, the end of a range, an *Enabled* box and the conditions' manual. A breakpoint stops the machine at the instruction that did the access. *Watches*: expressions shown in hex and decimal
+(Insert adds, Delete removes; saved and loaded as JSON from the right-click menu).
+The *chips* window has a *Registers* tab with the registers of the VIC-II, the SID (the values last written: its registers are write-only) and the two CIAs, each changed in place (the hint names it),
+and a *State* tab with the 6510's port and the memory configuration, the VIC-II's registers decoded, the CIAs, the drives with their program counter, track, motor and LED, the serial bus and the tape.
+Conditions and watches use the debugger's expressions: hex numbers (`$C000`, or just `C000`), decimal ones after a dot (`.10`), the registers `A X Y SP PC P`, the flags `#N #V #B #D #I #Z #C`, names
+(yours, the labels of `c64.sym`, the KERNAL's entry points and the chips' registers: `PC=CHROUT`, `@VIC_RASTER=.100`), `@x` (the byte at an address), `T` (how many times the breakpoint has been reached),
+`+ - * / MOD & |`, `= <> < > <= >=`, `AND OR XOR NOT` and parentheses: `A=3 AND X>.10`, `@D020=0`, `#Z=1 OR PC>=E000`. A range has no condition. The command line's `--bp`, `--bpr`,
 `--bpw` and `--bprw` (with a condition: `--bp 'C000 if A=3'`) and `--breakpoints` work on the C64's addresses. There is no step back.
 
 **Adventure Debugger.** Debug > Adventure Debugger (F11) works on the DAAD interpreter for the Commodore 64 (the database's header says machine 2): the database is where the interpreter puts it, `$3880`, and the 256 flags
@@ -1748,7 +1770,7 @@ step into, step over, run to cursor or run: the CPU, all the memory, the paging 
 (not the sound, the tape or the disks). It goes back up to 10 times.
 
 Ctrl+PgDn / Ctrl+PgUp move the disassembly and the memory zone 1024 bytes on or back, Shift+PgDn
-/ Shift+PgUp 512. Escape closes the debugger (after ending an edit, or the typing or selection in
+/ Shift+PgUp `1000` hex (4096 bytes). Escape closes the debugger (after ending an edit, or the typing or selection in
 the memory zone), and the keys go to the main window again, as when it is closed in any other
 way. Ctrl+G (or the context menu) goes to an address: hex, a register name such as PC or HL, or
 a label; the last 10 addresses are listed. Its "Go to PC" button goes to the execution point

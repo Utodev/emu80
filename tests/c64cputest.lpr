@@ -1,11 +1,12 @@
 { c64cputest: the 6510 core (flags, decimal mode, addressing modes and their cycle counts, interrupts, the undocumented
-  opcodes) on a bare 64K of RAM, the GCR coding of the .d64 images and the debugger's expressions. No ROMs needed. }
+  opcodes) on a bare 64K of RAM, the GCR coding of the .d64 images, the debugger's expressions (with symbols) and the ROM
+  labels of roms/c64.sym (its folder is the first argument; skipped without it). No ROMs needed. }
 program c64cputest;
 
 {$mode objfpc}{$H+}
 
 uses
-  SysUtils, Cpu6510, C64Disk, C64Expr;
+  SysUtils, Cpu6510, C64Disk, C64Expr, C64Disasm, C64Help;
 
 type
   TRamBus = class(T6502Bus)
@@ -88,7 +89,7 @@ end;
 procedure TestCpu;
 var
   S: TExprState;
-  V: Integer;
+  V, I, N: Integer;
   Err: string;
   C: TC64Condition;
 begin
@@ -199,6 +200,18 @@ begin
   Check(OpLength($A9) = 2, 'LDA # is 2 bytes');
   Check(OpLength($EA) = 1, 'NOP is 1 byte');
   Check(OpIllegal[$A7] and not OpIllegal[$A5], 'LAX is illegal, LDA is not');
+  // The undocumented opcodes: the names of "No More Secrets", all 256 opcodes disassembled, the help's note
+  Check((OpName[$02] = 'JAM') and (OpName[$CB] = 'SBX') and (OpName[$AB] = 'LAX') and (OpName[$EB] = 'SBC') and
+    (OpName[$8B] = 'ANE') and (OpName[$9B] = 'TAS'), 'the undocumented opcodes have the names of No More Secrets');
+  N := 0;
+  for I := 0 to 255 do
+    if OpIllegal[I] then
+    begin
+      Inc(N);
+      if Pos('Undocumented: ', InstructionHelp6502(I, '')) = 0 then Check(False, 'no undocumented note for $' + IntToHex(I, 2));
+    end;
+  Check(N = 105, 'there are 105 undocumented opcodes: ' + IntToStr(N));
+  Check(Pos('ATX, LXA, OAL', InstructionHelp6502($AB, '')) > 0, 'LAX # has its own note');
   // Expressions
   FillChar(S, SizeOf(S), 0);
   S.A := 3; S.X := 20; S.PC := $C000; S.P := P_Z;
@@ -216,6 +229,51 @@ begin
   end;
   Cpu.Free;
   CB.Free;
+end;
+
+type
+  TNames = class
+    function Find(const Name: string; out Addr: Word): Boolean;
+  end;
+
+{ As the debugger looks names up: the ROMs' labels, then the KERNAL's and the chips' names }
+function TNames.Find(const Name: string; out Addr: Word): Boolean;
+begin
+  Result := C64FindRomLabel(Name, Addr) or C64FindName(Name, Addr);
+end;
+
+procedure TestSymbols;
+var
+  Names: TNames;
+  S: TExprState;
+  V: Integer;
+  Err: string;
+  C: TC64Condition;
+begin
+  Names := TNames.Create;
+  C64ExprSymbols := @Names.Find;
+  FillChar(S, SizeOf(S), 0);
+  S.PC := $FFD2;
+  S.A := 3;
+  Check(EvalC64Expression('PC = CHROUT', S, V, Err) and (V = 1), 'expression: PC = CHROUT (a KERNAL name)');
+  Check(EvalC64Expression('VIC_RASTER', S, V, Err) and (V = $D012), 'expression: VIC_RASTER is D012');
+  Check(EvalC64Expression('A = 3', S, V, Err) and (V = 1), 'expression: A is still the register');
+  C := CompileC64Condition('PC=NO_SUCH_NAME', Err);
+  Check(C = nil, 'condition: an unknown name is an error');
+  C.Free;
+  if ParamCount >= 1 then
+  begin
+    Check(LoadC64RomSymbols(IncludeTrailingPathDelimiter(ParamStr(1)) + 'c64.sym', True), 'roms/c64.sym loads');
+    Check(C64RomLabel($A474, True, True) = 'READY', 'c64.sym: A474 is READY with BASIC paged in');
+    Check(C64RomLabel($A474, False, True) = '', 'c64.sym: no BASIC label at A474 with RAM there');
+    Check(C64RomLabel($E716, True, True) = 'PRT', 'c64.sym: E716 is PRT with the KERNAL paged in');
+    Check(C64RomLabel($E716, True, False) = '', 'c64.sym: no KERNAL label at E716 with RAM there');
+    Check(C64RomLabel($0001, False, False) = 'R6510', 'c64.sym: the RAM labels apply always');
+    Check(C64RomDescription($A474) = 'do warm start', 'c64.sym: the description of READY');
+    Check(EvalC64Expression('PC = BSOUT', S, V, Err) and (V = 1), 'expression: PC = BSOUT (a label of c64.sym)');
+  end;
+  C64ExprSymbols := nil;
+  Names.Free;
 end;
 
 procedure TestDisk;
@@ -264,11 +322,12 @@ end;
 
 begin
   TestCpu;
+  TestSymbols;
   TestDisk;
   if Failures > 0 then
   begin
     WriteLn(Failures, ' failure(s)');
     Halt(1);
   end;
-  WriteLn('ok    the 6510 core, the .d64 GCR coding and the debugger''s expressions');
+  WriteLn('ok    the 6510 core, the .d64 GCR coding, the debugger''s expressions and the ROM labels');
 end.

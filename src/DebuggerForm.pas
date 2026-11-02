@@ -1560,9 +1560,9 @@ begin
       end;
     VK_NEXT:
       begin
-        // Ctrl: 1024 bytes on, Shift: 512; else a page
+        // Ctrl: 1024 bytes on, Shift: $1000 (4096); else a page
         if ssCtrl in Shift then FTop := Min($FFFF, FTop + 1024)
-        else if ssShift in Shift then FTop := Min($FFFF, FTop + 512)
+        else if ssShift in Shift then FTop := Min($FFFF, FTop + $1000)
         else if Length(FLines) > 0 then FTop := FLines[High(FLines)].Addr;
         FSel := FTop;
         ClampTop;
@@ -1571,7 +1571,7 @@ begin
     VK_PRIOR:
       begin
         if ssCtrl in Shift then FTop := Max(0, FTop - 1024)
-        else if ssShift in Shift then FTop := Max(0, FTop - 512)
+        else if ssShift in Shift then FTop := Max(0, FTop - $1000)
         else
           for I := 1 to VisibleLines - 1 do FTop := PrevAddr(FTop);
         FSel := FTop;
@@ -2367,18 +2367,18 @@ begin
       end;
     VK_DOWN: begin FTop := Word(FTop + RowBytes); Key := 0; end;
     VK_UP: begin FTop := Word(FTop - RowBytes); Key := 0; end;
-    // Ctrl: 1024 bytes, Shift: 512, else a page
+    // Ctrl: 1024 bytes, Shift: $1000 (4096), else a page
     VK_NEXT:
       begin
         if ssCtrl in Shift then FTop := Word(FTop + 1024)
-        else if ssShift in Shift then FTop := Word(FTop + 512)
+        else if ssShift in Shift then FTop := Word(FTop + $1000)
         else FTop := Word(FTop + VisibleBytes);
         Key := 0;
       end;
     VK_PRIOR:
       begin
         if ssCtrl in Shift then FTop := Word(FTop - 1024)
-        else if ssShift in Shift then FTop := Word(FTop - 512)
+        else if ssShift in Shift then FTop := Word(FTop - $1000)
         else FTop := Word(FTop - VisibleBytes);
         Key := 0;
       end;

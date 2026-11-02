@@ -1,5 +1,6 @@
 { C64Help: what each 6510 instruction does, shown by the C64 debugger when the mouse rests on a mnemonic (as Z80Help does for
-  the Z80): a description, the flags it changes, its addressing mode and its cycles. }
+  the Z80): a description, the flags it changes, its addressing mode and its cycles. The undocumented opcodes have the names,
+  the other names and the notes of "No More Secrets" (NMOS 6510 Unintended Opcodes, groepaz/hitmen, 24/12/2015). }
 unit C64Help;
 
 {$mode objfpc}{$H+}
@@ -90,16 +91,62 @@ begin
     'ISC': begin Result := 'INC memory, then SBC it from A'; Flags := 'N V Z C'; end;
     'ANC': begin Result := 'A := A and M, then C := N'; Flags := 'N Z C'; end;
     'ALR': begin Result := 'A := A and M, then LSR A'; Flags := 'N Z C'; end;
-    'ARR': begin Result := 'A := A and M, then ROR A (C and V come from bits 6 and 5)'; Flags := 'N V Z C'; end;
-    'ANE': begin Result := 'A := (A or $EE) and X and M (unstable)'; Flags := 'N Z'; end;
-    'LXA': begin Result := 'A, X := (A or $EE) and M (unstable)'; Flags := 'N Z'; end;
-    'AXS': begin Result := 'X := (A and X) - M, without borrow'; Flags := 'N Z C'; end;
-    'SHA': Result := 'Store A and X and (high byte of the address + 1) (unstable)';
-    'SHX': Result := 'Store X and (high byte of the address + 1) (unstable)';
-    'SHY': Result := 'Store Y and (high byte of the address + 1) (unstable)';
-    'TAS': Result := 'SP := A and X, then store SP and (high byte of the address + 1) (unstable)';
+    'ARR': begin Result := 'A := A and M, then ROR A; C is bit 6 of the result, V is bit 6 xor bit 5 (decimal mode ' +
+      'differs)'; Flags := 'N V Z C'; end;
+    'ANE': begin Result := 'A := (A or CONST) and X and M'; Flags := 'N Z'; end;
+    'SBX': begin Result := 'X := (A and X) - M, flags as CMP (C not used, V unchanged)'; Flags := 'N Z C'; end;
+    'SHA': Result := 'M := A and X and (high byte of the address + 1)';
+    'SHX': Result := 'M := X and (high byte of the address + 1)';
+    'SHY': Result := 'M := Y and (high byte of the address + 1)';
+    'TAS': Result := 'SP := A and X, then M := SP and (high byte of the address + 1)';
     'LAS': begin Result := 'A, X, SP := M and SP'; Flags := 'N Z'; end;
-    'KIL': Result := 'Halts the processor until a reset';
+    'JAM': Result := 'Halts the processor until a reset';
+  end;
+end;
+
+{ What an undocumented opcode is: stable or not, the instructions it combines, its other names and what to beware of }
+function UndocumentedNote(Op: Byte): string;
+begin
+  case OpName[Op] of
+    'SLO': Result := 'stable; ASL + ORA. Also called ASO';
+    'RLA': Result := 'stable; ROL + AND';
+    'SRE': Result := 'stable; LSR + EOR. Also called LSE';
+    'RRA': Result := 'stable; ROR + ADC';
+    'SAX': Result := 'stable; STA + STX: stores A and X. Also called AXS, AAX';
+    'LAX':
+      if Op = $AB then
+        Result := 'unstable ("magic constant"); LDA # + TAX. CONST depends on the chip and the temperature ($00, $EE, ' +
+          '$FF...): safe only with the value 0, or with A = $FF. Also called ATX, LXA, OAL'
+      else Result := 'stable; LDA + LDX';
+    'DCP': Result := 'stable; DEC + CMP. Also called DCM';
+    'ISC': Result := 'stable; INC + SBC. Also called ISB, INS';
+    'ANC': Result := 'stable; AND # with bit 7 into C (as ASL or ROL would)';
+    'ALR': Result := 'stable; AND # + LSR. Also called ASR';
+    'ARR': Result := 'stable; AND # + ROR, with C and V set from bits 7 and 6 before the rotation';
+    'SBX': Result := 'stable; CMP # + DEX. Also called AXS, SAX';
+    'SBC': Result := 'stable; the same as SBC # ($E9). Also called USBC';
+    'LAS': Result := 'stable; LDA/TSX combination. Also called LAR';
+    'NOP':
+      begin
+        if OpLength(Op) = 1 then Result := 'stable; does nothing'
+        else if OpLength(Op) = 2 then Result := 'stable; reads the operand and does nothing. Also called DOP, SKB'
+        else Result := 'stable; reads the operand and does nothing. Also called TOP, SKW';
+        if Op in [$82, $C2, $E2] then Result := Result + ' (said to be a JAM on a very few machines: better avoided)';
+      end;
+    'JAM': Result := 'the processor locks up: the buses go to $FF, no interrupt is taken, only a reset restarts it. ' +
+      'Also called KIL, HLT';
+    'SHA': Result := 'unstable ("high byte" group): sometimes the AND with the high byte + 1 drops off, and crossing a ' +
+      'page the value may be stored in the page given by the value. Also called AXA, AHX';
+    'SHX': Result := 'unstable ("high byte" group): sometimes the AND with the high byte + 1 drops off, and crossing a ' +
+      'page the value may be stored in the page given by the value. Also called A11, SXA, XAS';
+    'SHY': Result := 'unstable ("high byte" group): sometimes the AND with the high byte + 1 drops off, and crossing a ' +
+      'page the value may be stored in the page given by the value. Also called A11, SYA, SAY';
+    'TAS': Result := 'unstable ("high byte" group): sometimes the AND with the high byte + 1 drops off, and crossing a ' +
+      'page the value may be stored in the page given by the value. Also called XAS, SHS';
+    'ANE': Result := 'highly unstable ("magic constant"); TXA + AND #. CONST depends on the chip and the temperature ' +
+      '($00, $EE, $FF...): safe only with the value 0, or with A = $FF. Also called XAA';
+  else
+    Result := '';
   end;
 end;
 
@@ -149,7 +196,7 @@ var
 begin
   M := OpName[Op];
   Mode := OpMode[Op];
-  if M = 'KIL' then Exit('never ends');
+  if M = 'JAM' then Exit('never ends');
   if IsBranch(Op) then Exit('2 (+1 if the branch is taken, +1 more if it crosses a page)');
   if M = 'BRK' then Exit('7');
   if (M = 'JSR') or (M = 'RTS') or (M = 'RTI') then Exit('6');
@@ -197,9 +244,17 @@ var
   M, Flags: string;
 begin
   M := OpName[Op];
-  Result := Describe(M, Flags);
+  // LAX # is not LAX: A, X := (A or CONST) and M
+  if Op = $AB then
+  begin
+    Result := 'A, X := (A or CONST) and M';
+    Flags := 'N Z';
+  end
+  else Result := Describe(M, Flags);
   if Result = '' then Exit('');
-  if OpIllegal[Op] then Result := M + ': ' + Result + LineEnding + 'Undocumented (illegal) opcode' else Result := M + ': ' + Result;
+  Result := M + ': ' + Result;
+  // As the Z80 debugger says it
+  if OpIllegal[Op] then Result := Result + LineEnding + 'Undocumented: ' + UndocumentedNote(Op);
   if Flags = 'all' then Flags := 'N V - B D I Z C (as pulled)';
   if Flags <> '' then Result := Result + LineEnding + 'Flags: ' + Flags
   else Result := Result + LineEnding + 'Flags: none';

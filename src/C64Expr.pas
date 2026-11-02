@@ -4,6 +4,8 @@
   - Numbers are hex ("C000", "$C000"); with a dot they are decimal (".30").
   - Registers: A X Y SP PC; flags with "#": #N #V #B #D #I #Z #C (worth 0 or 1).
   - @x: the byte of memory at address x ("@(PC+1)=0").
+  - A name (a symbol of the debugger: the user's, then the ROMs') stands for its address; a register goes first and a
+    name that is not a symbol is a hex number ("ADD" is a symbol if there is one, else $0ADD; "0ADD" is always a number).
   - T: how many times the breakpoint has been reached (the count starts when the condition is set).
   - Operators, lowest to highest precedence: OR XOR, AND, NOT, = <> < > <= >=, + - |, * / MOD &, the prefixes - and @.
     Comparisons bind tighter than AND/OR. Parentheses group. }
@@ -50,6 +52,13 @@ type
     property Hits: Integer read FHits;
     property UsesHits: Boolean read FUsesHits;
   end;
+
+type
+  { Finds a symbol (the debugger sets it): its address, False if there is none }
+  TC64SymbolFunc = function(const Name: string; out Addr: Word): Boolean of object;
+
+var
+  C64ExprSymbols: TC64SymbolFunc = nil;
 
 { nil (and Error says why) if the text is not a condition }
 function CompileC64Condition(const Text: string; out Error: string): TC64Condition;
@@ -382,6 +391,7 @@ var
   R: TReg;
   F: TFlag;
   V: Integer;
+  A: Word;
   Dec_: Boolean;
 begin
   SkipBlanks;
@@ -455,7 +465,9 @@ begin
     Result := THitsNode.Create;
     Exit;
   end;
-  if not TryStrToInt('$' + W, V) then raise EExpr.Create('Not a register or a number: ' + W);
+  // A symbol (names start with a letter), else a hex number
+  if (W[1] in ['A'..'Z', '_']) and Assigned(C64ExprSymbols) and C64ExprSymbols(W, A) then V := A
+  else if not TryStrToInt('$' + W, V) then raise EExpr.Create('Not a register, a symbol or a number: ' + W);
   C := TConst.Create;
   C.V := V;
   Result := C;

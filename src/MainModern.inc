@@ -72,7 +72,7 @@ begin
   // The logo, in place of the name and the colours
   FMLogo := TPaintBox.Create(Self);
   FMLogo.Parent := FMHeader;
-  LH := MUIScale(28);
+  LH := MUIScale(28) * 4 div 5;   // 80% of the 28 it was
   FMLogo.SetBounds(MUIScale(10), (FMHeader.Height - LH) div 2, LogoWidth(LH), LH);
   FMLogo.OnPaint := @PaintModernLogo;
   X := FMLogo.Left + FMLogo.Width + MUIScale(18);
