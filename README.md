@@ -1,10 +1,12 @@
 # ochenta
 
-An emulator of machines with a Z80 CPU or one derived from it, written in Free Pascal with Lazarus (LCL).
+An emulator of machines from the 80s, written in Free Pascal with Lazarus (LCL).
 
 Emulates the ZX Spectrum 16K, 48K, 128K, +2, +2B and +3 with T-state accurate
 Z80 timing, memory and I/O contention, floating bus, ULA snow and per-T-state
 video, the Amstrad CPC 464, 664 and 6128 and the SAM Coupé.
+
+Also, emulates Commodore 64, Spectrum Next and ZX-Uno
 
 The full user manual, including every command line option, follows below (it is
 also shown by Help > Documentation, F1).
