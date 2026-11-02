@@ -721,7 +721,9 @@ begin
   S := LowerCase(Ini.ReadString('General', 'monitor', ''));
   for I := 0 to 3 do
     if S = MONITOR_KEYS[I] then Monitor := I;
-  RomDir := Ini.ReadString('ROMs', 'romdir', RomDir);
+  S := Ini.ReadString('ROMs', 'romdir', RomDir);
+  // a saved folder that no longer exists (moved or renamed) keeps the default one
+  if DirectoryExists(S) then RomDir := S;
   if Ini.ValueExists('ROMs', 'rom') then SetRomList(Ini.ReadString('ROMs', 'rom', ''));
   DivMMCFirmware := ReadOptString(Ini, SEC_ZX, 'zx_divmmcrom', DivMMCFirmware);
   ZXUnoFirmware := ReadOptString(Ini, SEC_ZX, 'zx_unofirmware', ZXUnoFirmware);

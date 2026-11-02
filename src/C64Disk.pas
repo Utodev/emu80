@@ -344,6 +344,13 @@ begin
       Err := FErrors[Off + S];
       if Err = 1 then Err := 0;
     end;
+    // Error 3 (DOS 21, no SYNC): the sector has no sync marks at all, as on an
+    // unformatted track, so the drive never finds its header
+    if Err = 3 then
+    begin
+      Put($55, 5 + 10 + 9 + 5 + 325 + Gap + Ord(S < Extra));
+      Continue;
+    end;
     Chk := S xor Track xor Id1 xor Id2;
     if Err = 9 then Chk := Chk xor $FF;
     if Err = 11 then Id1 := Id1 xor $FF;

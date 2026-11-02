@@ -1153,7 +1153,7 @@ serial bus (ATN, CLK and DATA, open collector, with the drive answering ATN by i
 command channel (`NEW`, `SCRATCH`, `VALIDATE`...), the fast loaders that run code in the drive, the formats. What a program writes is decoded from the GCR the head wrote back
 into the image, so a disk formatted or saved to in the emulator is a real `.d64`. With **Settings > Commodore 64 > What the drives write goes into the .d64 files** (`--c64_savedisk`, on by
 default) the file is written once the drive has been quiet for a moment and when the disk is taken out; with it off the changes are kept in memory until the disk is ejected unless Floppy > Save disk
-is used. A `.d64` that is read-only on the PC is a write-protected disk. The error bytes of the `.d64` (header or data not found, checksum and ID errors) are reproduced, for copy protections that read them.
+is used. A `.d64` that is read-only on the PC is a write-protected disk. The error bytes of the `.d64` (no sync, header or data not found, checksum and ID errors) are reproduced, for copy protections that read them.
 **Fast floppy disk access** (Floppy menu) runs the emulation flat out, muted, while a drive works: without it a disk loads at the real speed (a 1541's: about 400 bytes a second).
 The second drive (device 9) is connected with Settings > Commodore 64 > Second disk drive, with the Floppy menu's "Drive 9: connected" (the "Drive B:" entry), with `--c64_drive9`, or by giving it a disk. `G64` images, the 1571 and the 1581 are not emulated.
 
