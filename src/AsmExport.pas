@@ -181,7 +181,8 @@ begin
           Names.Values[IntToHex(Lines[N].Addr, 4)] := Unique(CleanName(Name), Lines[N].Addr);
       end;
 
-    Result.Add(Format('; Disassembled by ochenta: %.4X-%.4X (%d bytes), for sjasmplus',
+    Result.Add('; sjasmplus format (assemble with sjasmplus)');
+    Result.Add(Format('; Disassembled by ochenta: %.4X-%.4X (%d bytes)',
       [Start, Word(Start + Len - 1), Len]));
     // The ZX Spectrum Next's instructions need sjasmplus's Z80N mode
     if Z80NMnemonics then Result.Add(#9'OPT --zxnext');

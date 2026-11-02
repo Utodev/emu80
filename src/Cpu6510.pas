@@ -12,6 +12,9 @@ unit Cpu6510;
 
 interface
 
+uses
+  Classes;
+
 const
   P_C = $01;
   P_Z = $02;
@@ -63,6 +66,9 @@ type
     InstrPC: Word;           // its address
     constructor Create(ABus: T6502Bus);
     procedure Reset;         // (reads the reset vector)
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { Run one instruction, or take an interrupt }
     procedure Step;
     function GetRegs: T6502Regs;
@@ -77,6 +83,9 @@ var
   OpIllegal: array[0..255] of Boolean;
 
 function OpLength(Op: Byte): Integer;
+
+{ For the chips' StateIO: Size bytes from Buf written to S (Save) or read from it into Buf }
+procedure StateBlock(S: TStream; Save: Boolean; var Buf; Size: Integer);
 
 implementation
 
@@ -756,6 +765,17 @@ begin
         FBus.Write(EA, V);
       end;
   end;
+end;
+
+procedure StateBlock(S: TStream; Save: Boolean; var Buf; Size: Integer);
+begin
+  if Save then S.WriteBuffer(Buf, Size) else S.ReadBuffer(Buf, Size);
+end;
+
+procedure T6510.StateIO(S: TStream; Save: Boolean);
+begin
+  // The registers and the lines, A to InstrPC
+  StateBlock(S, Save, A, PtrUInt(@InstrPC) + SizeOf(InstrPC) - PtrUInt(@A));
 end;
 
 initialization

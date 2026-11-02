@@ -150,6 +150,8 @@ const
 
 function ModelFromName(const S: string; Default: TSpectrumModel): TSpectrumModel;
 function ModelKey(M: TSpectrumModel): string;
+{ A ZX Spectrum (the 16K to the +3, the ZX-Uno, the Next), not one of the other machines }
+function IsSpectrumModel(M: TSpectrumModel): Boolean;
 { An Amstrad CPC (not a Spectrum) }
 function IsCPCModel(M: TSpectrumModel): Boolean;
 { A SAM Coupe (not a Spectrum) }
@@ -189,6 +191,11 @@ begin
   for M := Low(TSpectrumModel) to High(TSpectrumModel) do
     if S = Keys[M] then Exit(M);
   Result := Default;
+end;
+
+function IsSpectrumModel(M: TSpectrumModel): Boolean;
+begin
+  Result := ModelInfo[M].Memory in [mk48K, mk128K, mkPlus3, mkZXUno, mkZXNext];
 end;
 
 function IsCPCModel(M: TSpectrumModel): Boolean;

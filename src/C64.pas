@@ -54,6 +54,8 @@ type
     procedure LoadFromBytes(const Bytes: TBytes);
     procedure Rewind;
     procedure Eject;
+    { Where the tape is, for the debugger's step back (the same tape: else nothing changes) }
+    procedure StateIO(S: TStream; Save: Boolean);
     { One cycle: True when the signal falls (a pulse starts) }
     function Tick: Boolean; inline;
     property Pos: Integer read FPos write FPos;
@@ -70,6 +72,21 @@ type
   TC64Read = procedure(Addr: Word) of object;
 
   TC64BreakKind = (cbkNone, cbkExec, cbkRead, cbkWrite, cbkRunTo, cbkDaad);
+
+  { An access of the processor to a chip's register (the VIC-II, the SID, the CIAs, the I/O areas at DE00-DFFF) or
+    to the 6510's port (0 and 1), for the debugger's ports zone }
+  TC64IoAccess = record
+    PC: Word;          // the instruction that did it
+    Addr: Word;
+    Value: Byte;
+    Write: Boolean;
+    Step: LongWord;    // InstrCount then
+  end;
+
+const
+  C64_IO_LOG = 50;     // accesses remembered
+
+type
 
   TC64 = class(T6502Bus)
   private
@@ -101,6 +118,9 @@ type
     FFrameCycle: Integer;
     FTotalCycles: Int64;
     FFrames: Int64;
+    FInstrCount: LongWord;           // instructions run (an interrupt taken counts as one)
+    FIoLog: array[0..C64_IO_LOG - 1] of TC64IoAccess;
+    FIoLogPos, FIoLogCount: Integer;
     FSamples: array of SmallInt;
     FSampleCount: Integer;
     FSampleAcc: Double;
@@ -141,6 +161,7 @@ type
     function Cia1PortB: Byte;
     function Cia2PortA: Byte;
     procedure UpdateIec;
+    procedure LogIo(Addr: Word; Value: Byte; IsWrite: Boolean); inline;
     procedure FinishFrame;
     procedure AutoStep;
     procedure PushKeys;
@@ -157,6 +178,9 @@ type
     { Raises if a ROM is missing }
     procedure LoadRoms(const KernalPath, BasicPath, CharPath, DrivePath: string);
     procedure Reset(Hard: Boolean);
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { Run until the end of the frame; False if a breakpoint stopped it }
     function RunFrame: Boolean;
     { One instruction (or the interrupt sequence) }
@@ -244,6 +268,10 @@ type
     { Told of every read of an address the map flags }
     property OnDaadRead: TC64Read read FOnDaadRead write FOnDaadRead;
     property FrameCycle: Integer read FFrameCycle;
+    { The accesses to the chips and the 6510's port, newest first (Index 0) }
+    function IoLogCount: Integer;
+    function IoLog(Index: Integer): TC64IoAccess;
+    property InstrCount: LongWord read FInstrCount;
     property TotalCycles: Int64 read FTotalCycles;
     procedure SetDriveEnabled(N: Integer; Value: Boolean);
     { A drive is working (motor on): the emulation may run flat out while a program loads }
@@ -821,6 +849,33 @@ begin
   IoWrite($D000 or (Addr and $0FFF), Value);
 end;
 
+{ The chips' registers as the processor sees them (the I/O paged in, not the colour RAM) and the 6510's port }
+procedure TC64.LogIo(Addr: Word; Value: Byte; IsWrite: Boolean);
+begin
+  if Addr >= 2 then
+  begin
+    if (Addr shr 12 <> $D) or ((Addr and $0C00) = $0800) then Exit;
+    if ((FBank and 3) = 0) or ((FBank and 4) = 0) then Exit;
+  end;
+  FIoLog[FIoLogPos].PC := FCpu.InstrPC;
+  FIoLog[FIoLogPos].Addr := Addr;
+  FIoLog[FIoLogPos].Value := Value;
+  FIoLog[FIoLogPos].Write := IsWrite;
+  FIoLog[FIoLogPos].Step := FInstrCount;
+  FIoLogPos := (FIoLogPos + 1) mod C64_IO_LOG;
+  if FIoLogCount < C64_IO_LOG then Inc(FIoLogCount);
+end;
+
+function TC64.IoLogCount: Integer;
+begin
+  Result := FIoLogCount;
+end;
+
+function TC64.IoLog(Index: Integer): TC64IoAccess;
+begin
+  Result := FIoLog[(FIoLogPos - 1 - Index + C64_IO_LOG * 2) mod C64_IO_LOG];
+end;
+
 function TC64.Read(Addr: Word): Byte;
 begin
   Clock;
@@ -828,6 +883,7 @@ begin
   while FVic.BaLow do Clock;
   Result := ReadMem(Addr);
   FLastBus := Result;
+  LogIo(Addr, Result, False);
   if FDaadOn and (FDaadMap[Addr] <> 0) and Assigned(FOnDaadRead) then FOnDaadRead(Addr);
   if (FMemBreaks > 0) and not FSuppress and ((FBreakFlags[Addr] and (C64_BP_READ or C64_BP_DISABLED)) = C64_BP_READ) and
      ConditionHolds(Addr) then
@@ -847,6 +903,7 @@ begin
     while FVic.BaLow do Clock;
   FLastBus := Value;
   WriteMem(Addr, Value);
+  LogIo(Addr, Value, True);
   if (FMemBreaks > 0) and not FSuppress and ((FBreakFlags[Addr] and (C64_BP_WRITE or C64_BP_DISABLED)) = C64_BP_WRITE) and
      ConditionHolds(Addr) then
   begin
@@ -964,6 +1021,7 @@ begin
       FBreakInstr := PC;
       Exit(False);
     end;
+    Inc(FInstrCount);
     FCpu.Step;
     if FBreakHit then Exit(False);
   end;
@@ -977,6 +1035,7 @@ begin
   FBreakHit := False;
   FBreakKind := cbkNone;
   FSkipBreakOnce := False;
+  Inc(FInstrCount);
   FCpu.Step;
   if FVic.FrameReady then
   begin
@@ -1347,6 +1406,46 @@ procedure TC64.SetDaadMap(Map: PByte);
 begin
   FDaadOn := Map <> nil;
   if FDaadOn then Move(Map^, FDaadMap, SizeOf(FDaadMap));
+end;
+
+procedure TC64Tape.StateIO(S: TStream; Save: Boolean);
+var
+  N, P: Integer;
+  R: LongWord;
+begin
+  N := FPulseCount;
+  P := FPos;
+  R := FRemaining;
+  StateBlock(S, Save, N, SizeOf(N));
+  StateBlock(S, Save, P, SizeOf(P));
+  StateBlock(S, Save, R, SizeOf(R));
+  if Save or (N <> FPulseCount) then Exit;
+  FPos := P;
+  FRemaining := R;
+end;
+
+procedure TC64.StateIO(S: TStream; Save: Boolean);
+var
+  I: Integer;
+begin
+  StateBlock(S, Save, FRam, SizeOf(FRam));
+  // FPort to FBank, FRestart to FIoLogCount (the accesses logged among them)
+  StateBlock(S, Save, FPort, PtrUInt(@FBank) + SizeOf(FBank) - PtrUInt(@FPort));
+  StateBlock(S, Save, FRestart, PtrUInt(@FIoLogCount) + SizeOf(FIoLogCount) - PtrUInt(@FRestart));
+  StateBlock(S, Save, FTapeMotor, SizeOf(FTapeMotor));
+  StateBlock(S, Save, FLastBus, SizeOf(FLastBus));
+  StateBlock(S, Save, FIec.ComputerAtn, SizeOf(Boolean));
+  StateBlock(S, Save, FIec.ComputerClk, SizeOf(Boolean));
+  StateBlock(S, Save, FIec.ComputerData, SizeOf(Boolean));
+  FCpu.StateIO(S, Save);
+  FVic.StateIO(S, Save);
+  FCia1.StateIO(S, Save);
+  FCia2.StateIO(S, Save);
+  FSid.StateIO(S, Save);
+  FTape.StateIO(S, Save);
+  // Both drives (they are always there, switched on or not)
+  for I := 0 to 1 do FDrive[I].StateIO(S, Save);
+  if not Save then UpdateBank;
 end;
 
 end.

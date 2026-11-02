@@ -80,6 +80,9 @@ type
     destructor Destroy; override;
     function LoadRom(const FileName: string): Boolean;
     procedure Reset;
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { Run for that many cycles of the computer's clock (985248 Hz): the drive's own clock is 1 MHz }
     procedure Run(ComputerCycles: Integer; ClockHz: Integer);
     procedure InsertDisk(Disk: TD64Image);
@@ -461,6 +464,31 @@ begin
   FDisk := nil;
   FWpTransient := 600000;
   LoadTrack;
+end;
+
+procedure TC64Drive.StateIO(S: TStream; Save: Boolean);
+begin
+  // What was written to the disk is not undone: it is kept, and the head reads the track it was on
+  if not Save then FlushWrite;
+  FCpu.StateIO(S, Save);
+  FVia1.StateIO(S, Save);
+  FVia2.StateIO(S, Save);
+  StateBlock(S, Save, FRam, SizeOf(FRam));
+  // FCredit to FZone, then FGcrTrack to FHeadNoise
+  StateBlock(S, Save, FCredit, PtrUInt(@FZone) + SizeOf(FZone) - PtrUInt(@FCredit));
+  StateBlock(S, Save, FGcrTrack, PtrUInt(@FHeadNoise) + SizeOf(FHeadNoise) - PtrUInt(@FGcrTrack));
+  if Save then Exit;
+  if (FDisk <> nil) and (FGcrTrack > 0) and (FGcrTrack <= FDisk.Tracks) then
+  begin
+    FGcr := FDisk.Gcr[FGcrTrack];
+    if FBytePos >= Length(FGcr) then FBytePos := 0;
+  end
+  else
+  begin
+    FGcrTrack := 0;
+    SetLength(FGcr, 0);
+  end;
+  UpdateIrq;
 end;
 
 end.

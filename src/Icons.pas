@@ -17,7 +17,7 @@ type
     ikRunToCursor, ikGoTo, ikWatch,
     ikModel, ikSound, ikMute, ikRewind, ikPlayFrom, ikMoveUp, ikMoveDown, ikDelete, ikRecord,
     ikRefresh, ikRename, ikSDCard, ikFolderUp, ikNewFolder, ikChip, ikZ80, ikImportFolder, ikFolder,
-    ikEject, ikTheme, ikMenu, ikKeyboard, ikCartridge, ikKey);
+    ikEject, ikTheme, ikMenu, ikKeyboard, ikCartridge, ikKey, ik6502);
 
 { Toolbar icon size for the current screen (16 px at 96 DPI) }
 function IconSize: Integer;
@@ -430,6 +430,17 @@ begin
         if DarkIcons then D.C.Font.Color := clWhite else D.C.Font.Color := DarkBlue;
         D.C.Brush.Style := bsClear;
         D.C.TextOut((D.S(16) - D.C.TextWidth('Z80')) div 2, (D.S(16) - D.C.TextHeight('Z80')) div 2, 'Z80');
+      end;
+    ik6502:
+      begin
+        // "6502" in bold, small (as the Z80's)
+        D.C.Font.Name := 'Arial';
+        D.C.Font.Style := [fsBold];
+        D.C.Font.Height := -D.S(7);
+        D.C.Font.Quality := fqNonAntialiased;
+        if DarkIcons then D.C.Font.Color := clWhite else D.C.Font.Color := DarkBlue;
+        D.C.Brush.Style := bsClear;
+        D.C.TextOut((D.S(16) - D.C.TextWidth('6502')) div 2, (D.S(16) - D.C.TextHeight('6502')) div 2, '6502');
       end;
     ikMenu:
       begin

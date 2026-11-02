@@ -3,39 +3,39 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: fr\n"
 
-#: Amstrad.pas:291 Amstrad.pas:305 MsxMachine.pas:232
+#: Amstrad.pas:294 Amstrad.pas:308 MsxMachine.pas:232
 msgid "ROM file not found: %s"
 msgstr "Fichier ROM introuvable : %s"
 
-#: Amstrad.pas:296
+#: Amstrad.pas:299
 msgid "%s: the CPC firmware is a 32K file (system ROM and BASIC)"
 msgstr "%s : le firmware du CPC est un fichier de 32K (ROM système et BASIC)"
 
-#: Amstrad.pas:1270
+#: Amstrad.pas:1284
 msgid "Unknown CPC snapshot version"
 msgstr "Version de snapshot CPC inconnue"
 
-#: Amstrad.pas:1272
+#: Amstrad.pas:1286
 msgid "Not a snapshot of this CPC model"
 msgstr "Ce n'est pas un snapshot de ce modèle de CPC"
 
-#: C64.pas:333
+#: C64.pas:363
 msgid "Not a C64 tape image (.tap)"
 msgstr "Ce n'est pas une image de cassette C64 (.tap)"
 
-#: C64.pas:543
+#: C64.pas:573
 msgid "The C64 ROMs are missing from %s:%s"
 msgstr "Les ROM du C64 manquent dans %s :%s"
 
-#: C64.pas:1055
+#: C64.pas:1121
 msgid "Not a C64 tape container (.t64)"
 msgstr "Ce n'est pas un conteneur de cassette C64 (.t64)"
 
-#: C64.pas:1077
+#: C64.pas:1143
 msgid "The .t64 file has no programs"
 msgstr "Le fichier .t64 ne contient aucun programme"
 
-#: C64Browser.pas:315 DiskBrowser.pas:592 MainForm.pas:1007
+#: C64Browser.pas:315 DiskBrowser.pas:592 MainForm.pas:1012
 msgid "Disk browser"
 msgstr "Navigateur de disques"
 
@@ -99,7 +99,7 @@ msgstr "Pas de disquette dans ce lecteur"
 msgid "%s - %d files"
 msgstr "%s - %d fichiers"
 
-#: C64Browser.pas:425 MainC64.inc:442 MainForm.pas:1647
+#: C64Browser.pas:425 MainC64.inc:442 MainForm.pas:1672
 msgid "No tape"
 msgstr "Pas de cassette"
 
@@ -215,7 +215,7 @@ msgstr "La cartouche a été modifiée et n'a pas été enregistrée."
 msgid "Could not save "
 msgstr "Impossible d'enregistrer "
 
-#: CartBrowser.pas:810 MainForm.pas:428 MainForm.pas:2161
+#: CartBrowser.pas:810 MainForm.pas:431 MainForm.pas:2186
 msgid "MSX cartridges (*.rom)"
 msgstr "Cartouches MSX (*.rom)"
 
@@ -575,7 +575,7 @@ msgstr "Pareil pour les %d autres fichiers (avec leurs propres noms)"
 msgid "Import"
 msgstr "Importer"
 
-#: DiskBrowser.pas:1188 MainForm.pas:4018 SettingsForm.pas:284
+#: DiskBrowser.pas:1188 MainForm.pas:4045 SettingsForm.pas:284
 msgid "Cancel"
 msgstr "Annuler"
 
@@ -727,7 +727,7 @@ msgstr "la taille de la carte doit être de 16 à 2048 Mo"
 msgid "ZX Spectrum keyboard"
 msgstr "Clavier du ZX Spectrum"
 
-#: Logo.pas:126 MainForm.pas:4012 NextNotice.pas:78
+#: Logo.pas:126 MainForm.pas:4039 NextNotice.pas:78
 msgid "OK"
 msgstr "OK"
 
@@ -735,7 +735,7 @@ msgstr "OK"
 msgid "The disk drive needs the 1541 ROM (VC1541.rom, in the roms/c64 folder)."
 msgstr "Le lecteur de disque a besoin de la ROM du 1541 (VC1541.rom, dans le dossier roms/c64)."
 
-#: MainC64.inc:260 MainC64.inc:292 MainForm.pas:2698
+#: MainC64.inc:260 MainC64.inc:292 MainForm.pas:2723
 msgid "Could not open "
 msgstr "Impossible d'ouvrir "
 
@@ -743,931 +743,931 @@ msgstr "Impossible d'ouvrir "
 msgid "Commodore 64 disk images (*.d64)"
 msgstr "Images de disque Commodore 64 (*.d64)"
 
-#: MainForm.pas:418 MainForm.pas:428 MainForm.pas:3716
+#: MainForm.pas:421 MainForm.pas:431 MainForm.pas:3743
 msgid "Disk images (*.dsk;*.mgt;*.sad)"
 msgstr "Images de disque (*.dsk;*.mgt;*.sad)"
 
-#: MainForm.pas:423
+#: MainForm.pas:426
 msgid "Disk images (*.dsk)"
 msgstr "Images de disque (*.dsk)"
 
-#: MainForm.pas:423
+#: MainForm.pas:426
 msgid "SAM Coupe MGT images (*.mgt)"
 msgstr "Images MGT du SAM Coupe (*.mgt)"
 
-#: MainForm.pas:423
+#: MainForm.pas:426
 msgid "SAM Coupe SAD images (*.sad)"
 msgstr "Images SAD du SAM Coupe (*.sad)"
 
-#: MainForm.pas:428
+#: MainForm.pas:431
 msgid "All supported files"
 msgstr "Tous les fichiers pris en charge"
 
-#: MainForm.pas:428
+#: MainForm.pas:431
 msgid "Commodore 64 files (*.d64;*.prg;*.p00;*.t64;*.tap)"
 msgstr "Fichiers Commodore 64 (*.d64;*.prg;*.p00;*.t64;*.tap)"
 
-#: MainForm.pas:428
+#: MainForm.pas:431
 msgid "Tape images (*.tap;*.tzx;*.cdt;*.cas;*.tsx)"
 msgstr "Images de cassette (*.tap;*.tzx;*.cdt;*.cas;*.tsx)"
 
-#: MainForm.pas:428
+#: MainForm.pas:431
 msgid "Snapshots (*.sna;*.z80;*.e80)"
 msgstr "Snapshots (*.sna;*.z80;*.e80)"
 
-#: MainForm.pas:428
+#: MainForm.pas:431
 msgid "ZX Spectrum Next programs (*.nex)"
 msgstr "Programmes ZX Spectrum Next (*.nex)"
 
-#: MainForm.pas:489
+#: MainForm.pas:492
 msgid "The settings file given with --config does not exist."
 msgstr "Le fichier de paramètres donné avec --config n'existe pas."
 
-#: MainForm.pas:490
+#: MainForm.pas:493
 msgid "File: "
 msgstr "Fichier : "
 
-#: MainForm.pas:491
+#: MainForm.pas:494
 msgid "Folder: "
 msgstr "Dossier : "
 
-#: MainForm.pas:680
+#: MainForm.pas:685
 msgid "ROM folder not usable, using the default one instead."
 msgstr "Le dossier des ROM est inutilisable ; le dossier par défaut est utilisé à la place."
 
-#: MainForm.pas:715
+#: MainForm.pas:720
 msgid "&File"
 msgstr "&Fichier"
 
-#: MainForm.pas:716
+#: MainForm.pas:721
 msgid "&Open..."
 msgstr "&Ouvrir..."
 
-#: MainForm.pas:717
+#: MainForm.pas:722
 msgid "Open &recent"
 msgstr "Ouvrir un fichier &récent"
 
-#: MainForm.pas:718
+#: MainForm.pas:723
 msgid "&Save snapshot..."
 msgstr "Enregistrer un &snapshot..."
 
-#: MainForm.pas:720
+#: MainForm.pas:725
 msgid "Screens&hot"
 msgstr "Capture d'&écran"
 
-#: MainForm.pas:721
+#: MainForm.pas:726
 msgid "Save as &SCR..."
 msgstr "Enregistrer en &SCR..."
 
-#: MainForm.pas:722
+#: MainForm.pas:727
 msgid "Save as PNG &1x..."
 msgstr "Enregistrer en PNG &1x..."
 
-#: MainForm.pas:723
+#: MainForm.pas:728
 msgid "Save as PNG &2x..."
 msgstr "Enregistrer en PNG &2x..."
 
-#: MainForm.pas:725
+#: MainForm.pas:730
 msgid "Include &border in PNG"
 msgstr "Inclure la &bordure dans le PNG"
 
-#: MainForm.pas:727
+#: MainForm.pas:732
 msgid "E&xit"
 msgstr "&Quitter"
 
-#: MainForm.pas:730 MainModern.inc:83
+#: MainForm.pas:735 MainModern.inc:83
 msgid "&Machine"
 msgstr "&Machine"
 
-#: MainForm.pas:731
+#: MainForm.pas:736
 msgid "&NMI"
 msgstr "&NMI"
 
-#: MainForm.pas:733
+#: MainForm.pas:738
 msgid "&DRIVE button (DivMMC NMI)"
 msgstr "Bouton &DRIVE (NMI du DivMMC)"
 
-#: MainForm.pas:734
+#: MainForm.pas:739
 msgid "&Hard reset"
 msgstr "Réinitialisation &totale"
 
-#: MainForm.pas:735
+#: MainForm.pas:740
 msgid "&Reset"
 msgstr "&Réinitialiser"
 
-#: MainForm.pas:737
+#: MainForm.pas:742
 msgid "&Pause"
 msgstr "&Pause"
 
-#: MainForm.pas:739
+#: MainForm.pas:744
 msgid "&POKE..."
 msgstr "&POKE..."
 
-#: MainForm.pas:743
+#: MainForm.pas:748
 msgid "&Tape"
 msgstr "&Cassette"
 
-#: MainForm.pas:745
+#: MainForm.pas:750
 msgid "&Insert tape && load..."
 msgstr "&Insérer une cassette et charger..."
 
-#: MainForm.pas:746
+#: MainForm.pas:751
 msgid "&Just insert tape..."
 msgstr "Insérer la cassette &seulement..."
 
-#: MainForm.pas:747
+#: MainForm.pas:752
 msgid "Insert &recent tape && load"
 msgstr "Insérer une cassette &récente et charger"
 
-#: MainForm.pas:748
+#: MainForm.pas:753
 msgid "Just insert recent &tape"
 msgstr "Insérer seulement une cassette &récente"
 
-#: MainForm.pas:751
+#: MainForm.pas:756
 msgid "Tape &browser..."
 msgstr "&Navigateur de cassettes..."
 
-#: MainForm.pas:754
+#: MainForm.pas:759
 msgid "&Play/pause"
 msgstr "&Lecture/pause"
 
-#: MainForm.pas:755
+#: MainForm.pas:760
 msgid "&Stop"
 msgstr "&Arrêter"
 
-#: MainForm.pas:756
+#: MainForm.pas:761
 msgid "Re&cord (REC)"
 msgstr "Enre&gistrer (REC)"
 
-#: MainForm.pas:759
+#: MainForm.pas:764
 msgid "&Rewind"
 msgstr "Re&bobiner"
 
-#: MainForm.pas:760
+#: MainForm.pas:765
 msgid "&Eject"
 msgstr "&Éjecter"
 
-#: MainForm.pas:761
+#: MainForm.pas:766
 msgid "Save tape &as..."
 msgstr "Enregistrer la cassette &sous..."
 
-#: MainForm.pas:763
+#: MainForm.pas:768
 msgid "&New blank tape"
 msgstr "&Nouvelle cassette vierge"
 
-#: MainForm.pas:765
+#: MainForm.pas:770
 msgid "&Fast loading"
 msgstr "Chargement &rapide"
 
-#: MainForm.pas:767
+#: MainForm.pas:772
 msgid "&Auto play/stop"
 msgstr "Lecture/arrêt &automatique"
 
-#: MainForm.pas:768
+#: MainForm.pas:773
 msgid "SA&VE writes to the tape"
 msgstr "SA&VE écrit sur la cassette"
 
-#: MainForm.pas:771
+#: MainForm.pas:776
 msgid "F&loppy"
 msgstr "&Disquette"
 
-#: MainForm.pas:773
+#: MainForm.pas:778
 msgid "Disk &browser..."
 msgstr "&Navigateur de disques..."
 
-#: MainForm.pas:776
+#: MainForm.pas:781
 msgid "Insert disk in drive &A:..."
 msgstr "Insérer un disque dans le lecteur &A :..."
 
-#: MainForm.pas:778
+#: MainForm.pas:783
 msgid "Insert &recent disk (A:)"
 msgstr "Insérer un disque &récent (A :)"
 
-#: MainForm.pas:780
+#: MainForm.pas:785
 msgid "Insert disk in drive &B:..."
 msgstr "Insérer un disque dans le lecteur &B :..."
 
-#: MainForm.pas:783
+#: MainForm.pas:788
 msgid "Insert recent disk (B:)"
 msgstr "Insérer un disque récent (B :)"
 
-#: MainForm.pas:785
+#: MainForm.pas:790
 msgid "&New disk in A: (formatted)"
 msgstr "&Nouveau disque dans A : (formaté)"
 
-#: MainForm.pas:787
+#: MainForm.pas:792
 msgid "New disk in B: (formatted)"
 msgstr "Nouveau disque dans B : (formaté)"
 
-#: MainForm.pas:791
+#: MainForm.pas:796
 msgid "&Save disk A:"
 msgstr "&Enregistrer le disque A :"
 
-#: MainForm.pas:793
+#: MainForm.pas:798
 msgid "Save disk A: &as..."
 msgstr "Enregistrer le disque A : &sous..."
 
-#: MainForm.pas:795
+#: MainForm.pas:800
 msgid "Save disk B:"
 msgstr "Enregistrer le disque B :"
 
-#: MainForm.pas:798
+#: MainForm.pas:803
 msgid "Save disk B: as..."
 msgstr "Enregistrer le disque B : sous..."
 
-#: MainForm.pas:802
+#: MainForm.pas:807
 msgid "&Eject disk A:"
 msgstr "&Éjecter le disque A :"
 
-#: MainForm.pas:804
+#: MainForm.pas:809
 msgid "Eject disk B:"
 msgstr "Éjecter le disque B :"
 
-#: MainForm.pas:808
+#: MainForm.pas:813
 msgid "&Fast floppy disk access"
 msgstr "Accès &rapide à la disquette"
 
-#: MainForm.pas:810
+#: MainForm.pas:815
 msgid "Drive &B: connected"
 msgstr "Lecteur &B : connecté"
 
-#: MainForm.pas:813
+#: MainForm.pas:818
 msgid "&Cartridge"
 msgstr "&Cartouche"
 
-#: MainForm.pas:815 MainForm.pas:1673
+#: MainForm.pas:820 MainForm.pas:1698
 msgid "Cartridge &browser..."
 msgstr "&Navigateur de cartouches..."
 
-#: MainForm.pas:817
+#: MainForm.pas:822
 msgid "&Insert cartridge..."
 msgstr "&Insérer une cartouche..."
 
-#: MainForm.pas:818
+#: MainForm.pas:823
 msgid "Insert &recent cartridge"
 msgstr "Insérer une cartouche &récente"
 
-#: MainForm.pas:819
+#: MainForm.pas:824
 msgid "&Eject cartridge"
 msgstr "&Éjecter la cartouche"
 
-#: MainForm.pas:821
+#: MainForm.pas:826
 msgid "&Mapper"
 msgstr "&Mapper"
 
-#: MainForm.pas:824
+#: MainForm.pas:829
 msgid "&Auto-detect"
 msgstr "Détection &automatique"
 
-#: MainForm.pas:832
+#: MainForm.pas:837
 msgid "&SD"
 msgstr "&SD"
 
-#: MainForm.pas:834 MainForm.pas:1679
+#: MainForm.pas:839 MainForm.pas:1704
 msgid "SD card &browser..."
 msgstr "&Navigateur de carte SD..."
 
-#: MainForm.pas:837
+#: MainForm.pas:842
 msgid "&Insert SD card image..."
 msgstr "&Insérer une image de carte SD..."
 
-#: MainForm.pas:838
+#: MainForm.pas:843
 msgid "Insert &recent SD card"
 msgstr "Insérer une carte SD &récente"
 
-#: MainForm.pas:839
+#: MainForm.pas:844
 msgid "Use a PC &folder as SD card..."
 msgstr "Utiliser un &dossier du PC comme carte SD..."
 
-#: MainForm.pas:840
+#: MainForm.pas:845
 msgid "&New SD card..."
 msgstr "&Nouvelle carte SD..."
 
-#: MainForm.pas:841
+#: MainForm.pas:846
 msgid "New SD card with &ESXDOS..."
 msgstr "Nouvelle carte SD avec &ESXDOS..."
 
-#: MainForm.pas:842
+#: MainForm.pas:847
 msgid "New SD card with the &Next distribution..."
 msgstr "Nouvelle carte SD avec la distribution &Next..."
 
-#: MainForm.pas:844
+#: MainForm.pas:849
 msgid "&Save SD card"
 msgstr "&Enregistrer la carte SD"
 
-#: MainForm.pas:845
+#: MainForm.pas:850
 msgid "Save SD card &as..."
 msgstr "Enregistrer la carte SD &sous..."
 
-#: MainForm.pas:847
+#: MainForm.pas:852
 msgid "E&ject SD card"
 msgstr "É&jecter la carte SD"
 
-#: MainForm.pas:850
+#: MainForm.pas:855
 msgid "&Debug"
 msgstr "&Debug"
 
-#: MainForm.pas:851
+#: MainForm.pas:856
 msgid "&Debugger..."
 msgstr "&Debugger..."
 
-#: MainForm.pas:852
+#: MainForm.pas:857
 msgid "&Clear all breakpoints"
 msgstr "&Effacer tous les breakpoints"
 
-#: MainForm.pas:854
+#: MainForm.pas:859
 msgid "&Load symbols..."
 msgstr "&Charger des symboles..."
 
-#: MainForm.pas:855
+#: MainForm.pas:860
 msgid "Load &recent symbols"
 msgstr "Charger des symboles &récents"
 
-#: MainForm.pas:856
+#: MainForm.pas:861
 msgid "C&lear symbols"
 msgstr "E&ffacer les symboles"
 
-#: MainForm.pas:858
+#: MainForm.pas:863
 msgid "&Adventure Debugger..."
 msgstr "&Adventure Debugger..."
 
-#: MainForm.pas:860
+#: MainForm.pas:865
 msgid "&Options"
 msgstr "&Options"
 
-#: MainForm.pas:863
+#: MainForm.pas:868
 msgid "&Monitor"
 msgstr "&Moniteur"
 
-#: MainForm.pas:871
+#: MainForm.pas:876
 msgid "&Scanlines (zoom 2x or more)"
 msgstr "&Scanlines (zoom 2x ou plus)"
 
-#: MainForm.pas:872
+#: MainForm.pas:877
 msgid "&Zoom"
 msgstr "&Zoom"
 
-#: MainForm.pas:880
+#: MainForm.pas:885
 msgid "&Deinterlace"
 msgstr "&Désentrelacement"
 
-#: MainForm.pas:890
+#: MainForm.pas:895
 msgid "&CRTC chip"
 msgstr "Puce &CRTC"
 
-#: MainForm.pas:894 SettingsForm.pas:557
+#: MainForm.pas:899 SettingsForm.pas:557
 msgid "The model's own"
 msgstr "Celui du modèle"
 
-#: MainForm.pas:895
+#: MainForm.pas:900
 msgid "Type %d: %s"
 msgstr "Type %d : %s"
 
-#: MainForm.pas:901
+#: MainForm.pas:906
 msgid "&Mute sound"
 msgstr "&Couper le son"
 
-#: MainForm.pas:902
+#: MainForm.pas:907
 msgid "&Turbo speed"
 msgstr "Vitesse &turbo"
 
-#: MainForm.pas:903
+#: MainForm.pas:908
 msgid "Mo&dern interface (dark)"
 msgstr "Interface mo&derne (sombre)"
 
-#: MainForm.pas:905
+#: MainForm.pas:910
 msgid "MSX 1 &compatibility mode"
 msgstr "Mode de &compatibilité MSX 1"
 
-#: MainForm.pas:907
+#: MainForm.pas:912
 msgid "&Virtual Keyboard"
 msgstr "Clavier &virtuel"
 
-#: MainForm.pas:909
+#: MainForm.pas:914
 msgid "ZX &Keyboard Guide"
 msgstr "&Guide du clavier ZX"
 
-#: MainForm.pas:911
+#: MainForm.pas:916
 msgid "Install Spectrum Next Distribution"
 msgstr "Installer la distribution Spectrum Next"
 
-#: MainForm.pas:913
+#: MainForm.pas:918
 msgid "S&ettings..."
 msgstr "&Paramètres..."
 
-#: MainForm.pas:915
+#: MainForm.pas:920
 msgid "&Help"
 msgstr "A&ide"
 
-#: MainForm.pas:916
+#: MainForm.pas:921
 msgid "&Documentation"
 msgstr "&Documentation"
 
-#: MainForm.pas:918
+#: MainForm.pas:923
 msgid "&License (GPL v3)"
 msgstr "&Licence (GPL v3)"
 
-#: MainForm.pas:919
+#: MainForm.pas:924
 msgid "&About ochenta..."
 msgstr "À &propos d'ochenta..."
 
-#: MainForm.pas:960
+#: MainForm.pas:965
 msgid "Open a tape, snapshot or disk (F2)"
 msgstr "Ouvrir une cassette, un snapshot ou un disque (F2)"
 
-#: MainForm.pas:961 MainModern.inc:16
+#: MainForm.pas:966 MainModern.inc:16
 msgid "Save snapshot (F3)"
 msgstr "Enregistrer un snapshot (F3)"
 
-#: MainForm.pas:968 SettingsForm.pas:305
+#: MainForm.pas:973 SettingsForm.pas:305
 msgid "ZX Spectrum"
 msgstr "ZX Spectrum"
 
-#: MainForm.pas:971 SettingsForm.pas:550
+#: MainForm.pas:976 SettingsForm.pas:550
 msgid "Amstrad CPC"
 msgstr "Amstrad CPC"
 
-#: MainForm.pas:991
+#: MainForm.pas:996
 msgid "Machine model"
 msgstr "Modèle de machine"
 
-#: MainForm.pas:994 MainModern.inc:17
+#: MainForm.pas:999 MainModern.inc:17
 msgid "Hard reset: switch the machine off and on (F6)"
 msgstr "Réinitialisation totale : éteint et rallume la machine (F6)"
 
-#: MainForm.pas:995 MainModern.inc:19
+#: MainForm.pas:1000 MainModern.inc:19
 msgid "Non-maskable interrupt (F5)"
 msgstr "Interruption non masquable (F5)"
 
-#: MainForm.pas:996 MainModern.inc:20
+#: MainForm.pas:1001 MainModern.inc:20
 msgid "Pause emulation (F4)"
 msgstr "Mettre l'émulation en pause (F4)"
 
-#: MainForm.pas:998 MainModern.inc:21
+#: MainForm.pas:1003 MainModern.inc:21
 msgid "Run as fast as possible (Shift+F11)"
 msgstr "Exécuter aussi vite que possible (Maj+F11)"
 
-#: MainForm.pas:1001 MainModern.inc:192
+#: MainForm.pas:1006 MainModern.inc:192
 msgid "Tape browser (F7)"
 msgstr "Navigateur de cassettes (F7)"
 
-#: MainForm.pas:1002 MainModern.inc:178
+#: MainForm.pas:1007 MainModern.inc:178
 msgid "Play/pause tape (F8)"
 msgstr "Lecture/pause de la cassette (F8)"
 
-#: MainForm.pas:1003 MainModern.inc:180
+#: MainForm.pas:1008 MainModern.inc:180
 msgid "Stop tape (Ctrl+F8)"
 msgstr "Arrêter la cassette (Ctrl+F8)"
 
-#: MainForm.pas:1004 MainModern.inc:182
+#: MainForm.pas:1009 MainModern.inc:182
 msgid "Record onto the tape (REC)"
 msgstr "Enregistrer sur la cassette (REC)"
 
-#: MainForm.pas:1008 MainForm.pas:1678
+#: MainForm.pas:1013 MainForm.pas:1703
 msgid "SD card browser (DivMMC)"
 msgstr "Navigateur de carte SD (DivMMC)"
 
-#: MainForm.pas:1010 MainModern.inc:23
+#: MainForm.pas:1015 MainModern.inc:23
 msgid "Debugger (F12)"
 msgstr "Debugger (F12)"
 
-#: MainForm.pas:1011 MainModern.inc:24 MainModern.inc:24
+#: MainForm.pas:1016 MainModern.inc:24 MainModern.inc:24
 msgid "Settings"
 msgstr "Paramètres"
 
-#: MainForm.pas:1012
+#: MainForm.pas:1017
 msgid "Switch to the modern interface (dark)"
 msgstr "Passer à l'interface moderne (sombre)"
 
-#: MainForm.pas:1091
+#: MainForm.pas:1096
 msgid "ZX Spectrum Next: "
 msgstr "ZX Spectrum Next : "
 
-#: MainForm.pas:1127
+#: MainForm.pas:1132
 msgid "Currah µSpeech: "
 msgstr "Currah µSpeech : "
 
-#: MainForm.pas:1128
+#: MainForm.pas:1133
 msgid "It needs currah.rom and sp0256-al2.rom in the ROM folder."
 msgstr "Il lui faut currah.rom et sp0256-al2.rom dans le dossier des ROM."
 
-#: MainForm.pas:1145
+#: MainForm.pas:1150
 msgid "The DivMMC firmware (esxdos/ESXMMC.BIN) was not found."
 msgstr "Le firmware du DivMMC (esxdos/ESXMMC.BIN) est introuvable."
 
-#: MainForm.pas:1165
+#: MainForm.pas:1170
 msgid "DivMMC: "
 msgstr "DivMMC : "
 
-#: MainForm.pas:1201
+#: MainForm.pas:1206
 msgid "Could not open the SD card image:"
 msgstr "Impossible d'ouvrir l'image de la carte SD :"
 
-#: MainForm.pas:1260
+#: MainForm.pas:1265
 msgid "Using the standard ROMs for this model."
 msgstr "Les ROM standard de ce modèle sont utilisées."
 
-#: MainForm.pas:1270
+#: MainForm.pas:1275
 msgid "Machine: %s (click to change)"
 msgstr "Machine : %s (cliquez pour changer)"
 
-#: MainForm.pas:1645
+#: MainForm.pas:1670
 msgid "Recording (%d blocks)"
 msgstr "Enregistrement (%d blocs)"
 
-#: MainForm.pas:1650
+#: MainForm.pas:1675
 msgid "Tape %d/%d"
 msgstr "Cassette %d/%d"
 
-#: MainForm.pas:1672
+#: MainForm.pas:1697
 msgid "Cartridge browser (CR)"
 msgstr "Navigateur de cartouches (CR)"
 
-#: MainForm.pas:1692 MainForm.pas:3036 MainForm.pas:3082
+#: MainForm.pas:1717 MainForm.pas:3061 MainForm.pas:3107
 msgid "ZX Spectrum Next"
 msgstr "ZX Spectrum Next"
 
-#: MainForm.pas:1692
+#: MainForm.pas:1717
 msgid "The Next's firmware tried to start another machine's core (an extra core, slots 8-31). ochenta emulates only the ZX Spectrum Next core, so the Next starts again instead."
 msgstr "Le firmware du Next a tenté de démarrer le cœur d'une autre machine (un cœur supplémentaire, slots 8-31). ochenta n'émule que le cœur du ZX Spectrum Next, le Next redémarre donc."
 
-#: MainForm.pas:1697
+#: MainForm.pas:1722
 msgid "Paused"
 msgstr "En pause"
 
-#: MainForm.pas:1699
+#: MainForm.pas:1724
 msgid "%d fps"
 msgstr "%d fps"
 
-#: MainForm.pas:2125
+#: MainForm.pas:2150
 msgid "That does not look like an MSX cartridge: its size is %d bytes."
 msgstr "Cela ne ressemble pas à une cartouche MSX : sa taille est de %d octets."
 
-#: MainForm.pas:2151
+#: MainForm.pas:2176
 msgid "Could not insert "
 msgstr "Impossible d'insérer "
 
-#: MainForm.pas:2635
+#: MainForm.pas:2660
 msgid "ZX-Uno: "
 msgstr "ZX-Uno : "
 
-#: MainForm.pas:2699
+#: MainForm.pas:2724
 msgid "A .tap file is a ZX Spectrum tape; the MSX uses .cas tapes."
 msgstr "Un fichier .tap est une cassette ZX Spectrum ; le MSX utilise des cassettes .cas."
 
-#: MainForm.pas:2705
+#: MainForm.pas:2730
 msgid "A .tap file is a ZX Spectrum tape; the Amstrad CPC uses .cdt (or .tzx) tapes."
 msgstr "Un fichier .tap est une cassette ZX Spectrum ; l'Amstrad CPC utilise des cassettes .cdt (ou .tzx)."
 
-#: MainForm.pas:2737
+#: MainForm.pas:2762
 msgid "%s has %d block(s) of the ZX Spectrum's standard tape speed, which an Amstrad CPC can't load. The tape is inserted anyway; its other blocks play as they are."
 msgstr "%s contient %d bloc(s) à la vitesse standard de cassette du ZX Spectrum, qu'un Amstrad CPC ne peut pas charger. La cassette est insérée quand même ; ses autres blocs sont lus tels quels."
 
-#: MainForm.pas:2773
+#: MainForm.pas:2798
 msgid "Unsupported file type: "
 msgstr "Type de fichier non pris en charge : "
 
-#: MainForm.pas:2798
+#: MainForm.pas:2823
 msgid "Amstrad CPC tape"
 msgstr "Cassette Amstrad CPC"
 
-#: MainForm.pas:2820
+#: MainForm.pas:2845
 msgid "Tape images (*.cdt;*.tzx)"
 msgstr "Images de cassette (*.cdt;*.tzx)"
 
-#: MainForm.pas:2822
+#: MainForm.pas:2847
 msgid "MSX tape images (*.cas;*.tsx;*.tzx)"
 msgstr "Images de cassette MSX (*.cas;*.tsx;*.tzx)"
 
-#: MainForm.pas:2824
+#: MainForm.pas:2849
 msgid "Commodore 64 tapes (*.tap;*.t64)"
 msgstr "Images de cassette Commodore 64 (*.tap;*.t64)"
 
-#: MainForm.pas:2826
+#: MainForm.pas:2851
 msgid "Tape images (*.tap;*.tzx)"
 msgstr "Images de cassette (*.tap;*.tzx)"
 
-#: MainForm.pas:2848
+#: MainForm.pas:2873
 msgid "Insert a tape"
 msgstr "Insérer une cassette"
 
-#: MainForm.pas:2884
+#: MainForm.pas:2909
 msgid "Save snapshot"
 msgstr "Enregistrer un snapshot"
 
-#: MainForm.pas:2884
+#: MainForm.pas:2909
 msgid "Snapshots are not available for the Commodore 64."
 msgstr "Les snapshots ne sont pas disponibles pour le Commodore 64."
 
-#: MainForm.pas:2894
+#: MainForm.pas:2919
 msgid "CPC snapshot (*.sna)"
 msgstr "Snapshot CPC (*.sna)"
 
-#: MainForm.pas:2894 MainForm.pas:2899 MainForm.pas:2904
+#: MainForm.pas:2919 MainForm.pas:2924 MainForm.pas:2929
 msgid "ochenta snapshot (*.e80)"
 msgstr "Snapshot ochenta (*.e80)"
 
-#: MainForm.pas:2904
+#: MainForm.pas:2929
 msgid "Z80 snapshot (*.z80)"
 msgstr "Snapshot Z80 (*.z80)"
 
-#: MainForm.pas:2904
+#: MainForm.pas:2929
 msgid "SNA snapshot (*.sna)"
 msgstr "Snapshot SNA (*.sna)"
 
-#: MainForm.pas:2969
+#: MainForm.pas:2994
 msgid "ZX Spectrum Next SD card"
 msgstr "Carte SD du ZX Spectrum Next"
 
-#: MainForm.pas:2969
+#: MainForm.pas:2994
 msgid "A new card for the ZX Spectrum Next, with its distribution (%d MB) and room for your files."
 msgstr "Une nouvelle carte pour le ZX Spectrum Next, avec sa distribution (%d Mo) et de la place pour vos fichiers."
 
-#: MainForm.pas:2982
+#: MainForm.pas:3007
 msgid "Making the ZX Spectrum Next SD card..."
 msgstr "Création de la carte SD du ZX Spectrum Next..."
 
-#: MainForm.pas:2993
+#: MainForm.pas:3018
 msgid "Could not make the ZX Spectrum Next SD card: "
 msgstr "Impossible de créer la carte SD du ZX Spectrum Next : "
 
-#: MainForm.pas:3036
+#: MainForm.pas:3061
 msgid "There is a new ZX Spectrum Next distribution (%s). Make a new SD card from it?"
 msgstr "Il y a une nouvelle distribution du ZX Spectrum Next (%s). Créer une nouvelle carte SD avec elle ?"
 
-#: MainForm.pas:3037
+#: MainForm.pas:3062
 msgid "The current card is kept as %s."
 msgstr "La carte actuelle est conservée sous le nom %s."
 
-#: MainForm.pas:3042
+#: MainForm.pas:3067
 msgid "Could not rename "
 msgstr "Impossible de renommer "
 
-#: MainForm.pas:3062
+#: MainForm.pas:3087
 msgid "Could not use the SD card "
 msgstr "Impossible d'utiliser la carte SD "
 
-#: MainForm.pas:3082
+#: MainForm.pas:3107
 msgid "These files on the Next's SD card were empty (an older version of ochenta didn't save what NextZXOS and the firmware wrote) and have been mended from the distribution:"
 msgstr "Ces fichiers de la carte SD du Next étaient vides (une ancienne version d'ochenta n'enregistrait pas ce que NextZXOS et le firmware écrivaient) et ont été réparés à partir de la distribution :"
 
-#: MainForm.pas:3097 MainForm.pas:4185
+#: MainForm.pas:3122 MainForm.pas:4212
 msgid "Could not save the Next's SD card: "
 msgstr "Impossible d'enregistrer la carte SD du Next : "
 
-#: MainForm.pas:3172 SettingsForm.pas:511
+#: MainForm.pas:3198 SettingsForm.pas:511
 msgid "DivMMC"
 msgstr "DivMMC"
 
-#: MainForm.pas:3172
+#: MainForm.pas:3198
 msgid "This is a standard ZX Spectrum. Do you want to switch off the DivMMC interface?"
 msgstr "Ceci est un ZX Spectrum standard. Voulez-vous désactiver l'interface DivMMC ?"
 
-#: MainForm.pas:3215
+#: MainForm.pas:3241
 msgid "Installing the ZX Spectrum Next distribution... %d%%"
 msgstr "Installation de la distribution du ZX Spectrum Next... %d%%"
 
-#: MainForm.pas:3236
+#: MainForm.pas:3262
 msgid "The ZX Spectrum Next distribution downloaded"
 msgstr "La distribution du ZX Spectrum Next téléchargée"
 
-#: MainForm.pas:3237
+#: MainForm.pas:3263
 msgid "Zip files (*.zip)"
 msgstr "Fichiers zip (*.zip)"
 
-#: MainForm.pas:3258
+#: MainForm.pas:3284
 msgid "Distribution installed."
 msgstr "Distribution installée."
 
-#: MainForm.pas:3259
+#: MainForm.pas:3285
 msgid "Do you want to start the ZX Spectrum Next emulation?"
 msgstr "Voulez-vous lancer l'émulation du ZX Spectrum Next ?"
 
-#: MainForm.pas:3270
+#: MainForm.pas:3296
 msgid "Invalid distribution."
 msgstr "Distribution non valide."
 
-#: MainForm.pas:3276
+#: MainForm.pas:3302
 msgid "The distribution could not be installed: "
 msgstr "La distribution n'a pas pu être installée : "
 
-#: MainForm.pas:3277
+#: MainForm.pas:3303
 msgid "Nothing was installed."
 msgstr "Rien n'a été installé."
 
-#: MainForm.pas:3297
+#: MainForm.pas:3323
 msgid "New SD card with the ZX Spectrum Next distribution"
 msgstr "Nouvelle carte SD avec la distribution du ZX Spectrum Next"
 
-#: MainForm.pas:3300 MainForm.pas:4060 MainForm.pas:4124
+#: MainForm.pas:3326 MainForm.pas:4087 MainForm.pas:4151
 msgid "SD card images (*.img)"
 msgstr "Images de carte SD (*.img)"
 
-#: MainForm.pas:3645
+#: MainForm.pas:3672
 msgid "Disk %s: has been modified. Save changes?"
 msgstr "Le disque %s : a été modifié. Enregistrer les modifications ?"
 
-#: MainForm.pas:3774 MainForm.pas:4431
+#: MainForm.pas:3801 MainForm.pas:4458
 msgid "The disk is inserted, but this computer has no disk drive."
 msgstr "Le disque est inséré, mais cet ordinateur n'a pas de lecteur de disquette."
 
-#: MainForm.pas:3953
+#: MainForm.pas:3980
 msgid "SD card images (*.img;*.mmc;*.hdf;*.bin)"
 msgstr "Images de carte SD (*.img;*.mmc;*.hdf;*.bin)"
 
-#: MainForm.pas:3992
+#: MainForm.pas:4019
 msgid "Size (FAT16):"
 msgstr "Taille (FAT16) :"
 
-#: MainForm.pas:4001
+#: MainForm.pas:4028
 msgid "%d MB"
 msgstr "%d Mo"
 
-#: MainForm.pas:4034
+#: MainForm.pas:4061
 msgid "New SD card with ESXDOS"
 msgstr "Nouvelle carte SD avec ESXDOS"
 
-#: MainForm.pas:4034
+#: MainForm.pas:4061
 msgid "The card gets the ESXDOS SYS, BIN and TMP folders."
 msgstr "La carte reçoit les dossiers ESXDOS SYS, BIN et TMP."
 
-#: MainForm.pas:4037
+#: MainForm.pas:4064
 msgid "New SD card"
 msgstr "Nouvelle carte SD"
 
-#: MainForm.pas:4037
+#: MainForm.pas:4064
 msgid "An empty card with one FAT16 partition."
 msgstr "Une carte vide avec une partition FAT16."
 
-#: MainForm.pas:4054 MainForm.pas:4289
+#: MainForm.pas:4081 MainForm.pas:4316
 msgid "The esxdos folder (with SYS and BIN) was not found next to ochenta."
 msgstr "Le dossier esxdos (avec SYS et BIN) est introuvable à côté d'ochenta."
 
-#: MainForm.pas:4106
+#: MainForm.pas:4133
 msgid "Could not create the SD card: "
 msgstr "Impossible de créer la carte SD : "
 
-#: MainForm.pas:4144 MainForm.pas:4204 MainForm.pas:4221
+#: MainForm.pas:4171 MainForm.pas:4231 MainForm.pas:4248
 msgid "Could not save the SD card: "
 msgstr "Impossible d'enregistrer la carte SD : "
 
-#: MainForm.pas:4191
+#: MainForm.pas:4218
 msgid "The SD card made from the folder %s has been modified. Save it as an SD card image?"
 msgstr "La carte SD créée à partir du dossier %s a été modifiée. L'enregistrer comme image de carte SD ?"
 
-#: MainForm.pas:4197
+#: MainForm.pas:4224
 msgid "The SD card %s has been modified. Save the changes?"
 msgstr "La carte SD %s a été modifiée. Enregistrer les modifications ?"
 
-#: MainForm.pas:4215
+#: MainForm.pas:4242
 msgid "There is no SD card inserted."
 msgstr "Aucune carte SD n'est insérée."
 
-#: MainForm.pas:4240 MainForm.pas:4467
+#: MainForm.pas:4267 MainForm.pas:4494
 msgid "There is no disk in that drive."
 msgstr "Il n'y a pas de disque dans ce lecteur."
 
-#: MainForm.pas:4260
+#: MainForm.pas:4287
 msgid "Could not save the disk: "
 msgstr "Impossible d'enregistrer le disque : "
 
-#: MainForm.pas:4301
+#: MainForm.pas:4328
 msgid "The folder is too big for an SD card of up to 2 GB."
 msgstr "Le dossier est trop gros pour une carte SD de 2 Go au plus."
 
-#: MainForm.pas:4338
+#: MainForm.pas:4365
 msgid "Could not make the SD card from the folder: "
 msgstr "Impossible de créer la carte SD à partir du dossier : "
 
-#: MainForm.pas:4374
+#: MainForm.pas:4401
 msgid "Folder to use as the SD card"
 msgstr "Dossier à utiliser comme carte SD"
 
-#: MainForm.pas:4503
+#: MainForm.pas:4530
 msgid "This emulator emulates an MSX2 and uses unofficial QUANTIKA ROMs. Quantika ROM are compatible with original ones to some extent, but some games may not work. Enabling MSX1 compatibility mode (Options menu) may help, especially with games from the early days of the MSX."
 msgstr "Cet émulateur émule un MSX2 et utilise des ROM QUANTIKA non officielles. Les ROM Quantika sont compatibles avec les originales dans une certaine mesure, mais certains jeux peuvent ne pas fonctionner. Activer le mode de compatibilité MSX1 (menu Options) peut aider, surtout avec les jeux des débuts du MSX."
 
-#: MainForm.pas:4506
+#: MainForm.pas:4533
 msgid "If you want to use the official ROMs, you will need MSX2.ROM, MSX2EXT.ROM and PHILIPSDISK.rom files. Place them in the roms/msx folder, then go to Settings > Common > ROMs, select MSX2 and choose them."
 msgstr "Si vous voulez utiliser les ROM officielles, il vous faudra les fichiers MSX2.ROM, MSX2EXT.ROM et PHILIPSDISK.rom. Placez-les dans le dossier roms/msx, puis allez dans Paramètres > Commun > ROM, sélectionnez MSX2 et choisissez-les."
 
-#: MainForm.pas:4508
+#: MainForm.pas:4535
 msgid "Searching for PHILIPSDISK.rom will probably lead you to the other two files as well."
 msgstr "En cherchant PHILIPSDISK.rom, vous trouverez probablement aussi les deux autres fichiers."
 
-#: MainForm.pas:4512
+#: MainForm.pas:4539
 msgid "MSX 2"
 msgstr "MSX 2"
 
-#: MainForm.pas:4642 SettingsForm.pas:606
+#: MainForm.pas:4669 SettingsForm.pas:606
 msgid "Mouse"
 msgstr "Souris"
 
-#: MainForm.pas:4642
+#: MainForm.pas:4669
 msgid "Do you want to attach the mouse to the window?"
 msgstr "Voulez-vous attacher la souris à la fenêtre ?"
 
-#: MainForm.pas:4740
+#: MainForm.pas:4767
 msgid "%d POKE(s) went to ROM (or to no memory) and had no effect."
 msgstr "%d POKE sont allés dans la ROM (ou dans aucune mémoire) et n'ont eu aucun effet."
 
-#: MainForm.pas:4741
+#: MainForm.pas:4768
 msgid "ROM changes can be allowed in Options > Settings."
 msgstr "Les modifications de la ROM peuvent être autorisées dans Options > Paramètres."
 
-#: MainForm.pas:4757
+#: MainForm.pas:4784
 msgid "The tape has changed (blocks saved, moved or deleted). Save it?"
 msgstr "La cassette a changé (blocs enregistrés, déplacés ou supprimés). L'enregistrer ?"
 
-#: MainForm.pas:4813
+#: MainForm.pas:4840
 msgid "Screenshot"
 msgstr "Capture d'écran"
 
-#: MainForm.pas:4813
+#: MainForm.pas:4840
 msgid "Screens can be saved as PNG on the Commodore 64."
 msgstr "Sur le Commodore 64, les écrans peuvent être enregistrés en PNG."
 
-#: MainForm.pas:4818
+#: MainForm.pas:4845
 msgid "CPC screen (*.scr)"
 msgstr "Écran CPC (*.scr)"
 
-#: MainForm.pas:4819
+#: MainForm.pas:4846
 msgid "Spectrum screen (*.scr)"
 msgstr "Écran Spectrum (*.scr)"
 
-#: MainForm.pas:4842
+#: MainForm.pas:4869
 msgid "PNG image (*.png)"
 msgstr "Image PNG (*.png)"
 
-#: MainForm.pas:4898
+#: MainForm.pas:4925
 msgid "Restart ochenta now to use the new language?"
 msgstr "Redémarrer ochenta maintenant pour utiliser la nouvelle langue ?"
 
-#: MainForm.pas:5005
+#: MainForm.pas:5032
 msgid "Keeping the previous ROM folder."
 msgstr "Le dossier des ROM précédent est conservé."
 
-#: MainForm.pas:5667
+#: MainForm.pas:5701
 msgid "Command line:"
 msgstr "Ligne de commande :"
 
-#: MainForm.pas:5668
+#: MainForm.pas:5702
 msgid "See Help > Documentation for the options."
 msgstr "Voir Aide > Documentation pour les options."
 
-#: MainForm.pas:5796
+#: MainForm.pas:5830
 msgid "Could not load symbols from "
 msgstr "Impossible de charger les symboles de "
 
-#: MainForm.pas:5802
+#: MainForm.pas:5836
 msgid "No symbols found in "
 msgstr "Aucun symbole trouvé dans "
 
-#: MainForm.pas:5803
+#: MainForm.pas:5837
 msgid "Expected lines like \"LABEL: EQU 0x8000\" (as exported by SjASM / SjASMPlus)."
 msgstr "Lignes attendues comme « LABEL: EQU 0x8000 » (telles qu'exportées par SjASM / SjASMPlus)."
 
-#: MainForm.pas:5820
+#: MainForm.pas:5854
 msgid "Symbol files (*.sym;*.exp;*.lab;*.txt)"
 msgstr "Fichiers de symboles (*.sym;*.exp;*.lab;*.txt)"
 
-#: MainForm.pas:5889
+#: MainForm.pas:5923
 msgid "About ochenta"
 msgstr "À propos d'ochenta"
 
-#: MainForm.pas:5892
+#: MainForm.pas:5926
 msgid "Release "
 msgstr "Version "
 
-#: MainForm.pas:5894
+#: MainForm.pas:5928
 msgid "Written in Free Pascal with Lazarus."
 msgstr "Écrit en Free Pascal avec Lazarus."
 
-#: MainForm.pas:5895
+#: MainForm.pas:5929
 msgid "Spectrum ROMs are copyright Amstrad, who allow their distribution."
 msgstr "Les ROM du Spectrum sont la propriété d'Amstrad, qui en autorise la distribution."
 
-#: MainForm.pas:409 SettingsForm.pas:625
+#: MainForm.pas:412 SettingsForm.pas:625
 msgid "Auto-detect"
 msgstr "Détection automatique"
 
-#: MainForm.pas:409 SettingsForm.pas:626
+#: MainForm.pas:412 SettingsForm.pas:626
 msgid "Plain ROM (no mapper)"
 msgstr "ROM simple (sans mapper)"
 
-#: MainForm.pas:409 SettingsForm.pas:627
+#: MainForm.pas:412 SettingsForm.pas:627
 msgid "Konami"
 msgstr "Konami"
 
-#: MainForm.pas:409 SettingsForm.pas:628
+#: MainForm.pas:412 SettingsForm.pas:628
 msgid "Konami SCC"
 msgstr "Konami SCC"
 
-#: MainForm.pas:409 SettingsForm.pas:629
+#: MainForm.pas:412 SettingsForm.pas:629
 msgid "ASCII8"
 msgstr "ASCII8"
 
-#: MainForm.pas:409 SettingsForm.pas:630
+#: MainForm.pas:412 SettingsForm.pas:630
 msgid "ASCII16"
 msgstr "ASCII16"
 
@@ -2791,23 +2791,23 @@ msgstr "Fichier SNA non valide"
 msgid "Invalid Z80 file"
 msgstr "Fichier Z80 non valide"
 
-#: Spectrum.pas:1500 SpectrumC64.inc:100
+#: Spectrum.pas:1509 SpectrumC64.inc:100
 msgid "play pressed, waiting for the motor"
 msgstr "lecture enfoncée, en attente du moteur"
 
-#: Spectrum.pas:1502 SpectrumC64.inc:101
+#: Spectrum.pas:1511 SpectrumC64.inc:101
 msgid "end of tape"
 msgstr "fin de la cassette"
 
-#: Spectrum.pas:1503
+#: Spectrum.pas:1512
 msgid "stopped (auto play waits for the next load)"
 msgstr "arrêtée (la lecture automatique attend le prochain chargement)"
 
-#: Spectrum.pas:3172
+#: Spectrum.pas:3203
 msgid "ZX-Uno BIOS not found: %s"
 msgstr "BIOS du ZX-Uno introuvable : %s"
 
-#: Spectrum.pas:3174
+#: Spectrum.pas:3205
 msgid "ZX-Uno ROMs not found: %s"
 msgstr "ROM du ZX-Uno introuvables : %s"
 

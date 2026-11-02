@@ -97,6 +97,8 @@ type
     procedure SaveBackPoint;
     function StepBack: Boolean;
     function BackCount: Integer;
+    { Forget them (another machine is not put back where an earlier one was) }
+    procedure ClearBackPoints;
     { Refresh the display buffer from the machine (after stepping). }
     procedure UpdateDisplay;
   end;
@@ -363,7 +365,6 @@ procedure TEmulator.SaveBackPoint;
 var
   I: Integer;
 begin
-  if FSpec.Info.Memory = mkC64 then Exit;     // (the C64's debugger has no step back)
   FLock.Enter;
   try
     if Length(FBack) >= MAX_BACK then
@@ -403,6 +404,19 @@ end;
 function TEmulator.BackCount: Integer;
 begin
   Result := Length(FBack);
+end;
+
+procedure TEmulator.ClearBackPoints;
+var
+  I: Integer;
+begin
+  FLock.Enter;
+  try
+    for I := 0 to High(FBack) do FBack[I].Free;
+    FBack := nil;
+  finally
+    FLock.Leave;
+  end;
 end;
 
 procedure TEmulator.StepOne;

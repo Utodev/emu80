@@ -248,6 +248,13 @@ if [ -f "$ROOT/roms/msx/MSX2.rom" ] && [ -f "$ROOT/roms/msx/MSX2EXT.rom" ]; then
   fi
 fi
 
+# The debugger's chips window on the Spectrum and the CPC (written as an OUT, not in the port log), and the C64's log
+# of the accesses to its chips (if its ROMs are there)
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/chipstest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/chipstest" "$ROOT/roms" > "$BUILD/chipstest.out" || { cat "$BUILD/chipstest.out"; echo "FAIL  the chips window"; exit 1; }
+echo "ok    the debuggers' chips windows and ports zones"
+
 # Commodore 64: the 6510 core, the GCR coding of the .d64 images and the debugger's expressions (no ROMs needed)
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64cputest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
@@ -255,7 +262,7 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64cputest.lpr" > "$
 # ... and the whole machine on the real ROMs, which are the user's (roms/c64: Kernal.rom, Basic.rom, Char.rom, VC1541.rom)
 if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ -f "$ROOT/roms/c64/Char.rom" ] &&
    [ -f "$ROOT/roms/c64/VC1541.rom" ]; then
-  for T in c64spec c64sound c64tape c64save; do
+  for T in c64spec c64sound c64tape c64save c64back; do
     fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/$T.lpr" > "$BUILD/fpc.log" || {
       cat "$BUILD/fpc.log"; exit 1; }
   done
@@ -268,6 +275,8 @@ if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ 
   echo "ok    a program loads from a .tap on the datasette and runs"
   "$BUILD/c64save" "$ROOT/roms" | grep -q "FAIL" && { echo "FAIL  the 1541 drives (SAVE, LOAD, drive 9)"; exit 1; }
   echo "ok    the 1541 saves a program to a .d64, loads it back, and a second drive answers"
+  "$BUILD/c64back" "$ROOT/roms" > "$BUILD/c64back.out" || { cat "$BUILD/c64back.out"; echo "FAIL  the C64's step back"; exit 1; }
+  echo "ok    the C64's step back puts the whole machine back (the 1541 too): it runs on the same again"
   # The Adventure Debugger on a DAAD game for the C64 (a .d64 of the user's, named in C64_DAAD_D64)
   if [ -n "$C64_DAAD_D64" ] && [ -f "$C64_DAAD_D64" ]; then
     fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64daad.lpr" > "$BUILD/fpc.log" || {

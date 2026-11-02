@@ -132,6 +132,7 @@ type
     CurrahPaged: Boolean;
     CPCState: TBytes;                 // the Amstrad CPC's hardware (TAmstrad.SaveState)
     SamState: TBytes;                 // the SAM Coupe's ASIC and sound generator (SAMStateIO)
+    C64State: TBytes;                 // the whole Commodore 64 (TC64.StateIO)
     Port7FFD, Port1FFD, Border, UlaOut, TimexPort, ULAPlusReg, ULAPlusMode, ZXUnoReg: Byte;
     ULAPlusPal: array[0..63] of Byte;
     ZXReg: array[0..255] of Byte;
@@ -309,6 +310,7 @@ type
     FProbeCovered: Boolean;                 // the probe checked the instruction being run
     FSkipProbeOnce: Boolean;
     FSuppressBreaks: Boolean;               // no access checks during the probed instruction
+    FDebugOut: Boolean;                     // an OUT of the debugger's: not logged, no port breakpoint
     FCpuTBase: Int64;                       // CPU T-states before this frame (tape recording)
     FRecorder: TTapeRecorder;
     FDiv: TDivMMC;
@@ -857,6 +859,13 @@ type
       an OUT would (paging included). }
     function SamRegister(Reg: Integer): Byte;
     procedure SetSamRegister(Reg: Integer; Value: Byte);
+    { The debugger's chips window on the 16K to +3 and the Amstrad CPC (SpectrumChips.inc): the ports and the chips'
+      registers by a code of their own (see there), whether the machine has it, its value, and writing it as an OUT
+      would (not in the port log, and no port breakpoint stops it) }
+    function ChipRegisterExists(Code: Integer): Boolean;
+    function ChipRegister(Code: Integer): Byte;
+    procedure SetChipRegister(Code: Integer; Value: Byte);
+    procedure DebugOut(Port: Word; Value: Byte);
     { A SAM Coupe's machine state into S (Save) or from it: the RAM, the CPU, the ASIC and
       the sound generator (the body of an ochenta snapshot) }
     procedure SAMSnapIO(S: TStream; Save: Boolean);
@@ -1794,6 +1803,17 @@ begin
       MS.Free;
     end;
   end;
+  if FIsC64 then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      FC64.StateIO(MS, True);
+      SetLength(Result.C64State, MS.Size);
+      Move(MS.Memory^, Result.C64State[0], MS.Size);
+    finally
+      MS.Free;
+    end;
+  end;
   SetLength(Result.Ram, RamBanksUsed);
   Move(FRam, Result.Ram[0], RamBanksUsed * SizeOf(TBank));
   Move(FNextReg, Result.NextReg, SizeOf(FNextReg));
@@ -1871,6 +1891,17 @@ begin
       MS.WriteBuffer(S.SamState[0], Length(S.SamState));
       MS.Position := 0;
       SAMStateIO(MS, False);
+    finally
+      MS.Free;
+    end;
+  end;
+  if FIsC64 and (Length(S.C64State) > 0) then
+  begin
+    MS := TMemoryStream.Create;
+    try
+      MS.WriteBuffer(S.C64State[0], Length(S.C64State));
+      MS.Position := 0;
+      FC64.StateIO(MS, False);
     finally
       MS.Free;
     end;
@@ -4694,7 +4725,7 @@ procedure TSpectrum.CheckPortBreak(Port: Word; Write: Boolean);
 begin
   // Normally the probe has already stopped before the instruction; this
   // catches the accesses it can't see in advance
-  if (FPortBreakpoints = 0) or FSuppressBreaks then Exit;
+  if (FPortBreakpoints = 0) or FSuppressBreaks or FDebugOut then Exit;
   if PortBreakMatch(Port, Write) then
   begin
     FBreakHit := True;
@@ -4829,6 +4860,7 @@ end;
 
 procedure TSpectrum.LogPort(Port: Word; Value: Byte; Write: Boolean);
 begin
+  if FDebugOut then Exit;
   FPortLog[FPortLogPos].PC := FInstrPC;
   FPortLog[FPortLogPos].Port := Port;
   FPortLog[FPortLogPos].Value := Value;
@@ -5075,6 +5107,7 @@ end;
 
 {$I SpectrumCPC.inc}
 {$I SpectrumSAM.inc}
+{$I SpectrumChips.inc}
 {$I SpectrumC64.inc}
 {$I SpectrumMSX.inc}
 {$I NextVideo.inc}

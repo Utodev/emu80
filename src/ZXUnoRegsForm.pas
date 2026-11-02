@@ -1,8 +1,9 @@
-{ ZXUnoRegsForm: the ZX-Uno's registers (ports FC3B/FD3B), the ZX
-  Spectrum Next's (ports 243B/253B) or the SAM Coupe's main ports (paging
+{ ZXUnoRegsForm: the debugger's chips window. The ZX-Uno's registers (ports FC3B/FD3B), the ZX
+  Spectrum Next's (ports 243B/253B), the SAM Coupe's main ports (paging
   LMPR and HMPR, video page and mode VMPR, border, line interrupt, status, the
-  CLUT and the SAA1099's registers), a non-modal window opened from the
-  debugger. Each register with its number, name, value (hex, editable:
+  CLUT and the SAA1099's registers), the MSX's, the ZX Spectrum's (16K to +3: the ULA's port FE, the paging, Timex,
+  ULAplus and the AY's registers) or the Amstrad CPC's (the Gate Array, the CRTC, the PPI and the PSG), a non-modal
+  window opened from the debugger. Each register with its number, name, value (hex, editable:
   writing it is like an OUT to FD3B, or a NEXTREG) and, for the ones made
   of flags, the bits set. Updated while the machine runs. }
 unit ZXUnoRegsForm;
@@ -16,6 +17,16 @@ uses
   Emulator, Models, Spectrum, Msx, MsxMachine;
 
 type
+  { A port or a chip's register (a SAM Coupe's as TSpectrum.SamRegister numbers them, an MSX's, or a
+    Spectrum's or a CPC's as TSpectrum.ChipRegister does) }
+  TSamRegInfo = record
+    Code: Integer;
+    Port: string;
+    Name: string;
+    Bits: string;
+    ReadOnly: Boolean;
+  end;
+
   TZXUnoRegsWindow = class(TForm)
   private
     FEmu: TEmulator;
@@ -25,7 +36,12 @@ type
     FNext: Boolean;         // showing the Next's registers
     FSam: Boolean;          // showing the SAM Coupe's ports
     FMsx: Boolean;          // showing the MSX's ports
+    FChips: Boolean;        // showing a ZX Spectrum's (16K to +3) or an Amstrad CPC's (FRows, TSpectrum.ChipRegister)
+    FModel: TSpectrumModel; // the machine the rows are for
+    FRows: array of TSamRegInfo;
     FOnChanged: TNotifyEvent;
+    procedure AddRow(Code: Integer; const APort, AName, ABits: string; AReadOnly: Boolean = False);
+    procedure FillChips;
     function SamMapping(Port: Integer): string;
     function MsxMapping(Code: Integer): string;
     procedure Fill;
@@ -48,15 +64,6 @@ type
     Reg: Byte;
     Name: string;
     Bits: string;   // names of bits 7..0 separated by spaces ('-' unused), '' = a number
-  end;
-
-  { A SAM Coupe port, as TSpectrum.SamRegister numbers them }
-  TSamRegInfo = record
-    Code: Integer;
-    Port: string;
-    Name: string;
-    Bits: string;
-    ReadOnly: Boolean;
   end;
 
 const
@@ -392,14 +399,109 @@ begin
 end;
 
 { The rows for the machine shown: the ZX-Uno's registers, the Next's or the SAM Coupe's }
+procedure TZXUnoRegsWindow.AddRow(Code: Integer; const APort, AName, ABits: string; AReadOnly: Boolean);
+var
+  N: Integer;
+begin
+  if not FEmu.Spec.ChipRegisterExists(Code) then Exit;
+  N := Length(FRows);
+  SetLength(FRows, N + 1);
+  FRows[N].Code := Code;
+  FRows[N].Port := APort;
+  FRows[N].Name := AName;
+  FRows[N].Bits := ABits;
+  FRows[N].ReadOnly := AReadOnly;
+end;
+
+{ The rows of a ZX Spectrum (16K to +3) or an Amstrad CPC: those the machine has }
+procedure TZXUnoRegsWindow.FillChips;
+const
+  PSG_NAMES: array[0..15] of string = ('A tone low', 'A tone high', 'B tone low', 'B tone high', 'C tone low',
+    'C tone high', 'Noise period', 'Mixer', 'A volume', 'B volume', 'C volume', 'Envelope low', 'Envelope high',
+    'Envelope shape', 'I/O port A', 'I/O port B');
+  CRTC_NAMES: array[0..17] of string = ('Horizontal total', 'Horizontal displayed', 'HSYNC position',
+    'Sync widths', 'Vertical total', 'Vertical total adjust', 'Vertical displayed', 'VSYNC position',
+    'Interlace and skew', 'Maximum raster address', 'Cursor start', 'Cursor end', 'Start address, high',
+    'Start address, low', 'Cursor, high', 'Cursor, low', 'Light pen, high', 'Light pen, low');
+  MIXER_BITS = 'IOB IOA NC NB NA TC TB TA';
+var
+  I: Integer;
+  Bits: string;
+begin
+  FRows := nil;
+  if FEmu.Spec.Info.Memory = mkCPC then
+  begin
+    Caption := 'Amstrad CPC Chips';
+    FNote.Caption := 'To change a value select it, type the new one (hex) and press Enter: it is written as an OUT ' +
+      'to the port would (a pen as selecting it and giving it the colour, a CRTC register as selecting it at BCxx ' +
+      'and writing it at BDxx: what was selected is selected again). A pen''s colour is the hardware one (0 to 1F). ' +
+      'The PPI''s port B is an input.';
+    AddRow($000, 'GA 7Fxx', 'Gate Array: pen selected (10: the border)', '');
+    for I := 0 to 15 do AddRow($010 + I, 'Pen ' + IntToStr(I), Format('Pen %d colour', [I]), '');
+    AddRow($020, 'Border', 'Border colour', '');
+    AddRow($001, 'GA RMR', 'Gate Array: mode and ROMs', '- - - INTRESET UPPEROFF LOWEROFF MODE1 MODE0');
+    AddRow($002, 'GA MMR', 'Gate Array: RAM configuration (6128)', '');
+    AddRow($003, 'DFxx', 'Upper ROM selected', '');
+    AddRow($030, 'BCxx', 'CRTC register selected', '');
+    for I := 0 to 17 do AddRow($040 + I, 'CRTC ' + IntToStr(I), CRTC_NAMES[I], '');
+    AddRow($060, 'F4xx', 'PPI port A (the PSG''s data)', '');
+    AddRow($061, 'F5xx', 'PPI port B', 'CASIN PRN EXP LK4 LK3 LK2 LK1 VSYNC', True);
+    AddRow($062, 'F6xx', 'PPI port C', 'BDIR BC1 CASOUT MOTOR KEY3 KEY2 KEY1 KEY0');
+    AddRow($063, 'F7xx', 'PPI control', '');
+    AddRow($070, 'PSG', 'PSG register selected', '');
+    for I := 0 to 15 do
+    begin
+      if I = 7 then Bits := MIXER_BITS else Bits := '';
+      if I = 14 then AddRow($080 + I, 'PSG 14', 'I/O port A (the keyboard)', '')
+      else AddRow($080 + I, 'PSG ' + IntToStr(I), PSG_NAMES[I], Bits);
+    end;
+  end
+  else
+  begin
+    Caption := 'ZX Spectrum Ports';
+    FNote.Caption := 'To change a value select it, type the new one (hex) and press Enter: it is written as an OUT ' +
+      'to the port would (7FFD keeps its lock; an AY register as selecting it at FFFD and writing it at BFFD: the ' +
+      'register selected is selected again). FE shows the last value written to it.';
+    AddRow($000, 'FE', 'ULA: border, MIC and EAR', '- - - EAR MIC BORDER2 BORDER1 BORDER0');
+    AddRow($001, '7FFD', '128K paging', '- - LOCK ROM SCREEN RAM2 RAM1 RAM0');
+    AddRow($002, '1FFD', '+2A/+3 paging, disk motor, printer', '- - - STROBE MOTOR ROMHI CONFIG SPECIAL');
+    AddRow($003, 'FF', 'Timex screen mode', 'EXROM NOINT HRC2 HRC1 HRC0 MODE2 MODE1 MODE0');
+    AddRow($004, 'BF3B', 'ULAplus register', '');
+    AddRow($005, 'FF3B', 'ULAplus data', '');
+    AddRow($100, 'FFFD', 'AY register selected', '');
+    for I := 0 to 15 do
+    begin
+      if I = 7 then Bits := MIXER_BITS else Bits := '';
+      AddRow($110 + I, 'AY ' + IntToStr(I), PSG_NAMES[I], Bits);
+    end;
+    AddRow($200, 'FFFD (2)', 'Second AY: register selected', '');
+    for I := 0 to 15 do
+    begin
+      if I = 7 then Bits := MIXER_BITS else Bits := '';
+      AddRow($210 + I, 'AY2 ' + IntToStr(I), 'Second AY: ' + PSG_NAMES[I], Bits);
+    end;
+  end;
+  FGrid.RowCount := Length(FRows) + 1;
+  for I := 0 to High(FRows) do
+  begin
+    FGrid.Cells[0, I + 1] := FRows[I].Port;
+    FGrid.Cells[1, I + 1] := FRows[I].Name;
+  end;
+end;
+
+{ The rows for the machine shown: the ZX-Uno's registers, the Next's, the SAM Coupe's, the MSX's, or a Spectrum's or a
+  CPC's }
 procedure TZXUnoRegsWindow.Fill;
 var
   I: Integer;
 begin
+  FModel := FEmu.Spec.Model;
   FNext := FEmu.Spec.Model = smZXNext;
   FSam := FEmu.Spec.Model = smSAM;
   FMsx := IsMSXModel(FEmu.Spec.Model);
-  if FMsx then
+  FChips := not (FNext or FSam or FMsx or (FEmu.Spec.Model = smZXUno) or IsC64Model(FEmu.Spec.Model));
+  if FChips then FillChips
+  else if FMsx then
   begin
     Caption := 'MSX Ports';
     FNote.Caption := 'To change a value select it, type the new one (hex) and press Enter: the slot, mapper, PSG ' +
@@ -459,9 +561,22 @@ begin
   if FGrid.EditorMode then Exit;   // don't overwrite a value being typed
   FEmu.Lock;
   try
-    if ((FEmu.Spec.Model = smZXNext) <> FNext) or ((FEmu.Spec.Model = smSAM) <> FSam) or
-       (IsMSXModel(FEmu.Spec.Model) <> FMsx) then Fill;
-    if FMsx then
+    // Another machine (a Spectrum's rows depend on the model, and on its Timex, ULAplus and AY)
+    if (FEmu.Spec.Model <> FModel) or (FChips and (FGrid.RowCount <> Length(FRows) + 1)) then Fill;
+    if FChips then
+    begin
+      // The rows the machine has may change with its settings (the AY on the 48K, ULAplus, Timex)
+      I := Length(FRows);
+      FillChips;
+      if I <> Length(FRows) then FGrid.Invalidate;
+      for I := 0 to High(FRows) do
+      begin
+        V := FEmu.Spec.ChipRegister(FRows[I].Code);
+        FGrid.Cells[2, I + 1] := IntToHex(V, 2);
+        FGrid.Cells[3, I + 1] := BitsSet(FRows[I].Bits, V);
+      end;
+    end
+    else if FMsx then
       for I := 0 to High(MSX_REGS) do
       begin
         V := 0;
@@ -505,8 +620,8 @@ end;
 
 procedure TZXUnoRegsWindow.Tick(Sender: TObject);
 begin
-  // Only a ZX-Uno, a Next or a SAM Coupe has these registers
-  if not ((FEmu.Spec.Model in [smZXUno, smZXNext, smSAM]) or IsMSXModel(FEmu.Spec.Model)) then
+  // Every Z80 machine has its chips: not the C64 (its debugger has a window of its own)
+  if IsC64Model(FEmu.Spec.Model) then
   begin
     Close;
     Exit;
@@ -518,7 +633,8 @@ end;
 procedure TZXUnoRegsWindow.GridSelectEditor(Sender: TObject; ACol, ARow: Integer;
   var Editor: TWinControl);
 begin
-  if (ACol <> 2) or (FSam and (ARow >= 1) and SAM_REGS[ARow - 1].ReadOnly) or
+  if (ACol <> 2) or (FChips and (ARow >= 1) and (ARow <= Length(FRows)) and FRows[ARow - 1].ReadOnly) or
+     (FSam and (ARow >= 1) and SAM_REGS[ARow - 1].ReadOnly) or
      (FMsx and (ARow >= 1) and MSX_REGS[ARow - 1].ReadOnly) then Editor := nil
   else if Editor is TCustomEdit then
     if FMsx and (ARow >= 1) and (MSX_REGS[ARow - 1].Code >= $260) then TCustomEdit(Editor).MaxLength := 3
@@ -532,6 +648,21 @@ begin
   Row := FGrid.Row;
   if (FGrid.Col <> 2) or (Row < 1) or (Row >= FGrid.RowCount) then Exit;
   V := StrToIntDef('$' + Trim(FGrid.Cells[2, Row]), -1);
+  if FChips then
+  begin
+    if (Row <= Length(FRows)) and not FRows[Row - 1].ReadOnly and (V >= 0) and (V <= 255) then
+    begin
+      FEmu.Lock;
+      try
+        FEmu.Spec.SetChipRegister(FRows[Row - 1].Code, V);
+      finally
+        FEmu.Unlock;
+      end;
+    end;
+    UpdateValues;
+    if Assigned(FOnChanged) then FOnChanged(Self);
+    Exit;
+  end;
   if FSam and SAM_REGS[Row - 1].ReadOnly then V := -1;
   if FMsx and MSX_REGS[Row - 1].ReadOnly then V := -1;
   if FMsx and (V >= 0) and ((V <= 255) or ((V <= $777) and (MSX_REGS[Row - 1].Code >= $260))) then

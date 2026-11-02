@@ -385,6 +385,8 @@ type
     procedure DoStepOver(Sender: TObject);
     procedure DoRunToCursor(Sender: TObject);
     procedure DoStepBack(Sender: TObject);
+    procedure DoStepOut(Sender: TObject);
+    procedure DoLoadSymbols(Sender: TObject);
     procedure DoCondition(Sender: TObject);
     procedure EnsurePaused;
   public
@@ -475,6 +477,9 @@ type
     function SymbolsFor(Addr: Word): string;
     { Changes made by hand from the register or memory views }
     procedure SetRegister(Reg: TRegId; Value: Word);
+    { The disassembly's menu: run to that line (as F9), or put the PC there }
+    procedure RunToAddr(Addr: Word);
+    procedure SetPCAt(Addr: Word);
     procedure PokeByte(Addr: Word; Value: Byte);
     procedure ToggleFlag(Mask: Byte);
     procedure ToggleIFF(Which: Integer);
@@ -503,6 +508,8 @@ type
 
 var
   DebuggerWindow: TDebuggerWindow;
+  { Debug > Load symbols of the main window, for the toolbar's button }
+  DebugLoadSymbols: TNotifyEvent;
   { Watches from the command line, for when the debugger is opened }
   PendingWatches: TWordArray;
 
@@ -543,6 +550,8 @@ const
   MENU_EXPORTASM = 105;
   MENU_SEARCH = 106;
   MENU_LABEL = 107;
+  MENU_RUNTO = 108;
+  MENU_SETPC = 109;
 
   CLICKABLE = [skRegister, skMemWord, skMemByte, skMemXorByte, skAscii, skFlag, skIFF, skIM,
     skSlot3, skCpcSlot, skDivBank, skDivConmem, skDivMapped, skUnoBoot, skUnoMapper,
@@ -1000,7 +1009,10 @@ begin
   AddItem('Export as assembler (.asm)...', MENU_EXPORTASM);
   FLabelItem := AddItem('Add label...', MENU_LABEL);
   AddItem('-', -1);
-  AddItem('Toggle breakpoint  (Space)', MENU_TOGGLE);
+  AddItem('Run to here  (F9)', MENU_RUNTO);
+  AddItem('Set PC here', MENU_SETPC);
+  AddItem('-', -1);
+  AddItem('Toggle breakpoint  (Space, F8)', MENU_TOGGLE);
   FTypeItems[0] := AddItem('Execution breakpoint', BP_EXEC);
   FTypeItems[1] := AddItem('Read breakpoint', BP_READ);
   FTypeItems[2] := AddItem('Write breakpoint', BP_WRITE);
@@ -1481,6 +1493,8 @@ begin
     MENU_EXPORTASM: FOwnerWin.ExportAssembler(FTop);
     MENU_SEARCH: Search;
     MENU_LABEL: FOwnerWin.EditLabel(FMenuAddr);
+    MENU_RUNTO: FOwnerWin.RunToAddr(FMenuAddr);
+    MENU_SETPC: FOwnerWin.SetPCAt(FMenuAddr);
     MENU_TOGGLE:
       begin
         FSel := FMenuAddr;
@@ -3197,12 +3211,19 @@ begin
   AddSeparator;
   AddButton(ikStepInto, 'Step into (F7)', @DoStepInto);
   AddButton(ikStepOver, 'Step over (F10)', @DoStepOver);
+  AddButton(ikFolderUp, 'Step out: run until the subroutine returns, to the address on the top of the stack (F11)',
+    @DoStepOut);
   AddButton(ikRunToCursor, 'Run to cursor (F9)', @DoRunToCursor);
   AddButton(ikRewind, 'Step back (Shift+F7): to where it was before the last step, step ' +
-    'over, run to cursor or run (up to 10 times)', @DoStepBack);
+    'over, step out, run to cursor or run (up to 10 times)', @DoStepBack);
   AddSeparator;
   AddButton(ikGoTo, 'Go to address (Ctrl+G)', @DoGoTo);
+  AddButton(ikBreakpoint, 'Put or take away a breakpoint on the selected line (F8)', @DoToggleBreakpoint);
+  AddButton(ikClearBreakpoints, 'Remove all the breakpoints', @DoClearBreakpoints);
   AddButton(ikWatch, 'Add a watch', @DoAddWatch);
+  AddSeparator;
+  AddButton(ikOpen, 'Load symbols (as Debug > Load symbols): LABEL: EQU 0x8000 lines, as SjASMPlus exports them',
+    @DoLoadSymbols);
   FUnoButton := AddButton(ikChip, 'ZXUno Regs: the ZX-Uno''s registers', @DoUnoRegs);
   FCartButton := AddButton(ikCartridge, 'Cartridge browser: the cartridge in slot 1, its header and its bytes', @DoCartBrowser);
   AddSeparator;
@@ -4130,8 +4151,14 @@ begin
     FUnoConf := FEmu.Spec.ZXUnoRegister(0);
     FUnoMapper := FEmu.Spec.ZXUnoRegister(1);
     FCartButton.Visible := IsMSXModel(FEmu.Spec.Model);
-    FUnoButton.Visible := FUnoOn or (FEmu.Spec.Model in [smZXNext, smSAM]) or IsMSXModel(FEmu.Spec.Model);
-    if FEmu.Spec.Model = smZXNext then
+    // Every machine has its chips window (the ZX-Uno's, the Next's, the SAM's and the MSX's ports, the
+    // Spectrum's ULA and AY, the CPC's Gate Array, CRTC, PPI and PSG)
+    FUnoButton.Visible := True;
+    if FEmu.Spec.Info.Memory = mkCPC then
+      FUnoButton.Hint := 'CPC chips: the Gate Array (pens, mode, ROMs, RAM), the CRTC, the PPI and the PSG'
+    else if not ((FUnoOn) or (FEmu.Spec.Model in [smZXNext, smSAM]) or IsMSXModel(FEmu.Spec.Model)) then
+      FUnoButton.Hint := 'Spectrum ports: the ULA (FE), the paging (7FFD, 1FFD), Timex, ULAplus and the AY''s registers'
+    else if FEmu.Spec.Model = smZXNext then
       FUnoButton.Hint := 'Next Regs: the ZX Spectrum Next''s registers (MMU, speed, interrupts...)'
     else if IsMSXModel(FEmu.Spec.Model) then
       FUnoButton.Hint := 'MSX Ports: slots, mapper, PPI, PSG and VDP registers and palette'
@@ -4565,9 +4592,37 @@ end;
 
 procedure TDebuggerWindow.DoRunToCursor(Sender: TObject);
 begin
+  RunToAddr(FDisasm.SelAddr);
+end;
+
+procedure TDebuggerWindow.RunToAddr(Addr: Word);
+begin
   EnsurePaused;
-  FEmu.RunTo(FDisasm.SelAddr);
+  FEmu.RunTo(Addr);
   FWasPaused := False;
+end;
+
+{ Run until the subroutine returns: to the address on the top of the stack (as the C64 debugger's) }
+procedure TDebuggerWindow.DoStepOut(Sender: TObject);
+var
+  Ret: Word;
+begin
+  EnsurePaused;
+  Ret := Peek(FRegs.SP) or (Peek(Word(FRegs.SP + 1)) shl 8);
+  RunToAddr(Ret);
+end;
+
+procedure TDebuggerWindow.SetPCAt(Addr: Word);
+begin
+  EnsurePaused;
+  SetRegister(rPC, Addr);
+  Refresh(True);
+end;
+
+procedure TDebuggerWindow.DoLoadSymbols(Sender: TObject);
+begin
+  if Assigned(DebugLoadSymbols) then DebugLoadSymbols(Self);
+  Refresh(False);
 end;
 
 procedure TDebuggerWindow.DoCondition(Sender: TObject);
@@ -4823,8 +4878,10 @@ begin
   case Key of
     VK_F5: DoRun(Self);
     VK_F7: if ssShift in Shift then DoStepBack(Self) else DoStepInto(Self);
+    VK_F8: DoToggleBreakpoint(Self);
     VK_F9: DoRunToCursor(Self);
     VK_F10: DoStepOver(Self);
+    VK_F11: DoStepOut(Self);
   else
     Exit;
   end;

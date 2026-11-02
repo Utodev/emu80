@@ -1,6 +1,7 @@
 { C64Debugger: the debugger of the Commodore 64's 6510, laid out and used like the Z80 debugger: the disassembly (with the
   labels of the ROMs from roms/c64.sym while that ROM is paged in, the names of the chip registers and the user's symbols),
-  the registers, the flags and the memory configuration on its right with the stack and the zero page under them, and at
+  the registers, the flags and the memory configuration on its right with the stack beside them and the ports (the last
+  accesses to the chips) and the zero page under them, and at
   the bottom the memory (with its XOR key), the breakpoints (on execution and on reads and writes, with conditions such as
   "A=3 AND @C000=FF") and the watches. Every value is changed where it is shown: a click opens a box over it. A
   right-click on any number or label offers to go to it in the disassembly or to see it in the memory. A button opens the
@@ -8,7 +9,7 @@
   mnemonic the help says what the instruction does (C64Help).
 
   The window works on copies of the memory and registers taken under the emulator's lock (after every stop or step, and a few
-  times a second while the machine runs), so drawing never races the emulation. F5 runs or pauses, F7 steps into, F10 steps over,
+  times a second while the machine runs), so drawing never races the emulation. F5 runs or pauses, F7 steps into (Shift+F7 steps back), F10 steps over,
   F11 steps out, F9 runs to the selected line, F8 puts or takes away a breakpoint on it, Ctrl+G goes to an address, Ctrl+F
   searches and F3 searches again. }
 unit C64Debugger;
@@ -21,7 +22,7 @@ interface
 uses
   Classes, SysUtils, Types, Math, StrUtils, Forms, Controls, Graphics, StdCtrls, ExtCtrls, ComCtrls, Dialogs, Menus,
   LCLType, Clipbrd, fpjson, jsonparser, Emulator, Spectrum, C64, Cpu6510, C64Disasm, C64Help, C64Expr, C64Vic, C64Cia,
-  C64Drive, C64Disk, Symbols, ModernUI, Icons, DelayHint, MemText, DebugFiles;
+  C64Drive, C64Disk, C64Opcodes, Symbols, ModernUI, Icons, DelayHint, MemText, DebugFiles;
 
 type
   TC64DebuggerWindow = class;
@@ -174,6 +175,16 @@ type
     function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
   end;
 
+  { The ports: the last accesses of the processor to the chips' registers and the 6510's port, newest first }
+  TC64PortView = class(TC64View)
+  private
+    FOfs: Integer;
+    FStep: Integer;
+  protected
+    procedure Paint; override;
+    function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean; override;
+  end;
+
   { The zero page: 8 bytes a row (each one changed in place) }
   TC64ZeroView = class(TC64View)
   private
@@ -251,6 +262,8 @@ type
     procedure Search;
     procedure SearchNext;
     function VisibleBytes: Integer;
+    { Escape: the typing in the text column, or the selection, ends (True), if there was one }
+    function CancelTyping: Boolean;
     property TopAddr: Word read FTop;
     property XorValue: Byte read FXor write SetXor;
   end;
@@ -323,13 +336,16 @@ type
     FToolbar: TToolBar;
     FRunButton, FBreakButton, FStepButton, FOverButton, FOutButton, FToButton: TToolButton;
     FStatusBar: TStatusBar;
-    FDataPanel, FRightPanel, FLowPanel, FMemZone, FBreakZone, FWatchZone, FRegZone, FStackZone, FZeroZone: TPanel;
+    FDataPanel, FRightPanel, FTopPanel, FLowPanel, FMemZone, FBreakZone, FWatchZone, FRegZone, FStackZone, FPortZone,
+      FZeroZone: TPanel;
     FWatchSplit: TSplitter;
     FWatchShare: Double;
     FRightMinH: Integer;
+    FShrink: Integer;   // UPPER_CUT lines, in pixels: the window is that much shorter, the data zone as tall
     FDis: TC64DisView;
     FRegView: TC64RegView;
     FStack: TC64StackView;
+    FPorts: TC64PortView;
     FZero: TC64ZeroView;
     FMem: TC64HexView;
     FBreakView: TC64BreakView;
@@ -358,7 +374,10 @@ type
     FWatchNumbers: array of Integer;   // each watch's value (-1 if it can't be worked out)
     FSysText: string;
     FReason: string;
-    FIrqText: string;
+    FIrqText, FNmiText: string;
+    FIoLog: array of TC64IoAccess;   // newest first
+    FInstrNow: LongWord;             // the machine's InstrCount: an access with it was made by the last instruction
+    FHistory: TStringList;           // Ctrl+G: the last addresses gone to, newest first
     FBpList: array of TBpEntry;
     FFollow: Boolean;
     FStepCount: Integer;
@@ -378,6 +397,8 @@ type
     procedure DoOver(Sender: TObject);
     procedure DoOut(Sender: TObject);
     procedure DoToCursor(Sender: TObject);
+    procedure DoStepBack(Sender: TObject);
+    procedure DoOpcodes(Sender: TObject);
     procedure DoToggleBp(Sender: TObject);
     procedure DoGoto(Sender: TObject);
     procedure DoSymbols(Sender: TObject);
@@ -387,6 +408,8 @@ type
     procedure BankClick(Sender: TObject);
     procedure FormKey(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure WindowClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FocusMainWindow(Data: PtrInt);
+    procedure AppHint(Sender: TObject);
     procedure Take;
     function SystemText: string;
     procedure UpdateAll;
@@ -464,7 +487,8 @@ type
     procedure GoToCode(Addr: Word);
     procedure ViewData(Addr: Word);
     function RamOnly: Boolean;
-    function AskAddress(const ATitle: string; var Addr: Word): Boolean;
+    { Go to: the address typed, one of the last ones (the list) or the PC (its button); not AGoTo: just an address }
+    function AskAddress(const ATitle: string; var Addr: Word; AGoTo: Boolean = True): Boolean;
     function AskRange(const ACaption: string; var Addr: Word; var Len: Integer): Boolean;
     procedure ExportMemory;
     procedure ImportMemory;
@@ -476,6 +500,12 @@ type
     property HavePrev: Boolean read FHavePrev;
     property Running: Boolean read FRunning;
     property IrqText: string read FIrqText;
+    property NmiText: string read FNmiText;
+    function IoLogCount: Integer;
+    function IoLogEntry(Index: Integer): TC64IoAccess;
+    property InstrNow: LongWord read FInstrNow;
+    { Load a watches file: the C64 debugger's (expressions) or the Z80 debugger's (addresses: the byte there) }
+    function LoadWatchesFile(const FileName: string; out Error: string): Boolean;
     property Bank: Byte read FBank;
     property PortValue: Byte read FPortValue;
     property DdrValue: Byte read FDdrValue;
@@ -511,8 +541,10 @@ const
   MAX_LABEL = 20;     // longer labels are cut, with the full name as a hint
   HEX_BYTES = 16;     // bytes per row in the memory view
   ZP_BYTES = 8;       // bytes per row in the zero page
-  LOW_ROWS = 9;       // lines of the stack and the zero page
-  REG_LINES = 9;      // lines of text of the registers zone (see TC64RegView.Paint)
+  LOW_ROWS = 3;       // lines of the stack and the zero page, at least
+  UPPER_CUT = 6;      // lines the disassembly, the stack and the zero page give up from the first layout
+  REG_LINES = 10;     // lines of text of the registers zone (see TC64RegView.Paint)
+  REG_COLS = 28;      // its columns
   CLICKABLE = [skReg, skFlag, skByte, skXorByte, skWord, skIo, skBank];
 
 function Hex2(V: Integer): string;
@@ -1601,9 +1633,11 @@ begin
   end;
   Inc(Y, FLineH + FLineH div 2);
 
-  // The interrupt lines
+  // The interrupt lines: who holds the IRQ, and the NMI
   Name(0, 'IRQ');
   DrawText(Col(4), Y, FWin.IrqText, TC(clBlack), False);
+  Name(14, 'NMI');
+  DrawText(Col(18), Y, FWin.NmiText, TC(clBlack), False);
   Inc(Y, FLineH);
   // The processor port (bits 0-2 choose what is paged in), changed in place
   Name(0, 'DDR'); ByteValue(4, 0, FWin.DdrValue, 'DDR_6510');
@@ -1613,17 +1647,18 @@ begin
   DrawText(Col(18), Y, 'bank', TC(clGray), False);
   DrawLink(Col(23), Y, IntToStr(FWin.Bank), TC(clBlack));
   Inc(Y, FLineH);
-  // What the processor sees: click to choose the configuration
+  // What the processor sees, on two lines (A000 and D000, then E000): click to choose the configuration
   Name(0, 'Map');
   X := 4;
   S := 'A000 ' + MEM_NAMES[FWin.MemA];
   AddSpot(Col(X), Y, Length(S), skBank, FWin.Bank, 0, 0, BankText(FWin.Bank) + ' (click to choose)');
   DrawLink(Col(X), Y, S, TC(clBlack));
-  Inc(X, Length(S) + 1);
+  X := 16;
   S := 'D000 ' + MEM_NAMES[FWin.MemD];
   AddSpot(Col(X), Y, Length(S), skBank, FWin.Bank, 0, 0, BankText(FWin.Bank) + ' (click to choose)');
   DrawLink(Col(X), Y, S, TC(clBlack));
-  Inc(X, Length(S) + 1);
+  Inc(Y, FLineH);
+  X := 4;
   S := 'E000 ' + MEM_NAMES[FWin.MemE];
   AddSpot(Col(X), Y, Length(S), skBank, FWin.Bank, 0, 0, BankText(FWin.Bank) + ' (click to choose)');
   DrawLink(Col(X), Y, S, TC(clBlack));
@@ -1693,6 +1728,60 @@ begin
 end;
 
 function TC64StackView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
+begin
+  if WheelDelta < 0 then Inc(FOfs) else FOfs := Max(0, FOfs - 1);
+  Invalidate;
+  Result := True;
+end;
+
+{ ---- TC64PortView ---- }
+
+{ As the Z80 debugger's ports: the instruction's address, the register, R or W and the value (dark red if the last
+  instruction made the access); > marks the latest. The wheel scrolls; after a step the latest shows again. }
+procedure TC64PortView.Paint;
+var
+  I, K, Y, Rows: Integer;
+  Access: TC64IoAccess;
+  ValueColor: TColor;
+
+  function Col(N: Integer): Integer;
+  begin
+    Result := 4 + N * FCharW;
+  end;
+
+begin
+  MeasureFont;
+  ClearSpots;
+  Canvas.Brush.Color := TC(clWhite);
+  Canvas.FillRect(ClientRect);
+  if FWin.StepCount <> FStep then
+  begin
+    FStep := FWin.StepCount;
+    FOfs := 0;
+  end;
+  Rows := VisibleLines;
+  FOfs := Max(0, Min(FOfs, FWin.IoLogCount - Rows));
+  if FWin.IoLogCount = 0 then DrawText(Col(1), 1, 'none yet', TC(clGray), False);
+  for I := 0 to Min(FWin.IoLogCount - FOfs, Rows) - 1 do
+  begin
+    K := FOfs + I;
+    Access := FWin.IoLogEntry(K);
+    Y := I * FLineH + 1;
+    if K = 0 then DrawText(Col(0), Y, '>', TC(clBlack), True);
+    AddSpot(Col(1), Y - 1, 4, skInfo, Access.PC, 4);
+    DrawText(Col(1), Y, Hex4(Access.PC), TC(clGray), False);
+    AddSpot(Col(6), Y - 1, 4, skInfo, Access.Addr, 4);
+    DrawText(Col(6), Y, Hex4(Access.Addr), TC(clBlack), False);
+    if Access.Write then DrawText(Col(11), Y, 'W', TC(RGBToColor(0, 0, 200)), True)
+    else DrawText(Col(11), Y, 'R', TC(RGBToColor(0, 130, 0)), True);
+    if Access.Step = FWin.InstrNow then ValueColor := ChangedColor else ValueColor := TC(clBlack);
+    AddSpot(Col(13), Y - 1, 2, skInfo, Access.Value, 2);
+    DrawText(Col(13), Y, Hex2(Access.Value), ValueColor, False);
+  end;
+  DrawFocus;
+end;
+
+function TC64PortView.DoMouseWheel(Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint): Boolean;
 begin
   if WheelDelta < 0 then Inc(FOfs) else FOfs := Max(0, FOfs - 1);
   Invalidate;
@@ -1877,6 +1966,15 @@ procedure TC64HexView.SetXor(Value: Byte);
 begin
   FXor := Value;
   Invalidate;
+end;
+
+function TC64HexView.CancelTyping: Boolean;
+begin
+  Result := (FTextCursor >= 0) or HasSel;
+  FTextCursor := -1;
+  FSelA := -1;
+  FSelB := -1;
+  if Result then Invalidate;
 end;
 
 procedure TC64HexView.GoToAddr(Addr: Word);
@@ -2922,8 +3020,11 @@ begin
   FEmu := AEmu;
   FWatchText := TStringList.Create;
   FWatchValues := TStringList.Create;
+  FHistory := TStringList.Create;
   FFollow := True;
-  Caption := 'Commodore 64 debugger';
+  // Menu item hints show in the status bar
+  Application.AddOnHintHandler(@AppHint);
+  Caption := 'Debugger';   // as the Z80's
   Width := 1100;
   Height := 720;
   Position := poMainFormCenter;
@@ -2956,6 +3057,9 @@ end;
 destructor TC64DebuggerWindow.Destroy;
 begin
   if C64ExprSymbols = @FindSymbol then C64ExprSymbols := nil;
+  Application.RemoveOnHintHandler(@AppHint);
+  Application.RemoveAsyncCalls(Self);
+  FHistory.Free;
   FWatchText.Free;
   FWatchValues.Free;
   C64DebuggerWindow := nil;
@@ -2970,6 +3074,38 @@ end;
 procedure TC64DebuggerWindow.WindowClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   CloseAction := caHide;
+  // Its chips window goes with it
+  if FSysForm <> nil then FSysForm.Hide;
+  // Closing it carries on running, like Run (F5), as the Z80 debugger does (another machine just runs)
+  if FEmu.Paused then
+    if FEmu.Spec.C64Hw <> nil then Resume else FEmu.Resume;
+  // The keys go to the main window again
+  Application.QueueAsyncCall(@FocusMainWindow, 0);
+end;
+
+procedure TC64DebuggerWindow.FocusMainWindow(Data: PtrInt);
+begin
+  if (Application.MainForm <> nil) and Application.MainForm.CanFocus then
+  begin
+    Application.MainForm.BringToFront;
+    Application.MainForm.SetFocus;
+  end;
+end;
+
+{ The hints of the menus' items (and the toolbar's) show in the status bar, as in the Z80 debugger }
+procedure TC64DebuggerWindow.AppHint(Sender: TObject);
+begin
+  if Active and (Application.Hint <> '') then ShowNotice(GetLongHint(Application.Hint));
+end;
+
+function TC64DebuggerWindow.IoLogCount: Integer;
+begin
+  Result := Length(FIoLog);
+end;
+
+function TC64DebuggerWindow.IoLogEntry(Index: Integer): TC64IoAccess;
+begin
+  Result := FIoLog[Index];
 end;
 
 function TC64DebuggerWindow.Peek(Addr: Word): Byte;
@@ -3079,6 +3215,8 @@ begin
   FOverButton := AddButton(ikStepOver, 'Step over (F10)', @DoOver);
   FOutButton := AddButton(ikFolderUp, 'Step out: run until the subroutine returns (F11)', @DoOut);
   FToButton := AddButton(ikRunToCursor, 'Run to cursor (F9)', @DoToCursor);
+  AddButton(ikRewind, 'Step back (Shift+F7): to where it was before the last step, step over, step out, run to cursor ' +
+    'or run (up to 10 times)', @DoStepBack);
   AddSeparator;
   AddButton(ikGoTo, 'Go to address (Ctrl+G)', @DoGoto);
   AddButton(ikBreakpoint, 'Put or take away a breakpoint on the selected line (F8)', @DoToggleBp);
@@ -3088,6 +3226,8 @@ begin
   AddButton(ikOpen, 'Load symbols: NAME = $ADDRESS lines, as the assemblers write them', @DoSymbols);
   AddButton(ikChip, 'Chip registers: the VIC-II, the SID and the CIAs (click a value to change it), and the state of ' +
     'the chips and the disk drives', @DoSystem);
+  AddSeparator;
+  AddButton(ik6502, '6502: the instruction set, as a table of opcodes (the undocumented ones too)', @DoOpcodes);
 
   // Data zone (bottom third): memory | breakpoints | watches, the last two sharing the rest
   FDataPanel := TPanel.Create(Self);
@@ -3165,14 +3305,24 @@ begin
   Split.Parent := Self;
   Split.Align := alBottom;
 
-  // The right side: the registers, and under them the stack and the zero page side by side
+  // The right side: the registers with the stack on their right, and under them the ports and the zero page side by
+  // side
   FRightPanel := TPanel.Create(Self);
   FRightPanel.Parent := Self;
   FRightPanel.Align := alRight;
   FRightPanel.Width := 440;
   FRightPanel.BevelOuter := bvNone;
-  FRegZone := MakeColumn(FRightPanel, 'Registers (click to change)', 0, alTop);
-  FRegZone.Height := 200;
+  FTopPanel := TPanel.Create(Self);
+  FTopPanel.Parent := FRightPanel;
+  FTopPanel.Align := alTop;
+  FTopPanel.Height := 200;
+  FTopPanel.BevelOuter := bvNone;
+  FStackZone := MakeColumn(FTopPanel, 'Stack', 120, alRight);
+  SetZoneHint(FStackZone, 'From SP upwards as 16-bit words (> is the top); click one to change it, the wheel scrolls');
+  FStack := TC64StackView.CreateView(Self);
+  FStack.Parent := FStackZone;
+  FStack.Align := alClient;
+  FRegZone := MakeColumn(FTopPanel, 'Registers (click to change)', 0, alClient);
   FRegView := TC64RegView.CreateView(Self);
   FRegView.Parent := FRegZone;
   FRegView.Align := alClient;
@@ -3182,11 +3332,13 @@ begin
   FLowPanel.Parent := FRightPanel;
   FLowPanel.Align := alClient;
   FLowPanel.BevelOuter := bvNone;
-  FStackZone := MakeColumn(FLowPanel, 'Stack', 120, alLeft);
-  SetZoneHint(FStackZone, 'From SP upwards as 16-bit words (> is the top); click one to change it, the wheel scrolls');
-  FStack := TC64StackView.CreateView(Self);
-  FStack.Parent := FStackZone;
-  FStack.Align := alClient;
+  FPortZone := MakeColumn(FLowPanel, 'Ports', 120, alLeft);
+  SetZoneHint(FPortZone, 'The last accesses to the chips (VIC-II, SID, CIAs, DE00-DFFF) and the 6510''s port (0, 1): ' +
+    'the instruction''s address, the register, R or W and the value (dark red if the last instruction made it); > is ' +
+    'the latest; the wheel scrolls');
+  FPorts := TC64PortView.CreateView(Self);
+  FPorts.Parent := FPortZone;
+  FPorts.Align := alClient;
   FZeroZone := MakeColumn(FLowPanel, 'Zero page', 0, alClient);
   SetZoneHint(FZeroZone, 'Click a byte to change it; right-click: watches and breakpoints; the wheel scrolls');
   FZero := TC64ZeroView.CreateView(Self);
@@ -3224,7 +3376,7 @@ begin
   if FDataPanel = nil then Exit;
   // The data zone keeps a third of the height, but the registers, the stack and the zero page above keep their lines
   Avail := ClientHeight - FToolbar.Height - FStatusBar.Height - 8;
-  Data := Avail div 3;
+  Data := (Avail + FShrink) div 3;
   if Avail - Data < FRightMinH then Data := Avail - FRightMinH;
   FDataPanel.Height := Max(MIN_DATA, Data);
   FBreakZone.Width := Max(80, DataRest - Round(DataRest * FWatchShare));
@@ -3243,7 +3395,7 @@ end;
 { Size the zones to what they show, now that the font can be measured }
 procedure TC64DebuggerWindow.FitLayout;
 var
-  CW, LH, Border, DisasmW, RegW, StackW, ZeroW, MemW, HeaderH: Integer;
+  CW, LH, Border, DisasmW, RegW, StackW, ZeroW, MemW, HeaderH, PortW, RightW: Integer;
   Work: TRect;
 begin
   FLaidOut := True;
@@ -3252,20 +3404,26 @@ begin
   LH := FDis.LineHeight;
   Border := FRegView.Width - FRegView.ClientWidth;
   HeaderH := TPanel(FRegZone.Controls[0]).Height;
-  // The stack: "> 01F8  1234"; the zero page: its address and 8 bytes
+  // The stack: "> 01F8  1234"; the ports: "> E5A0 D020 W 0E"; the zero page: its address and 8 bytes
   StackW := 8 + 11 * CW + Border;
+  PortW := 8 + 16 * CW + Border;
   ZeroW := 8 + (3 + ZP_BYTES * 3) * CW + Border;
-  // Registers: 36 columns, or the stack and the zero page side by side if that is wider
-  RegW := Max(16 + 36 * CW + Border, StackW + ZeroW + 12);
+  // Registers (REG_COLS columns) and the stack on top, the ports and the zero page under them: the wider
+  RegW := 16 + REG_COLS * CW + Border;
+  RightW := Max(RegW + StackW + 12, PortW + ZeroW + 12);
   DisasmW := GUTTER_W + (MAX_LABEL + 1 + 6 + 10 + 30) * CW + Border;
   MemW := 6 + (6 + HEX_BYTES * 3 + 1 + HEX_BYTES) * CW + Border;
-  FRightPanel.Width := RegW + 6;
+  FRightPanel.Width := RightW + 6;
   FStackZone.Width := StackW + 6;
+  FPortZone.Width := PortW + 6;
   FMemZone.Width := MemW + 6;
-  FRegZone.Height := HeaderH + 12 + REG_LINES * LH + Border + 6;
-  // The right column: the registers and LOW_ROWS lines of the stack and the zero page
-  FRightMinH := FRegZone.Height + HeaderH + LOW_ROWS * LH + Border + 18;
-  ClientWidth := DisasmW + RegW + 12 + 10;
+  FTopPanel.Height := HeaderH + 12 + REG_LINES * LH + Border + 6;
+  // The right column: the registers and LOW_ROWS lines of the ports and the zero page
+  FRightMinH := FTopPanel.Height + HeaderH + LOW_ROWS * LH + Border + 18;
+  ClientWidth := DisasmW + RightW + 12 + 10;
+  // Shorter by UPPER_CUT lines, all of them taken from the upper part
+  FShrink := UPPER_CUT * LH;
+  Height := Height - FShrink;
   // Not bigger than the screen
   Work := Monitor.WorkareaRect;
   if Height > Work.Bottom - Work.Top then
@@ -3345,8 +3503,11 @@ begin
     FIrqText := '';
     if Hw.Vic.Irq then FIrqText := FIrqText + 'VIC ';
     if Hw.Cia1.Irq then FIrqText := FIrqText + 'CIA1 ';
-    if FIrqText = '' then FIrqText := 'idle' else FIrqText := 'asserted: ' + Trim(FIrqText);
-    if Hw.Cia2.Irq then FIrqText := FIrqText + '   NMI: CIA2';
+    if FIrqText = '' then FIrqText := 'idle' else FIrqText := Trim(FIrqText);
+    if Hw.Cia2.Irq then FNmiText := 'CIA2' else FNmiText := 'idle';
+    SetLength(FIoLog, Hw.IoLogCount);
+    for I := 0 to High(FIoLog) do FIoLog[I] := Hw.IoLog(I);
+    FInstrNow := Hw.InstrCount;
     FWatchValues.Clear;
     SetLength(FWatchNumbers, FWatchText.Count);
     for I := 0 to FWatchText.Count - 1 do
@@ -3646,17 +3807,124 @@ begin
   end;
 end;
 
-function TC64DebuggerWindow.AskAddress(const ATitle: string; var Addr: Word): Boolean;
+type
+  TC64AddressDialog = class(TForm)
+  public
+    Edit: TEdit;
+    List: TListBox;
+    procedure ListClick(Sender: TObject);
+    procedure ListDblClick(Sender: TObject);
+  end;
+
+procedure TC64AddressDialog.ListClick(Sender: TObject);
+begin
+  if List.ItemIndex >= 0 then Edit.Text := List.Items[List.ItemIndex];
+end;
+
+procedure TC64AddressDialog.ListDblClick(Sender: TObject);
+begin
+  ListClick(Sender);
+  ModalResult := mrOK;
+end;
+
+{ As the Z80 debugger's: the last MAX_HISTORY addresses (shared by the disassembly and the memory) and a "Go to PC"
+  button, which doesn't add the PC to them }
+function TC64DebuggerWindow.AskAddress(const ATitle: string; var Addr: Word; AGoTo: Boolean): Boolean;
+const
+  MAX_HISTORY = 10;
 var
   S: string;
+  Dlg: TC64AddressDialog;
+  Lbl: TLabel;
+  Btn: TButton;
+  A: Word;
+  I: Integer;
 begin
   Result := False;
-  S := Hex4(Addr);
-  repeat
-    if not InputQuery(ATitle, 'Address, label or expression (hex):', S) then Exit;
-    Result := ParseAddr(S, Addr);
-    if not Result then MessageDlg('Not an address or a label: ' + S, mtError, [mbOK], 0);
-  until Result;
+  if not AGoTo then
+  begin
+    S := Hex4(Addr);
+    repeat
+      if not InputQuery(ATitle, 'Address, label or expression (hex):', S) then Exit;
+      Result := ParseAddr(S, Addr);
+      if not Result then MessageDlg('Not an address or a label: ' + S, mtError, [mbOK], 0);
+    until Result;
+    Exit;
+  end;
+  A := Addr;
+  Dlg := TC64AddressDialog.CreateNew(Self, 0);
+  try
+    Dlg.Caption := ATitle;
+    Dlg.BorderStyle := bsDialog;
+    Dlg.Position := poOwnerFormCenter;
+    Dlg.ClientWidth := 420;
+    Dlg.ClientHeight := 330;
+    Lbl := TLabel.Create(Dlg);
+    Lbl.Parent := Dlg;
+    Lbl.Caption := 'Address, label or expression (hex):';
+    Lbl.SetBounds(10, 10, 400, 18);
+    Dlg.Edit := TEdit.Create(Dlg);
+    Dlg.Edit.Parent := Dlg;
+    Dlg.Edit.SetBounds(10, 32, 400, 24);
+    Dlg.Edit.Text := Hex4(Addr);
+    Lbl := TLabel.Create(Dlg);
+    Lbl.Parent := Dlg;
+    Lbl.Caption := 'Last addresses (click to use, double-click to go):';
+    Lbl.SetBounds(10, 66, 400, 18);
+    Dlg.List := TListBox.Create(Dlg);
+    Dlg.List.Parent := Dlg;
+    Dlg.List.SetBounds(10, 88, 400, 190);
+    Dlg.List.Items.Assign(FHistory);
+    Dlg.List.OnClick := @Dlg.ListClick;
+    Dlg.List.OnDblClick := @Dlg.ListDblClick;
+    Btn := TButton.Create(Dlg);
+    Btn.Parent := Dlg;
+    Btn.Caption := 'OK';
+    Btn.Default := True;
+    Btn.ModalResult := mrOK;
+    Btn.SetBounds(250, 290, 75, 28);
+    Btn := TButton.Create(Dlg);
+    Btn.Parent := Dlg;
+    Btn.Caption := 'Cancel';
+    Btn.Cancel := True;
+    Btn.ModalResult := mrCancel;
+    Btn.SetBounds(335, 290, 75, 28);
+    // Straight to the execution point, without adding it to the list
+    Btn := TButton.Create(Dlg);
+    Btn.Parent := Dlg;
+    Btn.Caption := 'Go to PC';
+    Btn.Hint := Format('Go to the execution point (%s)', [Hex4(FSnapRegs.PC)]);
+    Btn.ShowHint := True;
+    Btn.ModalResult := mrYes;
+    Btn.SetBounds(10, 290, 100, 28);
+    ThemeForm(Dlg);
+    Dlg.ActiveControl := Dlg.Edit;
+    repeat
+      case Dlg.ShowModal of
+        mrOK: ;
+        mrYes:
+          begin
+            Addr := FSnapRegs.PC;
+            Exit(True);
+          end;
+      else
+        Exit;
+      end;
+      S := Trim(Dlg.Edit.Text);
+      if ParseAddr(S, A) then Break;
+      MessageDlg('Not an address or a label: ' + S, mtError, [mbOK], 0);
+    until False;
+  finally
+    Dlg.Free;
+  end;
+  Addr := A;
+  Result := True;
+  // Remembered as an address, the most recent first
+  S := Hex4(A);
+  I := FHistory.IndexOf(S);
+  if I >= 0 then FHistory.Delete(I);
+  FHistory.Insert(0, S);
+  while FHistory.Count > MAX_HISTORY do FHistory.Delete(FHistory.Count - 1);
 end;
 
 function TC64DebuggerWindow.AskRange(const ACaption: string; var Addr: Word; var Len: Integer): Boolean;
@@ -3751,6 +4019,7 @@ begin
   if Idle and FFollow then FDis.EnsureVisible(FSnapRegs.PC) else FDis.Invalidate;
   FRegView.Invalidate;
   FStack.Invalidate;
+  FPorts.Invalidate;
   FZero.Invalidate;
   FMem.Invalidate;
   FBreakView.Invalidate;
@@ -3806,7 +4075,11 @@ end;
 
 procedure TC64DebuggerWindow.DoRun(Sender: TObject);
 begin
-  if FEmu.Paused then Resume
+  if FEmu.Paused then
+  begin
+    FEmu.SaveBackPoint;   // Shift+F7 comes back here
+    Resume;
+  end
   else DoBreak(Sender);
 end;
 
@@ -3861,6 +4134,7 @@ end;
 procedure TC64DebuggerWindow.RunToAddr(Addr: Word);
 begin
   FEmu.PauseAndWait;
+  FEmu.SaveBackPoint;   // Shift+F7 comes back here
   FEmu.Lock;
   try
     FEmu.Spec.C64Hw.TempBreak := Addr;
@@ -3873,6 +4147,29 @@ end;
 procedure TC64DebuggerWindow.DoToCursor(Sender: TObject);
 begin
   RunToAddr(FDis.SelAddr);
+end;
+
+{ As the Z80 debugger's: the machine as it was before the last step, step over, step out, run to cursor or run }
+procedure TC64DebuggerWindow.DoStepBack(Sender: TObject);
+begin
+  if not FEmu.Paused then FEmu.PauseAndWait;
+  FReason := '';
+  FFollow := True;
+  FDis.Sel := -1;
+  if not FEmu.StepBack then
+  begin
+    Beep;
+    Refresh(True);
+    ShowNotice(Format('No earlier position to go back to (the last %d are kept)', [MAX_BACK]));
+    Exit;
+  end;
+  Refresh(True);
+  ShowNotice(Format('Back one step (%d more kept)', [FEmu.BackCount]));
+end;
+
+procedure TC64DebuggerWindow.DoOpcodes(Sender: TObject);
+begin
+  ShowC64Opcodes;
 end;
 
 { ---- breakpoints ---- }
@@ -4311,13 +4608,61 @@ begin
   end;
 end;
 
-procedure TC64DebuggerWindow.LoadWatchesAsk;
+{ The C64 debugger's watches ("c64-watches": expressions) or the Z80 debugger's ("watches": addresses, each watched
+  here as the byte at it, @$xxxx) }
+function TC64DebuggerWindow.LoadWatchesFile(const FileName: string; out Error: string): Boolean;
 var
-  Dlg: TOpenDialog;
   L: TStringList;
   Data: TJSONData;
   List: TJSONArray;
   I: Integer;
+  Kind, S: string;
+begin
+  Error := '';
+  Data := nil;
+  L := TStringList.Create;
+  try
+    try
+      L.LoadFromFile(FileName);
+      Data := GetJSON(L.Text);
+    except
+      on E: Exception do Error := E.Message;
+    end;
+  finally
+    L.Free;
+  end;
+  try
+    Kind := '';
+    if (Error = '') and (Data is TJSONObject) then Kind := TJSONObject(Data).Get('ochenta', '');
+    if (Error = '') and (Kind <> 'c64-watches') and (Kind <> 'watches') then
+      Error := 'not an ochenta watches file';
+    if Error = '' then
+    begin
+      List := TJSONObject(Data).Get('watches', TJSONArray(nil));
+      if List = nil then Error := 'no "watches" list'
+      else
+      begin
+        FWatchText.Clear;
+        for I := 0 to List.Count - 1 do
+        begin
+          S := Trim(List.Strings[I]);
+          if S = '' then Continue;
+          if Kind = 'watches' then S := '@$' + S;
+          FWatchText.Add(S);
+        end;
+      end;
+    end;
+  finally
+    Data.Free;
+  end;
+  Result := Error = '';
+  FWatchView.Sel := -1;
+  Refresh(True);
+end;
+
+procedure TC64DebuggerWindow.LoadWatchesAsk;
+var
+  Dlg: TOpenDialog;
   Error: string;
 begin
   Dlg := TOpenDialog.Create(Self);
@@ -4325,43 +4670,12 @@ begin
     Dlg.Filter := 'Watches (*.json)|*.json|All files|*.*';
     Dlg.Options := Dlg.Options + [ofFileMustExist];
     if not Dlg.Execute then Exit;
-    Error := '';
-    Data := nil;
-    L := TStringList.Create;
-    try
-      try
-        L.LoadFromFile(Dlg.FileName);
-        Data := GetJSON(L.Text);
-      except
-        on E: Exception do Error := E.Message;
-      end;
-    finally
-      L.Free;
-    end;
-    try
-      if (Error = '') and (not (Data is TJSONObject) or (TJSONObject(Data).Get('ochenta', '') <> 'c64-watches')) then
-        Error := 'not an ochenta c64-watches file';
-      if Error = '' then
-      begin
-        List := TJSONObject(Data).Get('watches', TJSONArray(nil));
-        if List = nil then Error := 'no "watches" list'
-        else
-        begin
-          FWatchText.Clear;
-          for I := 0 to List.Count - 1 do
-            if Trim(List.Strings[I]) <> '' then FWatchText.Add(Trim(List.Strings[I]));
-        end;
-      end;
-    finally
-      Data.Free;
-    end;
-    if Error <> '' then MessageDlg('Could not load the watches: ' + Error, mtError, [mbOK], 0)
+    if not LoadWatchesFile(Dlg.FileName, Error) then
+      MessageDlg('Could not load the watches: ' + Error, mtError, [mbOK], 0)
     else ShowNotice('Watches loaded from ' + ExtractFileName(Dlg.FileName));
   finally
     Dlg.Free;
   end;
-  FWatchView.Sel := -1;
-  Refresh(True);
 end;
 
 { ---- changing things ---- }
@@ -4731,7 +5045,7 @@ var
   N, Past: Integer;
 begin
   Addr := FMem.TopAddr;
-  if not AskAddress('Import binary: load at address', Addr) then Exit;
+  if not AskAddress('Import binary: load at address', Addr, False) then Exit;
   Dlg := TOpenDialog.Create(Self);
   try
     Dlg.Filter := 'All files|*.*';
@@ -4864,6 +5178,7 @@ begin
     for I := Outside.Count - 1 downto 0 do Lines.Insert(0, Outside[I]);
     Lines.Insert(0, '');
     Lines.Insert(0, Format('; %s-%s exported by the ochenta Commodore 64 debugger', [Hex4(Addr), Hex4(Stop - 1)]));
+    Lines.Insert(0, '; 64tass format (assemble with 64tass)');
     try
       Lines.SaveToFile(Dlg.FileName);
       ShowNotice(Format('Exported %s-%s as assembler to %s', [Hex4(Addr), Hex4(Stop - 1), ExtractFileName(Dlg.FileName)]));
@@ -4881,6 +5196,13 @@ procedure TC64DebuggerWindow.FormKey(Sender: TObject; var Key: Word; Shift: TShi
 begin
   // Keys typed in a box (a value, the XOR) are the box's
   if ActiveControl is TEdit then Exit;
+  // Escape closes the window, unless it ends the typing or the selection in the memory zone first
+  if Key = VK_ESCAPE then
+  begin
+    if not ((ActiveControl = FMem) and FMem.CancelTyping) then Close;
+    Key := 0;
+    Exit;
+  end;
   case Key of
     VK_F3:
       begin
@@ -4888,7 +5210,7 @@ begin
         Key := 0;
       end;
     VK_F5: begin DoRun(Self); Key := 0; end;
-    VK_F7: begin DoStep(Self); Key := 0; end;
+    VK_F7: begin if ssShift in Shift then DoStepBack(Self) else DoStep(Self); Key := 0; end;
     VK_F8: begin DoToggleBp(Self); Key := 0; end;
     VK_F9: begin DoToCursor(Self); Key := 0; end;
     VK_F10: begin DoOver(Self); Key := 0; end;

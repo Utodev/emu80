@@ -8,6 +8,9 @@ unit C64Via;
 
 interface
 
+uses
+  Classes, Cpu6510;
+
 type
   TViaRead = function: Byte of object;
   TViaWrite = procedure(Value: Byte) of object;
@@ -32,6 +35,9 @@ type
     OnControl: TViaNotify;        // CA2 or CB2 changed
     constructor Create;
     procedure Reset;
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     procedure Tick; inline;
     function Read(Reg: Byte): Byte;
     function Peek(Reg: Byte): Byte;
@@ -303,6 +309,12 @@ begin
     if (Level and ((FPCR and $10) <> 0)) or (not Level and ((FPCR and $10) = 0)) then Fire(IRQ_CB1);
     FCB1 := Level;
   end;
+end;
+
+procedure TVia.StateIO(S: TStream; Save: Boolean);
+begin
+  // FORA to FT2Low
+  StateBlock(S, Save, FORA, PtrUInt(@FT2Low) + SizeOf(FT2Low) - PtrUInt(@FORA));
 end;
 
 end.

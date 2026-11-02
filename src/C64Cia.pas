@@ -9,6 +9,9 @@ unit C64Cia;
 
 interface
 
+uses
+  Classes, Cpu6510;
+
 type
   TPortRead = function: Byte of object;
 
@@ -39,6 +42,9 @@ type
     OnPortA, OnPortB: TPortRead;
     constructor Create(ACyclesPerTodTick: Integer);
     procedure Reset;
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { One cycle of the clock }
     procedure Tick; inline;
     function Read(Reg: Byte): Byte;
@@ -350,6 +356,12 @@ begin
         FCRB := Value and not $10;
       end;
   end;
+end;
+
+procedure TCia.StateIO(S: TStream; Save: Boolean);
+begin
+  // FPRA to FCyclesPerTick
+  StateBlock(S, Save, FPRA, PtrUInt(@FCyclesPerTick) + SizeOf(FCyclesPerTick) - PtrUInt(@FPRA));
 end;
 
 end.

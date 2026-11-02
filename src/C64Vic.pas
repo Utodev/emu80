@@ -13,6 +13,9 @@ unit C64Vic;
 
 interface
 
+uses
+  Classes, Cpu6510;
+
 const
   VIC_WIDTH = 352;       // visible pixels: 320 + 16 of border at each side
   VIC_HEIGHT = 288;      // 200 + 44 of border above and below
@@ -65,6 +68,9 @@ type
     Frame: array[0..VIC_WIDTH * VIC_HEIGHT - 1] of LongWord;
     constructor Create;
     procedure Reset;
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { One cycle of the clock }
     procedure Tick;
     function Read(Reg: Byte): Byte;
@@ -618,6 +624,14 @@ begin
     if FRaster = Bottom then FVertBorder := True
     else if (FRaster = Top) and ((FReg[$11] and $10) <> 0) then FVertBorder := False;
   end;
+end;
+
+procedure TVic.StateIO(S: TStream; Save: Boolean);
+begin
+  // FReg to FRasterIrqDone (FOnRead among them: the same handler), the colour RAM and the picture as drawn so far
+  StateBlock(S, Save, FReg, PtrUInt(@FRasterIrqDone) + SizeOf(FRasterIrqDone) - PtrUInt(@FReg));
+  StateBlock(S, Save, ColorRam, SizeOf(ColorRam));
+  StateBlock(S, Save, Frame, SizeOf(Frame));
 end;
 
 end.

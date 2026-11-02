@@ -39,6 +39,7 @@ type
     FTurboButton: TToolButton;
     FStatus: TStatusBar;
     FStatusTimer: TTimer;
+    FDebugModel: Integer;   // the machine the debuggers were opened on (-1 not known yet): another one closes them
     FLedTimer: TTimer;
     { What the media panel shows: present (bits 0-2: A, B, SD) and busy
       (bits 4-6), redrawn only when it changes }
@@ -160,6 +161,8 @@ type
     procedure FrameReady(Sender: TObject);
     procedure PaintDisplay(Sender: TObject);
     procedure StatusTick(Sender: TObject);
+    { A change of machine closes the debuggers (the Z80's or the 6510's) and the Adventure Debugger }
+    procedure CheckMachineChange;
     procedure UpdateKeyboard;
     procedure MapKey(Key: Word; Down: Boolean);
     procedure MapKeyCPC(Key: Word; Down: Boolean);
@@ -644,6 +647,8 @@ begin
   FClipTimer.Interval := 15;
   FClipTimer.OnTimer := @MouseClipTick;
 
+  FDebugModel := -1;
+  DebugLoadSymbols := @DoLoadSymbols;   // the debugger's toolbar button
   FStatusTimer := TTimer.Create(Self);
   FStatusTimer.Interval := 250;
   FStatusTimer.OnTimer := @StatusTick;
@@ -1627,6 +1632,24 @@ begin
   FDisplay.Canvas.Draw(R.Left, R.Top, FBitmap);
 end;
 
+procedure TMainWindow.CheckMachineChange;
+var
+  M: Integer;
+begin
+  M := Ord(FEmu.Spec.Model);
+  if FDebugModel = M then Exit;
+  if FDebugModel >= 0 then
+  begin
+    // Closing them is as their own Close: the machine carries on running
+    if (DebuggerWindow <> nil) and DebuggerWindow.Visible then DebuggerWindow.Close;
+    if (C64DebuggerWindow <> nil) and C64DebuggerWindow.Visible then C64DebuggerWindow.Close;
+    if (DaadWindow <> nil) and DaadWindow.Visible then DaadWindow.Close;
+    // Nor does the step back go to the machine there was before
+    FEmu.ClearBackPoints;
+  end;
+  FDebugModel := M;
+end;
+
 procedure TMainWindow.StatusTick(Sender: TObject);
 var
   TapeText, C64Name: string;
@@ -1634,6 +1657,8 @@ var
   Spec: TSpectrum;
   HaveDisk, HaveCard, C64Playing, C64Have: Boolean;
 begin
+  // Whatever changed the machine (the menu, a file, a snapshot, the settings)
+  CheckMachineChange;
   FEmu.Lock;
   try
     Spec := FEmu.Spec;
@@ -3160,8 +3185,9 @@ begin
   if New = smZXUno then UseCard(Settings.ZXUnoCard, False)
   // Out of the ZX-Uno: the standard models' card (out of the Next, LeaveNext)
   else if (Old = smZXUno) and not (New in OWN) then UseCard(Settings.SDCardFile, True);
-  // The DivMMC is a Spectrum device: on a CPC it is simply switched off
-  if IsCPCModel(New) or IsSAMModel(New) or IsMSXModel(New) then
+  // The DivMMC is a Spectrum device: on any other machine (a CPC, a SAM, an MSX, a C64...) it is simply switched off,
+  // without asking
+  if not IsSpectrumModel(New) then
   begin
     Settings.DivMMC := False;
     Settings.KempstonMouse := False;
@@ -3366,6 +3392,7 @@ begin
     FEmu.Unlock;
   end;
   Settings.Model := FEmu.Spec.Model;
+  CheckMachineChange;
   HardwareChanged(Old, FEmu.Spec.Model);
   // What the machine has: the Spectrum's extras are off on a CPC, back on again
   ApplySettings;
@@ -5624,7 +5651,14 @@ begin
     end;
     if WatchFile <> '' then
     begin
-      if not LoadWatches(WatchFile, Watches, Err) then
+      // On the C64 they are the 6510 debugger's (its own files, or the Z80 debugger's: the byte at each address)
+      if IsC64Model(FEmu.Spec.Model) then
+      begin
+        if C64DebuggerWindow = nil then C64DebuggerWindow := TC64DebuggerWindow.CreateFor(Application, FEmu);
+        if not C64DebuggerWindow.LoadWatchesFile(WatchFile, Err) then
+          Errors := Errors + '--watches ' + WatchFile + ': ' + Err + LineEnding;
+      end
+      else if not LoadWatches(WatchFile, Watches, Err) then
         Errors := Errors + '--watches ' + WatchFile + ': ' + Err + LineEnding
       else if DebuggerWindow <> nil then DebuggerWindow.SetWatches(Watches)
       else PendingWatches := Watches;

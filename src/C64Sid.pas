@@ -10,7 +10,7 @@ unit C64Sid;
 interface
 
 uses
-  Math;
+  Classes, Math, Cpu6510;
 
 type
   TSidWrite = record
@@ -54,6 +54,9 @@ type
   public
     constructor Create(AClockHz: Integer);
     procedure Reset;
+    { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
+      blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
+    procedure StateIO(S: TStream; Save: Boolean);
     { A write by the CPU, at that cycle of the frame (the chip itself is brought up to date when the audio is made) }
     procedure Write(Cycle: Integer; Reg, Value: Byte);
     function Read(Reg: Byte): Byte;
@@ -377,6 +380,20 @@ end;
 procedure TSid.EndFrame;
 begin
   FWriteCount := 0;
+end;
+
+procedure TSid.StateIO(S: TStream; Save: Boolean);
+var
+  N: Integer;
+begin
+  // The voices and the filter (FV to FBand), the writes of this frame not heard yet, and FSamplePos to FExtOut
+  StateBlock(S, Save, FV, PtrUInt(@FBand) + SizeOf(FBand) - PtrUInt(@FV));
+  N := FWriteCount;
+  StateBlock(S, Save, N, SizeOf(N));
+  if not Save and (N > Length(FWrites)) then SetLength(FWrites, N);
+  if N > 0 then StateBlock(S, Save, FWrites[0], N * SizeOf(TSidWrite));
+  FWriteCount := N;
+  StateBlock(S, Save, FSamplePos, PtrUInt(@FExtOut) + SizeOf(FExtOut) - PtrUInt(@FSamplePos));
 end;
 
 end.

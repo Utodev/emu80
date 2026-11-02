@@ -193,6 +193,9 @@ type
       memory map follows, the CRTC starts a frame, nothing else is touched) }
     procedure GetRegisters(out R: TCPCRegisters);
     procedure SetRegisters(const R: TCPCRegisters);
+    { The debugger's chips window: the PSG's register selected (Reg < 0) or register Reg, written as the PPI would
+      (the sound follows) }
+    procedure SetPsg(Reg: Integer; Value: Byte);
     { Whole machine state, for snapshots (everything but the ROMs) }
     procedure SaveState(S: TStream);
     procedure LoadState(S: TStream);
@@ -1144,6 +1147,17 @@ begin
   R.Ppi[0] := FPpiA; R.Ppi[1] := FPpiB; R.Ppi[2] := FPpiC; R.Ppi[3] := FPpiCtl;
   R.PsgSel := FPsgSel;
   for I := 0 to 15 do R.Psg[I] := FPsgRegs[I];
+end;
+
+procedure TAmstrad.SetPsg(Reg: Integer; Value: Byte);
+begin
+  if Reg < 0 then
+  begin
+    FPsgSel := Value and 15;
+    Exit;
+  end;
+  FPsgRegs[Reg and 15] := Value;
+  if Assigned(FOnPsg) and ((Reg and 15) < 14) then FOnPsg(FChipT, Reg and 15, Value);
 end;
 
 procedure TAmstrad.SetRegisters(const R: TCPCRegisters);
