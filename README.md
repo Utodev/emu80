@@ -151,7 +151,7 @@ Supported files:
 | `.mgt`, `.sad` | SAM Coupe disk images: MGT (raw sectors, 819200 bytes) and SAD (SAm Disk). They only open on the SAM Coupe. |
 | `.rom` | MSX cartridges (see [MSX](#msx)). Opening one switches to the MSX if needed and starts it. |
 
-**No autoload with Ctrl or Shift.** Holding Ctrl or Shift while a disk, tape, program or cartridge is opened (File > Open, the Insert options, the recent lists, drag and drop) inserts it without starting anything, on every machine, even from an option that would normally autoload (an MSX cartridge goes in without restarting the machine).
+**No autoload with Alt or AltGr.** Holding Alt or AltGr while a disk, tape, program or cartridge is opened (File > Open, the Insert options, the recent lists, drag and drop) inserts it without starting anything, on every machine, even from an option that would normally autoload (an MSX cartridge goes in without restarting the machine).
 | `.cas` | MSX tapes (see [MSX](#msx)): they open on the MSX, which Auto load starts with `RUN"CAS:"`. |
 | `.nex` | ZX Spectrum Next programs. Opening one switches to the Next if needed and starts it (see [ZX Spectrum Next](#zx-spectrum-next)). |
 | `.e80` | emu80's own snapshots, of any model (see [emu80 snapshots](#emu80-snapshots-e80)). Opening one switches to its machine. |

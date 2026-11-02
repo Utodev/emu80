@@ -386,10 +386,10 @@ const
   // The Shifts and Ctrls, whose left and right keys Windows reports unreliably (see SyncModifiers)
   MODIFIER_KEYS = [VK_SHIFT, VK_LSHIFT, VK_RSHIFT, VK_CONTROL, VK_LCONTROL, VK_RCONTROL];
 
-{ Ctrl or Shift held while a disk, tape, program or cartridge goes in: it is inserted but nothing starts }
+{ Alt or AltGr held while a disk, tape, program or cartridge goes in: it is inserted but nothing starts }
 function NoAutoStartKey: Boolean;
 begin
-  Result := (GetKeyState(VK_CONTROL) < 0) or (GetKeyState(VK_SHIFT) < 0);
+  Result := (GetKeyState(VK_MENU) < 0) or (GetKeyState(VK_LMENU) < 0) or (GetKeyState(VK_RMENU) < 0);
 end;
 
 { Names in breakpoint conditions: user symbols first, then ROM labels }
@@ -2130,7 +2130,7 @@ begin
     try
       Used := FEmu.Spec.MSXHw.InsertCartridge(1, ChangeFileExt(ExtractFileName(FileName), ''), Data[0],
         Length(Data), Auto, Kind);
-      if not NoAutoStartKey then FEmu.Spec.Reset(True);   // (Ctrl or Shift: it goes in, but the MSX is not restarted)
+      if not NoAutoStartKey then FEmu.Spec.Reset(True);   // (Alt or AltGr: it goes in, but the MSX is not restarted)
     finally
       FEmu.Unlock;
     end;
