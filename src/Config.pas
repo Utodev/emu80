@@ -312,6 +312,8 @@ begin
   Result := Dir + 'roms';
   if not DirectoryExists(Result) and DirectoryExists(Dir + '..' + PathDelim + 'roms') then
     Result := ExpandFileName(Dir + '..' + PathDelim + 'roms');
+  if not DirectoryExists(Result) and DirectoryExists(Dir + '../Resources/roms') then
+    Result := ExpandFileName(Dir + '../Resources/roms');     // macOS app bundle
 end;
 
 function OchentaPath(const Name: string): string;
@@ -384,6 +386,10 @@ begin
 end;
 
 constructor TSettings.Create;
+{$IFDEF DARWIN}
+var
+  Own: string;
+{$ENDIF}
 begin
   inherited Create;
   RecentFiles := TStringList.Create;
@@ -396,10 +402,24 @@ begin
   FMainText := TStringList.Create;
   FFileName := ExtractFilePath(ParamStr(0)) + 'ochenta.ini';
   {$IFDEF DARWIN}
-  // Inside an app bundle: keep it next to ochenta.app
+  // Inside an app bundle (which can't be written: it may run from a read-only copy, and changing it breaks its
+  // signature): the settings go to ~/Library/Application Support/ochenta, unless there is an ochenta.ini next
+  // to ochenta.app (a portable copy). The ZX Spectrum Next's distribution (specnext) and the user's own ROMs
+  // (roms/c64, roms/msx: looked in when missing from the ROM folder) go there too; their folders are made
   if Pos('.app/Contents/MacOS/', FFileName) > 0 then
+  begin
     FFileName := ExtractFilePath(Copy(FFileName, 1, Pos('.app/Contents/MacOS/', FFileName) + 3)) +
       'ochenta.ini';
+    if not FileExists(FFileName) then
+    begin
+      Own := IncludeTrailingPathDelimiter(GetEnvironmentVariable('HOME')) + 'Library/Application Support/ochenta/';
+      ForceDirectories(Own + 'specnext');
+      ForceDirectories(Own + 'roms/c64');
+      ForceDirectories(Own + 'roms/msx');
+      FFileName := Own + 'ochenta.ini';
+    end;
+    UserRomDir := ExtractFilePath(FFileName) + 'roms';
+  end;
   {$ENDIF}
   {$IFDEF UNIX}
   // Installed where users can't write (a .deb or .rpm: /usr/lib/ochenta): the

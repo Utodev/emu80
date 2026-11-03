@@ -434,7 +434,8 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 | Amstrad CPC | Video: the CRTC chip (see [Amstrad CPC](#amstrad-cpc)). Timing: the Gate Array's wait states. Controls: the cursor keys and right Ctrl as joystick 1. |
 | SAM Coupé | Memory: 256K or 512K of RAM (changing it resets the machine). Sound: the SAA1099 heard or not. Controls: the cursor keys and right Ctrl as a Kempston joystick (see [SAM Coupé](#sam-coupé)). Peripherals: the SAM's mouse (the PC's over the picture) and the SAMBUS clock, a check for each. DOS: Boot SAMDOS automatically (`SAMDOS2.dsk` inserted and booted on start and reset). The Common tabs apply to it too: Storage (disk drive noise, fast disk access, drive 2, tape auto play and loop), General, ROMs (the SAM Coupé's ROM file) and the monitor. |
 
-Settings are kept in `ochenta.ini` in the same folder as the program (next to ochenta.app on macOS); on
+Settings are kept in `ochenta.ini` in the same folder as the program. On macOS, ochenta.app keeps them in
+`~/Library/Application Support/ochenta/ochenta.ini` (an `ochenta.ini` next to ochenta.app, if there is one, is used instead). On
 Linux, if that folder can't be written (ochenta installed from a .deb or .rpm package, or run as an AppImage), in
 `~/.config/ochenta/ochenta.ini`. On Windows no other ini is ever read (not even an older one from another
 folder or from the user's profile). See `--config` and `--config-add` below to use other files. `ochenta.ini` is
@@ -643,7 +644,8 @@ which is not included (it has its own licence): download the latest one from
 [https://www.specnext.com/latestdistro/](https://www.specnext.com/latestdistro/) and unpack it
 into the `specnext` folder next to the program (it must have `machines/next` in it), or choose
 another folder in Settings > ZX Spectrum > Firmware (`--zx_nextdir`). When ochenta is installed from a .deb or .rpm, or run as an AppImage, the
-folder is `~/.config/ochenta/specnext` (the one next to the program can't be written).
+folder is `~/.config/ochenta/specnext` (the one next to the program can't be written); with the macOS ochenta.app it is
+`~/Library/Application Support/ochenta/specnext`.
 
 Choosing the Next without the distribution (or SD > New SD card with the Next distribution)
 says so in a window ("La distribución de Spectrum Next no está instalada...") with the download
@@ -998,7 +1000,8 @@ type nothing until `KEY n,"..."` gives them a string) and
 `roms/msx/QUANTIKA_SUB.ROM` (the 16K sub-ROM), with `roms/msx/QUANTIKA_DISK.ROM` for the disk interface (see Disks below). They
 come with ochenta and are still being completed. To use the original ROMs
 instead, look for `MSX2.rom` (the 32K BIOS and MSX-BASIC 2 of an MSX2) and `MSX2EXT.rom` (its 16K sub-ROM), and for a
-disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` and choose them with
+disk drive also `PHILIPSDISK.rom` (see Disks below); they are not distributed. Put them in `roms/msx/` (with the macOS ochenta.app,
+`~/Library/Application Support/ochenta/roms/msx/`) and choose them with
 `--rom "msx2,0,FILE"`, `--rom "msx2,1,FILE"` and `--rom "msx2,2,FILE"` (the disk interface) or in Settings > Common > ROMs, where
 the MSX 2 has three: ROM (the main ROM), SUBROM and FLOPPY DISK (the disk interface's ROM). The first time the
 MSX starts, a note says what it emulates, that it uses unofficial ROMs, and where to put the original ones; it is shown once
@@ -1137,7 +1140,8 @@ that the computer lets go is seen high by the drive about a microsecond later (i
 that send their bits on a timer, with no handshake (those of many cracks), are tuned to both, and get their bytes right.
 
 **ROMs.** They are the originals, which are not distributed: put `Kernal.rom` (8K), `Basic.rom` (8K), `Char.rom` (4K, the character generator) and, for the disk drives,
-`VC1541.rom` (16K, the 1541's DOS) in the `roms/c64` folder. Their names can be changed in Settings > Common > ROMs (choose the Commodore 64 there). Without the
+`VC1541.rom` (16K, the 1541's DOS) in the `roms/c64` folder (with the macOS ochenta.app, in `~/Library/Application Support/ochenta/roms/c64`:
+a ROM file missing from the app's own ROM folder is looked for in `~/Library/Application Support/ochenta/roms`). Their names can be changed in Settings > Common > ROMs (choose the Commodore 64 there). Without the
 first three the machine does not start (ochenta says which are missing and stays as it was); without `VC1541.rom` it starts with no disk drive.
 
 **The picture** is the 320x200 screen with a border of 16 pixels at each side and 44 lines above and below (352x288; the real border is wider), every pixel
@@ -2177,7 +2181,7 @@ bw=1
 | File | What it is |
 |---|---|
 | `ochenta` / `ochenta.exe` | the program (its icon is drawn by `tools/make-icon.py`) |
-| `ochenta.ini` | settings, next to the program (created when ochenta closes; `~/.config/ochenta/` when installed from a package) |
+| `ochenta.ini` | settings, next to the program (created when ochenta closes; `~/.config/ochenta/` when installed from a package, `~/Library/Application Support/ochenta/` with the macOS ochenta.app) |
 | `roms/` | Spectrum and Amstrad CPC ROMs (`cpc464.rom`, `cpc664.rom`, `cpc6128.rom`, `amsdos.rom`) and the Spectrum ROMs' .sym label files (the SAM Coupé's ROM, `samcoupe.rom`, and its SAMDOS disk, `SAMDOS2.dsk`), the Currah µSpeech's ROMs (`currah.rom`, `sp0256-al2.rom`) and the ZX Spectrum Next's boot ROM (`tbblue_loader.rom`) |
 | `specnext/` | empty: unpack the ZX Spectrum Next distribution here (it isn't included, as it has its own licence) |
 | `zxnext.img` | the ZX Spectrum Next's SD card, next to ochenta.ini, made from the distribution the first time the Next is used |
@@ -2187,7 +2191,8 @@ bw=1
 | `LICENSE` | the license, GNU GPL v3 (Help > License) |
 
 `roms`, `README.md` and `LICENSE` are looked for next to the program and, if not there, in the
-folder above it (as when ochenta is built inside the src folder of the sources).
+folder above it (as when ochenta is built inside the src folder of the sources) or, in the macOS ochenta.app,
+in its `Contents/Resources`.
 
 Linux packages: after `build.sh`, `package.sh` makes a .deb (with dpkg-deb) and a .rpm (with
 rpmbuild: on Debian or Ubuntu, `sudo apt install rpm`) in `build/packages`. Both install the
@@ -2235,13 +2240,32 @@ or in the one above. To distribute it, put them next to the executable.
 The executable expects the `roms` folder next to it (the ROM folder can be
 changed in Options > Settings).
 
-**Linux and macOS:** run `./build.sh`. It uses `lazbuild` if Lazarus is
-installed (GTK2 on Linux, Cocoa on macOS); otherwise point it at a Lazarus
-source tree with `LAZARUS_DIR=/path/to/lazarus ./build.sh` and it compiles
-with `fpc` alone. The result, with its `roms` folder, goes to `build/linux/`
-or `build/macos/ochenta.app`. Linux needs the GTK2 development package to build
-(`libgtk2.0-dev`). Sound uses SDL2 at run time (`libsdl2-2.0-0` on Linux,
-`brew install sdl2` on macOS); without it ochenta runs silently at the right speed.
+**Linux:** run `./build.sh`. It uses `lazbuild` if Lazarus is installed (GTK2); otherwise point it at a
+Lazarus source tree with `LAZARUS_DIR=/path/to/lazarus ./build.sh` and it compiles with `fpc` alone. The
+result, with its `roms` folder, goes to `build/linux/`. It needs the GTK2 development package to build
+(`libgtk2.0-dev`). Sound uses SDL2 at run time (`libsdl2-2.0-0`); without it ochenta runs silently at the
+right speed.
+
+**macOS:** run `sh build-macos.sh` (or `./build.sh`, which calls it) on a Mac with Lazarus. It makes a
+complete `build/macos/ochenta.app`: the program in `Contents/MacOS`; `roms` (without the original MSX
+and Commodore 64 ROMs), `esxdos`, `zxuno`, `README.md`, `LICENSE` and the icon in `Contents/Resources`; and
+SDL2 for the sound in `Contents/Frameworks`, copied from Homebrew's (`brew install sdl2`). The app is
+signed (ad hoc unless another identity is given). Options:
+
+| Option | What it does |
+|---|---|
+| `--lazbuild PATH` | the `lazbuild` to use (default: `$LAZBUILD`, then the one on the PATH, then `/Applications/Lazarus/lazbuild` and `~/lazarus/lazbuild`) |
+| `--cpu CPU` | `aarch64` (Apple Silicon), `x86_64` (Intel) or `universal` (both in one program); default: the Mac's own |
+| `--sdl PATH` | the SDL2 library (`libSDL2-2.0.0.dylib`) to put in the app; `--sdl none` puts none (the app uses an installed one, if any) |
+| `--sign IDENTITY` | the code signing identity (default `-`, ad hoc; a "Developer ID Application" one to give the app to others) |
+| `--dmg` | also makes `ochenta-VERSION-macos.dmg`, a disk image with the app and a link to Applications |
+| `--out DIR` | where the app goes (default `build/macos`) |
+
+For example `sh build-macos.sh --lazbuild /Applications/Lazarus/lazbuild --cpu universal --dmg`. The app
+writes nothing inside itself: its settings, the ZX Spectrum Next's distribution (`specnext`) and the ROMs
+that are not distributed (`roms/c64`, `roms/msx`) go in `~/Library/Application Support/ochenta`, whose folders it makes
+the first time it runs. With `LAZARUS_DIR` set, `./build.sh` compiles with `fpc` alone and makes a plainer
+`build/macos/ochenta.app` (no icon, SDL2 or signature).
 
 ## Tests
 

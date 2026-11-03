@@ -166,6 +166,11 @@ function IsMSX2Model(M: TSpectrumModel): Boolean;
   tools that compare the original ROMs with the free ones }
 procedure UseOriginalMsxRoms;
 
+var
+  { A second ROM folder, looked in for a ROM file missing from the ROM folder: the user's own (the macOS app's
+    ~/Library/Application Support/ochenta/roms, as the app bundle's own roms can't be added to); '' = none }
+  UserRomDir: string = '';
+
 implementation
 
 const

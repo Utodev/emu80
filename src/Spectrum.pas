@@ -1206,14 +1206,21 @@ begin
 end;
 
 function TSpectrum.RomPath(Index: Integer): string;
+var
+  Dir: string;
 begin
+  Dir := IncludeTrailingPathDelimiter(FRomDir);
   Result := RomFile[FModel, Index and 3];
   if (Result = '') and (FInfo.RomFiles[Index and 3] = '') then
-    Result := ''                          // a ROM the model has no standard file for (the MSX's disk interface)
+    Exit('')                              // a ROM the model has no standard file for (the MSX's disk interface)
   else if Result = '' then
-    Result := IncludeTrailingPathDelimiter(FRomDir) + FInfo.RomFiles[Index and 3]
+    Result := Dir + FInfo.RomFiles[Index and 3]
   else if not ((Result[1] in ['/', '\']) or ((Length(Result) > 1) and (Result[2] = ':'))) then
-    Result := IncludeTrailingPathDelimiter(FRomDir) + Result;
+    Result := Dir + Result;
+  // Missing from the ROM folder: the user's own ROM folder (the macOS app's) if it has it
+  if (UserRomDir <> '') and not FileExists(Result) and (Copy(Result, 1, Length(Dir)) = Dir) and
+    FileExists(IncludeTrailingPathDelimiter(UserRomDir) + Copy(Result, Length(Dir) + 1, MaxInt)) then
+    Result := IncludeTrailingPathDelimiter(UserRomDir) + Copy(Result, Length(Dir) + 1, MaxInt);
 end;
 
 procedure TSpectrum.SetModel(AModel: TSpectrumModel);

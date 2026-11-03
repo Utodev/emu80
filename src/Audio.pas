@@ -77,6 +77,11 @@ function LoadSDL: Boolean;
 var
   Name: string;
 begin
+  {$IFDEF DARWIN}
+  // The one inside the app bundle (Contents/Frameworks, put there by build-macos.sh) comes first
+  if SDLLib = NilHandle then
+    SDLLib := LoadLibrary(ExtractFilePath(ParamStr(0)) + '../Frameworks/libSDL2-2.0.0.dylib');
+  {$ENDIF}
   if SDLLib = NilHandle then
     for Name in SDLLibraries do
     begin

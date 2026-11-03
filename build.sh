@@ -11,6 +11,11 @@
 set -e
 cd "$(dirname "$0")"
 
+# On macOS with Lazarus installed, build-macos.sh makes the complete ochenta.app (its options: --help)
+if [ "$(uname -s)" = Darwin ] && [ -z "$LAZARUS_DIR" ]; then
+  exec sh ./build-macos.sh "$@"
+fi
+
 case "$(uname -s)" in
   Darwin) OS=macos; WS=cocoa ;;
   *)      OS=linux; WS=gtk2 ;;
