@@ -33,6 +33,9 @@ type
     procedure Write(Addr: Word; Value: Byte); virtual; abstract;
   end;
 
+  { A read without side effects (for looking ahead) }
+  TCpuPeek = function(Addr: Word): Byte of object;
+
   TAddrMode = (amImp, amAcc, amImm, amZp, amZpx, amZpy, amAbs, amAbx, amAby, amInd, amIzx, amIzy, amRel);
 
   T6502Regs = record
@@ -71,6 +74,9 @@ type
     procedure StateIO(S: TStream; Save: Boolean);
     { Run one instruction, or take an interrupt }
     procedure Step;
+    { The cycles the next Step will take (an interrupt's 7, a page crossed, a branch taken), read through Peek; the
+      1541 runs an instruction only once the computer's clock has reached its last cycle }
+    function NextCycles(Peek: TCpuPeek): Integer;
     function GetRegs: T6502Regs;
     procedure SetRegs(const R: T6502Regs);
     property Bus: T6502Bus read FBus write FBus;
@@ -384,6 +390,69 @@ begin
   if Brk then Push(P or P_B or P_U) else Push((P or P_U) and not P_B);
   P := P or P_I;
   PC := FBus.Read(Vector) or (FBus.Read(Vector + 1) shl 8);
+end;
+
+const
+  { The cycles of each opcode, without a page crossed or a branch taken (the stores and the read-modify-write
+    instructions always take their indexed modes' extra cycle) }
+  OP_CYCLES: array[0..255] of Byte = (
+    7, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 4, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+    6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 4, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+    6, 6, 2, 8, 3, 3, 5, 5, 3, 2, 2, 2, 3, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+    6, 6, 2, 8, 3, 3, 5, 5, 4, 2, 2, 2, 5, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+    2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,  2, 6, 2, 6, 4, 4, 4, 4, 2, 5, 2, 5, 5, 5, 5, 5,
+    2, 6, 2, 6, 3, 3, 3, 3, 2, 2, 2, 2, 4, 4, 4, 4,  2, 5, 2, 5, 4, 4, 4, 4, 2, 4, 2, 4, 4, 4, 4, 4,
+    2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7,
+    2, 6, 2, 8, 3, 3, 5, 5, 2, 2, 2, 2, 4, 4, 6, 6,  2, 5, 2, 8, 4, 4, 6, 6, 2, 4, 2, 7, 4, 4, 7, 7);
+
+function T6510.NextCycles(Peek: TCpuPeek): Integer;
+var
+  Op: Byte;
+  Base: Word;
+  T: Byte;
+  Taken: Boolean;
+begin
+  if Jammed then Exit(1);
+  if NMIEdge or (IRQ and ((P and P_I) = 0)) then Exit(7);
+  Op := Peek(PC);
+  Result := OP_CYCLES[Op];
+  case OpMode[Op] of
+    amAbx, amAby:
+      // (a page crossed costs a cycle only to the instructions that just read)
+      if Result = 4 then
+      begin
+        Base := Peek(Word(PC + 1)) or (Peek(Word(PC + 2)) shl 8);
+        if OpMode[Op] = amAbx then T := X else T := Y;
+        if ((Base + T) xor Base) and $FF00 <> 0 then Inc(Result);
+      end;
+    amIzy:
+      if Result = 5 then
+      begin
+        T := Peek(Word(PC + 1));
+        Base := Peek(T) or (Peek(Byte(T + 1)) shl 8);
+        if ((Base + Y) xor Base) and $FF00 <> 0 then Inc(Result);
+      end;
+    amRel:
+      begin
+        case Op of
+          $10: Taken := (P and P_N) = 0;
+          $30: Taken := (P and P_N) <> 0;
+          $50: Taken := (P and P_V) = 0;
+          $70: Taken := (P and P_V) <> 0;
+          $90: Taken := (P and P_C) = 0;
+          $B0: Taken := (P and P_C) <> 0;
+          $D0: Taken := (P and P_Z) = 0;
+        else
+          Taken := (P and P_Z) <> 0;
+        end;
+        if Taken then
+        begin
+          Inc(Result);
+          Base := Word(PC + 2);
+          if (Word(Base + ShortInt(Peek(Word(PC + 1)))) xor Base) and $FF00 <> 0 then Inc(Result);
+        end;
+      end;
+  end;
 end;
 
 procedure T6510.Step;

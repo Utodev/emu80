@@ -128,6 +128,11 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/stepbacktest.lpr" > 
   cat "$BUILD/fpc.log"; exit 1; }
 "$BUILD/stepbacktest" "$ROOT/roms"
 
+# RunAhead on the Z80 machines: the machine and its sound the same as without it, the picture that of 2 frames later
+fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/runaheadtest.lpr" > "$BUILD/fpc.log" || {
+  cat "$BUILD/fpc.log"; exit 1; }
+"$BUILD/runaheadtest" "$ROOT/roms" "$ROOT/specnext"
+
 # Disassembly exported as sjasmplus source
 fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/asmexporttest.lpr" > "$BUILD/fpc.log" || {
   cat "$BUILD/fpc.log"; exit 1; }
@@ -262,7 +267,7 @@ fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64cputest.lpr" > "$
 # ... and the whole machine on the real ROMs, which are the user's (roms/c64: Kernal.rom, Basic.rom, Char.rom, VC1541.rom)
 if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ -f "$ROOT/roms/c64/Char.rom" ] &&
    [ -f "$ROOT/roms/c64/VC1541.rom" ]; then
-  for T in c64spec c64sound c64tape c64save c64back; do
+  for T in c64spec c64sound c64tape c64save c64back c64ahead; do
     fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/$T.lpr" > "$BUILD/fpc.log" || {
       cat "$BUILD/fpc.log"; exit 1; }
   done
@@ -277,6 +282,8 @@ if [ -f "$ROOT/roms/c64/Kernal.rom" ] && [ -f "$ROOT/roms/c64/Basic.rom" ] && [ 
   echo "ok    the 1541 saves a program to a .d64, loads it back, and a second drive answers"
   "$BUILD/c64back" "$ROOT/roms" > "$BUILD/c64back.out" || { cat "$BUILD/c64back.out"; echo "FAIL  the C64's step back"; exit 1; }
   echo "ok    the C64's step back puts the whole machine back (the 1541 too): it runs on the same again"
+  "$BUILD/c64ahead" "$ROOT/roms" > "$BUILD/c64ahead.out" || { cat "$BUILD/c64ahead.out"; echo "FAIL  the C64's RunAhead"; exit 1; }
+  echo "ok    the C64's RunAhead shows the picture of frames later and leaves the machine and its sound as without it"
   # The Adventure Debugger on a DAAD game for the C64 (a .d64 of the user's, named in C64_DAAD_D64)
   if [ -n "$C64_DAAD_D64" ] && [ -f "$C64_DAAD_D64" ]; then
     fpc -O2 -Fu"$ROOT/src" -FU"$BUILD" -FE"$BUILD" "$ROOT/tests/c64daad.lpr" > "$BUILD/fpc.log" || {

@@ -128,6 +128,8 @@ type
     { An access to address 0038 }
     procedure Toggle;
     function ReadRom(Addr: Word): Byte;
+    { The speech chip (for RunAhead, which keeps its state) }
+    property Chip: TSP0256 read FChip;
     { Writes to 1000 (allophone), 3000 and 3001 (intonation) at T }
     procedure Write(Addr: Word; Value: Byte; T: Integer);
     { Reading 1000 with the ROM paged in: bit 0 set while busy }

@@ -25,11 +25,22 @@ type
     FDrives: array of TC64Drive;
   public
     ComputerAtn, ComputerClk, ComputerData: Boolean;    // held low by the computer
+    { The computer's cycle being run (the drives run in it, before the computer's access), and the cycle its CLK and
+      DATA last changed in, with what they were before (they go in its StateIO) }
+    Now, ClkChanged, DataChanged: Int64;
+    ClkBefore, DataBefore: Boolean;
     procedure AddDrive(D: TC64Drive);
     procedure Clear;
+    { The computer changes its lines (UpdateIec): the time of each change is kept }
+    procedure SetComputerLines(Atn, Clk, Data: Boolean);
+    { The lines as they are now (as the computer sees them, and the debugger) }
     function AtnLow: Boolean;
     function ClkLow: Boolean;
     function DataLow: Boolean;
+    { The lines as a drive sees them in a cycle of its own that ended Lag of the computer's cycles before the end of
+      the current one: what the computer did then may not have got there yet }
+    function ClkLowAt(Lag: Double): Boolean;
+    function DataLowAt(Lag: Double): Boolean;
     { The computer changed the lines: the drives see ATN }
     procedure Changed;
   end;
@@ -46,6 +57,7 @@ type
     FDisk: TD64Image;
     FCredit: Integer;           // drive cycles to run
     FAcc: Int64;
+    FClockHz: Integer;          // the computer's clock (Run)
     FHalfTrack: Integer;        // 0 = track 1
     FPhase: Integer;
     FMotor, FLed: Boolean;
@@ -129,6 +141,63 @@ begin
   SetLength(FDrives, 0);
 end;
 
+procedure TIecBus.SetComputerLines(Atn, Clk, Data: Boolean);
+begin
+  // (the access that changes them is in the cycle after the one the drives ran in)
+  if Clk <> ComputerClk then
+  begin
+    ClkBefore := ComputerClk;
+    ClkChanged := Now;
+  end;
+  if Data <> ComputerData then
+  begin
+    DataBefore := ComputerData;
+    DataChanged := Now;
+  end;
+  ComputerAtn := Atn;
+  ComputerClk := Clk;
+  ComputerData := Data;
+end;
+
+const
+  { A line the computer lets go is seen high by the drives about a microsecond later (in the computer's cycles): it
+    rises through the pull-up resistors and the cable's capacitance (pulled low, it falls at once). The fast loaders
+    that send their bits on a timer after a release, with no handshake (Onslaught's in Soul Crystal), are tuned to it }
+  IEC_RISE = 0.985;
+
+{ Whether a change of the computer's line in cycle Changed has reached a drive's cycle Lag before the end of cycle Now:
+  the computer's write is at the end of its cycle, and a rise takes IEC_RISE more }
+function Reached(Changed, Now: Int64; Lag: Double; Rise: Boolean): Boolean; inline;
+var
+  D: Double;
+begin
+  D := (Now - Changed) - Lag;
+  if Rise then D := D - IEC_RISE;
+  Result := D >= 0;
+end;
+
+function TIecBus.ClkLowAt(Lag: Double): Boolean;
+var
+  I: Integer;
+begin
+  Result := ComputerClk;
+  if (Now - ClkChanged >= 0) and (Now - ClkChanged < 16) and not Reached(ClkChanged, Now, Lag, not ComputerClk) then Result := ClkBefore;
+  if Result then Exit;
+  for I := 0 to High(FDrives) do
+    if FDrives[I].ClkLow then Exit(True);
+end;
+
+function TIecBus.DataLowAt(Lag: Double): Boolean;
+var
+  I: Integer;
+begin
+  Result := ComputerData;
+  if (Now - DataChanged >= 0) and (Now - DataChanged < 16) and not Reached(DataChanged, Now, Lag, not ComputerData) then Result := DataBefore;
+  if Result then Exit;
+  for I := 0 to High(FDrives) do
+    if FDrives[I].DataLow then Exit(True);
+end;
+
 function TIecBus.AtnLow: Boolean;
 begin
   Result := ComputerAtn;
@@ -165,6 +234,7 @@ constructor TC64Drive.Create(AIec: TIecBus; ADevice: Integer);
 begin
   inherited Create;
   FIec := AIec;
+  FClockHz := 985248;
   FDevice := ADevice;
   FCpu := T6510.Create(Self);
   FVia1 := TVia.Create;
@@ -266,10 +336,14 @@ begin
 end;
 
 function TC64Drive.V1ReadB: Byte;
+var
+  Lag: Double;
 begin
   Result := $1A;     // the inputs: bits 0, 2, 7 are the lines (set when low); 5 and 6 the device
-  if FIec.DataLow then Result := Result or 1;
-  if FIec.ClkLow then Result := Result or 4;
+  // This cycle ended FCredit (taken already) and a fraction of the drive's cycles before the end of the computer's
+  Lag := (Int64(FCredit) * FClockHz + FAcc) / DRIVE_CLOCK;
+  if FIec.DataLowAt(Lag) then Result := Result or 1;
+  if FIec.ClkLowAt(Lag) then Result := Result or 4;
   if FIec.AtnLow then Result := Result or $80;
   Result := Result or ((FDevice - 8) and 3) shl 5;
 end;
@@ -447,10 +521,15 @@ end;
 procedure TC64Drive.Run(ComputerCycles: Integer; ClockHz: Integer);
 begin
   if not FRomLoaded then Exit;
+  FClockHz := ClockHz;
   FAcc := FAcc + Int64(ComputerCycles) * DRIVE_CLOCK;
   Inc(FCredit, FAcc div ClockHz);
   FAcc := FAcc mod ClockHz;
-  while FCredit > 0 do FCpu.Step;
+  // An instruction runs once the computer's clock has reached its last cycle (FCredit counts the drive's cycles up to
+  // now): its reads see the serial bus as it is then, and its writes are not seen early. Run as soon as it began, the
+  // drive was up to six cycles ahead, and the fast loaders that time their bits to a cycle (no handshake) got
+  // wrong bytes
+  while FCredit >= FCpu.NextCycles(@Peek) do FCpu.Step;
 end;
 
 procedure TC64Drive.InsertDisk(Disk: TD64Image);

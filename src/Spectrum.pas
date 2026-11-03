@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine, C64, FloppySound;
+  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine, C64, FloppySound, RunAhead;
 
 const
   SCREEN_WIDTH = 352;
@@ -409,6 +409,10 @@ type
     FCPCArmed: Boolean;                     // the user pressed Play: the tape runs while the motor is on
     FCPCOffPending: Boolean;                // the program has switched the motor off, not for long enough to stop the tape yet
     FCPCOffT: Integer;                      // ... since this T-state of the frame
+    { RunAhead (RunAhead.pas): the frames run ahead after each one (0 = off), and the machine kept meanwhile with
+      the picture of the last (the C64 has its own: TC64.RunAhead) }
+    FRunAheadFrames: Integer;
+    FAhead: TRunAhead;
     procedure SetupCPC;
     procedure CPCAutoType(Frames: Integer; const Keys: array of Integer);
     function CPCTypeText(const Text: string; out Error: string): Boolean;
@@ -435,6 +439,9 @@ type
     procedure SetupC64;
     procedure C64Reset(Hard: Boolean);
     function RunFrameC64: Boolean;
+    procedure SetRunAhead(Value: Integer);
+    function AheadAllowed: Boolean;
+    procedure RunAheadFrames;
     procedure StepInstructionC64;
     procedure FinishFrameC64;
     function C64TapeText: string;
@@ -686,6 +693,14 @@ type
       False if a breakpoint stopped it first; calling it again continues the
       same frame. }
     function RunFrame: Boolean;
+    { RunAhead, for every machine (0 to 3 frames, 0 = off): after each frame the machine runs that many more with the
+      same input, the picture of the last one is the one shown and the machine is put back exactly as it was (see
+      RunAhead.pas), so the games answer the input that many frames sooner. The sound is the real frame's. It stands
+      aside while a tape plays or records, a disk drive or the SD card works, the auto load types, and with the
+      Adventure Debugger on }
+    property RunAhead: Integer read FRunAheadFrames write SetRunAhead;
+    { The picture shown is one run ahead }
+    function AheadShown: Boolean;
     { Debugger: execute exactly one instruction (or accept an interrupt). }
     procedure StepInstruction;
     { Debugger: ignore an execution breakpoint at the current PC once, so
@@ -1126,6 +1141,7 @@ begin
   FSnowOn := True;
   FloppyNoise := True;
   FFloppySound := TFloppySound.Create(fkSpectrum);
+  FAhead := TRunAhead.Create;
   ConditionPeek := @Peek;    // @x in breakpoint conditions
   SetModel(AModel);
 end;
@@ -1135,6 +1151,7 @@ begin
   ClearBreakpoints;
   FRecorder.Free;
   FFloppySound.Free;
+  FAhead.Free;
   FDiv.Free;
   FCurrah.Free;
   FProbeCpu.Free;
@@ -3668,6 +3685,12 @@ begin
     FC64.CopyFrame(Dest);
     Exit;
   end;
+  // With RunAhead, the picture of the last frame run ahead
+  if FAhead.Valid then
+  begin
+    Move(FAhead.Picture[0], Dest^, FB_WIDTH * SCREEN_HEIGHT * SizeOf(LongWord));
+    Exit;
+  end;
   if FIsCPC then
   begin
     FCPC.CopyFrame(Dest);
@@ -5018,6 +5041,8 @@ begin
   if FIsC64 then Exit(RunFrameC64);
   FBreakHit := False;
   FBreakKind := bkNone;
+  // (a breakpoint in this frame shows its picture as it is, not one run ahead)
+  FAhead.Valid := False;
   while FCpu.T < FrameLength do
   begin
     PC := FCpu.PC.W;
@@ -5067,6 +5092,82 @@ begin
   end;
   FinishFrame;
   Result := True;
+  if AheadAllowed then RunAheadFrames;
+end;
+
+procedure TSpectrum.SetRunAhead(Value: Integer);
+begin
+  if Value < 0 then Value := 0;
+  if Value > 3 then Value := 3;
+  FRunAheadFrames := Value;
+  if FC64 <> nil then FC64.RunAhead := Value;
+  if Value = 0 then FAhead.Valid := False;
+end;
+
+function TSpectrum.AheadShown: Boolean;
+begin
+  if FIsC64 then Result := FC64.AheadShown else Result := FAhead.Valid;
+end;
+
+{ RunAhead can be used now: not while what the machine does goes out of it (a tape played or recorded, a disk drive
+  or the SD card at work: what they write goes into the files, and a load wants no help), while the auto load types
+  or waits for its moment, with the Adventure Debugger on, or with a reset on its way }
+function TSpectrum.AheadAllowed: Boolean;
+begin
+  Result := (FRunAheadFrames > 0) and not FTape.Playing and not FRecorder.Active and (FFDC.Activity = 0) and
+    (FWD.Activity = 0) and not FDaadOn and (FAutoKeyPos >= Length(FAutoKeys)) and (FUnoAutoLoad < 0) and
+    (FNextResetReq = 0) and
+    (not FIsSAM or ((FSamPlayFrame < 0) and (FSamSwapDisk = nil))) and
+    (not FIsMSX or (not FMsxDatePending and (FMsxEnterFrom < 0)));
+  if Result and (FDiv.Card <> nil) and (FDiv.Card.LastAccess <> 0) then
+    Result := GetTickCount64 - FDiv.Card.LastAccess > 1000;
+end;
+
+{ The frames run ahead: the machine kept (every object it is made of), the frames run with no breakpoints (what they
+  would stop at is forgotten with the rest), the picture of the last kept, and the machine put back }
+procedure TSpectrum.RunAheadFrames;
+var
+  L: TFPList;
+  I: Integer;
+
+  procedure Add(O: TObject);
+  begin
+    if (O <> nil) and (L.IndexOf(O) < 0) then L.Add(O);
+  end;
+
+begin
+  L := FAhead.Objects;
+  L.Clear;
+  Add(Self);
+  Add(FCpu);
+  Add(FAY);
+  Add(FAY2);
+  Add(FAY3);
+  Add(FTape);
+  Add(FFDC);
+  Add(FWD);
+  Add(FDiv);
+  Add(FDiv.Card);
+  Add(FCurrah);
+  Add(FCurrah.Chip);
+  Add(FFloppySound);
+  Add(FSam);
+  Add(FSaa);
+  if FIsCPC then Add(FCPC);
+  if FIsMSX then FMsxHw.AddStateObjects(L);
+  FAhead.Save;
+  try
+    for I := 1 to FRunAheadFrames do
+    begin
+      while FCpu.T < FrameLength do ExecuteOne;
+      FinishFrame;
+    end;
+    SetLength(FAhead.Picture, FB_WIDTH * SCREEN_HEIGHT);
+    CopyFrameBuffer(@FAhead.Picture[0]);
+  finally
+    FAhead.Restore;
+  end;
+  FAhead.Valid := True;
 end;
 
 procedure TSpectrum.StepInstruction;
@@ -5076,6 +5177,7 @@ begin
     StepInstructionC64;
     Exit;
   end;
+  FAhead.Valid := False;
   FBreakHit := False;
   FBreakKind := bkNone;
   FSkipBreakOnce := False;

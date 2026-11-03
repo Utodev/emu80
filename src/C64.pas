@@ -158,9 +158,17 @@ type
     FLastMedia: string;
     FDaadOn: Boolean;
     FDaadMap: array[0..65535] of Byte;
+    // RunAhead: frames run ahead after each one (0: off), the machine kept meanwhile, and the picture of the last
+    FRunAhead: Integer;
+    FAheadState: TMemoryStream;
+    FAheadFrame: array[0..VIC_WIDTH * VIC_HEIGHT - 1] of LongWord;
+    FAheadValid: Boolean;
     FOnDaadRead: TC64Read;
     procedure Clock; inline;
     procedure UpdateBank;
+    function AheadAllowed: Boolean;
+    procedure RunAheadFrames;
+    procedure SetRunAhead(Value: Integer);
     function IoRead(Addr: Word): Byte;
     procedure IoWrite(Addr: Word; Value: Byte);
     function ReadMem(Addr: Word): Byte;
@@ -281,6 +289,13 @@ type
     { Told of every read of an address the map flags }
     property OnDaadRead: TC64Read read FOnDaadRead write FOnDaadRead;
     property FrameCycle: Integer read FFrameCycle;
+    { RunAhead (0 to 3 frames, 0 = off): after each frame the machine runs that many more with the same input, the
+      picture shown is the last one's and the machine is put back as it was. The games answer the joystick and the
+      keys that many frames earlier (most take one or two to show what was pressed). The sound is the real frame's.
+      It stands aside while a drive's motor turns, the tape plays or text is being typed }
+    property RunAhead: Integer read FRunAhead write SetRunAhead;
+    { The picture shown is one run ahead }
+    property AheadShown: Boolean read FAheadValid;
     { The accesses to the chips and the 6510's port, newest first (Index 0) }
     function IoLogCount: Integer;
     function IoLog(Index: Integer): TC64IoAccess;
@@ -498,6 +513,7 @@ begin
   FTape := TC64Tape.Create;
   FTempBreak := -1;
   SetLength(FSamples, 2 * 2048);
+  FAheadState := TMemoryStream.Create;
 end;
 
 destructor TC64.Destroy;
@@ -511,6 +527,7 @@ begin
   FIec.Free;
   FSid.Free;
   FFloppySound.Free;
+  FAheadState.Free;
   FCia1.Free;
   FCia2.Free;
   FVic.Free;
@@ -611,6 +628,8 @@ begin
   FIec.ComputerClk := True;
   FIec.ComputerData := True;
   UpdateIec;
+  FIec.ClkChanged := -1000;
+  FIec.DataChanged := -1000;
   // The drives are not reset by the computer's reset button, only when the power goes off and on
   for I := 0 to 1 do
   begin
@@ -628,6 +647,7 @@ begin
   FIdleFrames := 0;
   FSampleAcc := 0;
   FResetFrame := FFrames;
+  FAheadValid := False;
   FCpu.Reset;
 end;
 
@@ -666,6 +686,7 @@ begin
       FCia1.SetFlagPin(False);
       FCia1.SetFlagPin(True);
     end;
+  FIec.Now := FTotalCycles;
   if FDriveOn[0] then FDrive[0].Run(1, C64_CLOCK);
   if FDriveOn[1] then FDrive[1].Run(1, C64_CLOCK);
   if FDriveNoise then NoteSteps;
@@ -725,9 +746,7 @@ var
 begin
   Pins := FCia2.PortAPins;
   // The outputs go through inverters: a set bit holds the line low
-  FIec.ComputerAtn := (Pins and 8) <> 0;
-  FIec.ComputerClk := (Pins and $10) <> 0;
-  FIec.ComputerData := (Pins and $20) <> 0;
+  FIec.SetComputerLines((Pins and 8) <> 0, (Pins and $10) <> 0, (Pins and $20) <> 0);
   FIec.Changed;
 end;
 
@@ -965,8 +984,8 @@ var
   Src: PLongWord;
   P: PLongWord;
 begin
-  // (twice as wide: every pixel twice)
-  Src := @FVic.Frame[0];
+  // (twice as wide: every pixel twice; with RunAhead, the picture of the last frame run ahead)
+  if FAheadValid then Src := @FAheadFrame[0] else Src := @FVic.Frame[0];
   P := Dest;
   for Y := 0 to VIC_HEIGHT - 1 do
     for X := 0 to VIC_WIDTH - 1 do
@@ -1096,6 +1115,8 @@ var
 begin
   FBreakHit := False;
   FBreakKind := cbkNone;
+  // (a breakpoint in this frame shows its picture as it is, not one run ahead)
+  FAheadValid := False;
   while not FVic.FrameReady do
   begin
     PC := FCpu.PC;
@@ -1124,6 +1145,61 @@ begin
   FVic.FrameReady := False;
   FinishFrame;
   Result := True;
+  if AheadAllowed then RunAheadFrames else FAheadValid := False;
+end;
+
+procedure TC64.SetRunAhead(Value: Integer);
+begin
+  if Value < 0 then Value := 0;
+  if Value > 3 then Value := 3;
+  FRunAhead := Value;
+end;
+
+{ RunAhead can be used now: not while a disk drive works (what it writes goes into the disk image, which is not
+  part of the machine's state), the tape plays or the auto load types }
+function TC64.AheadAllowed: Boolean;
+begin
+  Result := (FRunAhead > 0) and not DriveBusy and not (FTapeMotor and GetTapePressed) and (FTypeQueue = '') and
+    (FAutoStage = 0);
+end;
+
+{ The frames run ahead: no breakpoints, no Adventure Debugger, no sound and no drive noise (the sound heard is the
+  real frame's, already made), and nothing of the frame's housekeeping (typing, auto load, saving disks). Then the
+  picture is kept and the machine put back }
+procedure TC64.RunAheadFrames;
+var
+  I, IdleHits: Integer;
+  Daad, Suppress, Noise: Boolean;
+begin
+  FAheadState.Clear;
+  StateIO(FAheadState, True);
+  Daad := FDaadOn;
+  Suppress := FSuppress;
+  Noise := FDriveNoise;
+  IdleHits := FIdleHits;
+  FDaadOn := False;
+  FSuppress := True;
+  FDriveNoise := False;
+  try
+    for I := 1 to FRunAhead do
+    begin
+      while not FVic.FrameReady do FCpu.Step;
+      FVic.FrameReady := False;
+      FSid.EndFrame(C64_FRAME_CYCLES);
+      Dec(FFrameCycle, C64_FRAME_CYCLES);
+      if FFrameCycle < 0 then FFrameCycle := 0;
+    end;
+    Move(FVic.Frame[0], FAheadFrame[0], SizeOf(FAheadFrame));
+    FAheadValid := True;
+  finally
+    FAheadState.Position := 0;
+    StateIO(FAheadState, False);
+    FDaadOn := Daad;
+    FSuppress := Suppress;
+    FDriveNoise := Noise;
+    FIdleHits := IdleHits;
+    FBreakHit := False;
+  end;
 end;
 
 procedure TC64.StepInstruction;
@@ -1131,6 +1207,7 @@ begin
   FBreakHit := False;
   FBreakKind := cbkNone;
   FSkipBreakOnce := False;
+  FAheadValid := False;
   Inc(FInstrCount);
   FCpu.Step;
   if FVic.FrameReady then
@@ -1533,6 +1610,10 @@ begin
   StateBlock(S, Save, FIec.ComputerAtn, SizeOf(Boolean));
   StateBlock(S, Save, FIec.ComputerClk, SizeOf(Boolean));
   StateBlock(S, Save, FIec.ComputerData, SizeOf(Boolean));
+  StateBlock(S, Save, FIec.ClkChanged, SizeOf(Int64));
+  StateBlock(S, Save, FIec.DataChanged, SizeOf(Int64));
+  StateBlock(S, Save, FIec.ClkBefore, SizeOf(Boolean));
+  StateBlock(S, Save, FIec.DataBefore, SizeOf(Boolean));
   FCpu.StateIO(S, Save);
   FVic.StateIO(S, Save);
   FCia1.StateIO(S, Save);

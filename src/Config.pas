@@ -44,6 +44,8 @@ type
     FastDisk: Boolean;            // disk without real drive timing
     DriveB: Boolean;              // second drive connected to the +3
     FloppyNoise: Boolean;         // the drive's sound at real speed
+    { Common > Emulation: for every machine, present and future ([Emulation] in the ini file) }
+    RunAhead: Integer;            // frames run ahead to cut the input lag (0 = off, up to 3)
     SaveOnExit: Boolean;          // write the settings when ochenta closes
     ModernUI: Boolean;            // the modern interface (--ui modern), else the classic one
     Language: string;             // the interface's language: auto, en, es, fr, pt or de (--lang)
@@ -442,6 +444,7 @@ begin
   C64Drive9 := False;
   C64SaveDisk := True;
   C64TapeNoDrive := True;
+  RunAhead := 0;
   SamSaa := True;
   SamJoystick := True;
   SamAutoDos := True;
@@ -714,6 +717,8 @@ begin
   if (S = 'auto') or (S = 'on') or (S = 'off') then MsxMapper := S;
   I := Ini.ReadInteger(SEC_C64, 'c64_joyport', C64JoyPort);
   if (I >= 1) and (I <= 3) then C64JoyPort := I;
+  I := Ini.ReadInteger('Emulation', 'runahead', RunAhead);
+  if (I >= 0) and (I <= 3) then RunAhead := I;
   I := Ini.ReadInteger(SEC_SAM, 'sam_memory', SamMemory);
   if (I = 256) or (I = 512) then SamMemory := I;
   // The monitor; older files had "bw", an on/off for the black and white display
@@ -774,6 +779,7 @@ begin
   if CPCCrtc < 0 then Put(SEC_CPC, 'cpc_crtc', 'auto') else Put(SEC_CPC, 'cpc_crtc', IntToStr(CPCCrtc));
   Put(SEC_SAM, 'sam_memory', IntToStr(SamMemory));
   Put(SEC_C64, 'c64_joyport', IntToStr(C64JoyPort));
+  Put('Emulation', 'runahead', IntToStr(RunAhead));
   Put(SEC_MSX, 'msx_cartmapper', MsxCartMapper);
   Put(SEC_MSX, 'msx_mapper', MsxMapper);
   Put('General', 'monitor', MONITOR_KEYS[Monitor]);

@@ -1067,6 +1067,7 @@ begin
     if IsC64Model(FEmu.Spec.Model) then ApplyC64Settings
     else FEmu.Spec.DriveBOn := Settings.DriveB;
     FEmu.Spec.FloppyNoise := Settings.FloppyNoise;
+    FEmu.Spec.RunAhead := Settings.RunAhead;
     FEmu.Spec.Volume := Settings.Volume / 100;
     FEmu.Spec.TurboSound := Settings.TurboSound and (FEmu.Spec.CPC = nil);
     ApplyContention;
@@ -5114,7 +5115,7 @@ var
       (Name = 'zx_sdadd') or (Name = 'zx_sdfolder') or (Name = 'volume') or (Name = 'zx_issue') or
       (Name = 'romdir') or (Name = 'rom') or (Name = 'zx_divmmcrom') or
       (Name = 'zx_unofirmware') or (Name = 'zx_unoroms') or (Name = 'zx_unocustomrom') or
-      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'c64_joyport') or (Name = 'monitor') or
+      (Name = 'zx_nextdir') or (Name = 'zx_nextcard') or (Name = 'cpc_crtc') or (Name = 'sam_memory') or (Name = 'msx_cartmapper') or (Name = 'msx_mapper') or (Name = 'c64_joyport') or (Name = 'runahead') or (Name = 'monitor') or
       (Name = 'ui') or (Name = 'lang') or (Name = 'restart-snapshot') or (Name = 'breakpoints') or (Name = 'watches') or
       (Name = 'daadbreakpoints');
   end;
@@ -5451,6 +5452,11 @@ begin
       begin
         if (Value = '1') or (Value = '2') or (Value = '3') then Settings.C64JoyPort := StrToInt(Value)
         else Errors := Errors + 'Unknown --c64_joyport (1, 2 or 3 for both): ' + Value + LineEnding;
+      end
+      else if Arg = 'runahead' then
+      begin
+        if (Length(Value) = 1) and (Value[1] in ['0'..'3']) then Settings.RunAhead := StrToInt(Value)
+        else Errors := Errors + 'Unknown --runahead (0 to 3 frames, 0 = off): ' + Value + LineEnding;
       end
       else if Arg = 'sam_memory' then
       begin

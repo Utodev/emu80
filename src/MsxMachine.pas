@@ -145,6 +145,9 @@ type
     procedure SetJoystick(Port: Integer; Bits: Byte);
     property Slots: TMsxSlots read FSlots;
     property Vdp: TMsxVdp read FVdp;
+    { The objects with the machine's state (itself, the slots, the ports, the VDP, the mapper and every device in the
+      slots), added to L once each: for RunAhead, which keeps them all }
+    procedure AddStateObjects(L: TFPList);
     property OnPsg: TMsxPsgEvent read FOnPsg write FOnPsg;
     property OnClick: TMsxClickEvent read FOnClick write FOnClick;
     property OnTapeIn: TMsxTapeInEvent read FOnTapeIn write FOnTapeIn;
@@ -375,6 +378,30 @@ begin
     $0200..$022F: FVdp.SetReg(Code - $0200, Value);
     $0260..$026F: FVdp.SetPalEntry(Code - $0260, (Value shr 8) and 7, (Value shr 4) and 7, Value and 7);
   end;
+end;
+
+procedure TMsxMachine.AddStateObjects(L: TFPList);
+var
+  P, S: Integer;
+  D: TMsxDevice;
+
+  procedure Add(O: TObject);
+  begin
+    if (O <> nil) and (L.IndexOf(O) < 0) then L.Add(O);
+  end;
+
+begin
+  Add(Self);
+  Add(FSlots);
+  Add(FIO);
+  Add(FVdp);
+  Add(FMapper);
+  for P := 0 to 3 do
+    for S := 0 to 3 do
+    begin
+      D := FSlots.DeviceAtSlot(P, S);
+      Add(D);
+    end;
 end;
 
 procedure TMsxMachine.InstallDisk(const FileName: string; AWD: TWD1772; ATime: TMsxTimeFn);

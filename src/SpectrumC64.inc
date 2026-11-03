@@ -20,6 +20,7 @@ begin
     FC64 := Hw;
   end;
   FC64.OnDaadRead := @DaadRead;
+  FC64.RunAhead := FRunAheadFrames;
   FDiv.UseMemory(nil, nil);
   FDivOn := False;
   FCurrahOn := False;

@@ -598,6 +598,9 @@ begin
   Bmp := TBitmap.Create;
   try
     Bmp.SetSize(Size, Size);
+    // The icons are cut out by their background colour (AddMasked): edges smoothed into
+    // it (macOS antialiases every canvas by default) would leave a magenta fringe
+    Bmp.Canvas.AntialiasingMode := amOff;
     Painter.C := Bmp.Canvas;
     Painter.K := Size / 16;
     for Kind := Low(TIconKind) to High(TIconKind) do

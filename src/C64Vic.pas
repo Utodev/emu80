@@ -20,7 +20,8 @@ const
   VIC_WIDTH = 352;       // visible pixels: 320 + 16 of border at each side
   VIC_HEIGHT = 288;      // 200 + 44 of border above and below
   VIC_LINES = 312;
-  VIC_CROP = 16;         // lines at the top and at the bottom of the picture kept as plain border
+  VIC_CROP = 8;          // lines at the top and at the bottom of the picture kept as plain border (raster lines 15 to 286
+                         // are seen, as on a monitor: the sprites of a score in the opened lower border too)
   VIC_CYCLES = 63;
   { The raster line the first row of the frame buffer is, and the x coordinate (as sprites count) of its first column }
   VIC_FIRST_LINE = 7;
@@ -38,7 +39,7 @@ type
     FDisplayState, FBadLine, FDenSeen: Boolean;
     FMatrix: array[0..39] of Word;
     FMainBorder, FVertBorder: Boolean;
-    FPrevPix: array[0..7] of Byte;
+    FPrevPix, FPrevFg: array[0..7] of Byte;   // the last cycle's pixels, for the horizontal scroll
     FCurPix, FCurFg: array[0..7] of Byte;
     FSprMC, FSprMCBase: array[0..7] of Integer;
     FSprDma, FSprDisp, FSprYFlip: array[0..7] of Boolean;
@@ -132,6 +133,7 @@ begin
   FillChar(FReg, SizeOf(FReg), 0);
   FillChar(FMatrix, SizeOf(FMatrix), 0);
   FillChar(FPrevPix, SizeOf(FPrevPix), 0);
+  FillChar(FPrevFg, SizeOf(FPrevFg), 0);
   FRaster := 0;
   FCycle := VIC_CYCLES;
   FVC := 0; FVCBase := 0; FVMLI := 0; FRC := 7;
@@ -415,10 +417,15 @@ begin
     else
     begin
       OutPix[K] := FPrevPix[8 + K - XS];
-      OutFg[K] := 0;
+      OutFg[K] := FPrevFg[8 + K - XS];
     end;
-  for K := 0 to 7 do FPrevPix[K] := FCurPix[K];
-  // (the foreground of the pixels carried over is not kept: only a few pixels, at scrolled edges)
+  // (the pixels carried over keep whether they are foreground: with the screen scrolled, every character puts some
+  // in the next cycle, and the sprites behind the characters and the collisions need it)
+  for K := 0 to 7 do
+  begin
+    FPrevPix[K] := FCurPix[K];
+    FPrevFg[K] := FCurFg[K];
+  end;
   if (FReg[$16] and 8) <> 0 then begin Left := 24; Right := 344; end else begin Left := 31; Right := 335; end;
   if (FReg[$11] and 8) <> 0 then begin Top := 51; Bottom := 251; end else begin Top := 55; Bottom := 247; end;
   Den := (FReg[$11] and $10) <> 0;

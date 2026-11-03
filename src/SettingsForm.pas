@@ -44,7 +44,7 @@ type
     FSamMemory, FMsxMapper, FMsxRamMapper: TComboBox;
     FMsxJoystick, FMsxCompat: TCheckBox;
     FC64Joystick, FC64CursorJoy, FC64Drive9, FC64SaveDisk, FC64TapeNoDrive: TCheckBox;
-    FC64JoyPort: TComboBox;
+    FC64JoyPort, FRunAhead: TComboBox;
     FSamSaa, FSamJoystick, FSamAutoDos, FSamMouse, FSamClock: TCheckBox;
     FCPCWait: TCheckBox;
     FModel: TComboBox;
@@ -381,6 +381,25 @@ begin
   FVolume.Max := 100;
   FVolume.Frequency := 10;
   FSound := AddCheck(Group, _('Mute sound'), 8 + 40);
+
+  // Common: Emulation, how every machine is emulated (all of them, present and future: see CLAUDE.md)
+  Page := AddPage(FCommon, _('Emulation'));
+  Group := AddGroup(Page, _('Input lag'), 8, 64);
+  Y := 8;
+  AddLabel(Group, _('RunAhead:'), Y + 4);
+  FRunAhead := AddCombo(Group, Y, 120);
+  FRunAhead.Left := 170;
+  FRunAhead.Items.Add(_('Off'));
+  FRunAhead.Items.Add(_('1 frame'));
+  FRunAhead.Items.Add(_('2 frames'));
+  FRunAhead.Items.Add(_('3 frames'));
+  FRunAhead.Hint := _('Cuts the delay between the joystick or the keys and the picture, on every machine: after each ' +
+    'frame the machine runs that many more with the same input, shows the last one and goes back. Most games take one ' +
+    'or two frames to show what was pressed; more than that makes them skip. It stands aside while a tape plays or ' +
+    'records, a disk drive or the SD card works, or a program is being typed in');
+  FRunAhead.ShowHint := True;
+  AddNote(Page, _('RunAhead runs the machine up to four times each frame: on a slow computer, or with a fast CPU ' +
+    'speed, the emulation may not keep up.'), 84);
 
   // Common: tapes and disks
   Page := AddPage(FCommon, _('Storage'));
@@ -1169,6 +1188,7 @@ begin
   FC64Joystick.Checked := S.C64Joystick;
   FC64CursorJoy.Checked := S.C64CursorJoy;
   FC64JoyPort.ItemIndex := S.C64JoyPort - 1;
+  FRunAhead.ItemIndex := S.RunAhead;
   FC64Drive9.Checked := S.C64Drive9;
   FC64SaveDisk.Checked := S.C64SaveDisk;
   FC64TapeNoDrive.Checked := S.C64TapeNoDrive;
@@ -1270,6 +1290,7 @@ begin
   S.C64Joystick := FC64Joystick.Checked;
   S.C64CursorJoy := FC64CursorJoy.Checked;
   S.C64JoyPort := FC64JoyPort.ItemIndex + 1;
+  if FRunAhead.ItemIndex >= 0 then S.RunAhead := FRunAhead.ItemIndex;
   S.C64Drive9 := FC64Drive9.Checked;
   S.C64SaveDisk := FC64SaveDisk.Checked;
   S.C64TapeNoDrive := FC64TapeNoDrive.Checked;

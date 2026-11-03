@@ -18,6 +18,7 @@ also shown by Help > Documentation, F1).
 - [2. Keyboard](#2-keyboard)
 - [3. Menus and toolbar](#3-menus-and-toolbar)
 - [4. Settings](#4-settings)
+  - [RunAhead](#runahead)
   - [Language](#language)
   - [Interface](#interface)
   - [ZX-Uno](#zx-uno)
@@ -93,6 +94,7 @@ also shown by Help > Documentation, F1).
   four screen modes with its 128-colour palette, line and frame interrupts, the 72-key matrix, the WD1772 disk
   controller on MGT, SAD and DSK images, the SAA1099 sound chip in stereo, tapes in real time (and recording)
   and its Kempston joystick; its ROM is not included.
+- RunAhead on every machine (Settings > Common > Emulation): the input lag cut by 1 to 3 frames (see [RunAhead](#runahead)).
 - Joysticks on the cursor keys + Ctrl: Kempston, Sinclair Interface 2 (1 or
   2), Cursor/Protek or Fuller; Kempston mouse.
 - TAP and TZX (1.20) tapes with fast loading or real-time loading, auto-load on open.
@@ -423,6 +425,7 @@ Spectrum have tabs of their own inside, set apart under a band with the machine'
 | Tab | Contents |
 |---|---|
 | Common > General | four boxes. General: CPU speed (1x to 32x: the Z80 runs faster but interrupts stay at 50 per second, and contention and the CPC's wait states are not applied above 1x), allow writing to ROM (from the debugger and with POKE; off by default), whether the settings are saved when ochenta closes (on by default; when off, changes last only until ochenta is closed) and whether the mouse is attached to the window (the PC mouse stays over the picture while the emulated mouse is in use; Ctrl+Alt frees it; off by default, see [Mouse](#2-keyboard)) and the interface's language, a list to the right of "Allow writing to ROM" (see [Language](#language)). Layout: the theme (classic or modern, see [Interface](#interface)) and the zoom. Video: the monitor (colour, black and white, green phosphor or orange phosphor) and scanlines (from zoom 2x). Sound: volume and mute sound (the same as Options > Mute sound). The machine is chosen from the toolbar's menu, not here. |
+| Common > Emulation | how every machine is emulated (all of them: what is here applies to every machine ochenta has, and will have). Input lag: RunAhead, off (the default) or 1 to 3 frames (see [RunAhead](#runahead)). |
 | Common > Storage | Tape: fast loading, Smart Tape Player (starts and stops the tape by itself when the machine loads: Auto play/stop in the Tape menu) and continuous tape playback (from the start again at the end). Floppy: fast floppy disk access (no real drive timing), drive B: and floppy drive noise (on by default: the drive's motor, head steps and reading are heard when it works at real speed, not with fast floppy disk access; while the disk turns and no step has been heard for 3 seconds, the head moves now and then by itself, a step or a short seek at random). |
 | Common > ROMs | the folder with the standard ROMs and, for each model (the CPCs too), the ROM file to use for each of its ROMs (empty = the standard one); labels for a ROM are read from a .sym file with the same name next to it. |
 | ZX Spectrum > Hardware | what is connected to the machine: TurboSound, an AY chip on the 16K/48K, the Kempston mouse, the DivMMC interface and the Currah µSpeech (changing the DivMMC or the µSpeech switches the machine off and on), and whether SAVE writes to the tape. Hovering over one explains it. |
@@ -444,6 +447,7 @@ others. The options of the ZX Spectrum models start with `zx_` and those of the 
 |---|---|
 | `[General]` | `model`, `scale`, `ui` (`classic` or `modern`), `monitor` (`color`, `bw`, `green` or `orange`), `mute`, `volume`, `speed`, `lang` (`auto`, `en`, `es`, `fr`, `pt` or `de`), `saveonexit` |
 | `[Machine]` | `romedit`, `scanlines`, `attachmouse` |
+| `[Emulation]` | `runahead` (`0` to `3`, default `0`: off) |
 | `[TapeDisk]` | `fastload`, `autoplay`, `tapeloop`, `fastdisk`, `driveb`, `floppynoise` |
 | `[ROMs]` | `romdir`, `rom` (the `--rom "MODEL,N,FILE"` entries separated by `\|`) |
 | `[Screenshot]` | `pngborder` |
@@ -454,6 +458,22 @@ The recent files, pokes and last folder are kept in sections of their own. An oc
 older version is read and rewritten with these keys; the names the options had before they took
 `zx_` and `cpc_` (`turbosound`, `joystick`, `issue`, `nextdir`, `sdcard`, `cpcjoystick`...) are still understood, in the file and on the
 command line, and the file is written with the new ones.
+
+### RunAhead
+
+Most games show what the joystick or a key did one or two frames later: they read the input in one frame and draw
+what it did in the next. With Settings > Common > Emulation > *RunAhead* (`--runahead`, `[Emulation] runahead`; 1 to 3
+frames, off by default) ochenta runs, after every frame, that many more with the same input, without being heard, shows
+the picture of the last one and puts the machine back exactly as it was: the game answers that many frames sooner,
+while it runs exactly as it would without it. The sound is always the real frame's. It works on every machine (the
+ZX Spectrum models, the ZX-Uno, the Next, the Amstrad CPC, the SAM Coupé, the MSX and the Commodore 64).
+
+Each frame run ahead costs one more frame of emulation, so with 3 the machine runs four times each frame: on a slow
+computer, or with a high CPU speed, the emulation may not keep up. More frames than the game's own delay make it skip
+forward (the movement looks jerky); 1 suits most games. It stands aside, by itself, while a tape plays or records, while a
+disk drive or the SD card (DivMMC, ZX-Uno, Next) works (what they write goes into the files, which are not part of the
+machine's state), while text is being typed (auto load), with the Adventure Debugger on, and when a breakpoint stops the
+machine or the debugger steps (the debugger always shows the real frame; a breakpoint is never hit in a frame run ahead).
 
 ### Language
 
@@ -1111,18 +1131,22 @@ the primary slot alone and by writing a subslot register value that selects 3-2.
 Choose **Commodore 64** in the machine menu (or `--model c64`, or just `ochenta c64`, `ochenta c64 game.d64`). It is a PAL machine: the 6510 at
 985248 Hz, the VIC-II (the 6569: 312 lines of 63 cycles, 50.12 frames a second), two CIAs (6526), the SID (6581) and, on the serial bus, 1541 disk drives.
 Everything runs one cycle at a time: every access of the CPU advances the chips, the VIC-II stops it on the bad lines and for its sprites' DMA as
-the real chip does, and the 1541's own 6502 runs in step with it.
+the real chip does, and the 1541's own 6502 runs in step with it: each of its instructions runs once the computer's clock has reached the
+instruction's last cycle (so it sees the serial bus as it is then, and the computer does not see its writes early), and a line of the bus
+that the computer lets go is seen high by the drive about a microsecond later (it rises through the pull-up resistors and the cable). The fast loaders
+that send their bits on a timer, with no handshake (those of many cracks), are tuned to both, and get their bytes right.
 
 **ROMs.** They are the originals, which are not distributed: put `Kernal.rom` (8K), `Basic.rom` (8K), `Char.rom` (4K, the character generator) and, for the disk drives,
 `VC1541.rom` (16K, the 1541's DOS) in the `roms/c64` folder. Their names can be changed in Settings > Common > ROMs (choose the Commodore 64 there). Without the
 first three the machine does not start (ochenta says which are missing and stays as it was); without `VC1541.rom` it starts with no disk drive.
 
 **The picture** is the 320x200 screen with a border of 16 pixels at each side and 44 lines above and below (352x288; the real border is wider), every pixel
-twice as wide as in the VIC-II's own resolution. The VIC-II is drawn as the beam goes, cycle by cycle (eight pixels each), from the registers as they are at that cycle: the
+twice as wide as in the VIC-II's own resolution. The outer 8 of those lines, above and below, are always plain border: raster lines 15 to 286 are
+seen, as on a monitor, so the sprites a game puts in the opened lower border (its score) show whole. The VIC-II is drawn as the beam goes, cycle by cycle (eight pixels each), from the registers as they are at that cycle: the
 raster bars and splits, the scroll registers, FLD and FLI (bad lines made or avoided by writing `$D011`), the 38-column and 24-row modes and
 the tricks that open the side and top borders work. Standard and multicolour text, extended colour text and the standard and multicolour bitmaps are
 there (the invalid combinations show black), the eight sprites with their expansion, priority, multicolour and DMA (they steal cycles from the CPU; the border
-covers them, except where it is opened), the sprite-sprite and sprite-background collisions (detected under the border too), the raster interrupt, the 16K bank chosen by CIA 2 with the character ROM in banks 0 and 2, and the idle state that shows the
+covers them, except where it is opened; behind the characters they stay behind them with the screen scrolled sideways too), the sprite-sprite and sprite-background collisions (detected under the border too), the raster interrupt, the 16K bank chosen by CIA 2 with the character ROM in banks 0 and 2, and the idle state that shows the
 last byte of the bank (opened borders show it). Not emulated: the light pen and the exact timing of the VIC-II's unstable effects.
 
 **Sound.** The SID is clocked cycle by cycle: three voices with triangle, saw, pulse and noise waveforms (combined waveforms are their AND, heard a little
@@ -1139,6 +1163,9 @@ the tenths are read, the alarm, 50 or 60 Hz), the serial register (its output; t
 **Keyboard and joysticks.** See [Keyboard](#2-keyboard). The keypad is a joystick (8, 2, 4, 6, the diagonals 7, 9, 1, 3 and the fire on 0, 5 or the right Ctrl) in the
 control port Settings > Commodore 64 chooses (both ports by default, since some games, like Mikie, read port 1 and most read port 2; port 1 shares its lines with the keyboard, and a joystick there can type by
 itself, as on the real machine). With Settings > Commodore 64 > *Cursor keys and Ctrl as a joystick* (on by default) the cursor keys and either Ctrl are the joystick (the fire button is Ctrl) and are not the C64's own cursor keys and CTRL; **Scroll Lock** switches between the two while running (to type with the cursor keys or CTRL, or to play). As on the real machine, a key of the keyboard in the same lines as the joystick (the space bar, CTRL...) also reads as a joystick direction or fire button in a game that reads port 2. The C= key is the PC's Tab.
+
+**RunAhead** (Settings > Common > Emulation, see [RunAhead](#runahead)) works on the C64 too: it stands aside while a disk drive's motor
+turns, while a tape plays and while text is being typed (auto load).
 
 **Tapes (`.tap`).** File > Open, Tape > Insert tape & load, drag and drop or `--tape`. A `.tap` is the C64's own format (`C64-TAPE-RAW`, versions 0 and 1; a Spectrum `.tap` has
 no such header and is not one of these): its pulses are played into the CIA 1's FLAG line while the motor is on (bit 5 of the 6510's port) and PLAY is down, at the real speed, so
@@ -1240,7 +1267,7 @@ Conditions and watches use the debugger's expressions: hex numbers (`$C000`, or 
 **Tests**: `tests/c64cputest.lpr` (needs no ROMs: the 6510's flags, decimal mode, addressing modes and cycle counts (every documented opcode against the
 Programmer's Reference Guide's table), interrupts, undocumented opcodes, the CIA's time of day clock and timer outputs, the VIC-II's border over the
 sprites, the SID's voice 3 as read by the CPU, the `.d64` GCR coding and the debugger's expressions) and, when the four ROMs are in `roms/c64`,
-`c64spec`, `c64sound` (the SID plays a note at its pitch), `c64tape` (a program made by `tests/mkc64tap.py` loads from a `.tap`), `c64save` (SAVE and LOAD on a new `.d64`, and a second drive), `c64back` (the step back: the machine kept while the 1541 works, put back, runs on the same again) and, with `C64_DAAD_D64` set to a `.d64` of a DAAD game,
+`c64spec`, `c64sound` (the SID plays a note at its pitch), `c64tape` (a program made by `tests/mkc64tap.py` loads from a `.tap`), `c64save` (SAVE and LOAD on a new `.d64`, and a second drive), `c64back` (the step back: the machine kept while the 1541 works, put back, runs on the same again), `c64ahead` (RunAhead: the picture shown is that of 2 frames later, and the machine and its sound are the same as without it) and, with `C64_DAAD_D64` set to a `.d64` of a DAAD game,
 `c64daad` (the Adventure Debugger follows its condacts), all run by `run-tests.sh`. `tests/c64run.lpr <roms/c64> [frames] [d64 or tap] [commands]` boots the machine and prints its screen as text (`C64PPM=file.ppm` saves the picture).
 
 ### ochenta snapshots (.e80)
@@ -2104,6 +2131,7 @@ off as `--no-name` (`--no-fastload`...). In ochenta.ini each one is a key with t
 | `--driveb` | drive B: connected (default: no) | Common > Storage |
 | `--floppynoise` | emulate floppy drive noise | Common > Storage |
 | `--saveonexit` | save the settings when ochenta closes | Common > General |
+| `--runahead N` | RunAhead on every machine: `0` (off, the default) to `3` frames run ahead to cut the input lag (see [RunAhead](#runahead)) | Common > Emulation |
 | `--pngborder` | include the border in PNG screenshots | File menu |
 | `--romdir DIR` | the standard ROM folder | Common > ROMs |
 | `--rom "MODEL,N,FILE"` | ROM N of a model (0 to 3, as many as the model has), e.g. `--rom "48k,0,C:\roms\mine.rom"` or `--rom "sam,0,C:\roms\samco_v3.0.rom"`; an empty FILE goes back to the standard ROM | Common > ROMs |
@@ -2231,6 +2259,11 @@ collection of games), and `tests/CPC-MANUAL-TESTS.md` lists what was tried by ha
 
 `tests/samtest.lpr` (run by `run-tests.sh`; see [SAM Coupé](#sam-coupé)) tests the SAM Coupé's ASIC, WD1772, SAA1099, disk formats and snapshots, and with the real ROM (set `SAM_TEST_DIR` to a folder
 with `samcoupe.rom`, `SAMDOSVersion2.0.dsk` and `DAAD.MGT`) boots it, saves to tape and loads back, boots SAMDOS and reads a DAAD game. `tests/samrun.lpr` and `tests/sambatch.lpr` try the machine, a disk or a folder of them without the GUI.
+
+`tests/runaheadtest.lpr` (run by `run-tests.sh`) tries RunAhead on the 48K, 128K, +3, ZX-Uno, Next (with `specnext/`), CPC 464 and
+6128, SAM Coupé and MSX2: two machines run the same program (a counter, the border and the sound chip each frame), one
+with RunAhead and one without; the machine and its sound must be the same in both, frame after frame, and the picture
+shown the one the other shows 2 frames later. A machine whose ROMs are missing is skipped.
 
 `tests/machinetest.lpr` runs any model headless, optionally loading a file
 and typing keys, and writes the screen as a PPM image plus the recognised

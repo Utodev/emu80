@@ -1,6 +1,7 @@
 { c64cputest: the 6510 core (flags, decimal mode, addressing modes and their cycle counts, those of every documented
   opcode as the Commodore 64 Programmer's Reference Guide gives them, interrupts, the undocumented opcodes) on a bare 64K
-  of RAM, the CIA's time of day clock and timer outputs, the VIC-II's border over the sprites, the SID's voice 3 as the
+  of RAM, the cycles foreseen for the next instruction (NextCycles, which the 1541 runs by), the CIA's time of day clock
+  and timer outputs, the VIC-II's border over the sprites and the sprites behind scrolled characters, the SID's voice 3 as the
   CPU reads it, the GCR coding of the .d64 images, the debugger's expressions (with symbols) and the ROM
   labels of roms/c64.sym (its folder is the first argument; skipped without it). No ROMs needed. }
 program c64cputest;
@@ -462,11 +463,23 @@ begin
   if (Addr and $3F8) = $3F8 then Result := 0 else Result := $FF;
 end;
 
+type
+  { The screen at $0400 and its sprite pointers ($07F8, all 0) and everything else $FF: solid characters }
+  TVicSolid = class
+    function Read(Addr: Word): Byte;
+  end;
+
+function TVicSolid.Read(Addr: Word): Byte;
+begin
+  if (Addr >= $07F8) and (Addr <= $07FF) then Result := 0 else Result := $FF;
+end;
+
 procedure TestVic;
 var
+  Solid: TVicSolid;
   V: TVic;
   M: TVicMem;
-  I, Y: Integer;
+  I, X, Y, Seen: Integer;
   InBorder, OnScreen: LongWord;
 begin
   M := TVicMem.Create;
@@ -486,7 +499,92 @@ begin
   Check(InBorder = C64_PALETTE[2], 'a sprite is behind the border');
   Check(OnScreen = C64_PALETTE[1], Format('and is seen where the border is not ($%.8X)', [OnScreen]));
   V.Free;
+  // A sprite behind the characters (all of them solid) stays hidden with the screen scrolled sideways: the pixels a
+  // character puts in the next cycle are foreground too
+  Solid := TVicSolid.Create;
+  V := TVic.Create;
+  V.OnRead := @Solid.Read;
+  V.Write($16, 8 + 3);
+  V.Write($21, 6);
+  V.Write($27, 1);
+  V.Write($1B, 1);
+  V.Write($15, 1);
+  V.Write(0, 100);
+  V.Write(1, 100);
+  for I := 1 to 3 * VIC_LINES * VIC_CYCLES do V.Tick;
+  Seen := 0;
+  for Y := 102 to 118 do
+    for X := 100 to 123 do
+      if V.Frame[(Y - VIC_FIRST_LINE) * VIC_WIDTH + (X - VIC_FIRST_X)] = C64_PALETTE[1] then Inc(Seen);
+  Check(Seen = 0, Format('a sprite behind solid characters is hidden with XSCROLL 3 (%d pixels seen)', [Seen]));
+  V.Free;
+  Solid.Free;
   M.Free;
+end;
+
+{ The 1541 runs an instruction once the computer's clock has reached its last cycle: the cycles T6510.NextCycles
+  foresees must be those Step takes, for every opcode (page crossed or not, branch taken or not, an interrupt) }
+type
+  TCycleBus = class(T6502Bus)
+  public
+    M: array[0..65535] of Byte;
+    N: Integer;
+    function Read(Addr: Word): Byte; override;
+    procedure Write(Addr: Word; Value: Byte); override;
+    function Peek(Addr: Word): Byte;
+  end;
+
+function TCycleBus.Read(Addr: Word): Byte;
+begin
+  Inc(N);
+  Result := M[Addr];
+end;
+
+procedure TCycleBus.Write(Addr: Word; Value: Byte);
+begin
+  Inc(N);
+  M[Addr] := Value;
+end;
+
+function TCycleBus.Peek(Addr: Word): Byte;
+begin
+  Result := M[Addr];
+end;
+
+procedure TestNextCycles;
+var
+  B: TCycleBus;
+  C: T6510;
+  Op, K, I, Pred, Bad: Integer;
+begin
+  B := TCycleBus.Create;
+  C := T6510.Create(B);
+  RandSeed := 1541;
+  for I := 0 to 65535 do B.M[I] := Random(256);
+  Bad := 0;
+  for Op := 0 to 255 do
+    for K := 1 to 300 do
+    begin
+      for I := 0 to 255 do B.M[I] := Random(256);
+      C.Jammed := False;
+      C.NMIEdge := Random(20) = 0;
+      C.IRQ := Random(4) = 0;
+      C.A := Random(256); C.X := Random(256); C.Y := Random(256); C.SP := Random(256); C.P := Random(256) or P_U;
+      C.PC := Random(65536);
+      B.M[C.PC] := Op;
+      B.M[Word(C.PC + 1)] := Random(256);
+      B.M[Word(C.PC + 2)] := Random(256);
+      Pred := C.NextCycles(@B.Peek);
+      B.N := 0;
+      C.Step;
+      if B.N <> Pred then
+      begin
+        if Bad < 5 then Check(False, Format('opcode $%.2X takes %d cycles, %d foreseen', [Op, B.N, Pred]));
+        Inc(Bad);
+      end;
+    end;
+  C.Free;
+  B.Free;
 end;
 
 { The SID's voice 3 as the CPU reads it (OSC3, ENV3) }
@@ -549,6 +647,7 @@ begin
   TestTimings;
   TestCia;
   TestVic;
+  TestNextCycles;
   TestSid;
   TestSymbols;
   TestDisk;
@@ -557,5 +656,5 @@ begin
     WriteLn(Failures, ' failure(s)');
     Halt(1);
   end;
-  WriteLn('ok    the 6510 core (and its timings as the Programmer''s Reference Guide gives them), the CIA, the VIC-II''s border, the SID''s voice 3, the .d64 GCR coding, the debugger''s expressions and the ROM labels');
+  WriteLn('ok    the 6510 core (and its timings as the Programmer''s Reference Guide gives them, foreseen too), the CIA, the VIC-II''s border, the SID''s voice 3, the .d64 GCR coding, the debugger''s expressions and the ROM labels');
 end.
