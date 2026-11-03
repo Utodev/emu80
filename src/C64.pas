@@ -12,7 +12,7 @@ unit C64;
 interface
 
 uses
-  SysUtils, Classes, Cpu6510, C64Vic, C64Cia, C64Sid, C64Disk, C64Drive, C64Expr;
+  SysUtils, Classes, Cpu6510, C64Vic, C64Cia, C64Sid, C64Disk, C64Drive, C64Expr, FloppySound;
 
 const
   C64_CLOCK = 985248;
@@ -125,6 +125,15 @@ type
     FSampleCount: Integer;
     FSampleAcc: Double;
     FMuted: Boolean;
+    // The drives' noise: on at real drive speed (TSpectrum says), with the times of the head steps (cycles, as
+    // FTotalCycles) still sounding and whether each knocked the head against its stop, the steps and knocks
+    // the drives had counted, and the sound's generator
+    FDriveNoise: Boolean;
+    FStepT: array[0..63] of Int64;
+    FStepBump: array[0..63] of Boolean;
+    FStepN: Integer;
+    FLastSteps, FLastBumps: array[0..1] of Integer;
+    FFloppySound: TFloppySound;
     FLastBus: Byte;
     // Debugger
     FBreakFlags: array[0..65535] of Byte;
@@ -171,6 +180,8 @@ type
     procedure SaveIfDirty(Disk: TD64Image);
     function GetDrive(N: Integer): TC64Drive;
     function GetDriveOn(N: Integer): Boolean;
+    procedure NoteSteps; inline;
+    procedure MixDriveNoise(Count: Integer);
     function GetTapePressed: Boolean;
   public
     constructor Create;
@@ -254,6 +265,8 @@ type
     property Frames: Int64 read FFrames;
     property FramesSinceReset: Int64 read FFrames;
     property Muted: Boolean read FMuted write FMuted;
+    { The 1541s are heard (motor, head steps, reading): only when they work at real speed }
+    property DriveNoise: Boolean read FDriveNoise write FDriveNoise;
     property BreakHit: Boolean read FBreakHit write FBreakHit;
     property BreakKind: TC64BreakKind read FBreakKind write FBreakKind;
     property BreakAddr: Word read FBreakAddr;
@@ -476,6 +489,7 @@ begin
   FCia1.OnPortB := @Cia1PortB;
   FCia2.OnPortA := @Cia2PortA;
   FSid := TSid.Create(C64_CLOCK);
+  FFloppySound := TFloppySound.Create(fkC64);
   FIec := TIecBus.Create;
   FDrive[0] := TC64Drive.Create(FIec, 8);
   FDrive[1] := TC64Drive.Create(FIec, 9);
@@ -496,6 +510,7 @@ begin
   for I := 0 to 1 do FDrive[I].Free;
   FIec.Free;
   FSid.Free;
+  FFloppySound.Free;
   FCia1.Free;
   FCia2.Free;
   FVic.Free;
@@ -653,6 +668,7 @@ begin
     end;
   if FDriveOn[0] then FDrive[0].Run(1, C64_CLOCK);
   if FDriveOn[1] then FDrive[1].Run(1, C64_CLOCK);
+  if FDriveNoise then NoteSteps;
   Inc(FFrameCycle);
   Inc(FTotalCycles);
 end;
@@ -966,6 +982,85 @@ end;
 function TC64.Samples: Pointer;
 begin
   Result := @FSamples[0];
+end;
+
+{ A drive's head stepped this cycle: its time, for the click }
+procedure TC64.NoteSteps;
+var
+  I, N: Integer;
+begin
+  for I := 0 to 1 do
+  begin
+    N := FDrive[I].HeadSteps;
+    if N <> FLastSteps[I] then
+    begin
+      FLastSteps[I] := N;
+      if FStepN <= High(FStepT) then
+      begin
+        FStepT[FStepN] := FTotalCycles;
+        FStepBump[FStepN] := FDrive[I].HeadBumps <> FLastBumps[I];
+        Inc(FStepN);
+      end;
+      FLastBumps[I] := FDrive[I].HeadBumps;
+    end;
+  end;
+end;
+
+{ The 1541s' noise added to the frame's samples (FloppySound): the motor while it turns, the head scratching
+  the disk and the stepper's knocks, louder and deeper when the head hits its stop }
+procedure TC64.MixDriveNoise(Count: Integer);
+const
+  EXCITE_LEN = Round(C64_CLOCK * C64_STEP_EXCITE_SECS);
+var
+  I, K, J, V: Integer;
+  StartT, T, Dt: Int64;
+  Spinning, Reading: Boolean;
+  F, Steps, Bumps, E: Single;
+begin
+  Spinning := False;
+  Reading := False;
+  for I := 0 to 1 do
+    if FDriveOn[I] and FDrive[I].Motor then
+    begin
+      Spinning := True;
+      if FDrive[I].Disk <> nil then Reading := True;
+    end;
+  // The frame's first cycle (FFrameCycle can be a little past its end)
+  StartT := FTotalCycles - FFrameCycle;
+  for I := 0 to Count - 1 do
+  begin
+    T := StartT + Int64(I) * C64_FRAME_CYCLES div Count;
+    Steps := 0;
+    Bumps := 0;
+    for K := 0 to FStepN - 1 do
+    begin
+      Dt := T - FStepT[K];
+      if (Dt >= 0) and (Dt < EXCITE_LEN) then
+      begin
+        E := FFloppySound.StepExcite(Dt / C64_CLOCK, FStepBump[K]);
+        Steps := Steps + E;
+        if FStepBump[K] then Bumps := Bumps + E;
+      end;
+    end;
+    F := 0.8 * FFloppySound.Sample(Spinning, Reading, Steps, Bumps);
+    for J := 0 to 1 do
+    begin
+      V := FSamples[I * 2 + J] + Round(F * 32767);
+      if V > 32767 then V := 32767 else if V < -32768 then V := -32768;
+      FSamples[I * 2 + J] := V;
+    end;
+  end;
+  // The steps whose excitation has ended are forgotten (their ringing goes on in the generator)
+  J := 0;
+  T := StartT + C64_FRAME_CYCLES;
+  for K := 0 to FStepN - 1 do
+    if T - FStepT[K] < EXCITE_LEN then
+    begin
+      FStepT[J] := FStepT[K];
+      FStepBump[J] := FStepBump[K];
+      Inc(J);
+    end;
+  FStepN := J;
 end;
 
 { The end of a frame: audio and the housekeeping of the auto load }

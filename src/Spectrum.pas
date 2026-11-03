@@ -10,7 +10,7 @@ interface
 
 uses
   SysUtils, Classes, Math, Types, Z80Core, Models, AY8912, Tape, FDC765, BreakExpr, DivMMC, Daad, Currah,
-  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine, C64;
+  Disasm, Amstrad, Sam, WD1772, SAA1099, DSK, SamdosFS, MsxMachine, C64, FloppySound;
 
 const
   SCREEN_WIDTH = 352;
@@ -159,8 +159,7 @@ type
     FAYChip: Integer;                    // chip selected by port $FFFD (TurboSound)
     FAY2Levels, FAY3Levels: array[0..2] of Single;
     FAYPan: array[0..2] of Byte;         // the Next: each chip's left (bit 1) and right (bit 0) output
-    FMotorPhase, FNoiseLP: Single;      // floppy drive noise
-    FNoiseSeed: LongWord;
+    FFloppySound: TFloppySound;        // floppy drive noise
     FTape: TTape;
     { Auto play/stop: the Spectrum's demand for tape, from how often the EAR
       port is read (see TapeAuto) }
@@ -1126,7 +1125,7 @@ begin
   FContentionOn := True;
   FSnowOn := True;
   FloppyNoise := True;
-  FNoiseSeed := 12345;
+  FFloppySound := TFloppySound.Create(fkSpectrum);
   ConditionPeek := @Peek;    // @x in breakpoint conditions
   SetModel(AModel);
 end;
@@ -1135,6 +1134,7 @@ destructor TSpectrum.Destroy;
 begin
   ClearBreakpoints;
   FRecorder.Free;
+  FFloppySound.Free;
   FDiv.Free;
   FCurrah.Free;
   FProbeCpu.Free;
@@ -3782,8 +3782,8 @@ var
   EvIndex, Ch, TickCount, K: Integer;
   Drive, Spinning, Reading: Boolean;
   Clicks: TInt64DynArray;
-  ClickLen, Dt: Int64;
-  Floppy, Rnd: Single;
+  ClickLen: Int64;
+  Floppy, Steps: Single;
   TickA, TickB, TickC, A, B, C, A2, B2, C2, A3, B3, C3, L, R, AYGain, SaaL, SaaR: Single;
   DacL, DacR: Integer;
   Two, Three: Boolean;
@@ -3807,7 +3807,7 @@ begin
     ((FFDC.Disk(0) <> nil) or (FFDC.Disk(1) <> nil));
   if Drive then
   begin
-    ClickLen := FInfo.ClockHz div 250;          // a click lasts 4 ms
+    ClickLen := Round(FInfo.ClockHz * STEP_EXCITE_SECS);
     Clicks := FFDC.StepTimes(FrameStartT - ClickLen, FrameStartT + FInfo.FrameT);
     Spinning := FFDC.Motor;
     Reading := FFDC.HeadActive;
@@ -3938,31 +3938,11 @@ begin
     end;
     if Drive then
     begin
-      Floppy := 0;
-      if Spinning then
-      begin
-        // Motor: a low hum with a slow wobble, like the belt-driven 3" drive
-        FMotorPhase := FMotorPhase + 2 * Pi * 95 / SAMPLE_RATE;
-        if FMotorPhase > 2 * Pi then FMotorPhase := FMotorPhase - 2 * Pi;
-        Floppy := Floppy + (0.018 * Sin(FMotorPhase) + 0.008 * Sin(3 * FMotorPhase));
-      end;
-      if Reading or Spinning then
-      begin
-        FNoiseSeed := FNoiseSeed * 1103515245 + 12345;
-        Rnd := ((FNoiseSeed shr 16) and $7FFF) / 16384 - 1;
-        FNoiseLP := FNoiseLP * 0.7 + Rnd * 0.3;
-        // The head on the disk: a soft scratch while reading or writing
-        if Reading then Floppy := Floppy + 0.05 * FNoiseLP
-        else Floppy := Floppy + 0.006 * FNoiseLP;
-      end;
-      // Head steps: a sharp click each
+      // The motor, the head on the disk and the steps' knocks (FloppySound)
+      Steps := 0;
       for K := 0 to High(Clicks) do
-      begin
-        Dt := FrameStartT + Round(Pos) - Clicks[K];
-        if (Dt >= 0) and (Dt < ClickLen) then
-          Floppy := Floppy + 0.45 * Exp(-Dt / (ClickLen * 0.12)) *
-            Sin(2 * Pi * 1300 * Dt / FInfo.ClockHz);
-      end;
+        Steps := Steps + FFloppySound.StepExcite((FrameStartT + Round(Pos) - Clicks[K]) / FInfo.ClockHz, False);
+      Floppy := 0.8 * FFloppySound.Sample(Spinning, Reading, Steps, 0);
       L := L + Floppy;
       R := R + Floppy;
     end;

@@ -67,6 +67,8 @@ function TSpectrum.RunFrameC64: Boolean;
 begin
   FBreakHit := False;
   FBreakKind := bkNone;
+  // The drives heard only at real speed (fast floppy disk access mutes the emulation while they work)
+  FC64.DriveNoise := FloppyNoise and FFDC.Timed;
   Result := FC64.RunFrame;
   if not Result then
   begin

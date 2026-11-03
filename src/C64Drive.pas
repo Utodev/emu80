@@ -64,6 +64,7 @@ type
     FAtnLast: Boolean;
     FHeadNoise: Integer;        // step events for the sound
     FConnected: Boolean;
+    FHeadBumps: Integer;        // steps against the stop (track 0 or the last), for the sound
     function V1ReadB: Byte;
     procedure V1WriteB(Value: Byte);
     function V2ReadA: Byte;
@@ -105,6 +106,10 @@ type
     property Via1: TVia read FVia1;
     property Via2: TVia read FVia2;
     property Writing: Boolean read FWriting;
+    { The head steps so far (one more each time the stepper moves): for the drive's noise }
+    property HeadSteps: Integer read FHeadNoise;
+    { The steps of those that knocked the head against its stop (the 1541's famous rattle) }
+    property HeadBumps: Integer read FHeadBumps;
     { On the bus (a drive that is not there holds no line) }
     property Connected: Boolean read FConnected write FConnected;
   end;
@@ -304,12 +309,12 @@ begin
     Delta := (NewPhase - FPhase) and 3;
     if Delta = 1 then
     begin
-      if FHalfTrack < 2 * 41 then Inc(FHalfTrack);
+      if FHalfTrack < 2 * 41 then Inc(FHalfTrack) else Inc(FHeadBumps);
       Inc(FHeadNoise);
     end
     else if Delta = 3 then
     begin
-      if FHalfTrack > 0 then Dec(FHalfTrack);
+      if FHalfTrack > 0 then Dec(FHalfTrack) else Inc(FHeadBumps);
       Inc(FHeadNoise);
     end;
     FPhase := NewPhase;
