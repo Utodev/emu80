@@ -747,7 +747,7 @@ function TC64.IoRead(Addr: Word): Byte;
 begin
   case (Addr shr 8) and $F of
     0..3: Result := FVic.Read(Addr and $3F);
-    4..7: Result := FSid.Read(Addr and $1F);
+    4..7: Result := FSid.Read(FFrameCycle, Addr and $1F);
     8..$B: Result := (FVic.ColorRam[Addr and $3FF] and $0F) or (FLastBus and $F0);
     $C: Result := FCia1.Read(Addr and $F);
     $D: Result := FCia2.Read(Addr and $F);
@@ -1074,7 +1074,8 @@ begin
   if Count * 2 > Length(FSamples) then SetLength(FSamples, Count * 2 + 64);
   FSampleCount := Count;
   if Count > 0 then FSid.Generate(C64_FRAME_CYCLES, 44100, @FSamples[0], Count);
-  FSid.EndFrame;
+  if FDriveNoise and (Count > 0) then MixDriveNoise(Count);
+  FSid.EndFrame(C64_FRAME_CYCLES);
   Dec(FFrameCycle, C64_FRAME_CYCLES);
   if FFrameCycle < 0 then FFrameCycle := 0;
   Inc(FFrames);

@@ -490,14 +490,12 @@ begin
           if FSprBgColl = 0 then SetFlag(2);
           FSprBgColl := FSprBgColl or SprMask;
         end;
-        if not (((FReg[$1B] shr First) and 1 <> 0) and (Fg <> 0)) then
-        begin
-          Pix := SprCol;
-          Fg := 2;   // (a sprite pixel, drawn whatever the border)
-        end;
+        if not (((FReg[$1B] shr First) and 1 <> 0) and (Fg <> 0)) then Pix := SprCol;
       end;
     end;
-    if FMainBorder and (Fg <> 2) then Pix := FReg[$20] and $0F;
+    // The border is in front of everything, the sprites too (they show over it only where it is opened); the collisions
+    // under it are still detected
+    if FMainBorder then Pix := FReg[$20] and $0F;
     // (the outer lines of the border are always flat: no sprites peeking out above or below)
     if (Row < VIC_CROP) or (Row >= VIC_HEIGHT - VIC_CROP) then Pix := FReg[$20] and $0F;
     if Visible then Frame[Offs + K] := C64_PALETTE[Pix and 15];

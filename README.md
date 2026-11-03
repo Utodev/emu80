@@ -1121,14 +1121,20 @@ first three the machine does not start (ochenta says which are missing and stays
 twice as wide as in the VIC-II's own resolution. The VIC-II is drawn as the beam goes, cycle by cycle (eight pixels each), from the registers as they are at that cycle: the
 raster bars and splits, the scroll registers, FLD and FLI (bad lines made or avoided by writing `$D011`), the 38-column and 24-row modes and
 the tricks that open the side and top borders work. Standard and multicolour text, extended colour text and the standard and multicolour bitmaps are
-there (the invalid combinations show black), the eight sprites with their expansion, priority, multicolour and DMA (they steal cycles from the CPU), the sprite-sprite and
-sprite-background collisions, the raster interrupt, the 16K bank chosen by CIA 2 with the character ROM in banks 0 and 2, and the idle state that shows the
+there (the invalid combinations show black), the eight sprites with their expansion, priority, multicolour and DMA (they steal cycles from the CPU; the border
+covers them, except where it is opened), the sprite-sprite and sprite-background collisions (detected under the border too), the raster interrupt, the 16K bank chosen by CIA 2 with the character ROM in banks 0 and 2, and the idle state that shows the
 last byte of the bank (opened borders show it). Not emulated: the light pen and the exact timing of the VIC-II's unstable effects.
 
-**Sound.** The SID is clocked cycle by cycle: three voices with triangle, saw, pulse and noise waveforms (combined waveforms are approximated), the ADSR envelopes
+**Sound.** The SID is clocked cycle by cycle: three voices with triangle, saw, pulse and noise waveforms (combined waveforms are their AND, heard a little
+quieter; noise combined with another waveform locks up until the test bit resets it), the ADSR envelopes
 (with their exponential decay and rate counters), ring modulation, hard sync, the test bit, and the multimode filter (low, band and high pass, cutoff and
 resonance, voices routed to it, voice 3 off). The volume register is heard by itself, so the digitised sound programs play. `$D41B` and `$D41C` read the third voice's
-oscillator and envelope. The paddles read as released.
+oscillator (its upper 8 bits, whatever the envelope) and envelope as they are at the cycle of the read, so the noise works as a random number generator.
+The paddles read as released.
+
+**The CIAs** have their two timers (one-shot or continuous, chained, force load, their output on PB6 and PB7 as a toggle or a one-cycle pulse), the
+time of day clock (BCD, 12 hours with the AM/PM flag, stopped by a write to the hours until the tenths are written, latched by a read of the hours until
+the tenths are read, the alarm, 50 or 60 Hz), the serial register (its output; the input is not emulated) and the interrupt mask.
 
 **Keyboard and joysticks.** See [Keyboard](#2-keyboard). The keypad is a joystick (8, 2, 4, 6, the diagonals 7, 9, 1, 3 and the fire on 0, 5 or the right Ctrl) in the
 control port Settings > Commodore 64 chooses (both ports by default, since some games, like Mikie, read port 1 and most read port 2; port 1 shares its lines with the keyboard, and a joystick there can type by
@@ -1231,7 +1237,9 @@ Conditions and watches use the debugger's expressions: hex numbers (`$C000`, or 
 | What the drives write goes into the .d64 files | `--c64_savedisk` / `--no-c64_savedisk` | `c64_savedisk` (default on) |
 | Disconnect the drives while a tape is loaded | `--c64_tapenodrive` / `--no-c64_tapenodrive` | `c64_tapenodrive` (default on) |
 
-**Tests**: `tests/c64cputest.lpr` (needs no ROMs: the 6510's flags, decimal mode, addressing modes and cycle counts, interrupts, undocumented opcodes, the `.d64` GCR coding and the debugger's expressions) and, when the four ROMs are in `roms/c64`,
+**Tests**: `tests/c64cputest.lpr` (needs no ROMs: the 6510's flags, decimal mode, addressing modes and cycle counts (every documented opcode against the
+Programmer's Reference Guide's table), interrupts, undocumented opcodes, the CIA's time of day clock and timer outputs, the VIC-II's border over the
+sprites, the SID's voice 3 as read by the CPU, the `.d64` GCR coding and the debugger's expressions) and, when the four ROMs are in `roms/c64`,
 `c64spec`, `c64sound` (the SID plays a note at its pitch), `c64tape` (a program made by `tests/mkc64tap.py` loads from a `.tap`), `c64save` (SAVE and LOAD on a new `.d64`, and a second drive), `c64back` (the step back: the machine kept while the 1541 works, put back, runs on the same again) and, with `C64_DAAD_D64` set to a `.d64` of a DAAD game,
 `c64daad` (the Adventure Debugger follows its condacts), all run by `run-tests.sh`. `tests/c64run.lpr <roms/c64> [frames] [d64 or tap] [commands]` boots the machine and prints its screen as text (`C64PPM=file.ppm` saves the picture).
 

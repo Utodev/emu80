@@ -26,6 +26,7 @@ type
     FShiftCount: Integer;
     FPendingA: Integer;           // the timer A underflow of the last cycle (for timer B and the serial register)
     FToggleA, FToggleB: Boolean;
+    FPulseA, FPulseB: Boolean;    // the one-cycle pulse of an underflow (PB6/PB7 in pulse mode)
     FTodDiv, FTodTicks: Integer;
     FTod, FAlarm: array[0..3] of Byte;   // 10ths, seconds, minutes, hours (BCD)
     FTodLatch: array[0..3] of Byte;
@@ -88,6 +89,7 @@ begin
   FShiftCount := 0;
   FPendingA := 0;
   FToggleA := False; FToggleB := False;
+  FPulseA := False; FPulseB := False;
   FTodDiv := 0; FTodTicks := 0;
   FillChar(FTod, SizeOf(FTod), 0);
   FillChar(FAlarm, SizeOf(FAlarm), 0);
@@ -113,6 +115,7 @@ begin
   FTA := FLatchA;
   SetFlag(1);
   FToggleA := not FToggleA;
+  FPulseA := True;
   if (FCRA and 8) <> 0 then FCRA := FCRA and not 1;      // one-shot: stops
   FPendingA := 1;
   // The serial register in output mode shifts one bit every second underflow
@@ -129,6 +132,7 @@ begin
   FTB := FLatchB;
   SetFlag(2);
   FToggleB := not FToggleB;
+  FPulseB := True;
   if (FCRB and 8) <> 0 then FCRB := FCRB and not 1;
 end;
 
@@ -157,8 +161,8 @@ begin
       FTod[2] := Inc10(FTod[2], $60);
       if FTod[2] = 0 then
       begin
-        // Hours: 1-12 with the PM bit
-        if (FTod[3] and $1F) = $11 then FTod[3] := FTod[3] xor $80 or $12
+        // Hours: 1-12 with the PM bit, which flips going from 11 to 12
+        if (FTod[3] and $1F) = $11 then FTod[3] := ((FTod[3] and $80) xor $80) or $12
         else if (FTod[3] and $1F) = $12 then FTod[3] := (FTod[3] and $80) or 1
         else if (FTod[3] and $0F) = 9 then FTod[3] := (FTod[3] and $80) or ((FTod[3] and $1F) + 7)
         else FTod[3] := FTod[3] + 1;
@@ -172,6 +176,9 @@ procedure TCia.Tick;
 var
   UnderA: Boolean;
 begin
+  // A pulse on PB6/PB7 lasts the cycle after the underflow
+  FPulseA := False;
+  FPulseB := False;
   // Time of day: the 50/60 Hz input, 5 or 6 pulses to the tenth of a second (CRA bit 7)
   Inc(FTodDiv);
   if FTodDiv >= FCyclesPerTick then
@@ -224,14 +231,17 @@ end;
 function TCia.PortBPins: Byte;
 begin
   Result := FPRB or not FDDRB;
-  // Timer outputs on PB6 and PB7
+  // Timer outputs on PB6 and PB7 (PBON): the toggle flip-flop (OUTMODE = 1) or a one-cycle positive pulse at each
+  // underflow (OUTMODE = 0)
   if (FCRA and 2) <> 0 then
   begin
-    if FToggleA then Result := Result or $40 else Result := Result and not $40;
+    if (((FCRA and 4) <> 0) and FToggleA) or (((FCRA and 4) = 0) and FPulseA) then Result := Result or $40
+    else Result := Result and not $40;
   end;
   if (FCRB and 2) <> 0 then
   begin
-    if FToggleB then Result := Result or $80 else Result := Result and not $80;
+    if (((FCRB and 4) <> 0) and FToggleB) or (((FCRB and 4) = 0) and FPulseB) then Result := Result or $80
+    else Result := Result and not $80;
   end;
 end;
 
@@ -299,6 +309,9 @@ begin
 end;
 
 procedure TCia.Write(Reg, Value: Byte);
+const
+  // The bits each TOD register has (the unused ones read as 0): 10ths, seconds, minutes, hours with the PM flag
+  TOD_BITS: array[0..3] of Byte = ($0F, $7F, $7F, $9F);
 begin
   case Reg and $F of
     0: FPRA := Value;
@@ -319,6 +332,7 @@ begin
       end;
     8..$B:
       begin
+        Value := Value and TOD_BITS[(Reg and $F) - 8];
         if (FCRB and $80) <> 0 then
           FAlarm[(Reg and $F) - 8] := Value
         else

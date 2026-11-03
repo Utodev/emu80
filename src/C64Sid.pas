@@ -1,7 +1,9 @@
 { C64Sid: the C64's sound chip, a MOS 6581 (three voices with waveforms, ADSR envelopes, ring
   modulation and synchronisation, and the multimode filter). The chip is clocked cycle by cycle
-  (the envelope and noise generators depend on it), as its registers were written: the writes of a
-  frame are kept with their cycle and replayed when the frame's audio is made. }
+  (the envelope and noise generators depend on it). It is brought up to date lazily: every access
+  (a write, or a read of voice 3's oscillator and envelope, which programs use as a random number
+  generator or for modulation, so they must change as the frame goes) first clocks it up to the
+  cycle of the access, making the frame's samples on the way. }
 unit C64Sid;
 
 {$mode objfpc}{$H+}
@@ -12,12 +14,10 @@ interface
 uses
   Classes, Math, Cpu6510;
 
-type
-  TSidWrite = record
-    Cycle: Integer;
-    Reg, Value: Byte;
-  end;
+const
+  SID_BUF = 4096;               // samples kept between two frames (some 4 frames' worth)
 
+type
   TSidVoice = record
     Freq, Pulse: Word;
     Ctrl, AD, SR: Byte;
@@ -41,15 +41,19 @@ type
     FResRoute: Byte;              // resonance and routing
     FModeVol: Byte;               // mode and volume
     FLow, FBand: Single;
-    FWrites: array of TSidWrite;
-    FWriteCount: Integer;
-    FSamplePos: Double;
+    FCyc: Integer;                // the cycles of this frame the chip has been clocked
+    FNextSample: Double;          // the cycle (of this frame) the next sample is taken at
+    FStep: Double;                // cycles per sample
+    FSampleRate: Integer;
+    FBufCount: Integer;           // samples made and not given out yet
+    FBuf: array[0..SID_BUF - 1] of SmallInt;
     FBus: Byte;                   // last value written (the chip's data bus keeps it for a while)
-    FBusAge: Integer;
-    FExtOut: Single;
     FClockHz: Integer;
     procedure ClockOne;
+    procedure CatchUp(Cycle: Integer);
+    procedure AddSample;
     procedure DoWrite(Reg, Value: Byte);
+    function WaveRaw(I: Integer): Integer;
     function WaveOut(I: Integer): Integer;
   public
     constructor Create(AClockHz: Integer);
@@ -57,12 +61,13 @@ type
     { The whole state, for the debugger's step back: written to S (Save) or read back from it. The fields it copies as
       blocks (see StateIO) are plain values: no strings or dynamic arrays may go in between them }
     procedure StateIO(S: TStream; Save: Boolean);
-    { A write by the CPU, at that cycle of the frame (the chip itself is brought up to date when the audio is made) }
+    { A write and a read by the CPU, at that cycle of the frame }
     procedure Write(Cycle: Integer; Reg, Value: Byte);
-    function Read(Reg: Byte): Byte;
+    function Read(Cycle: Integer; Reg: Byte): Byte;
     { The audio of a frame of FrameCycles cycles: Count stereo samples of SampleRate Hz into Dest (L, R SmallInt pairs) }
     procedure Generate(FrameCycles, SampleRate: Integer; Dest: PSmallInt; Count: Integer);
-    procedure EndFrame;
+    { The end of a frame of FrameCycles cycles: the cycles count from the next one }
+    procedure EndFrame(FrameCycles: Integer);
     function Register(Reg: Byte): Byte;    // for the debugger
   end;
 
@@ -72,11 +77,20 @@ const
   RATE_PERIOD: array[0..15] of Integer = (9, 32, 63, 95, 149, 220, 267, 313, 392, 977, 1954, 3126, 3907, 11720, 19532, 31251);
   CLOCK_DEFAULT = 985248;
 
+{ The 8 bits of the noise generator's shift register that make its output (bits 11 to 4 of the waveform) }
+function NoiseFromShift(Shift: LongWord): Word;
+begin
+  Result := ((Shift and $400000) shr 11) or ((Shift and $100000) shr 10) or ((Shift and $010000) shr 7) or
+    ((Shift and $002000) shr 5) or ((Shift and $000800) shr 4) or ((Shift and $000080) shr 1) or
+    ((Shift and $000010) shl 1) or ((Shift and $000004) shl 2);
+end;
+
 constructor TSid.Create(AClockHz: Integer);
 begin
   inherited Create;
   FClockHz := AClockHz;
-  SetLength(FWrites, 256);
+  FSampleRate := 44100;
+  FStep := FClockHz / FSampleRate;
   Reset;
 end;
 
@@ -96,17 +110,30 @@ begin
   FModeVol := 0;
   FLow := 0;
   FBand := 0;
-  FWriteCount := 0;
+  FCyc := 0;
+  FNextSample := FStep;
+  FBufCount := 0;
   FBus := 0;
+end;
+
+procedure TSid.CatchUp(Cycle: Integer);
+begin
+  while FCyc < Cycle do
+  begin
+    ClockOne;
+    Inc(FCyc);
+    if FCyc >= FNextSample then
+    begin
+      AddSample;
+      FNextSample := FNextSample + FStep;
+    end;
+  end;
 end;
 
 procedure TSid.Write(Cycle: Integer; Reg, Value: Byte);
 begin
-  if FWriteCount >= Length(FWrites) then SetLength(FWrites, Length(FWrites) * 2);
-  FWrites[FWriteCount].Cycle := Cycle;
-  FWrites[FWriteCount].Reg := Reg and $1F;
-  FWrites[FWriteCount].Value := Value;
-  Inc(FWriteCount);
+  CatchUp(Cycle);
+  DoWrite(Reg and $1F, Value);
   FBus := Value;
 end;
 
@@ -134,11 +161,14 @@ begin
   end;
 end;
 
-function TSid.Read(Reg: Byte): Byte;
+function TSid.Read(Cycle: Integer; Reg: Byte): Byte;
 begin
   case Reg and $1F of
+    $1B, $1C: CatchUp(Cycle);
+  end;
+  case Reg and $1F of
     $19, $1A: Result := $FF;                       // paddles
-    $1B: Result := WaveOut(2) shr 4;               // voice 3's oscillator
+    $1B: Result := WaveRaw(2) shr 4;               // voice 3's oscillator: the upper 8 bits, whatever the envelope
     $1C: Result := FV[2].Env;                      // and its envelope
   else
     Result := FBus;                                // write-only registers read the bus
@@ -166,7 +196,11 @@ begin
                 FV[I].Acc := 0;
                 FV[I].Shift := 0;
               end;
-              if ((Value and 8) = 0) and ((FV[I].Ctrl and 8) <> 0) then FV[I].Shift := $7FFFF8;
+              if ((Value and 8) = 0) and ((FV[I].Ctrl and 8) <> 0) then
+              begin
+                FV[I].Shift := $7FFFF8;
+                FV[I].NoiseOut := NoiseFromShift(FV[I].Shift);
+              end;
               FV[I].Ctrl := Value;
               if (Value and 1) <> 0 then
               begin
@@ -190,8 +224,8 @@ begin
   end;
 end;
 
-{ The 12-bit output of voice I's oscillator }
-function TSid.WaveOut(I: Integer): Integer;
+{ The 12-bit output of voice I's oscillator: the selected waveforms ANDed, as OSC3 reads it }
+function TSid.WaveRaw(I: Integer): Integer;
 var
   W: Integer;
   Acc: LongWord;
@@ -219,13 +253,19 @@ begin
   if (W and 2) <> 0 then Result := Result and Saw;
   if (W and 4) <> 0 then Result := Result and Pul;
   if (W and 8) <> 0 then Result := Result and Nz;
+end;
+
+{ The output of voice I as it is heard }
+function TSid.WaveOut(I: Integer): Integer;
+begin
+  Result := WaveRaw(I);
   // Combined waveforms are quieter than the AND of the parts on the real chip: dampen them a little
-  if W in [3, 5, 6, 7] then Result := Result * 3 div 4;
+  if (FV[I].Ctrl shr 4) in [3, 5, 6, 7] then Result := Result * 3 div 4;
 end;
 
 procedure TSid.ClockOne;
 var
-  I, Prev, Rate, Period: Integer;
+  I, Prev, Rate, Period, Nz: Integer;
   Old: LongWord;
   Bit: LongWord;
   V: ^TSidVoice;
@@ -243,9 +283,19 @@ begin
       begin
         Bit := ((V^.Shift shr 22) xor (V^.Shift shr 17)) and 1;
         V^.Shift := ((V^.Shift shl 1) or Bit) and $7FFFFF;
-        V^.NoiseOut := ((V^.Shift and $400000) shr 11) or ((V^.Shift and $100000) shr 10) or ((V^.Shift and $010000) shr 7) or
-          ((V^.Shift and $002000) shr 5) or ((V^.Shift and $000800) shr 4) or ((V^.Shift and $000080) shr 1) or
-          ((V^.Shift and $000010) shl 1) or ((V^.Shift and $000004) shl 2);
+        V^.NoiseOut := NoiseFromShift(V^.Shift);
+        // Noise with another waveform: the AND of the outputs is written back into the shift register, whose bits
+        // go to 0 one by one until the noise "locks up" (silent until the TEST bit resets it)
+        if ((V^.Ctrl and $80) <> 0) and ((V^.Ctrl and $70) <> 0) then
+        begin
+          Nz := WaveRaw(I);
+          V^.Shift := V^.Shift and not (
+            (LongWord(Ord((Nz and $800) = 0)) shl 22) or (LongWord(Ord((Nz and $400) = 0)) shl 20) or
+            (LongWord(Ord((Nz and $200) = 0)) shl 16) or (LongWord(Ord((Nz and $100) = 0)) shl 13) or
+            (LongWord(Ord((Nz and $080) = 0)) shl 11) or (LongWord(Ord((Nz and $040) = 0)) shl 7) or
+            (LongWord(Ord((Nz and $020) = 0)) shl 4) or (LongWord(Ord((Nz and $010) = 0)) shl 2));
+          V^.NoiseOut := NoiseFromShift(V^.Shift);
+        end;
       end;
     end;
     // Envelope
@@ -303,97 +353,92 @@ begin
   end;
 end;
 
-procedure TSid.Generate(FrameCycles, SampleRate: Integer; Dest: PSmallInt; Count: Integer);
+{ One sample of the output, from the voices as they are now }
+procedure TSid.AddSample;
 var
-  S, C, Target, Wp, I, Routed: Integer;
-  CyclesPerSample, Pos: Double;
-  Cyc: Integer;
+  I, Routed, Res, Wave: Integer;
   Mix, Direct, Inp, F, Q, Hp, Outp, Vol: Single;
-  Res: Integer;
-  Wave: Integer;
 begin
-  CyclesPerSample := FrameCycles / Count;
-  Cyc := 0;
-  Wp := 0;
-  Pos := 0;
-  for S := 0 to Count - 1 do
+  // Mix: each voice is its waveform (centred) times the envelope; some go through the filter
+  Mix := 0;
+  Direct := 0;
+  Routed := FResRoute and 7;
+  for I := 0 to 2 do
   begin
-    Pos := Pos + CyclesPerSample;
-    Target := Trunc(Pos);
-    while Cyc < Target do
-    begin
-      while (Wp < FWriteCount) and (FWrites[Wp].Cycle <= Cyc) do
-      begin
-        DoWrite(FWrites[Wp].Reg, FWrites[Wp].Value);
-        Inc(Wp);
-      end;
-      ClockOne;
-      Inc(Cyc);
-    end;
-    // Mix: each voice is its waveform (centred) times the envelope; some go through the filter
-    Mix := 0;
-    Direct := 0;
-    Routed := FResRoute and 7;
-    for I := 0 to 2 do
-    begin
-      Wave := WaveOut(I);
-      FV[I].Out := ((Wave - $800) * FV[I].Env);
-      Inp := FV[I].Out / (2048.0 * 255.0);
-      // (the 6581 has a DC level in every voice, which makes the volume register audible by itself)
-      Inp := Inp + 0.12;
-      if I = 2 then
-        if ((FModeVol and $80) <> 0) and ((Routed and 4) = 0) then Inp := 0;     // voice 3 off
-      if (Routed and (1 shl I)) <> 0 then Mix := Mix + Inp else Direct := Direct + Inp;
-    end;
-    // State variable filter
-    F := 2 * Sin(3.14159265 * (30 + FCutoff * 5.5) / SampleRate);
-    if F > 1.0 then F := 1.0;
-    Res := FResRoute shr 4;
-    Q := 1.0 / (0.7 + Res * 0.13);
-    Hp := Mix - FLow - Q * FBand;
-    FBand := FBand + F * Hp;
-    FLow := FLow + F * FBand;
-    Outp := Direct;
-    if (FModeVol and $10) <> 0 then Outp := Outp + FLow;
-    if (FModeVol and $20) <> 0 then Outp := Outp + FBand;
-    if (FModeVol and $40) <> 0 then Outp := Outp + Hp;
-    Vol := (FModeVol and $F) / 15.0;
-    Outp := Outp * Vol * 0.32;
-    if Outp > 1 then Outp := 1;
-    if Outp < -1 then Outp := -1;
-    Dest[S * 2] := Round(Outp * 30000);
-    Dest[S * 2 + 1] := Dest[S * 2];
+    Wave := WaveOut(I);
+    FV[I].Out := ((Wave - $800) * FV[I].Env);
+    Inp := FV[I].Out / (2048.0 * 255.0);
+    // (the 6581 has a DC level in every voice, which makes the volume register audible by itself)
+    Inp := Inp + 0.12;
+    if I = 2 then
+      if ((FModeVol and $80) <> 0) and ((Routed and 4) = 0) then Inp := 0;     // voice 3 off
+    if (Routed and (1 shl I)) <> 0 then Mix := Mix + Inp else Direct := Direct + Inp;
   end;
-  // The writes of the last cycles
-  while Wp < FWriteCount do
+  // State variable filter
+  F := 2 * Sin(3.14159265 * (30 + FCutoff * 5.5) / FSampleRate);
+  if F > 1.0 then F := 1.0;
+  Res := FResRoute shr 4;
+  Q := 1.0 / (0.7 + Res * 0.13);
+  Hp := Mix - FLow - Q * FBand;
+  FBand := FBand + F * Hp;
+  FLow := FLow + F * FBand;
+  Outp := Direct;
+  if (FModeVol and $10) <> 0 then Outp := Outp + FLow;
+  if (FModeVol and $20) <> 0 then Outp := Outp + FBand;
+  if (FModeVol and $40) <> 0 then Outp := Outp + Hp;
+  Vol := (FModeVol and $F) / 15.0;
+  Outp := Outp * Vol * 0.32;
+  if Outp > 1 then Outp := 1;
+  if Outp < -1 then Outp := -1;
+  if FBufCount < SID_BUF then
   begin
-    DoWrite(FWrites[Wp].Reg, FWrites[Wp].Value);
-    Inc(Wp);
-  end;
-  while Cyc < FrameCycles do
-  begin
-    ClockOne;
-    Inc(Cyc);
+    FBuf[FBufCount] := Round(Outp * 30000);
+    Inc(FBufCount);
   end;
 end;
 
-procedure TSid.EndFrame;
+procedure TSid.Generate(FrameCycles, SampleRate: Integer; Dest: PSmallInt; Count: Integer);
+var
+  S, N: Integer;
+  V: SmallInt;
 begin
-  FWriteCount := 0;
+  if SampleRate <> FSampleRate then
+  begin
+    FSampleRate := SampleRate;
+    FStep := FClockHz / SampleRate;
+  end;
+  CatchUp(FrameCycles);
+  // The samples made: as many as the frame takes (the chip makes them at the same rate, so at most one goes over or
+  // is missing at the end of a frame, and it is kept for the next one or the last is repeated)
+  V := 0;
+  for S := 0 to Count - 1 do
+  begin
+    if S < FBufCount then V := FBuf[S];
+    Dest[S * 2] := V;
+    Dest[S * 2 + 1] := V;
+  end;
+  N := Min(Count, FBufCount);
+  if N > 0 then
+  begin
+    Move(FBuf[N], FBuf[0], (FBufCount - N) * SizeOf(SmallInt));
+    Dec(FBufCount, N);
+  end;
+end;
+
+procedure TSid.EndFrame(FrameCycles: Integer);
+begin
+  CatchUp(FrameCycles);
+  Dec(FCyc, FrameCycles);
+  if FCyc < 0 then FCyc := 0;
+  FNextSample := FNextSample - FrameCycles;
+  // (more than a frame kept means nobody takes them: never let them pile up)
+  if FBufCount > SID_BUF div 2 then FBufCount := 0;
 end;
 
 procedure TSid.StateIO(S: TStream; Save: Boolean);
-var
-  N: Integer;
 begin
-  // The voices and the filter (FV to FBand), the writes of this frame not heard yet, and FSamplePos to FExtOut
-  StateBlock(S, Save, FV, PtrUInt(@FBand) + SizeOf(FBand) - PtrUInt(@FV));
-  N := FWriteCount;
-  StateBlock(S, Save, N, SizeOf(N));
-  if not Save and (N > Length(FWrites)) then SetLength(FWrites, N);
-  if N > 0 then StateBlock(S, Save, FWrites[0], N * SizeOf(TSidWrite));
-  FWriteCount := N;
-  StateBlock(S, Save, FSamplePos, PtrUInt(@FExtOut) + SizeOf(FExtOut) - PtrUInt(@FSamplePos));
+  // The voices, the filter, the samples not given out yet and the bus (FV to FBus)
+  StateBlock(S, Save, FV, PtrUInt(@FBus) + SizeOf(FBus) - PtrUInt(@FV));
 end;
 
 end.
