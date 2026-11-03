@@ -7,7 +7,7 @@ unit Icons;
 interface
 
 uses
-  Classes, SysUtils, Graphics, Controls, Forms, Types;
+  Classes, SysUtils, Graphics, Controls, Forms, Types, FPImage, IntfGraphics, GraphType;
 
 type
   TIconKind = (
@@ -33,9 +33,6 @@ var
   DarkIcons: Boolean = False;
 
 implementation
-
-const
-  MASK_COLOR = clFuchsia;
 
 function IconSize: Integer;
 begin
@@ -586,9 +583,34 @@ end;
 procedure DrawList(Images: TImageList; ASize: Integer);
 var
   Kind: TIconKind;
-  Bmp: TBitmap;
+  Bmp, Res: TBitmap;
   Painter: TPainter;
-  Size: Integer;
+  Size, X, Y, A: Integer;
+  OnBlack, OnWhite, Img: TLazIntfImage;
+  Desc: TRawImageDescription;
+  B, W, C: TFPColor;
+
+  procedure DrawOn(Back: TColor);
+  begin
+    Bmp.Canvas.Brush.Style := bsSolid;
+    Bmp.Canvas.Brush.Color := Back;
+    Bmp.Canvas.Pen.Style := psSolid;
+    Bmp.Canvas.FillRect(0, 0, Size, Size);
+    DrawIcon(Painter, Kind);
+  end;
+
+  { An icon's pixel from its two paintings: what the white background adds is what
+    shows through (1 - opacity), so smoothed edges come out see-through, not tinted }
+  function Channel(OnB: Word; Alpha: Integer): Word;
+  var
+    V: Integer;
+  begin
+    if Alpha = 0 then Exit(0);
+    V := (OnB shr 8) * 255 div Alpha;
+    if V > 255 then V := 255;
+    Result := V * 257;
+  end;
+
 begin
   if ASize > 0 then Size := ASize else Size := IconSize;
   Images.Clear;
@@ -596,23 +618,54 @@ begin
   Images.Height := Size;
   Painter := TPainter.Create;
   Bmp := TBitmap.Create;
+  Img := TLazIntfImage.Create(0, 0);
   try
     Bmp.SetSize(Size, Size);
-    // The icons are cut out by their background colour (AddMasked): edges smoothed into
-    // it (macOS antialiases every canvas by default) would leave a magenta fringe
-    Bmp.Canvas.AntialiasingMode := amOff;
     Painter.C := Bmp.Canvas;
     Painter.K := Size / 16;
+    // Every icon is painted on black and on white and gets a real alpha channel from the
+    // two: cutting it out by a key colour (AddMasked) left a magenta fringe on macOS, which
+    // smooths every canvas, and read the colours wrongly where its pixels are stored ARGB
+    Desc.Init_BPP32_B8G8R8A8_BIO_TTB(Size, Size);
+    Img.DataDescription := Desc;
     for Kind := Low(TIconKind) to High(TIconKind) do
     begin
-      Bmp.Canvas.Brush.Style := bsSolid;
-      Bmp.Canvas.Brush.Color := MASK_COLOR;
-      Bmp.Canvas.Pen.Style := psSolid;
-      Bmp.Canvas.FillRect(0, 0, Size, Size);
-      DrawIcon(Painter, Kind);
-      Images.AddMasked(Bmp, MASK_COLOR);
+      DrawOn(clBlack);
+      OnBlack := Bmp.CreateIntfImage;
+      try
+        DrawOn(clWhite);
+        OnWhite := Bmp.CreateIntfImage;
+        try
+          for Y := 0 to Size - 1 do
+            for X := 0 to Size - 1 do
+            begin
+              B := OnBlack.Colors[X, Y];
+              W := OnWhite.Colors[X, Y];
+              A := 255 - (((W.Red shr 8) - (B.Red shr 8)) + ((W.Green shr 8) - (B.Green shr 8)) +
+                ((W.Blue shr 8) - (B.Blue shr 8))) div 3;
+              if A < 0 then A := 0 else if A > 255 then A := 255;
+              C.Red := Channel(B.Red, A);
+              C.Green := Channel(B.Green, A);
+              C.Blue := Channel(B.Blue, A);
+              C.Alpha := A * 257;
+              Img.Colors[X, Y] := C;
+            end;
+        finally
+          OnWhite.Free;
+        end;
+      finally
+        OnBlack.Free;
+      end;
+      Res := TBitmap.Create;
+      try
+        Res.LoadFromIntfImage(Img);
+        Images.Add(Res, nil);
+      finally
+        Res.Free;
+      end;
     end;
   finally
+    Img.Free;
     Bmp.Free;
     Painter.Free;
   end;

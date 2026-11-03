@@ -1526,11 +1526,23 @@ procedure TMainWindow.RenderBitmap;
 var
   Scale, X, Y, Stride, BytesPP, W, H: Integer;
   RShift, GShift, BShift, AShift: Byte;
-  Data, Row: PByte;
+  RByte, GByte, BByte, AByte: Integer;
+  Data, Row, Px: PByte;
   Tmp: array of LongWord;
   Options: TPresentOptions;
   Direct: Boolean;
-  P, Native: LongWord;
+  P: LongWord;
+
+  { Where a channel's byte sits in a pixel: its shift counts from the pixel's least
+    significant byte, which comes last in memory when the order is MSB first (macOS: ARGB) }
+  function ByteOf(Shift, Prec: Byte; MSBFirst: Boolean): Integer;
+  begin
+    if Prec = 0 then Exit(-1);
+    Result := Shift div 8;
+    if MSBFirst then Result := BytesPP - 1 - Result;
+    if (Result < 0) or (Result >= BytesPP) then Result := -1;
+  end;
+
 begin
   Scale := DisplayScale;
   // A CPC or SAM Coupe picture is progressive: the frames aren't the fields of an interlaced one
@@ -1553,12 +1565,16 @@ begin
       // Our pixels are $AARRGGBB; most platforms store 32-bit BGRA, which matches
       Direct := (BitsPerPixel = 32) and (RShift = 16) and (GShift = 8) and (BShift = 0) and
         (ByteOrder = riboLSBFirst);
+      RByte := ByteOf(RShift, RedPrec, ByteOrder = riboMSBFirst);
+      GByte := ByteOf(GShift, GreenPrec, ByteOrder = riboMSBFirst);
+      BByte := ByteOf(BShift, BluePrec, ByteOrder = riboMSBFirst);
+      AByte := ByteOf(AShift, AlphaPrec, ByteOrder = riboMSBFirst);
     end;
     if Direct then
       PresentFrame(@FPixels[0], @FPrevPixels[0], FPixelsOdd, Scale, Options, Data, Stride)
     else
     begin
-      // Another pixel format: drawn as BGRA and converted
+      // Another pixel format (macOS stores ARGB): drawn as BGRA and converted byte by byte
       SetLength(Tmp, W * H);
       PresentFrame(@FPixels[0], @FPrevPixels[0], FPixelsOdd, Scale, Options, @Tmp[0], W * 4);
       for Y := 0 to H - 1 do
@@ -1567,9 +1583,11 @@ begin
         for X := 0 to W - 1 do
         begin
           P := Tmp[Y * W + X];
-          Native := (((P shr 16) and $FF) shl RShift) or (((P shr 8) and $FF) shl GShift) or
-            ((P and $FF) shl BShift) or (LongWord($FF) shl AShift);
-          Move(Native, Row[X * BytesPP], BytesPP);
+          Px := @Row[X * BytesPP];
+          if RByte >= 0 then Px[RByte] := (P shr 16) and $FF;
+          if GByte >= 0 then Px[GByte] := (P shr 8) and $FF;
+          if BByte >= 0 then Px[BByte] := P and $FF;
+          if AByte >= 0 then Px[AByte] := $FF;
         end;
       end;
     end;
